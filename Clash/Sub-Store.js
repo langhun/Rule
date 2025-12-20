@@ -149,6 +149,7 @@ const ruleProviders = {
         "url": "https://adrules.top/adrules-mihomo.mrs",
         "path": "./ruleset/ADBlock.mrs"
     },
+    /*
     "SogouInput": {
         "type": "http",
         "behavior": "classical",
@@ -173,6 +174,7 @@ const ruleProviders = {
         "url": "https://ruleset.skk.moe/Clash/non_ip/cdn.txt",
         "path": "./ruleset/CDNResources.txt"
     },
+    */
     "TikTok": {
         "type": "http",
         "behavior": "classical",
@@ -181,6 +183,7 @@ const ruleProviders = {
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/TikTok.list",
         "path": "./ruleset/TikTok.list"
     },
+    /*
     "EHentai": {
         "type": "http",
         "behavior": "classical",
@@ -189,6 +192,7 @@ const ruleProviders = {
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/EHentai.list",
         "path": "./ruleset/EHentai.list"
     },
+    */
     "SteamFix": {
         "type": "http",
         "behavior": "classical",
@@ -240,7 +244,7 @@ const baseRules = [
     //`RULE-SET,CDNResources,静态资源`,
     //`RULE-SET,AdditionalCDNResources,静态资源`,
     `RULE-SET,Crypto,Crypto`,
-    `RULE-SET,EHentai,E-Hentai`,
+    //`RULE-SET,EHentai,E-Hentai`,
     `RULE-SET,TikTok,TikTok`,
     `RULE-SET,SteamFix,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,GoogleFCM,${PROXY_GROUPS.DIRECT}`,
@@ -251,10 +255,10 @@ const baseRules = [
     "GEOSITE,YOUTUBE,YouTube",
     "GEOSITE,NETFLIX,Netflix",
     "GEOSITE,SPOTIFY,Spotify",
-    "GEOSITE,BAHAMUT,Bahamut",
+    //"GEOSITE,BAHAMUT,Bahamut",
     "GEOSITE,BILIBILI,Bilibili",
     `GEOSITE,MICROSOFT@CN,${PROXY_GROUPS.DIRECT}`,
-    "GEOSITE,PIKPAK,PikPak",
+    //"GEOSITE,PIKPAK,PikPak",
     `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
     `GEOSITE,CN,${PROXY_GROUPS.DIRECT}`,
     `GEOSITE,PRIVATE,${PROXY_GROUPS.DIRECT}`,
@@ -612,6 +616,13 @@ function buildProxyGroups({
             "type": "select",
             "proxies": defaultProxies
         },
+                {
+            "name": "Crypto",
+            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Cryptocurrency_3.png",
+            "type": "select",
+            "proxies": defaultProxies
+        },
+        /*
         {
             "name": "E-Hentai",
             "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/Ehentai.png",
@@ -636,13 +647,6 @@ function buildProxyGroups({
             "type": "select",
             "proxies": (hasTW) ? ["台湾节点", PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL, PROXY_GROUPS.DIRECT] : defaultProxies
         },
-        {
-            "name": "Crypto",
-            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Cryptocurrency_3.png",
-            "type": "select",
-            "proxies": defaultProxies
-        },
-        /*
         {
             "name": "SSH(22端口)",
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Server.png",
