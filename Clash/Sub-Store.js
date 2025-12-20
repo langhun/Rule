@@ -374,7 +374,7 @@ const countriesMeta = {
         pattern: "(?i)台|新北|彰化|TW|Taiwan|🇹🇼",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Taiwan.png"
     },
-    "新加坡": {
+    "狮城": {
         pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Singapore.png"
     },
@@ -390,7 +390,7 @@ const countriesMeta = {
         pattern: "(?i)美国|美|US|United States|🇺🇸",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/United_States.png"
     },
-    "加拿大": {
+    "枫叶": {
         pattern: "(?i)加拿大|Canada|CA|🇨🇦",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Canada.png"
     },
@@ -398,7 +398,7 @@ const countriesMeta = {
         pattern: "(?i)英国|United Kingdom|UK|伦敦|London|🇬🇧",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/United_Kingdom.png"
     },
-    "澳大利亚": {
+    "袋鼠": {
         pattern: "(?i)澳洲|澳大利亚|AU|Australia|🇦🇺",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Australia.png"
     },
@@ -410,7 +410,7 @@ const countriesMeta = {
         pattern: "(?i)法国|法|FR|France|🇫🇷",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/France.png"
     },
-    "俄罗斯": {
+    "毛子": {
         pattern: "(?i)俄罗斯|俄|RU|Russia|🇷🇺",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Russia.png"
     },
@@ -422,7 +422,7 @@ const countriesMeta = {
         pattern: "(?i)印度|IN|India|🇮🇳",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/India.png"
     },
-    "马来西亚": {
+    "大马": {
         pattern: "(?i)马来西亚|马来|MY|Malaysia|🇲🇾",
         icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Malaysia.png"
     },
