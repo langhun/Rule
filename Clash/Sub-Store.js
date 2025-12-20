@@ -239,7 +239,7 @@ const baseRules = [
     `RULE-SET,ADBlock,广告拦截`,
     `RULE-SET,AdditionalFilter,广告拦截`,
     //`RULE-SET,SogouInput,搜狗输入法`,
-    `DOMAIN-SUFFIX,truthsocial.com,Truth Social`,
+    //`DOMAIN-SUFFIX,truthsocial.com,Truth Social`,
     //`RULE-SET,StaticResources,静态资源`,
     //`RULE-SET,CDNResources,静态资源`,
     //`RULE-SET,AdditionalCDNResources,静态资源`,
