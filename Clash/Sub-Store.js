@@ -236,8 +236,8 @@ const ruleProviders = {
 }
 
 const baseRules = [
-    `RULE-SET,ADBlock,广告拦截`,
-    `RULE-SET,AdditionalFilter,广告拦截`,
+    `RULE-SET,ADBlock,🎯 广告拦截`,
+    `RULE-SET,AdditionalFilter,🎯 广告拦截`,
     //`RULE-SET,SogouInput,搜狗输入法`,
     //`DOMAIN-SUFFIX,truthsocial.com,Truth Social`,
     //`RULE-SET,StaticResources,静态资源`,
