@@ -141,6 +141,14 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
 }
 
 const ruleProviders = {
+    "LocalAreaNetwork": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/LocalAreaNetwork.list",
+        "path": "./ruleset/LocalAreaNetwork.list"
+    },
     "ADBlock": {
         "type": "http",
         "behavior": "domain",
@@ -151,16 +159,16 @@ const ruleProviders = {
     },
     "BanAD": {
         "type": "http",
-        "behavior": "domain",
-        "format": "mrs",
+        "behavior": "classical",
+        "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanAD.list",
-        "path": "./ruleset/BanAD.mrs"
+        "path": "./ruleset/BanAD.list"
     },
     "BanProgramAD": {
         "type": "http",
-        "behavior": "domain",
-        "format": "mrs",
+        "behavior": "classical",
+        "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanProgramAD.list",
         "path": "./ruleset/BanProgramAD.mrs"
@@ -241,6 +249,14 @@ const ruleProviders = {
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/FirebaseCloudMessaging.list",
         "path": "./ruleset/FirebaseCloudMessaging.list"
     },
+    "GoogleCN": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/GoogleCN.list",
+        "path": "./ruleset/GoogleCN.list"
+    },
     "AdditionalFilter": {
         "type": "http",
         "behavior": "classical",
@@ -302,6 +318,7 @@ const ruleProviders = {
 }
 
 const baseRules = [
+    `RULE-SET,LocalAreaNetwork,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,ADBlock,广告拦截`,
     `RULE-SET,AdditionalFilter,广告拦截`,
     `RULE-SET,BanAD,广告拦截`,
@@ -321,26 +338,27 @@ const baseRules = [
     `RULE-SET,Apple,Apple`,
     `RULE-SET,SteamFix,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,GoogleFCM,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,GoogleCN,${PROXY_GROUPS.SELECT}`,
     `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`,
     `GEOSITE,GOOGLE-PLAY@CN,${PROXY_GROUPS.DIRECT}`,
     "GEOSITE,CATEGORY-AI-!CN,AI服务",
-    "GEOSITE,category-games,Games",
+    "GEOSITE,Category-Games,Games",
     "GEOSITE,Steam,Steam",
     `RULE-SET,Epic,Games`,
     "GEOSITE,GitHub,GitHub",
-    "GEOSITE,TELEGRAM,Telegram",
-    "GEOSITE,YOUTUBE,YouTube",
-    "GEOSITE,NETFLIX,Netflix",
-    "GEOSITE,SPOTIFY,Spotify",
+    "GEOSITE,Telegram,Telegram",
+    "GEOSITE,YouTube,YouTube",
+    "GEOSITE,Netflix,Netflix",
+    "GEOSITE,Spotify,Spotify",
     //"GEOSITE,BAHAMUT,Bahamut",
-    "GEOSITE,BILIBILI,Bilibili",
-    `GEOSITE,MICROSOFT@CN,${PROXY_GROUPS.DIRECT}`,
+    "GEOSITE,Bilibili,Bilibili",
+    `GEOSITE,Microsoft@CN,${PROXY_GROUPS.DIRECT}`,
     //"GEOSITE,PIKPAK,PikPak",
     `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
     `GEOSITE,CN,${PROXY_GROUPS.DIRECT}`,
     `GEOSITE,PRIVATE,${PROXY_GROUPS.DIRECT}`,
-    "GEOIP,NETFLIX,Netflix,no-resolve",
-    "GEOIP,TELEGRAM,Telegram,no-resolve",
+    "GEOIP,Netflix,Netflix,no-resolve",
+    "GEOIP,Telegram,Telegram,no-resolve",
     `GEOIP,CN,${PROXY_GROUPS.DIRECT}`,
     `GEOIP,PRIVATE,${PROXY_GROUPS.DIRECT}`,
     //"DST-PORT,22,SSH(22端口)",
@@ -430,11 +448,16 @@ const dnsConfigFakeIp = buildDnsConfig({
         "*.stun.*.*.*"
     ]
 });
-
+// ==================== 地理数据库配置 GeoData Configuration ====================
+// 用于 IP 和域名的地理位置及分类判断
 const geoxURL = {
+    // GeoIP 数据库
     "geoip": "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat",
+    // GeoSite 数据库（域名分类）
     "geosite": "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat",
+    // MaxMind 数据库（含中国 IP）
     "mmdb": "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country.mmdb",
+    // ASN（自治系统号）数据库，用于更精确的 IP 归属判断
     "asn": "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/GeoLite2-ASN.mmdb"
 };
 
