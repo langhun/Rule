@@ -147,7 +147,7 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/LocalAreaNetwork.list",
-        "path": "./ruleset/LocalAreaNetwork.list"
+        "path": "./ruleset/ACL4SSR/LocalAreaNetwork.list"
     },
     "ADBlock": {
         "type": "http",
@@ -163,7 +163,7 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanAD.list",
-        "path": "./ruleset/BanAD.list"
+        "path": "./ruleset/ACL4SSR/BanAD.list"
     },
     "BanProgramAD": {
         "type": "http",
@@ -171,59 +171,55 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanProgramAD.list",
-        "path": "./ruleset/BanProgramAD.mrs"
+        "path": "./ruleset/ACL4SSR/BanProgramAD.mrs"
     },
-    /*
-    "SogouInput": {
+    "OpenAI": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://ruleset.skk.moe/Clash/non_ip/sogouinput.txt",
-        "path": "./ruleset/SogouInput.txt"
+        "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/openai.yaml",
+        "path": "./ruleset/MetaCubeX/OpenAI.yaml"
     },
-    "StaticResources": {
-        "type": "http",
-        "behavior": "domain",
-        "format": "text",
-        "interval": 86400,
-        "url": "https://ruleset.skk.moe/Clash/domainset/cdn.txt",
-        "path": "./ruleset/StaticResources.txt"
-    },
-    "CDNResources": {
+    "Gemini": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://ruleset.skk.moe/Clash/non_ip/cdn.txt",
-        "path": "./ruleset/CDNResources.txt"
+        "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/google-gemini.yaml",
+        "path": "./ruleset/MetaCubeX/Gemini.yaml"
     },
-    */
+    "AI": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AI.list",
+        "path": "./ruleset/ACL4SSR/AI.list"
+    },
     "TikTok": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/TikTok.list",
-        "path": "./ruleset/TikTok.list"
+        "path": "./ruleset/powerfullz/TikTok.list"
     },
-    /*
-    "EHentai": {
+    "Telegram": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/EHentai.list",
-        "path": "./ruleset/EHentai.list"
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list",
+        "path": "./ruleset/ACL4SSR/Telegram.list"
     },
-    */
     "SteamCN": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/Ruleset/SteamCN.list",
-        "path": "./ruleset/SteamCN.list"
+        "path": "./ruleset/ACL4SSR/SteamCN.list"
     },
     "SteamFix": {
         "type": "http",
@@ -231,7 +227,7 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/SteamFix.list",
-        "path": "./ruleset/SteamFix.list"
+        "path": "./ruleset/powerfullz/SteamFix.list"
     },
     "Epic": {
         "type": "http",
@@ -239,7 +235,7 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/Ruleset/Epic.list",
-        "path": "./ruleset/Epic.list"
+        "path": "./ruleset/ACL4SSR/Epic.list"
     },
     "GoogleFCM": {
         "type": "http",
@@ -247,7 +243,7 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/FirebaseCloudMessaging.list",
-        "path": "./ruleset/FirebaseCloudMessaging.list"
+        "path": "./ruleset/powerfullz/FirebaseCloudMessaging.list"
     },
     "GoogleCN": {
         "type": "http",
@@ -255,7 +251,7 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/GoogleCN.list",
-        "path": "./ruleset/GoogleCN.list"
+        "path": "./ruleset/ACL4SSR/GoogleCN.list"
     },
     "AdditionalFilter": {
         "type": "http",
@@ -263,57 +259,47 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/AdditionalFilter.list",
-        "path": "./ruleset/AdditionalFilter.list"
+        "path": "./ruleset/powerfullz/AdditionalFilter.list"
     },
-    /*
-    "AdditionalCDNResources": {
-        "type": "http",
-        "behavior": "classical",
-        "format": "text",
-        "interval": 86400,
-        "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/AdditionalCDNResources.list",
-        "path": "./ruleset/AdditionalCDNResources.list"
-    },
-    */
     "Crypto": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
         "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/Crypto.list",
-        "path": "./ruleset/Crypto.list"
+        "path": "./ruleset/powerfullz/Crypto.list"
     },
     "Bing": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/Bing.list",
-        "path": "./ruleset/Bing.list"
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Bing.list",
+        "path": "./ruleset/ACL4SSR/Bing.list"
     },
     "OneDrive": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/OneDrive.list",
-        "path": "./ruleset/OneDrive.list"
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/OneDrive.list",
+        "path": "./ruleset/ACL4SSR/OneDrive.list"
     }, 
     "Microsoft": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/Microsoft.list",
-        "path": "./ruleset/Microsoft.list"
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list",
+        "path": "./ruleset/ACL4SSR/Microsoft.list"
     }, 
     "Apple": {
         "type": "http",
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/Apple.list",
-        "path": "./ruleset/Apple.list"
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list",
+        "path": "./ruleset/ACL4SSR/Apple.list"
     }, 
 }
 
@@ -323,13 +309,7 @@ const baseRules = [
     `RULE-SET,AdditionalFilter,广告拦截`,
     `RULE-SET,BanAD,广告拦截`,
     `RULE-SET,BanProgramAD,广告拦截`,
-    //`RULE-SET,SogouInput,搜狗输入法`,
-    //`DOMAIN-SUFFIX,truthsocial.com,Truth Social`,
-    //`RULE-SET,StaticResources,静态资源`,
-    //`RULE-SET,CDNResources,静态资源`,
-    //`RULE-SET,AdditionalCDNResources,静态资源`,
     `RULE-SET,Crypto,Crypto`,
-    //`RULE-SET,EHentai,E-Hentai`,
     `RULE-SET,SteamCN,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,TikTok,TikTok`,
     `RULE-SET,Bing,Bing`,
@@ -342,6 +322,8 @@ const baseRules = [
     `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`,
     `GEOSITE,GOOGLE-PLAY@CN,${PROXY_GROUPS.DIRECT}`,
     "GEOSITE,CATEGORY-AI-!CN,AI服务",
+    `RULE-SET,OpenAI,AI服务`,
+    `RULE-SET,Gemini,AI服务`,
     "GEOSITE,Category-Games,Games",
     "GEOSITE,Steam,Steam",
     `RULE-SET,Epic,Games`,
@@ -350,10 +332,8 @@ const baseRules = [
     "GEOSITE,YouTube,YouTube",
     "GEOSITE,Netflix,Netflix",
     "GEOSITE,Spotify,Spotify",
-    //"GEOSITE,BAHAMUT,Bahamut",
     "GEOSITE,Bilibili,Bilibili",
     `GEOSITE,Microsoft@CN,${PROXY_GROUPS.DIRECT}`,
-    //"GEOSITE,PIKPAK,PikPak",
     `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
     `GEOSITE,CN,${PROXY_GROUPS.DIRECT}`,
     `GEOSITE,PRIVATE,${PROXY_GROUPS.DIRECT}`,
@@ -361,7 +341,6 @@ const baseRules = [
     "GEOIP,Telegram,Telegram,no-resolve",
     `GEOIP,CN,${PROXY_GROUPS.DIRECT}`,
     `GEOIP,PRIVATE,${PROXY_GROUPS.DIRECT}`,
-    //"DST-PORT,22,SSH(22端口)",
     `MATCH,${PROXY_GROUPS.SELECT}`
 ];
 
@@ -667,14 +646,6 @@ function buildProxyGroups({
             "tolerance": 20,
             "lazy": false
         },
-        /*
-        {
-            "name": "静态资源",
-            "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Cloudflare.png",
-            "type": "select",
-            "proxies": defaultProxies,
-        },
-        */
         {
             "name": "AI服务",
             "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/chatgpt.png",
@@ -765,60 +736,20 @@ function buildProxyGroups({
             "type": "select",
             "proxies": defaultProxies
         },
-        /*
-        {
-            "name": "E-Hentai",
-            "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/Ehentai.png",
-            "type": "select",
-            "proxies": defaultProxies
-        },
-        {
-            "name": "PikPak",
-            "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/PikPak.png",
-            "type": "select",
-            "proxies": defaultProxies
-        },
-        {
-            "name": "Truth Social",
-            "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/TruthSocial.png",
-            "type": "select",
-            "proxies": (hasUS) ? ["美国节点", PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL] : defaultProxies
-        },
-        {
-            "name": "Bahamut",
-            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Bahamut.png",
-            "type": "select",
-            "proxies": (hasTW) ? ["台湾节点", PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL, PROXY_GROUPS.DIRECT] : defaultProxies
-        },
-        {
-            "name": "SSH(22端口)",
-            "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Server.png",
-            "type": "select",
-            "proxies": defaultProxies
-        },
-        {
-            "name": "搜狗输入法",
-            "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/Sougou.png",
-            "type": "select",
-            "proxies": [
-                PROXY_GROUPS.DIRECT, "REJECT"
-            ]
-        },
-        */
-        {
-            "name": PROXY_GROUPS.DIRECT,
-            "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Direct.png",
-            "type": "select",
-            "proxies": [
-                "DIRECT", PROXY_GROUPS.SELECT
-            ]
-        },
         {
             "name": "广告拦截",
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/AdBlack.png",
             "type": "select",
             "proxies": [
                 "REJECT", "REJECT-DROP",  PROXY_GROUPS.DIRECT
+            ]
+        },
+        {
+            "name": PROXY_GROUPS.DIRECT,
+            "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Direct.png",
+            "type": "select",
+            "proxies": [
+                "DIRECT", PROXY_GROUPS.SELECT
             ]
         },
         (lowCost) ? {
