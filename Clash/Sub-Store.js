@@ -171,7 +171,39 @@ const ruleProviders = {
         "format": "text",
         "interval": 86400,
         "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanProgramAD.list",
-        "path": "./ruleset/ACL4SSR/BanProgramAD.mrs"
+        "path": "./ruleset/ACL4SSR/BanProgramAD.list"
+    },
+    "ChinaDomain": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list",
+        "path": "./ruleset/ACL4SSR/ChinaDomain.list"
+    },
+    "ChinaCompanyIp": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/ChinaCompanyIp.list",
+        "path": "./ruleset/ACL4SSR/ChinaCompanyIp.list"
+    },
+    "Download": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/Download.list",
+        "path": "./ruleset/ACL4SSR/Download.list"
+    },
+    "ProxyGFWlist": {
+        "type": "http",
+        "behavior": "classical",
+        "format": "text",
+        "interval": 86400,
+        "url": "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/ProxyGFWlist.list",
+        "path": "./ruleset/ACL4SSR/ProxyGFWlist.list"
     },
     "OpenAI": {
         "type": "http",
@@ -242,8 +274,8 @@ const ruleProviders = {
         "behavior": "classical",
         "format": "text",
         "interval": 86400,
-        "url": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/FirebaseCloudMessaging.list",
-        "path": "./ruleset/powerfullz/FirebaseCloudMessaging.list"
+        "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/GoogleFCM.list",
+        "path": "./ruleset/ACL4SSR/GoogleFCM.list"
     },
     "GoogleCN": {
         "type": "http",
@@ -304,44 +336,52 @@ const ruleProviders = {
 }
 
 const baseRules = [
-    `RULE-SET,LocalAreaNetwork,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,ADBlock,广告拦截`,
     `RULE-SET,AdditionalFilter,广告拦截`,
     `RULE-SET,BanAD,广告拦截`,
     `RULE-SET,BanProgramAD,广告拦截`,
     `RULE-SET,Crypto,Crypto`,
-    `RULE-SET,SteamCN,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,TikTok,TikTok`,
+    `RULE-SET,Telegram,Telegram`,
     `RULE-SET,Bing,Bing`,
     `RULE-SET,OneDrive,OneDrive`,
     `RULE-SET,Microsoft,Microsoft`,
     `RULE-SET,Apple,Apple`,
-    `RULE-SET,SteamFix,${PROXY_GROUPS.DIRECT}`,
-    `RULE-SET,GoogleFCM,${PROXY_GROUPS.DIRECT}`,
-    `RULE-SET,GoogleCN,${PROXY_GROUPS.SELECT}`,
-    `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`,
-    `GEOSITE,GOOGLE-PLAY@CN,${PROXY_GROUPS.DIRECT}`,
-    "GEOSITE,CATEGORY-AI-!CN,AI服务",
+    `RULE-SET,Epic,Games`,
     `RULE-SET,OpenAI,AI服务`,
     `RULE-SET,Gemini,AI服务`,
+    "GEOSITE,CATEGORY-AI-!CN,AI服务",
     "GEOSITE,Category-Games,Games",
     "GEOSITE,Steam,Steam",
-    `RULE-SET,Epic,Games`,
     "GEOSITE,GitHub,GitHub",
     "GEOSITE,Telegram,Telegram",
     "GEOSITE,YouTube,YouTube",
     "GEOSITE,Netflix,Netflix",
     "GEOSITE,Spotify,Spotify",
     "GEOSITE,Bilibili,Bilibili",
-    `GEOSITE,Microsoft@CN,${PROXY_GROUPS.DIRECT}`,
-    `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
-    `GEOSITE,CN,${PROXY_GROUPS.DIRECT}`,
-    `GEOSITE,PRIVATE,${PROXY_GROUPS.DIRECT}`,
     "GEOIP,Netflix,Netflix,no-resolve",
     "GEOIP,Telegram,Telegram,no-resolve",
+    
+    `RULE-SET,LocalAreaNetwork,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,SteamCN,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,SteamFix,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,GoogleFCM,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,ChinaDomain,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,ChinaCompanyIp,${PROXY_GROUPS.DIRECT}`,
+    `RULE-SET,Download,${PROXY_GROUPS.DIRECT}`,
+    `GEOSITE,GOOGLE-PLAY@CN,${PROXY_GROUPS.DIRECT}`,
+    `GEOSITE,CN,${PROXY_GROUPS.DIRECT}`,
+    `GEOSITE,PRIVATE,${PROXY_GROUPS.DIRECT}`,
+    `GEOSITE,Microsoft@CN,${PROXY_GROUPS.DIRECT}`,
     `GEOIP,CN,${PROXY_GROUPS.DIRECT}`,
     `GEOIP,PRIVATE,${PROXY_GROUPS.DIRECT}`,
-    `MATCH,${PROXY_GROUPS.SELECT}`
+    `RULE-SET,GoogleCN,${PROXY_GROUPS.DIRECT}`,
+
+    `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`,
+    `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
+    `RULE-SET,ProxyGFWlist,${PROXY_GROUPS.SELECT}`,
+    `MATCH,${PROXY_GROUPS.SELECT}`,
+
 ];
 
 function buildRules({ quicEnabled }) {
