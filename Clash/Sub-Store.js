@@ -790,9 +790,7 @@ function buildProxyGroups({
             "name": "PT站点",
             "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Download.png",
             "type": "select",
-            "proxies": [
-                defaultProxiesDirect, defaultProxies
-            ]
+            "proxies": defaultProxiesDirect,defaultProxies
         },
         {
             "name": "广告拦截",
