@@ -347,9 +347,11 @@ const baseRules = [
     `RULE-SET,OneDrive,OneDrive`,
     `RULE-SET,Microsoft,Microsoft`,
     `RULE-SET,Apple,Apple`,
+    `RULE-SET,Google,Google`,
     `RULE-SET,Epic,Games`,
     `RULE-SET,OpenAI,AI服务`,
     `RULE-SET,Gemini,AI服务`,
+
     "GEOSITE,CATEGORY-AI-!CN,AI服务",
     "GEOSITE,Category-Games,Games",
     "GEOSITE,Steam,Steam",
@@ -359,6 +361,7 @@ const baseRules = [
     "GEOSITE,Netflix,Netflix",
     "GEOSITE,Spotify,Spotify",
     "GEOSITE,Bilibili,Bilibili",
+    "GEOSITE,PT站点,category-pt",
     "GEOIP,Netflix,Netflix,no-resolve",
     "GEOIP,Telegram,Telegram,no-resolve",
     
@@ -765,6 +768,12 @@ function buildProxyGroups({
             "proxies": defaultProxies
         },
         {
+            "name": "Google",
+            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Goolge.png",
+            "type": "select",
+            "proxies": defaultProxies
+        },
+        {
             "name": "Steam",
             "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Steam.png",
             "type": "select",
@@ -773,6 +782,12 @@ function buildProxyGroups({
         {
             "name": "Games",
             "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Game.png",
+            "type": "select",
+            "proxies": defaultProxies
+        },
+        {
+            "name": "PT站点",
+            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Download.png",
             "type": "select",
             "proxies": defaultProxies
         },
