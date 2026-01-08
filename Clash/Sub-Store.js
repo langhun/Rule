@@ -423,7 +423,7 @@ function buildRules({ quicEnabled }) {
 
 
 // ============================================================================
-// 5. 嗅探与 DNS 配置 (Sniffer & DNS)
+// 5. 嗅探与 DNS 配置 (Sniffer & DNS) [已修复防泄露]
 // 解决 DNS 污染，提升连接速度
 // ============================================================================
 
@@ -448,7 +448,7 @@ const snifferConfig = {
 const enhancedFakeIpFilter = [
   "geosite:private",
   "geosite:connectivity-check",
-  "geosite:cn",
+  "geosite:cn",   // 关键：国内域名直接解析真实 IP，改善国内访问体验
   "Mijia Cloud",
   "dlg.io.mi.com",
   "localhost.ptlogin2.qq.com",
@@ -470,6 +470,10 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
     "ipv6": ipv6Enabled,
     "prefer-h3": true, // 开启 DoH/H3 优化
     "enhanced-mode": mode,
+    "listen": ":1053", // 建议指定监听端口，避免冲突
+    "use-hosts": true,
+    
+    // 1. 默认 DNS (国内)：负责解析国内域名和白名单
     "default-nameserver": [
       "223.5.5.5",
       "119.29.29.29"
@@ -478,24 +482,49 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
     ],
-    // [Core] 核心增强：Nameserver Policy 分流
-    // 指定国内域名走阿里/腾讯 DNS，国外大厂走 Cloudflare/Google DNS
-    "nameserver-policy": {
-      "geosite:cn,private": [
-        "https://dns.alidns.com/dns-query",
-        "https://doh.pub/dns-query"
-      ],
-      "geosite:google,youtube,telegram,gfw,netflix": [
-        "https://1.1.1.1/dns-query",
-        "https://8.8.8.8/dns-query"
-      ]
-    },
+    
+    // 2. 备用 DNS (国外)：负责解析被污染的域名
+    // 当 nameserver 返回的 IP 属于非 CN 地区时，Clash 会启用 fallback
     "fallback": [
       "https://1.1.1.1/dns-query",
       "https://8.8.8.8/dns-query",
       "https://dns.sb/dns-query",
       "tcp://208.67.222.222"
     ],
+
+    // 3. [关键] 核心防泄露机制：Fallback 过滤器
+    // 逻辑：如果 domestic nameserver 返回了国外 IP (通常是污染结果)，则丢弃并使用 fallback
+    "fallback-filter": {
+      "geoip": true,
+      "geoip-code": "CN",
+      "ipcidr": [
+        "240.0.0.0/4" // 过滤伪造的保留地址
+      ],
+      "domain": [
+        "+.google.com",
+        "+.facebook.com",
+        "+.twitter.com",
+        "+.youtube.com",
+        "+.netflix.com"
+      ]
+    },
+
+    // 4. [Core] 核心增强：Nameserver Policy 分流
+    // 明确指定哪些域名去哪里解析，优先级高于 nameserver/fallback
+    "nameserver-policy": {
+      // 国内与大厂 CDN -> 阿里/腾讯 (速度快)
+      "geosite:cn,private,apple,steam,microsoft-cn": [
+        "https://dns.alidns.com/dns-query",
+        "https://doh.pub/dns-query"
+      ],
+      // 所有非国内域名 -> Cloudflare/Google (防污染)
+      // 注意：geolocation-!cn 包含了所有国外域名，不仅仅是 Google/YouTube
+      "geosite:geolocation-!cn,gfw": [
+        "https://1.1.1.1/dns-query",
+        "https://8.8.8.8/dns-query"
+      ]
+    },
+    
     "proxy-server-nameserver": [
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
