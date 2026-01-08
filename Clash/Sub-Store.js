@@ -321,7 +321,7 @@ const baseRules = [
   `RULE-SET,Crypto,Crypto`,
 
   // 4. 核心媒体服务 (精确匹配)
-  `RULE-SET,Emby,${PROXY_GROUPS.EMBY}`, // 优先处理 Emby
+  `RULE-SET,Emby,Emby`, // 优先处理 Emby
   `RULE-SET,TikTok,TikTok`,
   `RULE-SET,Telegram,Telegram`,
   `RULE-SET,Bing,Bing`,
@@ -692,7 +692,7 @@ function buildProxyGroups({
     { "name": "Bilibili", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/bilibili.png", "type": "select", "proxies": bilibiliProxies },
     { "name": "Netflix", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Netflix.png", "type": "select", "proxies": mediaProxies },
     { "name": "Spotify", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Spotify.png", "type": "select", "proxies": mediaProxies },
-    { "name": PROXY_GROUPS.EMBY, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/TV.png", "type": "select", "proxies": mediaProxies },
+    { "name": "Emby", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Emby.png", "type": "select", "proxies": mediaProxies },
     { "name": "TikTok", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/TikTok.png", "type": "select", "proxies": defaultProxies },
     { "name": "Crypto", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Cryptocurrency_3.png", "type": "select", "proxies": defaultProxies },
     { "name": "GitHub", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/GitHub.png", "type": "select", "proxies": defaultProxies },
