@@ -634,7 +634,6 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
 }
 
 function buildProxyGroups({
-    loadBalance,
     landing,
     countries,
     countryProxyGroups,
@@ -658,7 +657,7 @@ function buildProxyGroups({
             "name": PROXY_GROUPS.SELECT,
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Proxy.png",
             "type": "select",
-            "proxies": defaultSelector,loadBalance
+            "proxies": defaultSelector
         },
         {
             "name": PROXY_GROUPS.MANUAL,
@@ -771,7 +770,7 @@ function buildProxyGroups({
         },
         {
             "name": "Google",
-            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Google.png",
+            "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/Google.png",
             "type": "select",
             "proxies": defaultProxies
         },
@@ -842,7 +841,6 @@ function main(config) {
 
     // 生成代理组
     const proxyGroups = buildProxyGroups({
-        loadBalance,
         landing,
         countries,
         countryProxyGroups,
