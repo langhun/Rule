@@ -224,11 +224,6 @@ const ruleProviders = {
     url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/openai.yaml",
     path: "./ruleset/MetaCubeX/OpenAI.yaml"
   },
-  "Claude": { // Anthropic Claude (风控严格，建议单独分流)
-    type: "http", behavior: "classical", format: "text", interval: 86400,
-    url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Claude.list",
-    path: "./ruleset/ACL4SSR/Claude.list"
-  },
   "Gemini": { // Google Gemini
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/google-gemini.yaml",
@@ -280,11 +275,6 @@ const ruleProviders = {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Discord.list",
     path: "./ruleset/ACL4SSR/Discord.list"
-  },
-  "Design": { // Figma, Canva 等设计工具
-    type: "http", behavior: "classical", format: "text", interval: 86400,
-    url: "https://raw.githubusercontent.com/Blackdrop/Clash-Rules/master/Rules/Design.list",
-    path: "./ruleset/Blackdrop/Design.list"
   },
 
   // --- 游戏与厂商 ---
@@ -354,7 +344,6 @@ const baseRules = [
   `RULE-SET,BanProgramAD,广告拦截`,
 
   // 2. AI 服务 (防止被后续国内规则误杀，优先匹配)
-  `RULE-SET,Claude,Claude`,       // Claude 必须单独分流
   `RULE-SET,OpenAI,AI服务`,
   `RULE-SET,Gemini,AI服务`,
   `RULE-SET,Copilot,AI服务`,
@@ -371,7 +360,6 @@ const baseRules = [
   `RULE-SET,TikTok,TikTok`,
   `RULE-SET,Telegram,Telegram`,
   `RULE-SET,Discord,Discord`,
-  `RULE-SET,Design,Design`,       // Figma 等
   
   // 5. 微软与苹果服务
   `RULE-SET,Bing,Bing`,
@@ -685,8 +673,6 @@ function buildProxyGroups({
 
     // --- AI 与 生产力 (独立分流) ---
     { "name": "AI服务", "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/chatgpt.png", "type": "select", "proxies": defaultProxies },
-    { "name": "Claude", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Anthropic.png", "type": "select", "proxies": defaultProxies },
-    { "name": "Design", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Figma.png", "type": "select", "proxies": defaultProxies },
     { "name": "Discord", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Discord.png", "type": "select", "proxies": defaultProxies },
 
     // --- 媒体与流媒体 (独立分流) ---
