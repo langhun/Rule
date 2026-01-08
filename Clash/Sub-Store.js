@@ -770,7 +770,7 @@ function buildProxyGroups({
         },
         {
             "name": "Google",
-            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Goolge.png",
+            "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Google.png",
             "type": "select",
             "proxies": defaultProxies
         },
