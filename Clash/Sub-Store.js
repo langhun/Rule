@@ -1,27 +1,30 @@
 /**
- * Powerfullz Sub-Store 订阅转换脚本 (注释增强版)
- * * [脚本功能]
- * 1. 自动节点分组：根据节点名称自动识别国家（香港、日本、美国等）并分组。
- * 2. 智能 DNS 策略：配置 Nameserver Policy，国内域名走国内 DNS，国外走 1.1.1.1，防止 DNS 污染。
- * 3. 深度应用分流：
- * - AI 服务：独立分流 Claude、ChatGPT、Gemini。
- * - 流媒体：独立分流 Disney+、Netflix、Prime Video、巴哈姆特（自动优选台湾）。
- * - 生产力：独立分流 Discord、Figma (Design)。
- * 4. 规则集增强：内置去广告、隐私保护和 TCP Keep-Alive 优化。
- * * [推荐参数 (Arguments)]
+ * Powerfullz Sub-Store 订阅转换脚本 (最终增强版)
+ *
+ * [功能亮点]
+ * 1. 自动节点分组：根据节点名称自动识别国家并分组。
+ * 2. 零信任 DNS 策略：
+ * - 国内域名、Apple、Steam 走阿里/腾讯 DNS (速度快)。
+ * - 所有非国内域名 (geolocation-!cn) 强制走 Cloudflare/Google (防污染)。
+ * - 配合 Fallback Filter 彻底防止 DNS 泄露。
+ * 3. 深度应用分流：AI、流媒体、生产力工具独立分流。
+ * 4. 规则集增强：内置去广告、隐私保护。
+ *
+ * [推荐参数 (Arguments)]
  * loadbalance=false  // 是否开启负载均衡 (建议 false 以保持 IP 稳定)
- * landing=true       // 是否识别落地/家宽节点
- * fakeip=true        // 是否开启 Fake-IP 模式 (建议开启，速度更快)
+ * landing=true       // 是否识别落地/家宽节点 (ISP 节点)
+ * fakeip=true        // 是否开启 Fake-IP 模式 (强烈建议开启，响应更快)
  * keepalive=true     // 是否开启 TCP Keep-Alive (减少断连)
+ * quic=false         // 是否允许 QUIC (建议 false，强制 YouTube 等走 TCP，由于 UDP 限速通常较严重)
  */
 
 // ============================================================================
-// 1. 全局常量与参数解析 (Constants & Arguments)
+// 1. 全局常量与参数解析
 // ============================================================================
 
-const NODE_SUFFIX = "节点"; // 生成的分组名称后缀，例如 "香港节点"
+const NODE_SUFFIX = "节点"; // 生成的分组名称后缀
 
-// 策略组名称常量映射，方便统一修改
+// 策略组名称常量映射
 const PROXY_GROUPS = {
   SELECT:   "节点选择", // 主手动选择
   MANUAL:   "手动切换", // 二级手动选择
@@ -32,8 +35,7 @@ const PROXY_GROUPS = {
 };
 
 /**
- * 辅助函数：将字符串或数字转换为布尔值
- * 例如：parseBool("true") -> true, parseBool("1") -> true
+ * 辅助函数：解析布尔值
  */
 function parseBool(value) {
   if (typeof value === "boolean") return value;
@@ -44,7 +46,7 @@ function parseBool(value) {
 }
 
 /**
- * 辅助函数：解析数字参数，失败则返回默认值
+ * 辅助函数：解析数字
  */
 function parseNumber(value, defaultValue = 0) {
   if (value === null || typeof value === 'undefined') return defaultValue;
@@ -53,18 +55,17 @@ function parseNumber(value, defaultValue = 0) {
 }
 
 /**
- * 核心：解析用户传入的参数 (Arguments)
- * 将 URL 参数转换为内部配置对象
+ * 核心：解析用户传入的参数
  */
 function buildFeatureFlags(args) {
   const spec = {
     loadbalance: "loadBalance",      // 是否启用负载均衡
     landing:     "landing",          // 是否启用落地节点分组
     ipv6:        "ipv6Enabled",      // 是否启用 IPv6
-    full:        "fullConfig",       // 是否生成完整配置文件(包含 inbound 等)
+    full:        "fullConfig",       // 是否生成完整配置文件
     keepalive:   "keepAliveEnabled", // 是否启用 TCP Keep-Alive
     fakeip:      "fakeIPEnabled",    // 是否启用 Fake-IP DNS 模式
-    quic:        "quicEnabled"       // 是否允许 QUIC (UDP) 流量
+    quic:        "quicEnabled"       // 是否允许 QUIC (UDP)
   };
 
   const flags = Object.entries(spec).reduce((acc, [sourceKey, targetKey]) => {
@@ -72,7 +73,7 @@ function buildFeatureFlags(args) {
     return acc;
   }, {});
 
-  flags.countryThreshold = parseNumber(args.threshold, 0); // 国家分组的最小节点数量阈值
+  flags.countryThreshold = parseNumber(args.threshold, 0);
   return flags;
 }
 
@@ -91,7 +92,7 @@ const {
 
 
 // ============================================================================
-// 2. 核心逻辑工具 (Core Logic Helpers)
+// 2. 核心逻辑工具
 // ============================================================================
 
 // 数组扁平化并过滤空值
@@ -104,7 +105,7 @@ function getCountryGroupNames(countryInfo, minCount) {
     .map(item => item.country + NODE_SUFFIX);
 }
 
-// 去除分组名称后缀，用于正则匹配
+// 去除分组名称后缀
 function stripNodeSuffix(groupNames) {
   const suffixPattern = new RegExp(`${NODE_SUFFIX}$`);
   return groupNames.map(name => name.replace(suffixPattern, ""));
@@ -112,10 +113,10 @@ function stripNodeSuffix(groupNames) {
 
 /**
  * 构建基础候选节点列表
- * 这里定义了大多数策略组（如 OpenAI, YouTube）默认可以选哪些节点
+ * 定义各个策略组默认包含哪些节点
  */
 function buildBaseLists({ landing, lowCost, countryGroupNames }) {
-  // 1. 通用列表：包含自动切换、落地、国家分组、手动
+  // 1. 通用列表
   const defaultSelector = buildList(
     PROXY_GROUPS.FALLBACK,
     landing && PROXY_GROUPS.LANDING,
@@ -125,7 +126,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     "DIRECT"
   );
 
-  // 2. 默认代理列表：不包含“自动切换”，用于 AI 等需要稳定 IP 的场景
+  // 2. 默认代理列表 (AI 等需要稳定 IP)
   const defaultProxies = buildList(
     PROXY_GROUPS.SELECT,
     countryGroupNames,
@@ -134,14 +135,14 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     PROXY_GROUPS.DIRECT
   );
 
-  // 3. 媒体专用列表：[优化] 移除了低倍率和直连，确保流媒体不会因为误选导致无法观看
+  // 3. 媒体专用列表 (移除直连和低倍率，确保体验)
   const mediaProxies = buildList(
     PROXY_GROUPS.SELECT,
     countryGroupNames,
     PROXY_GROUPS.MANUAL
   );
 
-  // 4. 直连优先列表：用于 PT 下载等，优先直连，其次代理
+  // 4. 直连优先列表 (PT 下载等)
   const defaultProxiesDirect = buildList(
     PROXY_GROUPS.DIRECT,
     countryGroupNames,
@@ -165,7 +166,6 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
 
 // ============================================================================
 // 3. 规则集配置 (Rule Providers)
-// 定义外部规则资源的下载地址、更新间隔等
 // ============================================================================
 
 const ruleProviders = {
@@ -177,7 +177,7 @@ const ruleProviders = {
   },
   "ADBlock": {
     type: "http", behavior: "domain", format: "mrs", interval: 86400,
-    url: "https://adrules.top/adrules-mihomo.mrs", // 使用高性能 MRS 格式
+    url: "https://adrules.top/adrules-mihomo.mrs",
     path: "./ruleset/ADBlock.mrs"
   },
   "BanAD": {
@@ -218,29 +218,29 @@ const ruleProviders = {
     path: "./ruleset/ACL4SSR/ProxyGFWlist.list"
   },
 
-  // --- AI 服务 (增强版) ---
-  "OpenAI": { // ChatGPT
+  // --- AI 服务 ---
+  "OpenAI": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/openai.yaml",
     path: "./ruleset/MetaCubeX/OpenAI.yaml"
   },
-  "Gemini": { // Google Gemini
+  "Gemini": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/google-gemini.yaml",
     path: "./ruleset/MetaCubeX/Gemini.yaml"
   },
-  "Copilot": { // Microsoft Copilot
+  "Copilot": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Copilot.list",
     path: "./ruleset/ACL4SSR/Copilot.list"
   },
-  "AI": { // 其他 AI 聚合
+  "AI": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AI.list",
     path: "./ruleset/ACL4SSR/AI.list"
   },
 
-  // --- 社交与流媒体 (增强版) ---
+  // --- 社交与流媒体 ---
   "Telegram": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list",
@@ -256,17 +256,17 @@ const ruleProviders = {
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Emby.list",
     path: "./ruleset/ACL4SSR/Emby.list"
   },
-  "Disney": { // Disney+
+  "Disney": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/DisneyPlus.list",
     path: "./ruleset/ACL4SSR/DisneyPlus.list"
   },
-  "PrimeVideo": { // Amazon Prime Video
+  "PrimeVideo": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/PrimeVideo.list",
     path: "./ruleset/ACL4SSR/PrimeVideo.list"
   },
-  "Bahamut": { // 巴哈姆特动画疯 (仅限台湾 IP)
+  "Bahamut": {
     type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Bahamut.list",
     path: "./ruleset/ACL4SSR/Bahamut.list"
@@ -333,7 +333,6 @@ const ruleProviders = {
 
 // ============================================================================
 // 4. 规则匹配逻辑 (Rules Logic)
-// 决定流量如何匹配到对应的策略组
 // ============================================================================
 
 const baseRules = [
@@ -352,15 +351,15 @@ const baseRules = [
   // 3. 金融与加密货币
   `RULE-SET,Crypto,Crypto`,
 
-  // 4. 核心媒体与应用服务 (精确规则匹配)
-  `RULE-SET,Emby,Emby`, 
-  `RULE-SET,Bahamut,Bahamut`,     // 巴哈姆特
-  `RULE-SET,Disney,Disney+`,      // Disney+
+  // 4. 核心媒体与应用服务
+  `RULE-SET,Emby,Emby`,
+  `RULE-SET,Bahamut,Bahamut`,
+  `RULE-SET,Disney,Disney+`,
   `RULE-SET,PrimeVideo,Prime Video`,
   `RULE-SET,TikTok,TikTok`,
   `RULE-SET,Telegram,Telegram`,
   `RULE-SET,Discord,Discord`,
-  
+
   // 5. 微软与苹果服务
   `RULE-SET,Bing,Bing`,
   `RULE-SET,OneDrive,OneDrive`,
@@ -415,7 +414,7 @@ const baseRules = [
 function buildRules({ quicEnabled }) {
   const ruleList = [...baseRules];
   if (!quicEnabled) {
-    // 如果关闭 QUIC，则在最前面插入拦截 UDP 443 的规则，强制 YouTube 等回落 TCP
+    // 如果关闭 QUIC，则在最前面插入拦截 UDP 443 的规则
     ruleList.unshift("AND,((DST-PORT,443),(NETWORK,UDP)),REJECT");
   }
   return ruleList;
@@ -423,8 +422,8 @@ function buildRules({ quicEnabled }) {
 
 
 // ============================================================================
-// 5. 嗅探与 DNS 配置 (Sniffer & DNS) [已修复防泄露]
-// 解决 DNS 污染，提升连接速度
+// 5. 嗅探与 DNS 配置 (Sniffer & DNS) [重点优化]
+// 解决 DNS 污染，提升连接速度，防止 DNS 泄露
 // ============================================================================
 
 const snifferConfig = {
@@ -448,7 +447,7 @@ const snifferConfig = {
 const enhancedFakeIpFilter = [
   "geosite:private",
   "geosite:connectivity-check",
-  "geosite:cn",   // 关键：国内域名直接解析真实 IP，改善国内访问体验
+  "geosite:cn",   // [关键] 国内域名直接解析真实 IP
   "Mijia Cloud",
   "dlg.io.mi.com",
   "localhost.ptlogin2.qq.com",
@@ -470,10 +469,10 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
     "ipv6": ipv6Enabled,
     "prefer-h3": true, // 开启 DoH/H3 优化
     "enhanced-mode": mode,
-    "listen": ":1053", // 建议指定监听端口，避免冲突
+    "listen": ":1053",
     "use-hosts": true,
-    
-    // 1. 默认 DNS (国内)：负责解析国内域名和白名单
+
+    // 1. 默认 DNS (国内)：负责解析国内域名
     "default-nameserver": [
       "223.5.5.5",
       "119.29.29.29"
@@ -482,9 +481,8 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
     ],
-    
+
     // 2. 备用 DNS (国外)：负责解析被污染的域名
-    // 当 nameserver 返回的 IP 属于非 CN 地区时，Clash 会启用 fallback
     "fallback": [
       "https://1.1.1.1/dns-query",
       "https://8.8.8.8/dns-query",
@@ -492,39 +490,29 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
       "tcp://208.67.222.222"
     ],
 
-    // 3. [关键] 核心防泄露机制：Fallback 过滤器
-    // 逻辑：如果 domestic nameserver 返回了国外 IP (通常是污染结果)，则丢弃并使用 fallback
+    // 3. [关键] Fallback 过滤器：防止国内 DNS 抢答污染
+    // 逻辑：如果国内 DNS 返回了非 CN 的 IP，视为污染，强制使用 fallback 结果
     "fallback-filter": {
       "geoip": true,
       "geoip-code": "CN",
-      "ipcidr": [
-        "240.0.0.0/4" // 过滤伪造的保留地址
-      ],
-      "domain": [
-        "+.google.com",
-        "+.facebook.com",
-        "+.twitter.com",
-        "+.youtube.com",
-        "+.netflix.com"
-      ]
+      "ipcidr": [ "240.0.0.0/4" ], // 过滤伪造 IP
+      "domain": [ "+.google.com", "+.facebook.com", "+.twitter.com", "+.youtube.com", "+.netflix.com" ]
     },
 
-    // 4. [Core] 核心增强：Nameserver Policy 分流
-    // 明确指定哪些域名去哪里解析，优先级高于 nameserver/fallback
+    // 4. [Core] 核心分流策略：明确指定域名去向，杜绝泄露
     "nameserver-policy": {
-      // 国内与大厂 CDN -> 阿里/腾讯 (速度快)
+      // 国内大厂、Apple、Steam -> 阿里/腾讯 (CDN 加速)
       "geosite:cn,private,apple,steam,microsoft-cn": [
         "https://dns.alidns.com/dns-query",
         "https://doh.pub/dns-query"
       ],
-      // 所有非国内域名 -> Cloudflare/Google (防污染)
-      // 注意：geolocation-!cn 包含了所有国外域名，不仅仅是 Google/YouTube
+      // 所有非国内域名 -> Cloudflare/Google (彻底防污染)
       "geosite:geolocation-!cn,gfw": [
         "https://1.1.1.1/dns-query",
         "https://8.8.8.8/dns-query"
       ]
     },
-    
+
     "proxy-server-nameserver": [
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
@@ -545,15 +533,14 @@ const dnsConfigFakeIp = buildDnsConfig({
 
 
 // ============================================================================
-// 6. 地理数据库与国家元数据 (Geo & Meta)
-// 定义如何识别节点名称中的国家标识
+// 6. 地理数据库与国家元数据
 // ============================================================================
 
 const geoxURL = {
-  "geoip":   "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat",
+  "geoip":  "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat",
   "geosite": "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat",
-  "mmdb":    "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country.mmdb",
-  "asn":     "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/GeoLite2-ASN.mmdb"
+  "mmdb":   "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country.mmdb",
+  "asn":    "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/GeoLite2-ASN.mmdb"
 };
 
 const countriesMeta = {
@@ -585,32 +572,31 @@ function hasLowCost(config) {
 
 /**
  * 遍历节点，统计各地区数量
- * 使用预编译正则提高性能
  */
 function parseCountries(config) {
   const proxies = config.proxies || [];
   const ispRegex = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i;
   const countryCounts = Object.create(null);
 
-  // 1. 预编译所有国家的正则表达式
+  // 1. 预编译正则
   const compiledRegex = {};
   for (const [country, meta] of Object.entries(countriesMeta)) {
     compiledRegex[country] = new RegExp(meta.pattern.replace(/^\(\?i\)/, ''), 'i');
   }
 
-  // 2. 遍历节点进行匹配
+  // 2. 遍历匹配
   for (const proxy of proxies) {
     const name = proxy.name || '';
-    if (ispRegex.test(name)) continue; // 跳过家宽节点
+    if (ispRegex.test(name)) continue; // 跳过家宽
     for (const [country, regex] of Object.entries(compiledRegex)) {
       if (regex.test(name)) {
         countryCounts[country] = (countryCounts[country] || 0) + 1;
-        break; // 匹配到一个国家后停止
+        break;
       }
     }
   }
 
-  // 3. 格式化结果
+  // 3. 结果格式化
   const result = [];
   for (const [country, count] of Object.entries(countryCounts)) {
     result.push({ country, count });
@@ -619,13 +605,13 @@ function parseCountries(config) {
 }
 
 /**
- * 构建国家代理组配置 (例如 "香港节点", "美国节点")
+ * 构建国家代理组 (如 "香港节点")
  */
 function buildCountryProxyGroups({ countries, landing, loadBalance }) {
   const groups = [];
-  const baseExcludeFilter = "0\\.[0-5]|低倍率|省流|大流量|实验性"; // 排除低倍率
-  const landingExcludeFilter = "(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地"; // 排除家宽
-  const groupType = loadBalance ? "load-balance" : "url-test"; // 负载均衡或自动测速
+  const baseExcludeFilter = "0\\.[0-5]|低倍率|省流|大流量|实验性";
+  const landingExcludeFilter = "(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地";
+  const groupType = loadBalance ? "load-balance" : "url-test";
 
   for (const country of countries) {
     const meta = countriesMeta[country];
@@ -654,8 +640,7 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
 }
 
 /**
- * 组装所有代理策略组 (Proxy Groups)
- * 决定 UI 上显示哪些按钮
+ * 组装 UI 显示的所有策略组
  */
 function buildProxyGroups({
   landing, countries, countryProxyGroups, lowCost,
@@ -664,18 +649,18 @@ function buildProxyGroups({
   const hasTW = countries.includes("台湾");
   const hasHK = countries.includes("香港");
 
-  // 前置代理选择器 (仅当开启落地模式时)
+  // 前置代理选择器
   const frontProxySelector = landing
     ? defaultSelector.filter(name => name !== PROXY_GROUPS.LANDING && name !== PROXY_GROUPS.FALLBACK)
     : [];
 
-  // Bilibili 优化：如果有港台节点，则优先使用直连、台湾或香港
+  // Bilibili 优化：优先直连或港台
   const bilibiliProxies = (hasTW && hasHK)
     ? [PROXY_GROUPS.DIRECT, "台湾节点", "香港节点"]
     : defaultProxiesDirect;
-  
-  // Bahamut 优化：巴哈姆特仅限台湾 IP，如果存在台湾分组，则强行置顶
-  const bahamutProxies = hasTW 
+
+  // Bahamut 优化：仅限台湾
+  const bahamutProxies = hasTW
     ? ["台湾节点", ...mediaProxies]
     : mediaProxies;
 
@@ -684,7 +669,7 @@ function buildProxyGroups({
     { "name": PROXY_GROUPS.SELECT, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Proxy.png", "type": "select", "proxies": defaultSelector },
     { "name": PROXY_GROUPS.MANUAL, "icon": "https://gcore.jsdelivr.net/gh/shindgewongxj/WHATSINStash@master/icon/select.png", "include-all": true, "type": "select" },
 
-    // --- 落地/前置分组 (可选) ---
+    // --- 落地/前置分组 ---
     (landing) ? {
       "name": "前置代理", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Area.png", "type": "select", "include-all": true,
       "exclude-filter": "(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地", "proxies": frontProxySelector
@@ -700,11 +685,11 @@ function buildProxyGroups({
       "proxies": defaultFallback, "interval": 180, "tolerance": 20, "lazy": false
     },
 
-    // --- AI 与 生产力 (独立分流) ---
+    // --- 应用分流 ---
     { "name": "AI服务", "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/chatgpt.png", "type": "select", "proxies": defaultProxies },
     { "name": "Discord", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Discord.png", "type": "select", "proxies": defaultProxies },
 
-    // --- 媒体与流媒体 (独立分流) ---
+    // --- 流媒体 ---
     { "name": "YouTube", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/YouTube.png", "type": "select", "proxies": mediaProxies },
     { "name": "Netflix", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Netflix.png", "type": "select", "proxies": mediaProxies },
     { "name": "Disney+", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Disney.png", "type": "select", "proxies": mediaProxies },
@@ -715,7 +700,7 @@ function buildProxyGroups({
     { "name": "Emby", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Emby.png", "type": "select", "proxies": mediaProxies },
     { "name": "Telegram", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Telegram.png", "type": "select", "proxies": defaultProxies },
     { "name": "TikTok", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/TikTok.png", "type": "select", "proxies": defaultProxies },
-    
+
     // --- 其他服务 ---
     { "name": "Crypto", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Cryptocurrency_3.png", "type": "select", "proxies": defaultProxies },
     { "name": "GitHub", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/GitHub.png", "type": "select", "proxies": defaultProxies },
@@ -737,7 +722,7 @@ function buildProxyGroups({
       "name": PROXY_GROUPS.LOW_COST, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Lab.png", "type": "url-test", "url": "https://cp.cloudflare.com/generate_204",
       "include-all": true, "filter": "(?i)0\\.[0-5]|低倍率|省流|大流量|实验性"
     } : null,
-    
+
     // --- 自动生成的国家分组 ---
     ...countryProxyGroups
   ].filter(Boolean);
@@ -749,20 +734,20 @@ function buildProxyGroups({
 // ============================================================================
 
 function main(config) {
-  // 1. 安全检查：防止空配置导致脚本崩溃
+  // 1. 安全检查
   if (!config || !config.proxies) {
     console.log("Error: Config is empty or no proxies found.");
     return config || {};
   }
   const resultConfig = { proxies: config.proxies };
 
-  // 2. 预处理：统计国家节点数量与类型
+  // 2. 预处理
   const countryInfo = parseCountries(resultConfig);
   const lowCost = hasLowCost(resultConfig);
   const countryGroupNames = getCountryGroupNames(countryInfo, countryThreshold);
   const countries = stripNodeSuffix(countryGroupNames);
 
-  // 3. 准备基础节点列表 (defaultProxies, mediaProxies 等)
+  // 3. 准备基础节点列表
   const {
     defaultProxies, defaultProxiesDirect, defaultSelector, defaultFallback, mediaProxies
   } = buildBaseLists({ landing, lowCost, countryGroupNames });
@@ -788,7 +773,6 @@ function main(config) {
   const finalRules = buildRules({ quicEnabled });
 
   // 7. 注入完整配置文件 (Full Config Mode)
-  // 当参数 full=true 时，生成包含 inbound/tproxy 等的完整配置，不仅限于 rule/proxy
   if (fullConfig) Object.assign(resultConfig, {
     "mixed-port": 7890,
     "redir-port": 7892,
