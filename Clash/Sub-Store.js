@@ -362,6 +362,7 @@ const baseRules = [
     "GEOSITE,Spotify,Spotify",
     "GEOSITE,Bilibili,Bilibili",
     "GEOSITE,category-pt,PT站点",
+
     "GEOIP,Netflix,Netflix,no-resolve",
     "GEOIP,Telegram,Telegram,no-resolve",
     
