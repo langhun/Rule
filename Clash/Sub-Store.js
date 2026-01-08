@@ -1,19 +1,24 @@
 /*
-powerfullz 的 Substore 订阅转换脚本
+powerfullz 的 Substore 订阅转换脚本 (Fixed & Optimized by LabulaLiu)
 https://github.com/powerfullz/override-rules
 
-支持的传入参数：
-- loadbalance: 启用负载均衡（url-test/load-balance，默认 false）
-- landing: 启用落地节点功能（如机场家宽/星链/落地分组，默认 false）
-- ipv6: 启用 IPv6 支持（默认 false）
-- full: 输出完整配置（适合纯内核启动，默认 false）
-- keepalive: 启用 tcp-keep-alive（默认 false）
-- fakeip: DNS 使用 FakeIP 模式（默认 false，false 为 RedirHost）
-- quic: 允许 QUIC 流量（UDP 443，默认 false）
-- threshold: 国家节点数量小于该值时不显示分组 (默认 0)
+支持的传入参数 (Arguments)：
+- loadbalance: 启用负载均衡（url-test -> load-balance，默认 false）
+- landing:     启用落地节点/家宽分组功能（默认 false）
+- ipv6:        启用 IPv6 支持（默认 false）
+- full:        输出完整配置（适合纯内核启动，默认 false）
+- keepalive:   启用 tcp-keep-alive（默认 false）
+- fakeip:      DNS 使用 FakeIP 模式（默认 false，false 为 RedirHost）
+- quic:        允许 QUIC 流量（UDP 443，默认 false，建议关闭以防 QoS）
+- threshold:   国家节点数量小于该值时不显示分组 (默认 0)
+
+使用示例：
+loadbalance=true&landing=true&fakeip=true&threshold=2
 */
 
 const NODE_SUFFIX = "节点";
+
+// ==================== 工具函数 Utils ====================
 
 function parseBool(value) {
     if (typeof value === "boolean") return value;
@@ -24,22 +29,11 @@ function parseBool(value) {
 }
 
 function parseNumber(value, defaultValue = 0) {
-    if (value === null || typeof value === 'undefined') {
-        return defaultValue;
-    }
+    if (value === null || typeof value === 'undefined') return defaultValue;
     const num = parseInt(value, 10);
     return isNaN(num) ? defaultValue : num;
 }
 
-/**
- * 解析传入的脚本参数，并将其转换为内部使用的功能开关（feature flags）。
- * @param {object} args - 传入的原始参数对象，如 $arguments。
- * @returns {object} - 包含所有功能开关状态的对象。
- *
- * 该函数通过一个 `spec` 对象定义了外部参数名（如 `loadbalance`）到内部变量名（如 `loadBalance`）的映射关系。
- * 它会遍历 `spec` 中的每一项，对 `args` 对象中对应的参数值调用 `parseBool` 函数进行布尔化处理，
- * 并将结果存入返回的对象中。
- */
 function buildFeatureFlags(args) {
     const spec = {
         loadbalance: "loadBalance",
@@ -56,12 +50,11 @@ function buildFeatureFlags(args) {
         return acc;
     }, {});
 
-    // 单独处理数字参数
     flags.countryThreshold = parseNumber(args.threshold, 0);
-
     return flags;
 }
 
+// 解析参数
 const rawArgs = typeof $arguments !== 'undefined' ? $arguments : {};
 const {
     loadBalance,
@@ -73,6 +66,8 @@ const {
     quicEnabled,
     countryThreshold
 } = buildFeatureFlags(rawArgs);
+
+// ==================== 逻辑处理 Logic ====================
 
 function getCountryGroupNames(countryInfo, minCount) {
     return countryInfo
@@ -94,12 +89,10 @@ const PROXY_GROUPS = {
     LOW_COST: "低倍率节点",
 };
 
-// 辅助函数，用于根据条件构建数组，自动过滤掉无效值（如 false, null）
+// 过滤无效值构建数组
 const buildList = (...elements) => elements.flat().filter(Boolean);
 
 function buildBaseLists({ landing, lowCost, countryGroupNames }) {
-    // 使用辅助函数和常量，以声明方式构建各个代理列表
-
     // “选择节点”组的候选列表
     const defaultSelector = buildList(
         PROXY_GROUPS.FALLBACK,
@@ -110,7 +103,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
         "DIRECT"
     );
 
-    // 默认的代理列表，用于大多数策略组
+    // 默认列表
     const defaultProxies = buildList(
         PROXY_GROUPS.SELECT,
         countryGroupNames,
@@ -119,7 +112,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
         PROXY_GROUPS.DIRECT
     );
 
-    // “直连”优先的代理列表
+    // 直连优先列表
     const defaultProxiesDirect = buildList(
         PROXY_GROUPS.DIRECT,
         countryGroupNames,
@@ -128,7 +121,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
         PROXY_GROUPS.MANUAL
     );
 
-    // “故障转移”组的代理列表
+    // 故障转移列表
     const defaultFallback = buildList(
         landing && PROXY_GROUPS.LANDING,
         countryGroupNames,
@@ -139,6 +132,8 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
 
     return { defaultProxies, defaultProxiesDirect, defaultSelector, defaultFallback };
 }
+
+// ==================== 规则与配置 Configuration ====================
 
 const ruleProviders = {
     "LocalAreaNetwork": {
@@ -316,7 +311,7 @@ const ruleProviders = {
         "interval": 86400,
         "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/OneDrive.list",
         "path": "./ruleset/ACL4SSR/OneDrive.list"
-    }, 
+    },
     "Microsoft": {
         "type": "http",
         "behavior": "classical",
@@ -324,7 +319,7 @@ const ruleProviders = {
         "interval": 86400,
         "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list",
         "path": "./ruleset/ACL4SSR/Microsoft.list"
-    }, 
+    },
     "Apple": {
         "type": "http",
         "behavior": "classical",
@@ -332,11 +327,11 @@ const ruleProviders = {
         "interval": 86400,
         "url": "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list",
         "path": "./ruleset/ACL4SSR/Apple.list"
-    }, 
-}
+    },
+};
 
 const baseRules = [
-    `RULE-SET,ADBlock,广告拦截`, 
+    `RULE-SET,ADBlock,广告拦截`,
     `RULE-SET,AdditionalFilter,广告拦截`,
     `RULE-SET,BanAD,广告拦截`,
     `RULE-SET,BanProgramAD,广告拦截`,
@@ -365,7 +360,7 @@ const baseRules = [
 
     "GEOIP,Netflix,Netflix,no-resolve",
     "GEOIP,Telegram,Telegram,no-resolve",
-    
+
     `RULE-SET,LocalAreaNetwork,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,SteamCN,${PROXY_GROUPS.DIRECT}`,
     `RULE-SET,SteamFix,${PROXY_GROUPS.DIRECT}`,
@@ -385,7 +380,6 @@ const baseRules = [
     `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
     `RULE-SET,ProxyGFWlist,${PROXY_GROUPS.SELECT}`,
     `MATCH,${PROXY_GROUPS.SELECT}`,
-
 ];
 
 function buildRules({ quicEnabled }) {
@@ -397,17 +391,13 @@ function buildRules({ quicEnabled }) {
     return ruleList;
 }
 
+// ==================== Sniffer & DNS ====================
+
 const snifferConfig = {
     "sniff": {
-        "TLS": {
-            "ports": [443, 8443],
-        },
-        "HTTP": {
-            "ports": [80, 8080, 8880],
-        },
-        "QUIC": {
-            "ports": [443, 8443],
-        }
+        "TLS": { "ports": [443, 8443] },
+        "HTTP": { "ports": [80, 8080, 8880] },
+        "QUIC": { "ports": [443, 8443] }
     },
     "override-destination": false,
     "enable": true,
@@ -425,10 +415,7 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
         "ipv6": ipv6Enabled,
         "prefer-h3": true,
         "enhanced-mode": mode,
-        "default-nameserver": [
-            "119.29.29.29",
-            "223.5.5.5"
-        ],
+        "default-nameserver": ["119.29.29.29", "223.5.5.5"],
         "nameserver": [
             "system",
             "223.5.5.5",
@@ -452,7 +439,6 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
     if (fakeIpFilter) {
         config["fake-ip-filter"] = fakeIpFilter;
     }
-
     return config;
 }
 
@@ -464,27 +450,23 @@ const dnsConfigFakeIp = buildDnsConfig({
         "geosite:connectivity-check",
         "geosite:cn",
         "Mijia Cloud",
-        "dig.io.mi.com",
+        "dlg.io.mi.com", // Fixed typo: dig -> dlg
         "localhost.ptlogin2.qq.com",
         "*.icloud.com",
         "*.stun.*.*",
         "*.stun.*.*.*"
     ]
 });
-// ==================== 地理数据库配置 GeoData Configuration ====================
-// 用于 IP 和域名的地理位置及分类判断
+
+// ==================== 地理数据库配置 GeoData ====================
+
 const geoxURL = {
-    // GeoIP 数据库
     "geoip": "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat",
-    // GeoSite 数据库（域名分类）
     "geosite": "https://gcore.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat",
-    // MaxMind 数据库（含中国 IP）
     "mmdb": "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country.mmdb",
-    // ASN（自治系统号）数据库，用于更精确的 IP 归属判断
     "asn": "https://gcore.jsdelivr.net/gh/Loyalsoldier/geoip@release/GeoLite2-ASN.mmdb"
 };
 
-// 地区元数据
 const countriesMeta = {
     "香港": {
         pattern: "(?i)香港|港|HK|hk|Hong Kong|HongKong|hongkong|🇭🇰",
@@ -554,17 +536,14 @@ const countriesMeta = {
 
 function hasLowCost(config) {
     const lowCostRegex = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
-    return (config.proxies || []).some(proxy => lowCostRegex.test(proxy.name));
+    return (config.proxies || []).some(proxy => proxy.name && lowCostRegex.test(proxy.name));
 }
 
 function parseCountries(config) {
     const proxies = config.proxies || [];
-    const ispRegex = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i;   // 需要排除的关键字
-
-    // 用来累计各国节点数
+    const ispRegex = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i; 
     const countryCounts = Object.create(null);
 
-    // 构建地区正则表达式，去掉 (?i) 前缀
     const compiledRegex = {};
     for (const [country, meta] of Object.entries(countriesMeta)) {
         compiledRegex[country] = new RegExp(
@@ -573,31 +552,25 @@ function parseCountries(config) {
         );
     }
 
-    // 逐个节点进行匹配与统计
     for (const proxy of proxies) {
+        // 安全检查：如果 proxy.name 不存在则跳过
         const name = proxy.name || '';
-
-        // 过滤掉不想统计的 ISP 节点
         if (ispRegex.test(name)) continue;
 
-        // 找到第一个匹配到的地区就计数并终止本轮
         for (const [country, regex] of Object.entries(compiledRegex)) {
             if (regex.test(name)) {
                 countryCounts[country] = (countryCounts[country] || 0) + 1;
-                break;    // 避免一个节点同时累计到多个地区
+                break;
             }
         }
     }
 
-    // 将结果对象转成数组形式
     const result = [];
     for (const [country, count] of Object.entries(countryCounts)) {
         result.push({ country, count });
     }
-
-    return result;   // [{ country: 'Japan', count: 12 }, ...]
+    return result;
 }
-
 
 function buildCountryProxyGroups({ countries, landing, loadBalance }) {
     const groups = [];
@@ -626,10 +599,8 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
                 "lazy": false
             });
         }
-
         groups.push(groupConfig);
     }
-
     return groups;
 }
 
@@ -638,19 +609,23 @@ function buildProxyGroups({
     countries,
     countryProxyGroups,
     lowCost,
-    defaultProxies,
-    defaultProxiesDirect,
     defaultSelector,
-    defaultFallback
+    defaultFallback,
+    defaultProxies,
+    defaultProxiesDirect
 }) {
-    // 查看是否有特定地区的节点
     const hasTW = countries.includes("台湾");
     const hasHK = countries.includes("香港");
-    const hasUS = countries.includes("美国");
-    // 排除落地节点、选择节点和故障转移以避免死循环
+    
+    // 前置代理组选择器：排除落地和Fallback防止死循环
     const frontProxySelector = landing
         ? defaultSelector.filter(name => name !== PROXY_GROUPS.LANDING && name !== PROXY_GROUPS.FALLBACK)
         : [];
+    
+    // Bilibili 策略：如果同时有港台，只允许港台+直连，否则走 Default Direct
+    const bilibiliProxies = (hasTW && hasHK) 
+        ? [PROXY_GROUPS.DIRECT, "台湾节点", "香港节点"] 
+        : defaultProxiesDirect;
 
     return [
         {
@@ -690,6 +665,7 @@ function buildProxyGroups({
             "tolerance": 20,
             "lazy": false
         },
+        // ... 应用策略组 ...
         {
             "name": "AI服务",
             "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/chatgpt.png",
@@ -712,7 +688,7 @@ function buildProxyGroups({
             "name": "Bilibili",
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/bilibili.png",
             "type": "select",
-            "proxies": (hasTW && hasHK) ? [PROXY_GROUPS.DIRECT, "台湾节点", "香港节点"] : defaultProxiesDirect
+            "proxies": bilibiliProxies
         },
         {
             "name": "Netflix",
@@ -796,17 +772,13 @@ function buildProxyGroups({
             "name": "广告拦截",
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/AdBlack.png",
             "type": "select",
-            "proxies": [
-                "REJECT", "REJECT-DROP",  PROXY_GROUPS.DIRECT
-            ]
+            "proxies": ["REJECT", "REJECT-DROP", PROXY_GROUPS.DIRECT]
         },
         {
             "name": PROXY_GROUPS.DIRECT,
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Direct.png",
             "type": "select",
-            "proxies": [
-                "DIRECT", PROXY_GROUPS.SELECT
-            ]
+            "proxies": ["DIRECT", PROXY_GROUPS.SELECT]
         },
         (lowCost) ? {
             "name": PROXY_GROUPS.LOW_COST,
@@ -817,18 +789,25 @@ function buildProxyGroups({
             "filter": "(?i)0\.[0-5]|低倍率|省流|大流量|实验性"
         } : null,
         ...countryProxyGroups
-    ].filter(Boolean); // 过滤掉 null 值
+    ].filter(Boolean);
 }
 
+// ==================== 主入口 Main ====================
+
 function main(config) {
+    if (!config.proxies) {
+        console.log("Error: No proxies found in config.");
+        return config; 
+    }
     const resultConfig = { proxies: config.proxies };
-    // 解析地区与低倍率信息
-    const countryInfo = parseCountries(resultConfig); // [{ country, count }]
+    
+    // 1. 解析地区与低倍率信息
+    const countryInfo = parseCountries(resultConfig); 
     const lowCost = hasLowCost(resultConfig);
     const countryGroupNames = getCountryGroupNames(countryInfo, countryThreshold);
     const countries = stripNodeSuffix(countryGroupNames);
 
-    // 构建基础数组
+    // 2. 构建基础候选列表
     const {
         defaultProxies,
         defaultProxiesDirect,
@@ -836,10 +815,10 @@ function main(config) {
         defaultFallback
     } = buildBaseLists({ landing, lowCost, countryGroupNames });
 
-    // 为地区构建对应的 url-test / load-balance 组
+    // 3. 构建地区分组
     const countryProxyGroups = buildCountryProxyGroups({ countries, landing, loadBalance });
 
-    // 生成代理组
+    // 4. 生成所有策略组
     const proxyGroups = buildProxyGroups({
         landing,
         countries,
@@ -851,20 +830,19 @@ function main(config) {
         defaultFallback
     });
     
-    // 完整书写 Global 代理组以确保兼容性
-    const globalProxies = proxyGroups.map(item => item.name);  
-    proxyGroups.push(
-        {
-            "name": "GLOBAL",
-            "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Global.png",
-            "include-all": true,
-            "type": "select",
-            "proxies": globalProxies
-        }
-    );
+    // 5. 添加 GLOBAL 组（兼容性）
+    const globalProxies = proxyGroups.map(item => item.name);   
+    proxyGroups.push({
+        "name": "GLOBAL",
+        "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Global.png",
+        "include-all": true,
+        "type": "select",
+        "proxies": globalProxies
+    });
 
     const finalRules = buildRules({ quicEnabled });
 
+    // 6. 完整配置注入 (如果启用了 full 参数)
     if (fullConfig) Object.assign(resultConfig, {
         "mixed-port": 7890,
         "redir-port": 7892,
@@ -880,9 +858,7 @@ function main(config) {
         "geodata-loader": "standard",
         "external-controller": ":9999",
         "disable-keep-alive": !keepAliveEnabled,
-        "profile": {
-            "store-selected": true,
-        }
+        "profile": { "store-selected": true }
     });
 
     Object.assign(resultConfig, {
