@@ -7,6 +7,9 @@
  * 3. 针对 Emby/Plex 的独立媒体分组
  * 4. 内置高性能规则集与去广告
  * * [推荐参数]
+ * 日常使用推荐参数(关闭负载均衡，保持 IP 稳定)。
+ * loadbalance=false&landing=true&fakeip=true&keepalive=true
+ * 下载/跑分推荐参数(开启负载均衡，拉满带宽)。
  * loadbalance=true&landing=true&fakeip=true&keepalive=true
  */
 
@@ -24,7 +27,6 @@ const PROXY_GROUPS = {
   DIRECT:   "全球直连",
   LANDING:  "落地节点",
   LOW_COST: "低倍率节点",
-  EMBY:     "Emby媒体"
 };
 
 /**
