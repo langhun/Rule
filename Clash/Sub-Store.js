@@ -791,7 +791,7 @@ function buildProxyGroups({
             "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Download.png",
             "type": "select",
             "proxies": [
-                PROXY_GROUPS.DIRECT, PROXY_GROUPS.SELECT
+                defaultProxiesDirect, defaultProxies
             ]
         },
         {
