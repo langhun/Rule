@@ -634,6 +634,7 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
 }
 
 function buildProxyGroups({
+    loadBalance,
     landing,
     countries,
     countryProxyGroups,
@@ -657,7 +658,7 @@ function buildProxyGroups({
             "name": PROXY_GROUPS.SELECT,
             "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Proxy.png",
             "type": "select",
-            "proxies": defaultSelector
+            "proxies": defaultSelector,loadBalance
         },
         {
             "name": PROXY_GROUPS.MANUAL,
@@ -841,6 +842,7 @@ function main(config) {
 
     // 生成代理组
     const proxyGroups = buildProxyGroups({
+        loadBalance,
         landing,
         countries,
         countryProxyGroups,
