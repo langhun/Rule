@@ -336,7 +336,7 @@ const ruleProviders = {
 }
 
 const baseRules = [
-    `RULE-SET,ADBlock,广告拦截`,
+    `RULE-SET,ADBlock,广告拦截`, 
     `RULE-SET,AdditionalFilter,广告拦截`,
     `RULE-SET,BanAD,广告拦截`,
     `RULE-SET,BanProgramAD,广告拦截`,
@@ -361,7 +361,7 @@ const baseRules = [
     "GEOSITE,Netflix,Netflix",
     "GEOSITE,Spotify,Spotify",
     "GEOSITE,Bilibili,Bilibili",
-    "GEOSITE,PT站点,category-pt",
+    "GEOSITE,category-pt,PT站点",
     "GEOIP,Netflix,Netflix,no-resolve",
     "GEOIP,Telegram,Telegram,no-resolve",
     
