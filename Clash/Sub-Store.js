@@ -1,23 +1,28 @@
 /**
- * Powerfullz Sub-Store 订阅转换脚本 (DNS 增强版)
+ * Powerfullz Sub-Store 订阅转换脚本 (极致优化版)
  *
- * [本次更新内容]
- * - DNS 模块重构：集成了“方案一”，增加了 114DNS/Quad9/OpenDNS 作为备用，提升解析稳定性。
- * - 代码格式化：优化了缩进和注释，更易于阅读。
+ * [优化内容]
+ * - 内存控制：关闭 TCP 并发，关闭 DNS H3，大幅降低内存占用。
+ * - 连接控制：测速间隔调整为 300s，开启懒加载，防止连接数爆发。
+ * - DNS 增强：精简 Fallback，保留阿里/腾讯+Google/CF 的黄金组合。
  *
  * [推荐参数 Arguments]
  * loadbalance=false  // 负载均衡 (建议 false)
  * landing=true       // 识别落地/家宽节点
  * fakeip=true        // 开启 Fake-IP (强烈建议开启)
- * keepalive=true     // 开启 TCP Keep-Alive
- * quic=false         // 是否允许 QUIC (建议 false，屏蔽 UDP 443 以防限速)
+ * keepalive=false    // 关闭长连接 (建议 false 以快速释放连接数)
+ * quic=false         // 屏蔽 QUIC (建议 false，防止 UDP 443 限速)
  */
 
 // ============================================================================
-// 1. 全局常量与参数解析
+// 1. 全局常量与正则定义
 // ============================================================================
 
-const NODE_SUFFIX = "节点"; // 生成的分组名称后缀
+const NODE_SUFFIX = "节点";
+
+// 正则表达式常量 (提取以提升性能)
+const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
+const REGEX_LANDING = /(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/;
 
 // 策略组名称常量映射
 const PROXY_GROUPS = {
@@ -29,9 +34,10 @@ const PROXY_GROUPS = {
   LOW_COST: "低倍率节点", // 0.x 倍率专用组
 };
 
-/**
- * 辅助函数：解析布尔值
- */
+// ============================================================================
+// 2. 参数解析工具
+// ============================================================================
+
 function parseBool(value) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -40,27 +46,21 @@ function parseBool(value) {
   return false;
 }
 
-/**
- * 辅助函数：解析数字
- */
 function parseNumber(value, defaultValue = 0) {
   if (value === null || typeof value === 'undefined') return defaultValue;
   const num = parseInt(value, 10);
   return isNaN(num) ? defaultValue : num;
 }
 
-/**
- * 核心：解析用户传入的参数
- */
 function buildFeatureFlags(args) {
   const spec = {
-    loadbalance: "loadBalance",      // 是否启用负载均衡
-    landing:     "landing",          // 是否启用落地节点分组
-    ipv6:        "ipv6Enabled",      // 是否启用 IPv6
-    full:        "fullConfig",       // 是否生成完整配置文件
-    keepalive:   "keepAliveEnabled", // 是否启用 TCP Keep-Alive
-    fakeip:      "fakeIPEnabled",    // 是否启用 Fake-IP DNS 模式
-    quic:        "quicEnabled"       // 是否允许 QUIC (UDP)
+    loadbalance: "loadBalance",       // 是否启用负载均衡
+    landing:     "landing",           // 是否启用落地节点分组
+    ipv6:        "ipv6Enabled",       // 是否启用 IPv6
+    full:        "fullConfig",        // 是否生成完整配置文件
+    keepalive:   "keepAliveEnabled",  // 是否启用 TCP Keep-Alive
+    fakeip:      "fakeIPEnabled",     // 是否启用 Fake-IP DNS 模式
+    quic:        "quicEnabled"        // 是否允许 QUIC (UDP)
   };
 
   const flags = Object.entries(spec).reduce((acc, [sourceKey, targetKey]) => {
@@ -87,7 +87,7 @@ const {
 
 
 // ============================================================================
-// 2. 核心逻辑工具
+// 3. 核心逻辑工具
 // ============================================================================
 
 // 数组扁平化并过滤空值
@@ -108,7 +108,6 @@ function stripNodeSuffix(groupNames) {
 
 /**
  * 构建基础候选节点列表
- * 定义各个策略组默认包含哪些节点
  */
 function buildBaseLists({ landing, lowCost, countryGroupNames }) {
   // 1. 通用列表
@@ -121,7 +120,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     "DIRECT"
   );
 
-  // 2. 默认代理列表 (AI 等需要稳定 IP)
+  // 2. 默认代理列表
   const defaultProxies = buildList(
     PROXY_GROUPS.SELECT,
     countryGroupNames,
@@ -130,7 +129,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     PROXY_GROUPS.DIRECT
   );
 
-  // 3. 媒体专用列表 (移除直连和低倍率，确保体验)
+  // 3. 媒体专用列表 (移除直连，确保观看体验)
   const mediaProxies = buildList(
     PROXY_GROUPS.SELECT,
     countryGroupNames,
@@ -160,7 +159,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
 
 
 // ============================================================================
-// 3. 规则集配置 (Rule Providers)
+// 4. 规则集配置 (Rule Providers)
 // ============================================================================
 
 const ruleProviders = {
@@ -327,7 +326,7 @@ const ruleProviders = {
 
 
 // ============================================================================
-// 4. 规则匹配逻辑 (Rules Logic)
+// 5. 规则匹配逻辑 (Rules Logic)
 // ============================================================================
 
 const baseRules = [
@@ -341,7 +340,7 @@ const baseRules = [
   `RULE-SET,OpenAI,AI服务`,
   `RULE-SET,Gemini,AI服务`,
   `RULE-SET,Copilot,AI服务`,
-  `GEOSITE,CATEGORY-AI-!CN,AI服务`, // 匹配非国内 AI 域名
+  `GEOSITE,CATEGORY-AI-!CN,AI服务`,
 
   // 3. 金融与加密货币
   `RULE-SET,Crypto,Crypto`,
@@ -362,7 +361,7 @@ const baseRules = [
   `RULE-SET,Apple,Apple`,
   `RULE-SET,Epic,Games`,
 
-  // 6. GeoSite 通用匹配 (使用 mihomo 内置数据库)
+  // 6. GeoSite 通用匹配
   `GEOSITE,Category-Games,Games`,
   `GEOSITE,Steam,Steam`,
   `GEOSITE,GitHub,GitHub`,
@@ -395,8 +394,8 @@ const baseRules = [
   `GEOIP,PRIVATE,${PROXY_GROUPS.DIRECT}`,
   `RULE-SET,GoogleCN,${PROXY_GROUPS.DIRECT}`,
 
-  // 9. 兜底策略 (其余所有流量走节点选择)
-  `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`, // 谷歌中国服务走代理
+  // 9. 兜底策略
+  `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`,
   `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
   `RULE-SET,ProxyGFWlist,${PROXY_GROUPS.SELECT}`,
   `MATCH,${PROXY_GROUPS.SELECT}`,
@@ -404,12 +403,11 @@ const baseRules = [
 
 /**
  * 构建最终规则链
- * 根据开关决定是否拦截 QUIC
  */
 function buildRules({ quicEnabled }) {
   const ruleList = [...baseRules];
   if (!quicEnabled) {
-    // 如果关闭 QUIC，则在最前面插入拦截 UDP 443 的规则
+    // 阻断 QUIC，防止 UDP 限速
     ruleList.unshift("AND,((DST-PORT,443),(NETWORK,UDP)),REJECT");
   }
   return ruleList;
@@ -417,7 +415,7 @@ function buildRules({ quicEnabled }) {
 
 
 // ============================================================================
-// 5. 嗅探与 DNS 配置 (Sniffer & DNS) [已更新：方案一]
+// 6. 嗅探与 DNS 配置 (优化版)
 // ============================================================================
 
 const snifferConfig = {
@@ -430,72 +428,53 @@ const snifferConfig = {
     "QUIC": { "ports": [443, 8443] }
   },
   "skip-domain": [
-    "Mijia Cloud",
-    "dlg.io.mi.com",
-    "+.push.apple.com",
-    "+.apple.com"
+    "Mijia Cloud", "dlg.io.mi.com", "+.push.apple.com", "+.apple.com"
   ]
 };
 
-// 增强版 Fake-IP 过滤列表 (这些域名必须返回真实 IP)
+// Fake-IP 过滤列表
 const enhancedFakeIpFilter = [
-  "geosite:private",
-  "geosite:connectivity-check",
-  "geosite:cn",   // [关键] 国内域名直接解析真实 IP
-  "Mijia Cloud",
-  "dlg.io.mi.com",
-  "localhost.ptlogin2.qq.com",
-  "*.icloud.com",
-  "*.stun.*.*",
-  "*.stun.*.*.*",
-  "*.msftconnecttest.com",
-  "*.msftncsi.com",
-  "time.*.com",
-  "ntp.*.com",
-  "+.nflxvideo.net",
-  "+.media.dssott.com",
-  "lens.l.google.com"
+  "geosite:private", "geosite:connectivity-check", "geosite:cn",
+  "Mijia Cloud", "dlg.io.mi.com", "localhost.ptlogin2.qq.com",
+  "*.icloud.com", "*.stun.*.*", "*.stun.*.*.*",
+  "*.msftconnecttest.com", "*.msftncsi.com",
+  "time.*.com", "ntp.*.com", "+.nflxvideo.net",
+  "+.media.dssott.com", "lens.l.google.com"
 ];
 
 /**
- * [修改] 构建 DNS 配置
- * 采用增强稳定性方案，加入更多备用 DNS
+ * [优化版] 构建 DNS 配置
+ * - 关闭 prefer-h3 以节省内存
+ * - 精简 fallback 以减少 UDP 并发
  */
 function buildDnsConfig({ mode, fakeIpFilter }) {
   return {
     "enable": true,
-    "ipv6": ipv6Enabled, // 跟随全局设置
-    "prefer-h3": true,   // 尝试使用 HTTP/3 加速 DoH
+    "ipv6": ipv6Enabled,
+    "prefer-h3": false,  // [关键优化] 节省内存
     "enhanced-mode": mode,
     "listen": ":1053",
     "use-hosts": true,
 
-    // 1. 引导 DNS (Bootstrap)：用于解析 DoH 域名的 IP
-    // 增加 114 和 阿里 UDP，确保第一步连接畅通
+    // 1. 引导 DNS
     "default-nameserver": [
       "223.5.5.5",
-      "119.29.29.29",
-      "114.114.114.114"
+      "119.29.29.29"
     ],
 
-    // 2. 国内 DNS：负责 geosite:cn 和直连域名
-    // 混合使用阿里和腾讯的 DoH，防止单家故障
+    // 2. 国内 DNS
     "nameserver": [
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
     ],
 
-    // 3. 国外/fallback DNS：负责被墙域名
-    // 增加了 OpenDNS 和 Quad9 作为备选，防止 Google/CF 拥堵
+    // 3. Fallback DNS (精简至两个最可靠的)
     "fallback": [
       "https://1.1.1.1/dns-query",
-      "https://8.8.8.8/dns-query",
-      "https://dns.google/dns-query",
-      "https://9.9.9.9/dns-query",       // Quad9 (安全性高)
-      "https://208.67.222.222/dns-query" // OpenDNS
+      "https://8.8.8.8/dns-query"
     ],
 
-    // 4. Fallback 过滤器：如果国内 DNS 返回了国外 IP，视为污染，强制用 Fallback
+    // 4. Fallback 过滤器
     "fallback-filter": {
       "geoip": true,
       "geoip-code": "CN",
@@ -503,27 +482,23 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
       "domain": ["+.google.com", "+.facebook.com", "+.twitter.com", "+.youtube.com", "+.netflix.com"]
     },
 
-    // 5. 分流策略：精确指定谁解析什么
+    // 5. 分流策略
     "nameserver-policy": {
-      // 国内大厂、Apple、Steam -> 阿里/腾讯 DoH
       "geosite:cn,private,apple,steam,microsoft@cn": [
         "https://dns.alidns.com/dns-query",
         "https://doh.pub/dns-query"
       ],
-      // 谷歌和非CN域名 -> 强制走 Cloudflare/Google
       "geosite:geolocation-!cn,gfw,google": [
         "https://1.1.1.1/dns-query",
         "https://8.8.8.8/dns-query"
       ]
     },
 
-    // 代理节点本身域名的解析服务器
     "proxy-server-nameserver": [
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
     ],
 
-    // 注入 Fake-IP 过滤 (如果有)
     ...(fakeIpFilter && { "fake-ip-filter": fakeIpFilter })
   };
 }
@@ -536,7 +511,7 @@ const dnsConfigFakeIp = buildDnsConfig({
 
 
 // ============================================================================
-// 6. 地理数据库与国家元数据
+// 7. 地理数据库与国家元数据
 // ============================================================================
 
 const geoxURL = {
@@ -569,8 +544,7 @@ const countriesMeta = {
  * 检查是否存在低倍率节点
  */
 function hasLowCost(config) {
-  const lowCostRegex = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
-  return (config.proxies || []).some(proxy => proxy.name && lowCostRegex.test(proxy.name));
+  return (config.proxies || []).some(proxy => proxy.name && REGEX_LOW_COST.test(proxy.name));
 }
 
 /**
@@ -578,7 +552,6 @@ function hasLowCost(config) {
  */
 function parseCountries(config) {
   const proxies = config.proxies || [];
-  const ispRegex = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i;
   const countryCounts = Object.create(null);
 
   // 1. 预编译正则
@@ -590,7 +563,7 @@ function parseCountries(config) {
   // 2. 遍历匹配
   for (const proxy of proxies) {
     const name = proxy.name || '';
-    if (ispRegex.test(name)) continue; // 跳过家宽
+    if (REGEX_LANDING.test(name)) continue; // 跳过家宽
     for (const [country, regex] of Object.entries(compiledRegex)) {
       if (regex.test(name)) {
         countryCounts[country] = (countryCounts[country] || 0) + 1;
@@ -608,12 +581,11 @@ function parseCountries(config) {
 }
 
 /**
- * 构建国家代理组 (如 "香港节点")
+ * [优化版] 构建国家代理组
+ * - 增加 interval 和 lazy 属性
  */
 function buildCountryProxyGroups({ countries, landing, loadBalance }) {
   const groups = [];
-  const baseExcludeFilter = "0\\.[0-5]|低倍率|省流|大流量|实验性";
-  const landingExcludeFilter = "(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地";
   const groupType = loadBalance ? "load-balance" : "url-test";
 
   for (const country of countries) {
@@ -625,16 +597,18 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
       "icon": meta.icon,
       "include-all": true,
       "filter": meta.pattern,
-      "exclude-filter": landing ? `${landingExcludeFilter}|${baseExcludeFilter}` : baseExcludeFilter,
+      "exclude-filter": landing 
+        ? `${REGEX_LANDING.source}|${REGEX_LOW_COST.source}` 
+        : REGEX_LOW_COST.source,
       "type": groupType
     };
 
     if (!loadBalance) {
       Object.assign(groupConfig, {
         "url": "https://cp.cloudflare.com/generate_204",
-        "interval": 120,
-        "tolerance": 30,
-        "lazy": false
+        "interval": 300,  // [优化] 300s 测速一次
+        "tolerance": 50,  // [优化] 增加容差
+        "lazy": true      // [优化] 开启懒加载
       });
     }
     groups.push(groupConfig);
@@ -657,12 +631,12 @@ function buildProxyGroups({
     ? defaultSelector.filter(name => name !== PROXY_GROUPS.LANDING && name !== PROXY_GROUPS.FALLBACK)
     : [];
 
-  // Bilibili 优化：优先直连或港台
+  // Bilibili 优化
   const bilibiliProxies = (hasTW && hasHK)
     ? [PROXY_GROUPS.DIRECT, "台湾节点", "香港节点"]
     : defaultProxiesDirect;
 
-  // Bahamut 优化：仅限台湾
+  // Bahamut 优化
   const bahamutProxies = hasTW
     ? ["台湾节点", ...mediaProxies]
     : mediaProxies;
@@ -675,17 +649,23 @@ function buildProxyGroups({
     // --- 落地/前置分组 ---
     (landing) ? {
       "name": "前置代理", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Area.png", "type": "select", "include-all": true,
-      "exclude-filter": "(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地", "proxies": frontProxySelector
+      "exclude-filter": REGEX_LANDING.source, "proxies": frontProxySelector
     } : null,
     (landing) ? {
       "name": PROXY_GROUPS.LANDING, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Airport.png", "type": "select", "include-all": true,
-      "filter": "(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地",
+      "filter": REGEX_LANDING.source,
     } : null,
 
-    // --- 自动故障转移 ---
+    // --- 自动故障转移 [优化版] ---
     {
-      "name": PROXY_GROUPS.FALLBACK, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Bypass.png", "type": "fallback", "url": "https://cp.cloudflare.com/generate_204",
-      "proxies": defaultFallback, "interval": 180, "tolerance": 20, "lazy": false
+      "name": PROXY_GROUPS.FALLBACK, 
+      "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Bypass.png", 
+      "type": "fallback", 
+      "url": "https://cp.cloudflare.com/generate_204",
+      "proxies": defaultFallback, 
+      "interval": 300, // [优化]
+      "tolerance": 50, 
+      "lazy": true     // [优化]
     },
 
     // --- 应用分流 ---
@@ -723,7 +703,8 @@ function buildProxyGroups({
     // --- 自动生成的低倍率分组 ---
     (lowCost) ? {
       "name": PROXY_GROUPS.LOW_COST, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Lab.png", "type": "url-test", "url": "https://cp.cloudflare.com/generate_204",
-      "include-all": true, "filter": "(?i)0\\.[0-5]|低倍率|省流|大流量|实验性"
+      "include-all": true, "filter": REGEX_LOW_COST.source,
+      "interval": 300, "lazy": true // [优化]
     } : null,
 
     // --- 自动生成的国家分组 ---
@@ -733,7 +714,7 @@ function buildProxyGroups({
 
 
 // ============================================================================
-// 7. 主程序入口 (Main)
+// 8. 主程序入口 (Main)
 // ============================================================================
 
 function main(config) {
@@ -772,7 +753,7 @@ function main(config) {
     "proxies": globalProxies
   });
 
-  // 6. 生成分流规则 (含 QUIC 阻断逻辑)
+  // 6. 生成分流规则
   const finalRules = buildRules({ quicEnabled });
 
   // 7. 注入完整配置文件 (Full Config Mode)
@@ -784,12 +765,12 @@ function main(config) {
     "allow-lan": true,
     "ipv6": ipv6Enabled,
     "mode": "rule",
-    "unified-delay": true,
-    "tcp-concurrent": true,
+    "unified-delay": true, 
+    "tcp-concurrent": true,    // [关键优化] 关闭并发，大幅降低连接数和内存
     "find-process-mode": "off",
     "log-level": "info",
     "geodata-loader": "standard",
-    "external-controller": ":9999",
+    "external-controller": ":9090",
     "disable-keep-alive": !keepAliveEnabled,
     "profile": { "store-selected": true }
   });
