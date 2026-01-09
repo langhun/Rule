@@ -632,8 +632,8 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
     if (!loadBalance) {
       Object.assign(groupConfig, {
         "url": "https://cp.cloudflare.com/generate_204",
-        "interval": 60,
-        "tolerance": 20,
+        "interval": 120,
+        "tolerance": 30,
         "lazy": false
       });
     }
