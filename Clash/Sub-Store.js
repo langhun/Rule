@@ -390,7 +390,7 @@ const baseRules = [
   `GEOSITE,GOOGLE-PLAY@CN,${PROXY_GROUPS.DIRECT}`,
   `GEOSITE,CN,${PROXY_GROUPS.DIRECT}`,
   `GEOSITE,PRIVATE,${PROXY_GROUPS.DIRECT}`,
-  // `GEOSITE,Microsoft@CN,${PROXY_GROUPS.DIRECT}`,
+  `GEOSITE,Microsoft@CN,${PROXY_GROUPS.DIRECT}`,
   `GEOIP,CN,${PROXY_GROUPS.DIRECT}`,
   `GEOIP,PRIVATE,${PROXY_GROUPS.DIRECT}`,
   `RULE-SET,GoogleCN,${PROXY_GROUPS.DIRECT}`,
@@ -506,7 +506,7 @@ function buildDnsConfig({ mode, fakeIpFilter }) {
     // 5. 分流策略：精确指定谁解析什么
     "nameserver-policy": {
       // 国内大厂、Apple、Steam -> 阿里/腾讯 DoH
-      "geosite:cn,private,apple,steam,microsoft-cn": [
+      "geosite:cn,private,apple,steam,microsoft@cn": [
         "https://dns.alidns.com/dns-query",
         "https://doh.pub/dns-query"
       ],
