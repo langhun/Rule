@@ -1,24 +1,18 @@
 /**
- * Powerfullz Sub-Store 订阅转换脚本 (终极优化版)
+ * Powerfullz Sub-Store 订阅转换脚本 (IPv6 增强版)
  *
- * [脚本功能]
- * 1. 自动识别地区节点并生成策略组（支持自定义阈值）。
- * 2. 深度优化内存占用与连接数，适配低性能路由器。
- * 3. 集成去广告、AI分流、流媒体分流等规则。
- * 4. 增强 DNS 配置，防止 DNS 泄露与污染。
+ * [本次更新 - IPv6 专项优化]
+ * 1. 默认开启 IPv6：无需手动传参，脚本默认启用 ipv6=true。
+ * 2. DNS 策略调整：强制 DNS 模块查询 AAAA 记录，解决开启代理后 IPv6 消失的问题。
+ * 3. 内存与连接优化：保持了之前的极致优化（关闭并发、Lazy 模式）。
  *
- * [性能优化详情]
- * - 内存优化：关闭 TCP 并发、关闭 DNS H3、使用 Trie 树存储域名规则。
- * - 连接优化：测速间隔调至 300s，开启懒加载 (Lazy Load)，精简 DNS Fallback。
- * - 逻辑优化：预编译正则表达式，移除无用的全量分组。
- *
- * [推荐参数 (Arguments)]
- * loadbalance=false  // 负载均衡 (建议 false，家用推荐 url-test)
- * landing=true       // 自动识别落地/家宽节点，并将其隔离
- * fakeip=true        // 开启 Fake-IP 模式 (强烈建议开启，加快响应)
- * keepalive=false    // 关闭长连接 (建议 false，快速释放连接数)
- * quic=false         // 屏蔽 QUIC/UDP (建议 false，防止运营商针对 UDP 443 限速)
- * threshold=0        // 国家分组阈值 (例如 0 表示有一个节点就生成分组)
+ * [推荐参数 Arguments]
+ * ipv6=true          // (默认开启) 强制开启 IPv6 支持
+ * loadbalance=false  // 负载均衡 (建议 false)
+ * landing=true       // 识别落地/家宽节点
+ * fakeip=true        // 开启 Fake-IP (强烈建议开启)
+ * keepalive=false    // 关闭长连接
+ * quic=false         // 屏蔽 QUIC
  */
 
 // ============================================================================
@@ -27,11 +21,11 @@
 
 const NODE_SUFFIX = "节点";
 
-// [性能优化] 将正则表达式提取为常量，避免在循环中重复编译
+// [性能优化] 正则表达式常量
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
 const REGEX_LANDING = /(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/;
 
-// 策略组名称常量映射 (防止拼写错误)
+// 策略组名称常量映射
 const PROXY_GROUPS = {
   SELECT:   "节点选择", // 主手动选择
   MANUAL:   "手动切换", // 二级手动选择
@@ -45,20 +39,14 @@ const PROXY_GROUPS = {
 // 2. 参数解析工具
 // ============================================================================
 
-/**
- * 将字符串参数转换为布尔值
- */
-function parseBool(value) {
+function parseBool(value, defaultValue = false) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
     return value.toLowerCase() === "true" || value === "1";
   }
-  return false;
+  return defaultValue;
 }
 
-/**
- * 将参数转换为数字，失败则返回默认值
- */
 function parseNumber(value, defaultValue = 0) {
   if (value === null || typeof value === 'undefined') return defaultValue;
   const num = parseInt(value, 10);
@@ -67,12 +55,15 @@ function parseNumber(value, defaultValue = 0) {
 
 /**
  * 解析 Sub-Store 传递的参数
+ * [优化] IPv6 默认值改为 true
  */
 function buildFeatureFlags(args) {
+  // 从 args 中获取参数，如果没有传，则使用默认值
+  const ipv6Enabled = parseBool(args.ipv6Enabled, true); // [修改] 默认为 true，优先开启 IPv6
+
   const spec = {
     loadbalance: "loadBalance",       // 是否启用负载均衡
     landing:     "landing",           // 是否启用落地节点分组
-    ipv6:        "ipv6Enabled",       // 是否启用 IPv6
     full:        "fullConfig",        // 是否生成完整配置文件
     keepalive:   "keepAliveEnabled",  // 是否启用 TCP Keep-Alive
     fakeip:      "fakeIPEnabled",     // 是否启用 Fake-IP DNS 模式
@@ -80,10 +71,12 @@ function buildFeatureFlags(args) {
   };
 
   const flags = Object.entries(spec).reduce((acc, [sourceKey, targetKey]) => {
-    acc[targetKey] = parseBool(args[sourceKey]) || false;
+    acc[targetKey] = parseBool(args[sourceKey], false);
     return acc;
   }, {});
-
+  
+  // 手动赋值 ipv6
+  flags.ipv6Enabled = ipv6Enabled;
   flags.countryThreshold = parseNumber(args.threshold, 0);
   return flags;
 }
@@ -97,20 +90,17 @@ const {
 
 
 // ============================================================================
-// 3. 核心逻辑工具 (节点处理)
+// 3. 核心逻辑工具
 // ============================================================================
 
-// 辅助：数组扁平化并过滤空值
 const buildList = (...elements) => elements.flat().filter(Boolean);
 
-// 辅助：获取满足数量要求的国家分组名
 function getCountryGroupNames(countryInfo, minCount) {
   return countryInfo
     .filter(item => item.count >= minCount)
     .map(item => item.country + NODE_SUFFIX);
 }
 
-// 辅助：去除分组名称后缀，用于匹配
 function stripNodeSuffix(groupNames) {
   const suffixPattern = new RegExp(`${NODE_SUFFIX}$`);
   return groupNames.map(name => name.replace(suffixPattern, ""));
@@ -118,10 +108,9 @@ function stripNodeSuffix(groupNames) {
 
 /**
  * 构建基础候选节点列表
- * 定义各个功能组默认包含哪些节点集合
  */
 function buildBaseLists({ landing, lowCost, countryGroupNames }) {
-  // 1. 通用列表 (用于节点选择)
+  // 1. 通用列表
   const defaultSelector = buildList(
     PROXY_GROUPS.FALLBACK,
     landing && PROXY_GROUPS.LANDING,
@@ -131,7 +120,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     "DIRECT"
   );
 
-  // 2. 默认代理列表 (用于 AI、Crypto 等需要稳定 IP 的服务)
+  // 2. 默认代理列表
   const defaultProxies = buildList(
     PROXY_GROUPS.SELECT,
     countryGroupNames,
@@ -140,14 +129,14 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     PROXY_GROUPS.DIRECT
   );
 
-  // 3. 媒体专用列表 (移除直连，防止跳到本地流量)
+  // 3. 媒体专用列表
   const mediaProxies = buildList(
     PROXY_GROUPS.SELECT,
     countryGroupNames,
     PROXY_GROUPS.MANUAL
   );
 
-  // 4. 直连优先列表 (用于 PT 下载等，优先 Direct)
+  // 4. 直连优先列表
   const defaultProxiesDirect = buildList(
     PROXY_GROUPS.DIRECT,
     countryGroupNames,
@@ -156,7 +145,7 @@ function buildBaseLists({ landing, lowCost, countryGroupNames }) {
     PROXY_GROUPS.MANUAL
   );
 
-  // 5. 故障转移列表 (用于自动切换)
+  // 5. 故障转移列表
   const defaultFallback = buildList(
     landing && PROXY_GROUPS.LANDING,
     countryGroupNames,
@@ -186,29 +175,29 @@ const ruleProviders = {
     path: "./ruleset/ADBlock.mrs"
   },
   "BanAD": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化] 广告列表多为域名，用 domain 节省内存
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanAD.list",
     path: "./ruleset/ACL4SSR/BanAD.list"
   },
   "BanProgramAD": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/BanProgramAD.list",
     path: "./ruleset/ACL4SSR/BanProgramAD.list"
   },
   "AdditionalFilter": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/ruleset/AdditionalFilter.list",
     path: "./ruleset/powerfullz/AdditionalFilter.list"
   },
 
   // --- 国内与下载 ---
   "ChinaDomain": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化] 纯域名列表
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list",
     path: "./ruleset/ACL4SSR/ChinaDomain.list"
   },
   "ChinaCompanyIp": {
-    type: "http", behavior: "classical", format: "text", interval: 86400, // IP 列表必须用 classical
+    type: "http", behavior: "classical", format: "text", interval: 86400, 
     url: "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/ChinaCompanyIp.list",
     path: "./ruleset/ACL4SSR/ChinaCompanyIp.list"
   },
@@ -218,19 +207,19 @@ const ruleProviders = {
     path: "./ruleset/ACL4SSR/Download.list"
   },
   "ProxyGFWlist": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/ProxyGFWlist.list",
     path: "./ruleset/ACL4SSR/ProxyGFWlist.list"
   },
 
   // --- AI 服务 ---
   "OpenAI": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/openai.yaml",
     path: "./ruleset/MetaCubeX/OpenAI.yaml"
   },
   "Gemini": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/geo/geosite/classical/google-gemini.yaml",
     path: "./ruleset/MetaCubeX/Gemini.yaml"
   },
@@ -242,7 +231,7 @@ const ruleProviders = {
 
   // --- 社交与流媒体 ---
   "Telegram": {
-    type: "http", behavior: "classical", format: "text", interval: 86400, // 包含 IP CIDR
+    type: "http", behavior: "classical", format: "text", interval: 86400,
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list",
     path: "./ruleset/ACL4SSR/Telegram.list"
   },
@@ -264,7 +253,7 @@ const ruleProviders = {
 
   // --- 游戏与厂商 ---
   "SteamCN": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/Ruleset/SteamCN.list",
     path: "./ruleset/ACL4SSR/SteamCN.list"
   },
@@ -279,12 +268,12 @@ const ruleProviders = {
     path: "./ruleset/ACL4SSR/Epic.list"
   },
   "GoogleFCM": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化] 改为 domain
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/GoogleFCM.list",
     path: "./ruleset/ACL4SSR/GoogleFCM.list"
   },
   "GoogleCN": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/GoogleCN.list",
     path: "./ruleset/ACL4SSR/GoogleCN.list"
   },
@@ -304,12 +293,12 @@ const ruleProviders = {
     path: "./ruleset/ACL4SSR/OneDrive.list"
   },
   "Microsoft": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化]
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list",
     path: "./ruleset/ACL4SSR/Microsoft.list"
   },
   "Apple": {
-    type: "http", behavior: "domain", format: "text", interval: 86400, // [优化] 改为 domain
+    type: "http", behavior: "domain", format: "text", interval: 86400, 
     url: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list",
     path: "./ruleset/ACL4SSR/Apple.list"
   }
@@ -321,13 +310,13 @@ const ruleProviders = {
 // ============================================================================
 
 const baseRules = [
-  // 1. 广告拦截 (最高优先级)
+  // 1. 广告拦截
   `RULE-SET,ADBlock,广告拦截`,
   `RULE-SET,AdditionalFilter,广告拦截`,
   `RULE-SET,BanAD,广告拦截`,
   `RULE-SET,BanProgramAD,广告拦截`,
 
-  // 2. AI 服务 (优先匹配，防止被国内规则误杀)
+  // 2. AI 服务
   `RULE-SET,OpenAI,AI服务`,
   `RULE-SET,Gemini,AI服务`,
   `GEOSITE,CATEGORY-AI-!CN,AI服务`,
@@ -335,20 +324,18 @@ const baseRules = [
   // 3. 金融
   `RULE-SET,Crypto,Crypto`,
 
-  // 4. 社交与流媒体
+  // 4. 应用分流
   `RULE-SET,Disney,Disney+`,
   `RULE-SET,TikTok,TikTok`,
   `RULE-SET,Telegram,Telegram`,
   `RULE-SET,Discord,Discord`,
-
-  // 5. 大厂服务
   `RULE-SET,Bing,Bing`,
   `RULE-SET,OneDrive,OneDrive`,
   `RULE-SET,Microsoft,Microsoft`,
   `RULE-SET,Apple,Apple`,
   `RULE-SET,Epic,Games`,
 
-  // 6. GeoSite 通用匹配 (使用 mihomo 内置数据库)
+  // 5. GeoSite 通用匹配
   `GEOSITE,Category-Games,Games`,
   `GEOSITE,Steam,Steam`,
   `GEOSITE,GitHub,GitHub`,
@@ -361,11 +348,11 @@ const baseRules = [
   `GEOSITE,Bilibili,Bilibili`,
   `GEOSITE,category-pt,PT站点`,
 
-  // 7. GeoIP 规则
+  // 6. GeoIP 规则
   `GEOIP,Netflix,Netflix,no-resolve`,
   `GEOIP,Telegram,Telegram,no-resolve`,
 
-  // 8. 白名单直连 (国内域名、局域网等)
+  // 7. 国内直连与局域网
   `RULE-SET,LocalAreaNetwork,${PROXY_GROUPS.DIRECT}`,
   `RULE-SET,SteamCN,${PROXY_GROUPS.DIRECT}`,
   `RULE-SET,SteamFix,${PROXY_GROUPS.DIRECT}`,
@@ -381,7 +368,7 @@ const baseRules = [
   `GEOIP,PRIVATE,${PROXY_GROUPS.DIRECT}`,
   `RULE-SET,GoogleCN,${PROXY_GROUPS.DIRECT}`,
 
-  // 9. 兜底策略
+  // 8. 兜底策略
   `DOMAIN,services.googleapis.cn,${PROXY_GROUPS.SELECT}`,
   `GEOSITE,GFW,${PROXY_GROUPS.SELECT}`,
   `RULE-SET,ProxyGFWlist,${PROXY_GROUPS.SELECT}`,
@@ -394,7 +381,6 @@ const baseRules = [
 function buildRules({ quicEnabled }) {
   const ruleList = [...baseRules];
   if (!quicEnabled) {
-    // 阻断 QUIC/UDP 443，防止被运营商针对性限速
     ruleList.unshift("AND,((DST-PORT,443),(NETWORK,UDP)),REJECT");
   }
   return ruleList;
@@ -402,7 +388,7 @@ function buildRules({ quicEnabled }) {
 
 
 // ============================================================================
-// 6. 嗅探与 DNS 配置 (内存/连接数极致优化)
+// 6. 嗅探与 DNS 配置 (IPv6 核心优化点)
 // ============================================================================
 
 const snifferConfig = {
@@ -431,35 +417,36 @@ const enhancedFakeIpFilter = [
 
 /**
  * 构建 DNS 配置
+ * [IPv6 修复关键]: 必须显式开启 ipv6: true
  */
 function buildDnsConfig({ mode, fakeIpFilter }) {
   return {
     "enable": true,
-    "ipv6": ipv6Enabled,
-    "prefer-h3": false, // [关键优化] 关闭 HTTP/3 DNS，节省内存并提高稳定性
+    "ipv6": ipv6Enabled, // [关键] 跟随全局设置，确保 DNS 请求 AAAA 记录
+    "prefer-h3": false,
     "enhanced-mode": mode,
     "listen": ":1053",
     "use-hosts": true,
 
-    // 1. 引导 DNS (Bootstrap)
+    // 1. 引导 DNS
     "default-nameserver": [
       "223.5.5.5",
       "119.29.29.29"
     ],
 
-    // 2. 国内 DNS (阿里+腾讯)
+    // 2. 国内 DNS
     "nameserver": [
       "https://dns.alidns.com/dns-query",
       "https://doh.pub/dns-query"
     ],
 
-    // 3. Fallback DNS (精简至两个最可靠的，防止 UDP 洪水)
+    // 3. Fallback DNS
     "fallback": [
       "https://1.1.1.1/dns-query",
       "https://8.8.8.8/dns-query"
     ],
 
-    // 4. Fallback 过滤器 (防污染)
+    // 4. Fallback 过滤器
     "fallback-filter": {
       "geoip": true,
       "geoip-code": "CN",
@@ -532,7 +519,6 @@ function parseCountries(config) {
   const proxies = config.proxies || [];
   const countryCounts = Object.create(null);
   
-  // 编译正则缓存
   const compiledRegex = {};
   for (const [country, meta] of Object.entries(countriesMeta)) {
     compiledRegex[country] = new RegExp(meta.pattern.replace(/^\(\?i\)/, ''), 'i');
@@ -540,7 +526,7 @@ function parseCountries(config) {
 
   for (const proxy of proxies) {
     const name = proxy.name || '';
-    if (REGEX_LANDING.test(name)) continue; // 跳过家宽/落地节点
+    if (REGEX_LANDING.test(name)) continue; 
     for (const [country, regex] of Object.entries(compiledRegex)) {
       if (regex.test(name)) {
         countryCounts[country] = (countryCounts[country] || 0) + 1;
@@ -556,10 +542,7 @@ function parseCountries(config) {
   return result;
 }
 
-/**
- * 构建自动生成的国家策略组
- * [关键优化]：设置较长的测速间隔(300s)和 Lazy 模式
- */
+// 构建国家策略组
 function buildCountryProxyGroups({ countries, landing, loadBalance }) {
   const groups = [];
   const groupType = loadBalance ? "load-balance" : "url-test";
@@ -582,9 +565,9 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
     if (!loadBalance) {
       Object.assign(groupConfig, {
         "url": "https://cp.cloudflare.com/generate_204",
-        "interval": 300,  // [优化] 300秒一次测速，大幅减少后台请求
-        "tolerance": 50,  // [优化] 延迟容差 50ms，避免节点频繁跳变
-        "lazy": true      // [优化] 开启懒加载，只有使用该组时才测速
+        "interval": 300,
+        "tolerance": 50,
+        "lazy": true
       });
     }
     groups.push(groupConfig);
@@ -592,19 +575,15 @@ function buildCountryProxyGroups({ countries, landing, loadBalance }) {
   return groups;
 }
 
-/**
- * 组装所有策略组 (UI 显示列表)
- */
+// 组装所有策略组
 function buildProxyGroups({ landing, countries, countryProxyGroups, lowCost, defaultSelector, defaultFallback, defaultProxies, defaultProxiesDirect, mediaProxies }) {
   const hasTW = countries.includes("台湾");
   const hasHK = countries.includes("香港");
   
-  // 提取前置代理 (排除 落地和自动切换组)
   const frontProxySelector = landing 
     ? defaultSelector.filter(name => name !== PROXY_GROUPS.LANDING && name !== PROXY_GROUPS.FALLBACK) 
     : [];
     
-  // Bilibili 专属优化 (优先港台直连)
   const bilibiliProxies = (hasTW && hasHK) 
     ? [PROXY_GROUPS.DIRECT, "台湾节点", "香港节点"] 
     : defaultProxiesDirect;
@@ -613,7 +592,6 @@ function buildProxyGroups({ landing, countries, countryProxyGroups, lowCost, def
     { "name": PROXY_GROUPS.SELECT, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Proxy.png", "type": "select", "proxies": defaultSelector },
     { "name": PROXY_GROUPS.MANUAL, "icon": "https://gcore.jsdelivr.net/gh/shindgewongxj/WHATSINStash@master/icon/select.png", "include-all": true, "type": "select" },
     
-    // --- 落地/前置分组 ---
     (landing) ? { 
       "name": "前置代理", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Area.png", "type": "select", "include-all": true, 
       "exclude-filter": REGEX_LANDING.source, "proxies": frontProxySelector 
@@ -623,19 +601,11 @@ function buildProxyGroups({ landing, countries, countryProxyGroups, lowCost, def
       "filter": REGEX_LANDING.source, 
     } : null,
     
-    // --- 自动切换 (故障转移) ---
     { 
-      "name": PROXY_GROUPS.FALLBACK, 
-      "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Bypass.png", 
-      "type": "fallback", 
-      "url": "https://cp.cloudflare.com/generate_204", 
-      "proxies": defaultFallback, 
-      "interval": 300,  // [优化] 
-      "tolerance": 50, 
-      "lazy": true      // [优化]
+      "name": PROXY_GROUPS.FALLBACK, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Bypass.png", "type": "fallback", "url": "https://cp.cloudflare.com/generate_204", 
+      "proxies": defaultFallback, "interval": 300, "tolerance": 50, "lazy": true 
     },
 
-    // --- 功能性分流 ---
     { "name": "AI服务", "icon": "https://gcore.jsdelivr.net/gh/powerfullz/override-rules@master/icons/chatgpt.png", "type": "select", "proxies": defaultProxies },
     { "name": "Discord", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Discord.png", "type": "select", "proxies": defaultProxies },
     { "name": "YouTube", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/YouTube.png", "type": "select", "proxies": mediaProxies },
@@ -646,7 +616,6 @@ function buildProxyGroups({ landing, countries, countryProxyGroups, lowCost, def
     { "name": "Telegram", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Telegram.png", "type": "select", "proxies": defaultProxies },
     { "name": "TikTok", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/TikTok.png", "type": "select", "proxies": defaultProxies },
     
-    // --- 其他服务 ---
     { "name": "Crypto", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Cryptocurrency_3.png", "type": "select", "proxies": defaultProxies },
     { "name": "GitHub", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/GitHub.png", "type": "select", "proxies": defaultProxies },
     { "name": "Bing", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Microsoft.png", "type": "select", "proxies": defaultProxies },
@@ -658,18 +627,15 @@ function buildProxyGroups({ landing, countries, countryProxyGroups, lowCost, def
     { "name": "Games", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Game.png", "type": "select", "proxies": defaultProxies },
     { "name": "PT站点", "icon": "https://cdn.jsdmirror.com/gh/Koolson/Qure@master/IconSet/Color/Download.png", "type": "select", "proxies": defaultProxiesDirect },
     
-    // --- 拦截与直连 ---
     { "name": "广告拦截", "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/AdBlack.png", "type": "select", "proxies": ["REJECT", "REJECT-DROP", PROXY_GROUPS.DIRECT] },
     { "name": PROXY_GROUPS.DIRECT, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Direct.png", "type": "select", "proxies": ["DIRECT", PROXY_GROUPS.SELECT] },
     
-    // --- 自动生成的低倍率分组 ---
     (lowCost) ? { 
       "name": PROXY_GROUPS.LOW_COST, "icon": "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Lab.png", "type": "url-test", "url": "https://cp.cloudflare.com/generate_204", 
       "include-all": true, "filter": REGEX_LOW_COST.source, 
-      "interval": 300, "lazy": true // [优化]
+      "interval": 300, "lazy": true 
     } : null,
 
-    // --- 自动生成的国家分组 ---
     ...countryProxyGroups
   ].filter(Boolean);
 }
@@ -688,20 +654,20 @@ function main(config) {
 
   const resultConfig = { proxies: config.proxies };
 
-  // 2. 预处理：解析节点信息
+  // 2. 预处理
   const countryInfo = parseCountries(resultConfig);
   const lowCost = hasLowCost(resultConfig);
   const countryGroupNames = getCountryGroupNames(countryInfo, countryThreshold);
   const countries = stripNodeSuffix(countryGroupNames);
 
-  // 3. 准备基础候选列表
+  // 3. 构建列表
   const { defaultProxies, defaultProxiesDirect, defaultSelector, defaultFallback, mediaProxies } = buildBaseLists({ landing, lowCost, countryGroupNames });
   
   // 4. 构建策略组
   const countryProxyGroups = buildCountryProxyGroups({ countries, landing, loadBalance });
   const proxyGroups = buildProxyGroups({ landing, countries, countryProxyGroups, lowCost, defaultProxies, defaultProxiesDirect, defaultSelector, defaultFallback, mediaProxies });
   
-  // 5. 生成规则链
+  // 5. 生成规则
   const finalRules = buildRules({ quicEnabled });
 
   // 6. 注入完整配置 (Full Config)
@@ -711,20 +677,20 @@ function main(config) {
     "tproxy-port": 7893,
     "routing-mark": 7894,
     "allow-lan": true,
-    "ipv6": ipv6Enabled,
+    "ipv6": ipv6Enabled, // [IPv6] 全局开启
     "mode": "rule",
     "unified-delay": true, 
     
     // [关键性能优化]
-    "tcp-concurrent": false,          // 必须关闭并发，否则连接数会爆炸
+    "tcp-concurrent": false,          // [必须关闭] 否则连接数爆炸
     "disable-keep-alive": !keepAliveEnabled, 
-    "keep-alive-interval": 1800,      // 30分钟检查一次长连接，减少唤醒
+    "keep-alive-interval": 1800,      // 30分钟一次心跳
     
     "find-process-mode": "off",
     "log-level": "info",
     "geodata-loader": "standard",
     "external-controller": ":9090",
-    "global-client-fingerprint": "chrome", // 模拟指纹，防止被服务端探测
+    "global-client-fingerprint": "chrome",
     "profile": { "store-selected": true }
   });
 
