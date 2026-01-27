@@ -1,9 +1,9 @@
 /**
- * Powerfullz Sub-Store 订阅增强脚本 (最终修复版)
+ * Powerfullz Sub-Store 订阅增强脚本 (Bing & OneDrive 独立分组版)
  * * [版本特性]
  * 1. 核心修复: 解决了 JavaScript 正则不支持 (?i) 导致的脚本运行错误。
- * 2. 规则全集: 集成 MetaCubeX 高质量规则 (Domain + IP)。
- * 3. 策略整合: Binance 合并入 Crypto 组；独立 PT 下载组 (默认直连)。
+ * 2. 策略独立: Bing 和 OneDrive 现在拥有独立的策略组，不再合并至 Microsoft。
+ * 3. 规则全集: 集成 MetaCubeX 高质量规则 (Domain + IP)。
  * 4. 地区增强: 保留所有自定义地区名称，并补充土耳其、阿根廷等热门区。
  * * [推荐参数 Arguments]
  * ipv6=true        // 强制开启 IPv6 (默认开启)
@@ -19,7 +19,7 @@
 const NODE_SUFFIX = "节点";
 
 // [正则修复] JS中使用 /pattern/i 来表示不区分大小写
-// 在生成 Clash 配置时，我们会自动转换格式
+// 在生成 Clash 配置时，我们会自动转换格式为 (?i)
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
 const REGEX_LANDING = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i;
 
@@ -38,6 +38,8 @@ const GROUPS = {
   APPLE:    "Apple",
   GOOGLE:   "Google",
   MICROSOFT:"Microsoft",
+  BING:     "Bing",     // [独立] Bing
+  ONEDRIVE: "OneDrive", // [独立] OneDrive
   TELEGRAM: "Telegram",
   YOUTUBE:  "YouTube",
   NETFLIX:  "Netflix",
@@ -116,6 +118,16 @@ const ruleProviders = {
     type: "http", behavior: "domain", format: "mrs", interval: 86400,
     url: `${PROVIDERS_BASE_URL}/geosite/category-ai-!cn.mrs`
   },
+  // [独立] Bing 规则
+  "Bing_Domain": {
+    type: "http", behavior: "domain", format: "mrs", interval: 86400,
+    url: `${PROVIDERS_BASE_URL}/geosite/bing.mrs`
+  },
+  // [独立] OneDrive 规则
+  "OneDrive_Domain": {
+    type: "http", behavior: "domain", format: "mrs", interval: 86400,
+    url: `${PROVIDERS_BASE_URL}/geosite/onedrive.mrs`
+  },
   "Binance_Domain": {
     type: "http", behavior: "domain", format: "mrs", interval: 86400,
     url: `${PROVIDERS_BASE_URL}/geosite/binance.mrs`
@@ -135,10 +147,6 @@ const ruleProviders = {
   "Google_Domain": {
     type: "http", behavior: "domain", format: "mrs", interval: 86400,
     url: `${PROVIDERS_BASE_URL}/geosite/google.mrs`
-  },
-  "OneDrive_Domain": {
-    type: "http", behavior: "domain", format: "mrs", interval: 86400,
-    url: `${PROVIDERS_BASE_URL}/geosite/onedrive.mrs`
   },
   "Microsoft_Domain": {
     type: "http", behavior: "domain", format: "mrs", interval: 86400,
@@ -268,8 +276,13 @@ const buildRules = ({ quicEnabled }) => {
     `RULE-SET,Google_Domain,${GROUPS.GOOGLE}`,
     `RULE-SET,Google_IP,${GROUPS.GOOGLE},no-resolve`,
     
-    `RULE-SET,OneDrive_Domain,${GROUPS.MICROSOFT}`,
+    // 独立分组：Bing
+    `RULE-SET,Bing_Domain,${GROUPS.BING}`,
+    // 独立分组：OneDrive
+    `RULE-SET,OneDrive_Domain,${GROUPS.ONEDRIVE}`,
+    // 其余微软服务
     `RULE-SET,Microsoft_Domain,${GROUPS.MICROSOFT}`,
+    
     `RULE-SET,AppleTV_Domain,${GROUPS.APPLE}`,
     `RULE-SET,Apple_Domain,${GROUPS.APPLE}`,
     `RULE-SET,Apple_IP,${GROUPS.APPLE},no-resolve`,
@@ -309,32 +322,32 @@ const buildRules = ({ quicEnabled }) => {
 // 国家地区元数据配置
 const countriesMeta = {
   // --- 用户原始自定义数据 ---
-  "香港": { pattern: "(?i)香港|港|HK|hk|Hong Kong|HongKong|hongkong|🇭🇰", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Hong_Kong.png" },
-  "澳门": { pattern: "(?i)澳门|MO|Macau|🇲🇴", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Macao.png" },
-  "台湾": { pattern: "(?i)台|新北|彰化|TW|Taiwan|🇹🇼", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Taiwan.png" },
-  "狮城": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Singapore.png" },
-  "日本": { pattern: "(?i)日本|川日|东京|大阪|泉日|埼玉|沪日|深日|JP|Japan|🇯🇵", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Japan.png" },
-  "韩国": { pattern: "(?i)KR|Korea|KOR|首尔|韩|韓|🇰🇷", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Korea.png" },
-  "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/United_States.png" },
-  "枫叶": { pattern: "(?i)加拿大|Canada|CA|🇨🇦", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Canada.png" },
-  "英国": { pattern: "(?i)英国|United Kingdom|UK|伦敦|London|🇬🇧", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/United_Kingdom.png" },
-  "袋鼠": { pattern: "(?i)澳洲|澳大利亚|AU|Australia|🇦🇺", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Australia.png" },
-  "德国": { pattern: "(?i)德国|德|DE|Germany|🇩🇪", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Germany.png" },
-  "法国": { pattern: "(?i)法国|法|FR|France|🇫🇷", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/France.png" },
-  "毛子": { pattern: "(?i)俄罗斯|俄|RU|Russia|🇷🇺", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Russia.png" },
-  "泰国": { pattern: "(?i)泰国|泰|TH|Thailand|🇹🇭", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Thailand.png" },
-  "印度": { pattern: "(?i)印度|IN|India|🇮🇳", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/India.png" },
-  "大马": { pattern: "(?i)马来西亚|马来|MY|Malaysia|🇲🇾", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Malaysia.png" },
+  "香港": { pattern: "(?i)香港|港|HK|hk|Hong Kong|HongKong|hongkong|🇭🇰", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Hong_Kong.png" },
+  "澳门": { pattern: "(?i)澳门|MO|Macau|🇲🇴", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Macao.png" },
+  "台湾": { pattern: "(?i)台|新北|彰化|TW|Taiwan|🇹🇼", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Taiwan.png" },
+  "狮城": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Singapore.png" },
+  "日本": { pattern: "(?i)日本|川日|东京|大阪|泉日|埼玉|沪日|深日|JP|Japan|🇯🇵", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Japan.png" },
+  "韩国": { pattern: "(?i)KR|Korea|KOR|首尔|韩|韓|🇰🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Korea.png" },
+  "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/United_States.png" },
+  "枫叶": { pattern: "(?i)加拿大|Canada|CA|🇨🇦", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Canada.png" },
+  "英国": { pattern: "(?i)英国|United Kingdom|UK|伦敦|London|🇬🇧", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/United_Kingdom.png" },
+  "袋鼠": { pattern: "(?i)澳洲|澳大利亚|AU|Australia|🇦🇺", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Australia.png" },
+  "德国": { pattern: "(?i)德国|德|DE|Germany|🇩🇪", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Germany.png" },
+  "法国": { pattern: "(?i)法国|法|FR|France|🇫🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/France.png" },
+  "毛子": { pattern: "(?i)俄罗斯|俄|RU|Russia|🇷🇺", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Russia.png" },
+  "泰国": { pattern: "(?i)泰国|泰|TH|Thailand|🇹🇭", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Thailand.png" },
+  "印度": { pattern: "(?i)印度|IN|India|🇮🇳", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/India.png" },
+  "大马": { pattern: "(?i)马来西亚|马来|MY|Malaysia|🇲🇾", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Malaysia.png" },
 
   // --- 新增热门地区 (低价区/常用节点) ---
-  "土耳其": { pattern: "(?i)土耳其|土|Turkey|TR|🇹🇷", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Turkey.png" },
-  "阿根廷": { pattern: "(?i)阿根廷|Argentina|AR|🇦🇷", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Argentina.png" },
-  "越南": { pattern: "(?i)越南|Vietnam|VN|🇻🇳", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Vietnam.png" },
-  "菲律宾": { pattern: "(?i)菲律宾|Philippines|PH|🇵🇭", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Philippines.png" },
-  "巴西": { pattern: "(?i)巴西|Brazil|BR|🇧🇷", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Brazil.png" },
-  "印尼": { pattern: "(?i)印尼|印度尼西亚|Indonesia|ID|🇮🇩", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Indonesia.png" },
-  "荷兰": { pattern: "(?i)荷兰|Netherlands|NL|🇳🇱", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Netherlands.png" },
-  "意大利": { pattern: "(?i)意大利|Italy|IT|🇮🇹", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Italy.png" },
+  "土耳其": { pattern: "(?i)土耳其|土|Turkey|TR|🇹🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Turkey.png" },
+  "阿根廷": { pattern: "(?i)阿根廷|Argentina|AR|🇦🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Argentina.png" },
+  "越南": { pattern: "(?i)越南|Vietnam|VN|🇻🇳", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Vietnam.png" },
+  "菲律宾": { pattern: "(?i)菲律宾|Philippines|PH|🇵🇭", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Philippines.png" },
+  "巴西": { pattern: "(?i)巴西|Brazil|BR|🇧🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Brazil.png" },
+  "印尼": { pattern: "(?i)印尼|印度尼西亚|Indonesia|ID|🇮🇩", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Indonesia.png" },
+  "荷兰": { pattern: "(?i)荷兰|Netherlands|NL|🇳🇱", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netherlands.png" },
+  "意大利": { pattern: "(?i)意大利|Italy|IT|🇮🇹", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Italy.png" },
 };
 
 /**
@@ -429,7 +442,12 @@ function buildProxyGroups(proxies, countryGroupNames) {
     { name: GROUPS.AI, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/chatgpt.png" },
     { name: GROUPS.TELEGRAM, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png" },
     { name: GROUPS.GOOGLE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/Google.png" },
+    
+    // Microsoft / Bing / OneDrive 独立分组
     { name: GROUPS.MICROSOFT, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png" },
+    { name: GROUPS.BING, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Bing.png" },
+    { name: GROUPS.ONEDRIVE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/OneDrive.png" },
+    
     { name: GROUPS.APPLE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png" },
     
     // 媒体组
