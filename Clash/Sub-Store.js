@@ -1,32 +1,33 @@
 /**
- * Powerfullz Sub-Store 订阅增强脚本 (最终完整版)
- * * [更新日志]
- * 1. 元数据增强：保留全套自定义国家名称，并新增土耳其、阿根廷、越南等热门地区。
- * 2. 策略整合：Binance -> Crypto组；PT下载 -> 独立组(默认直连)。
- * 3. 性能优化：IPv6 优先，DNS 防泄漏，规则集采用 MetaCubeX 二进制格式。
+ * Powerfullz Sub-Store 订阅增强脚本 (最终修复版)
+ * * [版本特性]
+ * 1. 核心修复: 解决了 JavaScript 正则不支持 (?i) 导致的脚本运行错误。
+ * 2. 规则全集: 集成 MetaCubeX 高质量规则 (Domain + IP)。
+ * 3. 策略整合: Binance 合并入 Crypto 组；独立 PT 下载组 (默认直连)。
+ * 4. 地区增强: 保留所有自定义地区名称，并补充土耳其、阿根廷等热门区。
  * * [推荐参数 Arguments]
  * ipv6=true        // 强制开启 IPv6 (默认开启)
  * loadbalance=false // 负载均衡 (建议 false)
  * landing=true     // 自动识别落地/家宽节点
- * fakeip=true      // 开启 Fake-IP (强烈建议开启)
+ * fakeip=true      // 开启 Fake-IP DNS 模式 (强烈建议开启)
  */
 
 // ============================================================================
 // 1. 全局常量定义与参数解析
 // ============================================================================
 
-// 节点名称后缀 (e.g., "香港" -> "香港节点")
 const NODE_SUFFIX = "节点";
 
-// 正则表达式：用于筛选特殊节点
+// [正则修复] JS中使用 /pattern/i 来表示不区分大小写
+// 在生成 Clash 配置时，我们会自动转换格式
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
-const REGEX_LANDING = /(?i)家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/;
+const REGEX_LANDING = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i;
 
-// 核心策略组名称映射表
+// 策略组名称映射
 const GROUPS = {
-  SELECT:   "节点选择", // 主手动选择
-  MANUAL:   "手动切换", // 副手动选择
-  FALLBACK: "自动切换", // 自动测速
+  SELECT:   "节点选择",
+  MANUAL:   "手动切换",
+  FALLBACK: "自动切换",
   DIRECT:   "全球直连",
   LANDING:  "落地节点",
   LOW_COST: "低倍率节点",
@@ -305,9 +306,9 @@ const buildRules = ({ quicEnabled }) => {
 // 4. 策略组生成逻辑 (Proxy Groups)
 // ============================================================================
 
-// 国家地区元数据配置 (全量保留 + 热门新增)
+// 国家地区元数据配置
 const countriesMeta = {
-  // --- 原始数据保留 ---
+  // --- 用户原始自定义数据 ---
   "香港": { pattern: "(?i)香港|港|HK|hk|Hong Kong|HongKong|hongkong|🇭🇰", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Hong_Kong.png" },
   "澳门": { pattern: "(?i)澳门|MO|Macau|🇲🇴", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Macao.png" },
   "台湾": { pattern: "(?i)台|新北|彰化|TW|Taiwan|🇹🇼", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Taiwan.png" },
@@ -336,12 +337,19 @@ const countriesMeta = {
   "意大利": { pattern: "(?i)意大利|Italy|IT|🇮🇹", icon: "https://gcore.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Italy.png" },
 };
 
+/**
+ * 统计国家节点数量
+ * 修复点：安全地剥离 (?i) 前缀以供 JS 正则引擎使用
+ */
 function parseCountries(proxies) {
   const countryCounts = {};
   const compiledRegex = {};
   
+  // 预编译正则：移除字符串中的 (?i) 以兼容 JavaScript
   for (const [country, meta] of Object.entries(countriesMeta)) {
-    compiledRegex[country] = new RegExp(meta.pattern.replace(/^\(\?i\)/, ''), 'i');
+    // 替换掉开头的 (?i)
+    const cleanPattern = meta.pattern.replace(/^\(\?i\)/, '');
+    compiledRegex[country] = new RegExp(cleanPattern, 'i'); // 使用 JS 标准的 i 标志
   }
 
   for (const proxy of proxies) {
@@ -360,6 +368,10 @@ function parseCountries(proxies) {
     .map(([country]) => `${country}${NODE_SUFFIX}`);
 }
 
+/**
+ * 构建所有策略组
+ * 修复点：在生成 filter 字符串时，手动添加 (?i) 以供 Clash 使用
+ */
 function buildProxyGroups(proxies, countryGroupNames) {
   const { landing, loadBalance, lowCost: hasLowCostNodes } = FLAGS;
   
@@ -378,13 +390,19 @@ function buildProxyGroups(proxies, countryGroupNames) {
   const countryGroups = countryGroupNames.map(groupName => {
     const country = groupName.replace(NODE_SUFFIX, "");
     const meta = countriesMeta[country];
+    
+    // 构造排除正则：Clash 需要 (?i)
+    const excludeFilter = landing 
+      ? `(?i)${REGEX_LANDING.source}|${REGEX_LOW_COST.source}` 
+      : `(?i)${REGEX_LOW_COST.source}`;
+
     return {
       name: groupName,
       type: loadBalance ? "load-balance" : "url-test",
       icon: meta ? meta.icon : undefined,
       "include-all": true,
-      filter: meta ? meta.pattern : undefined,
-      "exclude-filter": landing ? `${REGEX_LANDING.source}|${REGEX_LOW_COST.source}` : REGEX_LOW_COST.source,
+      filter: meta ? meta.pattern : undefined, // meta.pattern 中已包含 (?i)，直接使用
+      "exclude-filter": excludeFilter,
       interval: 300, tolerance: 50, lazy: true, url: "https://cp.cloudflare.com/generate_204"
     };
   });
@@ -407,14 +425,14 @@ function buildProxyGroups(proxies, countryGroupNames) {
       url: "https://cp.cloudflare.com/generate_204", interval: 300, tolerance: 50, lazy: true
     },
     
-    // 软件与服务
+    // 应用组
     { name: GROUPS.AI, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/chatgpt.png" },
     { name: GROUPS.TELEGRAM, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png" },
     { name: GROUPS.GOOGLE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/Google.png" },
     { name: GROUPS.MICROSOFT, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png" },
     { name: GROUPS.APPLE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png" },
     
-    // 流媒体
+    // 媒体组
     { name: GROUPS.YOUTUBE, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/YouTube.png" },
     { name: GROUPS.NETFLIX, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png" },
     { name: GROUPS.DISNEY, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Disney.png" },
@@ -452,7 +470,7 @@ function buildProxyGroups(proxies, countryGroupNames) {
   if (landing) {
     functionalGroups.push({
       name: GROUPS.LANDING, type: "select", "include-all": true,
-      filter: REGEX_LANDING.source,
+      filter: `(?i)${REGEX_LANDING.source}`, // 修复: 拼接字符串给 Clash
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Airport.png"
     });
   }
@@ -460,7 +478,7 @@ function buildProxyGroups(proxies, countryGroupNames) {
   if (hasLowCostNodes) {
     functionalGroups.push({
       name: GROUPS.LOW_COST, type: "url-test", "include-all": true,
-      filter: REGEX_LOW_COST.source,
+      filter: `(?i)${REGEX_LOW_COST.source}`, // 修复: 拼接字符串给 Clash
       interval: 300, lazy: true,
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Lab.png"
     });
