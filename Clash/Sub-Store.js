@@ -632,12 +632,12 @@ function main(config) {
       }
     },
     
-    "geodata-mode": true,
-    "geox-url": {
-      geoip: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geoip.dat",
-      geosite: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geosite.dat",
-      mmdb: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb"
-    }
+  //  "geodata-mode": true,
+  //  "geox-url": {
+  //    geoip: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geoip.dat",
+  //    geosite: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geosite.dat",
+  //    mmdb: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb"
+  //  }
   };
 
   if (FLAGS.fullConfig) {
