@@ -1,9 +1,9 @@
 /**
- * Powerfullz Sub-Store 订阅增强脚本 (Bing & OneDrive 独立分组版)
+ * Powerfullz Sub-Store 订阅增强脚本 (Speedtest 独立分组版)
  * * [版本特性]
  * 1. 核心修复: 解决了 JavaScript 正则不支持 (?i) 导致的脚本运行错误。
- * 2. 策略独立: Bing 和 OneDrive 现在拥有独立的策略组，不再合并至 Microsoft。
- * 3. 规则全集: 集成 MetaCubeX 高质量规则 (Domain + IP)。
+ * 2. 策略新增: 增加 Speedtest 独立分组，可自由选择直连或代理测速。
+ * 3. 策略独立: Bing 和 OneDrive 独立分组；Binance -> Crypto 组；PT 下载 -> 独立组。
  * 4. 地区增强: 保留所有自定义地区名称，并补充土耳其、阿根廷等热门区。
  * * [推荐参数 Arguments]
  * ipv6=true        // 强制开启 IPv6 (默认开启)
@@ -49,6 +49,7 @@ const GROUPS = {
   STEAM:    "Steam",
   GAMES:    "Games",
   PT:       "PT下载",   // PT 专用
+  SPEEDTEST:"Speedtest",// [新增] 测速专用
   ADS:      "广告拦截"
 };
 
@@ -299,7 +300,8 @@ const buildRules = ({ quicEnabled }) => {
     
     `RULE-SET,SteamCN,${GROUPS.DIRECT}`,
     `RULE-SET,Epic,${GROUPS.GAMES}`,
-    `RULE-SET,Speedtest_Domain,${GROUPS.DIRECT}`, 
+    // [新增] 测速 -> Speedtest 分组
+    `RULE-SET,Speedtest_Domain,${GROUPS.SPEEDTEST}`, 
     `RULE-SET,PayPal_Domain,${GROUPS.DIRECT}`,
 
     // 6. 区域逻辑
@@ -470,6 +472,13 @@ function buildProxyGroups(proxies, countryGroupNames) {
       name: GROUPS.PT, type: "select", 
       proxies: ["DIRECT", GROUPS.SELECT], 
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Download.png" 
+    },
+    
+    // [新增] Speedtest 测速分组
+    { 
+      name: GROUPS.SPEEDTEST, type: "select", 
+      proxies: allProxies, 
+      icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Speedtest.png" 
     },
 
     // 广告拦截
