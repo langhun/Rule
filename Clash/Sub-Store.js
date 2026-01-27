@@ -577,7 +577,7 @@ function buildDnsConfig() {
     
     // DNS 分流
     "nameserver-policy": {
-      "geosite:cn,private,apple,steam,microsoft@cn": [
+      "private,apple,steam,microsoft@cn": [
         "https://dns.alidns.com/dns-query", 
         "https://doh.pub/dns-query"
       ],
