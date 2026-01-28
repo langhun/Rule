@@ -1,17 +1,19 @@
 /**
- * Powerfullz Sub-Store 订阅增强脚本 (策略定制版)
- * * [版本特性]
- * 1. 默认策略调整: 
- * - Bing, Apple, PT, 测速 -> 默认 [全球直连]
- * - Crypto -> 默认 [日本节点] (若存在)
- * 2. 核心修复: 解决了 JavaScript 正则不支持 (?i) 导致的脚本运行错误。
- * 3. 策略独立: Bing, OneDrive, Speedtest 均独立分组。
- * 4. 地区增强: 保留所有自定义地区名称，并补充土耳其、阿根廷等热门区。
- * * [推荐参数 Arguments]
- * ipv6=true        // 强制开启 IPv6 (默认开启)
- * loadbalance=false // 负载均衡 (建议 false)
- * landing=true     // 自动识别落地/家宽节点
- * fakeip=true      // 开启 Fake-IP DNS 模式 (强烈建议开启)
+ * Sub-Store 订阅增强脚本 (策略定制 & 深度优化版)
+ *
+ * [脚本核心功能]
+ * 1. 动态策略生成：自动识别节点地区，并生成对应的自动测速分组。
+ * 2. 定制化路由：
+ * - Crypto (加密货币) -> 优先自动选择 [日本节点]，若无则走节点选择。
+ * - Apple/Bing/PT/Speedtest -> 默认 [全球直连] (DIRECT)，但保留手动切换能力。
+ * 3. 深度兼容修复：自动处理 JS 正则与 Clash YAML 正则格式的差异。
+ * 4. 性能优化：关闭 HTTP/3 DNS，开启 Lazy 懒加载测速，降低内存与连接数占用。
+ *
+ * [推荐参数 (Arguments)]
+ * ipv6=true          // 强制开启 IPv6 (脚本已默认开启)
+ * loadbalance=false  // 负载均衡 (建议 false，家用推荐 url-test)
+ * landing=true       // 自动识别并隔离 落地/家宽/高倍率 节点
+ * fakeip=true        // 开启 Fake-IP 模式 (强烈建议开启以提升响应速度)
  */
 
 // ============================================================================
@@ -20,43 +22,44 @@
 
 const NODE_SUFFIX = "节点";
 
-// [正则修复] JS中使用 /pattern/i 来表示不区分大小写
-// 在生成 Clash 配置时，我们会自动转换格式为 (?i)
+// [正则说明] 
+// JS 中使用 /pattern/i 表示不区分大小写。
+// 在生成 Clash YAML 配置时，我们需要将其转换为字符串格式 `(?i)...` 以便核心识别。
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性/i;
 const REGEX_LANDING = /家宽|家庭|家庭宽带|商宽|商业宽带|星链|Starlink|落地/i;
 
-// 策略组名称映射 (方便统一修改)
+// 策略组名称映射 (集中管理，方便后续统一修改名称)
 const GROUPS = {
-  SELECT:   "节点选择",
-  MANUAL:   "手动切换",
-  FALLBACK: "自动切换",
-  DIRECT:   "全球直连",
-  LANDING:  "落地节点",
-  LOW_COST: "低倍率节点",
+  SELECT:     "节点选择",
+  MANUAL:     "手动切换",
+  FALLBACK:   "自动切换",
+  DIRECT:     "全球直连",
+  LANDING:    "落地节点",
+  LOW_COST:   "低倍率节点",
   
   // 应用分组
-  AI:       "AI服务",
-  CRYPTO:   "Crypto",   // [定制] 默认日本
-  APPLE:    "Apple",    // [定制] 默认直连
-  GOOGLE:   "Google",
-  MICROSOFT:"Microsoft",
-  BING:     "Bing",     // [定制] 默认直连
-  ONEDRIVE: "OneDrive",
-  TELEGRAM: "Telegram",
-  YOUTUBE:  "YouTube",
-  NETFLIX:  "Netflix",
-  DISNEY:   "Disney+",
-  SPOTIFY:  "Spotify",
-  TIKTOK:   "TikTok",
-  STEAM:    "Steam",
-  GAMES:    "Games",
-  PT:       "PT下载",   // [定制] 默认直连
-  SPEEDTEST:"Speedtest",// [定制] 默认直连
-  ADS:      "广告拦截"
+  AI:         "AI服务",
+  CRYPTO:     "Crypto",     // [定制] 默认日本
+  APPLE:      "Apple",      // [定制] 默认直连
+  GOOGLE:     "Google",
+  MICROSOFT:  "Microsoft",
+  BING:       "Bing",       // [定制] 默认直连
+  ONEDRIVE:   "OneDrive",
+  TELEGRAM:   "Telegram",
+  YOUTUBE:    "YouTube",
+  NETFLIX:    "Netflix",
+  DISNEY:     "Disney+",
+  SPOTIFY:    "Spotify",
+  TIKTOK:     "TikTok",
+  STEAM:      "Steam",
+  GAMES:      "Games",
+  PT:         "PT下载",     // [定制] 默认直连
+  SPEEDTEST:  "Speedtest",  // [定制] 默认直连
+  ADS:        "广告拦截"
 };
 
 /**
- * 解析参数工具函数: 布尔值
+ * 工具函数：解析布尔值参数
  */
 function parseBool(value, defaultValue = false) {
   if (typeof value === "boolean") return value;
@@ -67,7 +70,7 @@ function parseBool(value, defaultValue = false) {
 }
 
 /**
- * 解析参数工具函数: 数值
+ * 工具函数：解析数值参数
  */
 function parseNumber(value, defaultValue = 0) {
   if (value === null || typeof value === 'undefined') return defaultValue;
@@ -79,6 +82,7 @@ function parseNumber(value, defaultValue = 0) {
  * 构建功能开关 (Feature Flags)
  */
 function buildFeatureFlags(args) {
+  // 默认开启 IPv6，除非用户显式关闭
   const ipv6Enabled = parseBool(args.ipv6Enabled, true);
 
   const spec = {
@@ -100,6 +104,7 @@ function buildFeatureFlags(args) {
   return flags;
 }
 
+// 获取 Sub-Store 传入的参数
 const rawArgs = typeof $arguments !== 'undefined' ? $arguments : {};
 const FLAGS = buildFeatureFlags(rawArgs);
 
@@ -108,6 +113,7 @@ const FLAGS = buildFeatureFlags(rawArgs);
 // 2. 规则集配置 (Rule Providers)
 // ============================================================================
 
+// 使用 MetaCubeX 的规则集，格式为 mrs (二进制)，加载速度快且占用内存小
 const PROVIDERS_BASE_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
 
 const ruleProviders = {
@@ -259,62 +265,68 @@ const ruleProviders = {
 
 const buildRules = ({ quicEnabled }) => {
   const rules = [
-    // 1. QUIC 控制
+    // 1. QUIC 协议控制 (建议屏蔽以防 UDP 限速)
     !quicEnabled ? "AND,((DST-PORT,443),(NETWORK,UDP)),REJECT" : null,
 
     // 2. 广告拦截
     `RULE-SET,ADBlock,${GROUPS.ADS}`,
     
-    // 3. 隐私与局域网
+    // 3. 隐私与局域网 (no-resolve 避免 DNS 污染)
     `RULE-SET,Private_Domain,${GROUPS.DIRECT}`,
     `RULE-SET,Private_IP,${GROUPS.DIRECT},no-resolve`,
 
-    // 4. PT下载
+    // 4. PT下载 (直连)
     `RULE-SET,PT_Domain,${GROUPS.PT}`,
 
     // 5. 应用分流
     `RULE-SET,AI_Domain,${GROUPS.AI}`,
     
-    // Binance -> Crypto
+    // Crypto (Binance 等) -> 优先日本
     `RULE-SET,Binance_Domain,${GROUPS.CRYPTO}`,
     `RULE-SET,Binance_IP,${GROUPS.CRYPTO},no-resolve`,
 
+    // 常用应用
     `RULE-SET,GitHub_Domain,${GROUPS.SELECT}`,
     `RULE-SET,YouTube_Domain,${GROUPS.YOUTUBE}`,
     `RULE-SET,Google_Domain,${GROUPS.GOOGLE}`,
     `RULE-SET,Google_IP,${GROUPS.GOOGLE},no-resolve`,
     
-    // 独立分组
+    // 独立分组 (微软系)
     `RULE-SET,Bing_Domain,${GROUPS.BING}`,
     `RULE-SET,OneDrive_Domain,${GROUPS.ONEDRIVE}`,
     `RULE-SET,Microsoft_Domain,${GROUPS.MICROSOFT}`,
     
+    // 苹果服务 (Apple TV + Apple)
     `RULE-SET,AppleTV_Domain,${GROUPS.APPLE}`,
     `RULE-SET,Apple_Domain,${GROUPS.APPLE}`,
     `RULE-SET,Apple_IP,${GROUPS.APPLE},no-resolve`,
 
+    // 社交软件
     `RULE-SET,Telegram_Domain,${GROUPS.TELEGRAM}`,
     `RULE-SET,Telegram_IP,${GROUPS.TELEGRAM},no-resolve`,
     `RULE-SET,Twitter_Domain,${GROUPS.SELECT}`,
     `RULE-SET,Twitter_IP,${GROUPS.SELECT},no-resolve`,
     `RULE-SET,TikTok_Domain,${GROUPS.TIKTOK}`,
+
+    // 流媒体
     `RULE-SET,Netflix_Domain,${GROUPS.NETFLIX}`,
     `RULE-SET,Netflix_IP,${GROUPS.NETFLIX},no-resolve`,
     `RULE-SET,Disney_Domain,${GROUPS.DISNEY}`,
     `RULE-SET,Spotify_Domain,${GROUPS.SPOTIFY}`,
     
+    // 游戏与支付
     `RULE-SET,SteamCN,${GROUPS.DIRECT}`,
     `RULE-SET,Epic,${GROUPS.GAMES}`,
     `RULE-SET,Speedtest_Domain,${GROUPS.SPEEDTEST}`, 
     `RULE-SET,PayPal_Domain,${GROUPS.DIRECT}`,
 
-    // 6. 区域逻辑
+    // 6. 区域规则 (非CN走代理，CN走直连)
     `RULE-SET,Geolocation_Not_CN,${GROUPS.SELECT}`,
     `RULE-SET,CN_Domain,${GROUPS.DIRECT}`,
     `RULE-SET,Direct,${GROUPS.DIRECT}`,
     `RULE-SET,CN_IP,${GROUPS.DIRECT},no-resolve`,
 
-    // 7. 兜底
+    // 7. 兜底策略
     `MATCH,${GROUPS.SELECT}`
   ];
 
@@ -326,9 +338,9 @@ const buildRules = ({ quicEnabled }) => {
 // 4. 策略组生成逻辑 (Proxy Groups)
 // ============================================================================
 
-// 国家地区元数据配置
+// 国家地区元数据 (正则 + 图标)
 const countriesMeta = {
-  // --- 用户原始自定义数据 ---
+  // --- 常见地区 ---
   "香港": { pattern: "(?i)香港|港|HK|hk|Hong Kong|HongKong|hongkong|🇭🇰", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Hong_Kong.png" },
   "澳门": { pattern: "(?i)澳门|MO|Macau|🇲🇴", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Macao.png" },
   "台湾": { pattern: "(?i)台|新北|彰化|TW|Taiwan|🇹🇼", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Taiwan.png" },
@@ -346,7 +358,7 @@ const countriesMeta = {
   "印度": { pattern: "(?i)印度|IN|India|🇮🇳", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/India.png" },
   "大马": { pattern: "(?i)马来西亚|马来|MY|Malaysia|🇲🇾", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Malaysia.png" },
 
-  // --- 新增热门地区 ---
+  // --- 补充地区 (土耳其/阿根廷等低价区) ---
   "土耳其": { pattern: "(?i)土耳其|土|Turkey|TR|🇹🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Turkey.png" },
   "阿根廷": { pattern: "(?i)阿根廷|Argentina|AR|🇦🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Argentina.png" },
   "越南": { pattern: "(?i)越南|Vietnam|VN|🇻🇳", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Vietnam.png" },
@@ -358,13 +370,13 @@ const countriesMeta = {
 };
 
 /**
- * 统计国家节点数量
+ * 统计节点地区，返回存在的地区组名列表
  */
 function parseCountries(proxies) {
   const countryCounts = {};
   const compiledRegex = {};
   
-  // 预编译正则：移除字符串中的 (?i) 以兼容 JavaScript
+  // 预编译正则：移除字符串中的 (?i) 以兼容 JS 引擎
   for (const [country, meta] of Object.entries(countriesMeta)) {
     const cleanPattern = meta.pattern.replace(/^\(\?i\)/, '');
     compiledRegex[country] = new RegExp(cleanPattern, 'i');
@@ -372,7 +384,7 @@ function parseCountries(proxies) {
 
   for (const proxy of proxies) {
     const name = proxy.name || '';
-    if (REGEX_LANDING.test(name)) continue;
+    if (REGEX_LANDING.test(name)) continue; // 跳过落地/家宽节点
     for (const [country, regex] of Object.entries(compiledRegex)) {
       if (regex.test(name)) {
         countryCounts[country] = (countryCounts[country] || 0) + 1;
@@ -381,18 +393,19 @@ function parseCountries(proxies) {
     }
   }
 
+  // 过滤出节点数大于阈值的地区
   return Object.entries(countryCounts)
     .filter(([, count]) => count > FLAGS.countryThreshold)
     .map(([country]) => `${country}${NODE_SUFFIX}`);
 }
 
 /**
- * 构建所有策略组 (核心逻辑)
+ * 构建所有策略组
  */
 function buildProxyGroups(proxies, countryGroupNames) {
   const { landing, loadBalance, lowCost: hasLowCostNodes } = FLAGS;
   
-  // 基础候选列表
+  // 1. 基础候选列表 (包含所有自动组 + 手动组)
   const allProxies = [
     GROUPS.FALLBACK,
     landing ? GROUPS.LANDING : null,
@@ -402,16 +415,16 @@ function buildProxyGroups(proxies, countryGroupNames) {
     "DIRECT"
   ].filter(Boolean);
 
-  // [定制] 直连优先的候选列表 (Bing, Apple, Speedtest, PT)
-  // 逻辑: "DIRECT" 放第一位，"节点选择" 放第二位以便手动切换
+  // 2. [定制逻辑] 默认直连的候选列表
+  // 原理：将 "DIRECT" 放在第一位，若不手动选择其他，则流量默认走直连
   const directFirstProxies = [
     "DIRECT", 
     GROUPS.SELECT, 
     ...allProxies.filter(p => p !== "DIRECT" && p !== GROUPS.SELECT)
   ];
 
-  // [定制] Crypto 专用候选列表 (日本优先)
-  // 逻辑: 查找名称包含“日本”的组，置于首位
+  // 3. [定制逻辑] Crypto 优先寻找日本节点
+  // 原理：在地区组中查找含“日本”的组名，若存在，将其置于首位
   const japanGroupName = countryGroupNames.find(n => n.includes("日本"));
   let cryptoProxies = [...allProxies];
   if (japanGroupName) {
@@ -421,12 +434,14 @@ function buildProxyGroups(proxies, countryGroupNames) {
     ];
   }
 
+  // 4. 媒体专用列表 (不包含直连，避免流量跑流量)
   const mediaProxies = [GROUPS.SELECT, ...countryGroupNames, GROUPS.MANUAL];
 
-  // 1. 自动生成国家策略组
+  // --- 生成自动国家分组 ---
   const countryGroups = countryGroupNames.map(groupName => {
     const country = groupName.replace(NODE_SUFFIX, "");
     const meta = countriesMeta[country];
+    // 排除过滤逻辑：如果是落地组开启，则排除落地节点；始终排除低倍率节点
     const excludeFilter = landing 
       ? `(?i)${REGEX_LANDING.source}|${REGEX_LOW_COST.source}` 
       : `(?i)${REGEX_LOW_COST.source}`;
@@ -442,9 +457,9 @@ function buildProxyGroups(proxies, countryGroupNames) {
     };
   });
 
-  // 2. 生成固定功能策略组
+  // --- 生成固定功能策略组 ---
   const functionalGroups = [
-    // --- 核心控制 ---
+    // 核心控制组
     { 
       name: GROUPS.SELECT, type: "select", 
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png",
@@ -461,61 +476,59 @@ function buildProxyGroups(proxies, countryGroupNames) {
       url: "https://cp.cloudflare.com/generate_204", interval: 300, tolerance: 50, lazy: true
     },
     
-    // --- 应用组 ---
+    // 综合应用组
     { name: GROUPS.AI, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/chatgpt.png" },
     { name: GROUPS.TELEGRAM, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png" },
     { name: GROUPS.GOOGLE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/Google.png" },
     
-    // Microsoft / Bing / OneDrive
+    // 微软系 (Bing 独立)
     { name: GROUPS.MICROSOFT, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png" },
-    
-    // [定制] Bing 默认直连
     { 
       name: GROUPS.BING, type: "select", 
-      proxies: directFirstProxies, 
+      proxies: directFirstProxies, // [默认直连]
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Bing.png" 
     },
     { name: GROUPS.ONEDRIVE, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/OneDrive.png" },
     
-    // [定制] Apple 默认直连
+    // 苹果系 (独立且默认直连)
     { 
       name: GROUPS.APPLE, type: "select", 
-      proxies: directFirstProxies, 
+      proxies: directFirstProxies, // [默认直连]
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png" 
     },
     
-    // --- 媒体组 ---
+    // 媒体组
     { name: GROUPS.YOUTUBE, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/YouTube.png" },
     { name: GROUPS.NETFLIX, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png" },
     { name: GROUPS.DISNEY, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Disney.png" },
     { name: GROUPS.SPOTIFY, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png" },
     { name: GROUPS.TIKTOK, type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok.png" },
     
-    // --- 游戏与金融 ---
+    // 游戏与金融
     { name: GROUPS.GAMES, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Game.png" },
     
-    // [定制] Crypto 默认日本 (若有)
+    // Crypto (默认日本)
     { 
       name: GROUPS.CRYPTO, type: "select", 
-      proxies: cryptoProxies, 
+      proxies: cryptoProxies, // [默认日本]
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cryptocurrency_3.png" 
     },
     
-    // [定制] PT 下载 默认直连
+    // PT 下载 (默认直连)
     { 
       name: GROUPS.PT, type: "select", 
       proxies: directFirstProxies, 
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Download.png" 
     },
     
-    // [定制] Speedtest 默认直连
+    // Speedtest (默认直连)
     { 
       name: GROUPS.SPEEDTEST, type: "select", 
       proxies: directFirstProxies, 
       icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Speedtest.png" 
     },
 
-    // 广告拦截
+    // 广告拦截与直连
     { 
       name: GROUPS.ADS, type: "select", 
       proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT], 
@@ -528,6 +541,7 @@ function buildProxyGroups(proxies, countryGroupNames) {
     }
   ];
 
+  // 动态追加可选分组
   if (landing) {
     functionalGroups.push({
       name: GROUPS.LANDING, type: "select", "include-all": true,
@@ -559,7 +573,7 @@ function buildDnsConfig() {
   return {
     enable: true,
     ipv6: ipv6Enabled,
-    "prefer-h3": true,
+    "prefer-h3": false, // [性能优化] 设为 false 以保持内存稳定
     "enhanced-mode": fakeIPEnabled ? "fake-ip" : "redir-host",
     listen: ":1053",
     "use-hosts": true,
@@ -574,13 +588,14 @@ function buildDnsConfig() {
       "https://1.1.1.1/dns-query",
       "https://8.8.8.8/dns-query"
     ],
+    // 防止 Fake-IP 模式下返回国外 IP 导致访问国内变慢
     "fallback-filter": {
       geoip: true,
       "geoip-code": "CN",
       ipcidr: ["240.0.0.0/4"]
     },
     
-    // DNS 分流
+    // DNS 分流策略：指定域名使用指定 DNS
     "nameserver-policy": {
       "private,apple,steam,microsoft@cn": [
         "https://dns.alidns.com/dns-query", 
@@ -623,8 +638,9 @@ function main(config) {
     ipv6: FLAGS.ipv6Enabled,
     "allow-lan": true,
     "unified-delay": true,
-    "tcp-concurrent": false,
+    "tcp-concurrent": false, // [性能优化] 关闭并发
     
+    // 嗅探器配置 (解决 DNS 污染和 IP 识别问题)
     sniffer: {
       enable: true,
       "force-dns-mapping": true,
@@ -636,13 +652,6 @@ function main(config) {
         QUIC: { ports: [443, 8443] }
       }
     },
-    
-  //  "geodata-mode": true,
-  //  "geox-url": {
-  //    geoip: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geoip-lite.dat",
-  //    geosite: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geosite-lite.dat",
-  //    mmdb: "https://ghfast.top/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country-lite.mmdb"
-  //  }
   };
 
   if (FLAGS.fullConfig) {
