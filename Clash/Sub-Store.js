@@ -1,17 +1,17 @@
 /**
- * ============================================================================
- * Sub-Store 终极策略增强脚本 V5.3 (Fix Google Group Error)
- * ============================================================================
- * * [更新日志]
- * - 修复: 补充遗漏的 GOOGLE 策略组定义，解决 "proxy group missing name" 报错。
- * - 优化: 调整策略组显示顺序。
+ * ==================================================================================
+ * Sub-Store 终极策略增强脚本 V5.5 (Pure Emoji Edition)
+ * ==================================================================================
  *
- * * [核心功能]
- * 1. 动态拓扑：自动识别节点地区，生成对应的自动测速分组。
- * 2. 智能路由：
- * - Crypto -> 优先锁定 [日本节点] (低延迟)。
- * - Apple/Bing/PT/Speedtest -> 默认 [全球直连]。
- * 3. 性能压榨：关闭 TCP 并发 & DNS H3，全链路 Lazy 懒加载。
+ * [版本特性]
+ * 1. 纯净无图：移除所有外部图片资源引用，加载更滑丝，零网络依赖。
+ * 2. 全局图标：
+ * - 功能组使用 Emoji 标识 (🚀/💰/🍎)。
+ * - 地区组自动匹配国旗 Emoji (🇭🇰/🇯🇵/🇺🇸)。
+ * 3. 核心逻辑保持 V5.4 的高水准：
+ * - 智能分流 (Crypto->日本 / Apple->直连)。
+ * - 性能优化 (Lazy加载 / 关闭并发 / 内存优化)。
+ * - 落地隔离 (自动识别并隔离中转/落地节点)。
  *
  * [使用参数 (Arguments)]
  * ipv6=true          // [默认开启] 强制开启 IPv6 解析
@@ -22,197 +22,190 @@
  */
 
 // ============================================================================
-// 1. 全局常量与参数解析 (Configuration)
+// 1. 全局常量定义 (Constants)
 // ============================================================================
 
 const NODE_SUFFIX = "节点";
 
 // [正则定义]
+// 1. 低倍率/公益节点正则
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
-const REGEX_LANDING  = /家宽|家庭|住宅|商宽|商业|ISP|星链|Starlink|落地/i;
 
-// 策略组名称映射表
+// 2. 落地/中转节点正则 (仅隔离明确标注的，不误杀家宽)
+const REGEX_LANDING_ISOLATE = /落地|Relay|To-user/i;
+
+// 策略组名称映射表 (全 Emoji 化)
 const GROUPS = {
-  // --- 基础组 ---
-  SELECT:     "节点选择",
-  MANUAL:     "手动切换",
-  FALLBACK:   "自动切换",
-  DIRECT:     "全球直连",
-  LANDING:    "落地节点",
-  LOW_COST:   "低倍率",
+  // --- 基础控制组 ---
+  SELECT:     "🚀 节点选择",
+  MANUAL:     "🎯 手动切换",
+  FALLBACK:   "⚡ 自动切换",
+  DIRECT:     "🎯 全球直连",
+  LANDING:    "🏳️‍🌈 落地节点",
+  LOW_COST:   "🐢 低倍率",
   
-  // --- 业务组 ---
-  AI:         "AI服务",
-  CRYPTO:     "金融服务",    // 定制：优先日本
-  APPLE:      "Apple",       // 定制：默认直连
-  MICROSOFT:  "微软服务",
-  GOOGLE:     "Google",       // [已修复] 补充缺失定义
-  BING:       "Bing",        // 定制：默认直连
-  ONEDRIVE:   "OneDrive",
+  // --- 业务策略组 ---
+  AI:         "🤖 AI服务",
+  CRYPTO:     "💰 金融服务",    // 优先日本
+  APPLE:      "🍎 Apple",       // 默认直连
+  MICROSOFT:  "Ⓜ️ 微软服务",
+  GOOGLE:     "🇬 Google",
+  BING:       "🔍 Bing",        // 默认直连
+  ONEDRIVE:   "☁️ OneDrive",
   
-  TELEGRAM:   "Telegram",
-  YOUTUBE:    "YouTube",
-  NETFLIX:    "Netflix",
-  DISNEY:     "Disney+",
-  SPOTIFY:    "Spotify",
-  TIKTOK:     "TikTok",
+  TELEGRAM:   "✈️ Telegram",
+  YOUTUBE:    "📹 YouTube",
+  NETFLIX:    "🎥 Netflix",
+  DISNEY:     "🏰 Disney+",
+  SPOTIFY:    "🎧 Spotify",
+  TIKTOK:     "🎵 TikTok",
   
-  STEAM:      "Steam",
-  GAMES:      "游戏加速",
-  PT:         "PT下载",      // 定制：默认直连
-  SPEEDTEST:  "网络测速",    // 定制：默认直连
-  ADS:        "广告拦截"
+  STEAM:      "🚂 Steam",
+  GAMES:      "🎮 游戏加速",
+  PT:         "📦 PT下载",      // 默认直连
+  SPEEDTEST:  "📈 网络测速",    // 默认直连
+  ADS:        "🛑 广告拦截"
 };
 
-/**
- * 辅助函数：解析布尔参数
- */
-function parseBool(value, defaultValue = false) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    return value.toLowerCase() === "true" || value === "1";
-  }
-  return defaultValue;
+// ============================================================================
+// 2. 参数解析工具 (Utilities)
+// ============================================================================
+
+function parseBool(val, def = false) {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") return val.toLowerCase() === "true" || val === "1";
+  return def;
 }
 
-/**
- * 辅助函数：解析数值参数
- */
-function parseNumber(value, defaultValue = 0) {
-  if (value == null) return defaultValue;
-  const num = parseInt(value, 10);
-  return isNaN(num) ? defaultValue : num;
+function parseNumber(val, def = 0) {
+  if (val == null) return def;
+  const num = parseInt(val, 10);
+  return isNaN(num) ? def : num;
 }
 
-/**
- * 构建特性开关对象
- */
-function buildFeatureFlags(args) {
+function buildConfig(args) {
   return {
-    ipv6Enabled:      parseBool(args.ipv6Enabled, true),
-    loadBalance:      parseBool(args.loadBalance, false),
-    landing:          parseBool(args.landing, true),
-    fullConfig:       parseBool(args.fullConfig, false),
-    keepAliveEnabled: parseBool(args.keepAliveEnabled, false),
-    fakeIPEnabled:    parseBool(args.fakeIPEnabled, true),
-    quicEnabled:      parseBool(args.quicEnabled, false),
-    countryThreshold: parseNumber(args.threshold, 0)
+    ipv6:      parseBool(args.ipv6Enabled, true),
+    lb:        parseBool(args.loadBalance, false),
+    landing:   parseBool(args.landing, true),
+    full:      parseBool(args.fullConfig, false),
+    fakeip:    parseBool(args.fakeIPEnabled, true),
+    quic:      parseBool(args.quicEnabled, false),
+    threshold: parseNumber(args.threshold, 0)
   };
 }
 
-// 获取 Sub-Store 传入参数
-const rawArgs = typeof $arguments !== 'undefined' ? $arguments : {};
-const FLAGS = buildFeatureFlags(rawArgs);
+const ARGS = buildConfig(typeof $arguments !== 'undefined' ? $arguments : {});
 
 
 // ============================================================================
-// 2. 规则集配置 (Rule Providers)
+// 3. 规则集配置 (Rule Providers)
 // ============================================================================
 
-// 使用 MetaCubeX 优化的二进制规则集 (MRS)
-const PROVIDERS_BASE = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
+// 使用 MetaCubeX 维护的 MRS 二进制规则集
+const META_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
 
 const ruleProviders = {
-  // --- 核心规则 (Domain) ---
-  "Private_Domain": { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/private.mrs` },
-  "CN_Domain":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/cn.mrs` },
-  "ADBlock":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: "https://adrules.top/adrules-mihomo.mrs" },
-  "Geo_Not_CN":     { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/geolocation-!cn.mrs` },
+  // 核心
+  "Private":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/private.mrs` },
+  "CN":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/cn.mrs` },
+  "ADBlock":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: "https://adrules.top/adrules-mihomo.mrs" },
+  "Geo_Not_CN":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/geolocation-!cn.mrs` },
 
-  // --- 应用规则 (Domain) ---
-  "AI_Domain":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/category-ai-!cn.mrs` },
-  "Binance_Domain":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/binance.mrs` },
-  "YouTube_Domain":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/youtube.mrs` },
-  "Google_Domain":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/google.mrs` },
-  "GitHub_Domain":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/github.mrs` },
-  "Telegram_Domain":  { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/telegram.mrs` },
-  "Netflix_Domain":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/netflix.mrs` },
-  "Disney_Domain":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/disney.mrs` },
-  "Spotify_Domain":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/spotify.mrs` },
-  "TikTok_Domain":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/tiktok.mrs` },
+  // 应用
+  "AI":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-ai-!cn.mrs` },
+  "Binance":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/binance.mrs` },
+  "YouTube":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/youtube.mrs` },
+  "Google":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/google.mrs` },
+  "GitHub":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/github.mrs` },
+  "Telegram":     { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/telegram.mrs` },
+  "Netflix":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/netflix.mrs` },
+  "Disney":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/disney.mrs` },
+  "Spotify":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/spotify.mrs` },
+  "TikTok":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/tiktok.mrs` },
   
-  // --- 微软/苹果/其他 (Domain) ---
-  "Microsoft_Domain": { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/microsoft.mrs` },
-  "Bing_Domain":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/bing.mrs` },
-  "OneDrive_Domain":  { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/onedrive.mrs` },
-  "Apple_Domain":     { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/apple.mrs` },
-  "AppleTV_Domain":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/apple-tvplus.mrs` },
-  "SteamCN":          { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/steam@cn.mrs` },
-  "Epic":             { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/epicgames.mrs` },
-  "Speedtest":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/ookla-speedtest.mrs` },
-  "PT_Domain":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/category-pt.mrs` },
-  "Direct_List":      { type: "http", behavior: "domain", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list" },
+  // 厂商
+  "Microsoft":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/microsoft.mrs` },
+  "Bing":         { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/bing.mrs` },
+  "OneDrive":     { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/onedrive.mrs` },
+  "Apple":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/apple.mrs` },
+  "AppleTV":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/apple-tvplus.mrs` },
+  "SteamCN":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/steam@cn.mrs` },
+  "Epic":         { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/epicgames.mrs` },
+  
+  // 工具
+  "Speedtest":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/ookla-speedtest.mrs` },
+  "PT":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-pt.mrs` },
+  "DirectList":   { type: "http", behavior: "domain", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list" },
 
-  // --- IP 规则 (IP-CIDR) ---
-  "CN_IP":        { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo/geoip/cn.mrs` },
-  "Private_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo/geoip/private.mrs` },
-  "Binance_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo/geoip/binance.mrs` },
-  "Google_IP":    { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo/geoip/google.mrs` },
-  "Telegram_IP":  { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo/geoip/telegram.mrs` },
-  "Netflix_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo/geoip/netflix.mrs` },
-  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geo-lite/geoip/apple.mrs` }
+  // IP 规则
+  "CN_IP":        { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/cn.mrs` },
+  "Private_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/private.mrs` },
+  "Binance_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/binance.mrs` },
+  "Google_IP":    { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/google.mrs` },
+  "Telegram_IP":  { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/telegram.mrs` },
+  "Netflix_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/netflix.mrs` },
+  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo-lite/geoip/apple.mrs` }
 };
 
 
 // ============================================================================
-// 3. 规则匹配逻辑 (Rules Construction)
+// 4. 规则匹配逻辑 (Rules Logic)
 // ============================================================================
 
-const buildRules = ({ quicEnabled }) => {
+const buildRules = (quicEnabled) => {
   const rules = [
     // 1. 协议控制
     !quicEnabled ? "AND,((DST-PORT,443),(NETWORK,UDP)),REJECT" : null,
 
-    // 2. 基础拦截与隐私
+    // 2. 基础拦截
     `RULE-SET,ADBlock,${GROUPS.ADS}`,
-    `RULE-SET,Private_Domain,${GROUPS.DIRECT}`,
+    `RULE-SET,Private,${GROUPS.DIRECT}`,
     `RULE-SET,Private_IP,${GROUPS.DIRECT},no-resolve`,
 
-    // 3. 核心应用分流
-    `RULE-SET,AI_Domain,${GROUPS.AI}`,
-    
-    // Crypto: 优先日本
-    `RULE-SET,Binance_Domain,${GROUPS.CRYPTO}`,
+    // 3. 核心分流
+    `RULE-SET,AI,${GROUPS.AI}`,
+    `RULE-SET,Binance,${GROUPS.CRYPTO}`,
     `RULE-SET,Binance_IP,${GROUPS.CRYPTO},no-resolve`,
 
-    // Google & YouTube
-    `RULE-SET,YouTube_Domain,${GROUPS.YOUTUBE}`,
-    `RULE-SET,Google_Domain,${GROUPS.GOOGLE}`,
+    // 4. Google & YouTube (顺序已修正)
+    `RULE-SET,YouTube,${GROUPS.YOUTUBE}`,
+    `RULE-SET,Google,${GROUPS.GOOGLE}`,
     `RULE-SET,Google_IP,${GROUPS.GOOGLE},no-resolve`,
     
-    // 微软系 (Bing/OneDrive 独立)
-    `RULE-SET,Bing_Domain,${GROUPS.BING}`,
-    `RULE-SET,OneDrive_Domain,${GROUPS.ONEDRIVE}`,
-    `RULE-SET,Microsoft_Domain,${GROUPS.MICROSOFT}`,
+    // 5. 微软系
+    `RULE-SET,Bing,${GROUPS.BING}`,
+    `RULE-SET,OneDrive,${GROUPS.ONEDRIVE}`,
+    `RULE-SET,Microsoft,${GROUPS.MICROSOFT}`,
     
-    // 苹果系 (定制直连)
-    `RULE-SET,AppleTV_Domain,${GROUPS.APPLE}`,
-    `RULE-SET,Apple_Domain,${GROUPS.APPLE}`,
+    // 6. 苹果系
+    `RULE-SET,AppleTV,${GROUPS.APPLE}`,
+    `RULE-SET,Apple,${GROUPS.APPLE}`,
     `RULE-SET,Apple_IP,${GROUPS.APPLE},no-resolve`,
 
-    // 社交与流媒体
-    `RULE-SET,Telegram_Domain,${GROUPS.TELEGRAM}`,
+    // 7. 社交与流媒体
+    `RULE-SET,Telegram,${GROUPS.TELEGRAM}`,
     `RULE-SET,Telegram_IP,${GROUPS.TELEGRAM},no-resolve`,
-    `RULE-SET,TikTok_Domain,${GROUPS.TIKTOK}`,
-    `RULE-SET,Netflix_Domain,${GROUPS.NETFLIX}`,
+    `RULE-SET,TikTok,${GROUPS.TIKTOK}`,
+    `RULE-SET,Netflix,${GROUPS.NETFLIX}`,
     `RULE-SET,Netflix_IP,${GROUPS.NETFLIX},no-resolve`,
-    `RULE-SET,Disney_Domain,${GROUPS.DISNEY}`,
-    `RULE-SET,Spotify_Domain,${GROUPS.SPOTIFY}`,
+    `RULE-SET,Disney,${GROUPS.DISNEY}`,
+    `RULE-SET,Spotify,${GROUPS.SPOTIFY}`,
     
-    // 游戏、下载与测速
+    // 8. 其他
     `RULE-SET,SteamCN,${GROUPS.DIRECT}`,
     `RULE-SET,Epic,${GROUPS.GAMES}`,
-    `RULE-SET,PT_Domain,${GROUPS.PT}`,
+    `RULE-SET,PT,${GROUPS.PT}`,
     `RULE-SET,Speedtest,${GROUPS.SPEEDTEST}`,
-    `RULE-SET,GitHub_Domain,${GROUPS.SELECT}`,
+    `RULE-SET,GitHub,${GROUPS.SELECT}`,
 
-    // 4. 地区规则
+    // 9. 地区分流
     `RULE-SET,Geo_Not_CN,${GROUPS.SELECT}`,
-    `RULE-SET,CN_Domain,${GROUPS.DIRECT}`,
-    `RULE-SET,Direct_List,${GROUPS.DIRECT}`,
+    `RULE-SET,CN,${GROUPS.DIRECT}`,
+    `RULE-SET,DirectList,${GROUPS.DIRECT}`,
     `RULE-SET,CN_IP,${GROUPS.DIRECT},no-resolve`,
 
-    // 5. 兜底
+    // 10. 兜底
     `MATCH,${GROUPS.SELECT}`
   ];
 
@@ -221,35 +214,36 @@ const buildRules = ({ quicEnabled }) => {
 
 
 // ============================================================================
-// 4. 策略组生成逻辑 (Proxy Group Factory)
+// 5. 策略组生成逻辑 (Proxy Groups - All Emoji)
 // ============================================================================
 
-// 国家与地区元数据 (正则匹配规则 + 图标)
+// 国家与地区元数据：正则匹配 + 对应国旗
 const countriesMeta = {
-  // 热门区域
-  "香港": { pattern: "(?i)香港|港|HK|Hong Kong|🇭🇰", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Hong_Kong.png" },
-  "台湾": { pattern: "(?i)台湾|台|TW|Taiwan|🇹🇼", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Taiwan.png" },
-  "日本": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Japan.png" },
-  "新加坡": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Singapore.png" },
-  "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/United_States.png" },
-  "韩国": { pattern: "(?i)韩国|KR|Korea|🇰🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Korea.png" },
-  
-  // 补充区域
-  "英国": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/United_Kingdom.png" },
-  "德国": { pattern: "(?i)德国|DE|Germany|🇩🇪", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Germany.png" },
-  "法国": { pattern: "(?i)法国|FR|France|🇫🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/France.png" },
-  "土耳其": { pattern: "(?i)土耳其|TR|Turkey|🇹🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Turkey.png" },
-  "阿根廷": { pattern: "(?i)阿根廷|AR|Argentina|🇦🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Argentina.png" },
-  "巴西": { pattern: "(?i)巴西|BR|Brazil|🇧🇷", icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Brazil.png" }
+  "香港": { pattern: "(?i)香港|港|HK|Hong Kong|🇭🇰", flag: "🇭🇰" },
+  "台湾": { pattern: "(?i)台湾|台|TW|Taiwan|🇹🇼",    flag: "🇹🇼" },
+  "日本": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" },
+  "新加坡": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" },
+  "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" },
+  "韩国": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" },
+  "英国": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" },
+  "德国": { pattern: "(?i)德国|DE|Germany|🇩🇪", flag: "🇩🇪" },
+  "法国": { pattern: "(?i)法国|FR|France|🇫🇷", flag: "🇫🇷" },
+  "土耳其": { pattern: "(?i)土耳其|TR|Turkey|🇹🇷", flag: "🇹🇷" },
+  "阿根廷": { pattern: "(?i)阿根廷|AR|Argentina|🇦🇷", flag: "🇦🇷" },
+  "巴西": { pattern: "(?i)巴西|BR|Brazil|🇧🇷", flag: "🇧🇷" },
+  "澳大利亚": { pattern: "(?i)澳洲|AU|Australia|🇦🇺", flag: "🇦🇺" },
+  "加拿大": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" }
 };
 
 /**
- * 核心逻辑：分析订阅节点，返回有效的国家组配置
+ * 解析节点，生成带 Emoji 的国家组名列表
+ * 返回示例: ["🇭🇰 香港节点", "🇺🇸 美国节点"]
  */
 function parseCountries(proxies) {
   const countryCounts = {};
   const compiledRegex = {};
   
+  // 预编译正则
   for (const [country, meta] of Object.entries(countriesMeta)) {
     const cleanPattern = meta.pattern.replace(/^\(\?i\)/, '');
     compiledRegex[country] = new RegExp(cleanPattern, 'i');
@@ -257,7 +251,7 @@ function parseCountries(proxies) {
 
   for (const proxy of proxies) {
     const name = proxy.name || '';
-    if (REGEX_LANDING.test(name)) continue;
+    if (REGEX_LANDING_ISOLATE.test(name)) continue;
     
     for (const [country, regex] of Object.entries(compiledRegex)) {
       if (regex.test(name)) {
@@ -267,128 +261,130 @@ function parseCountries(proxies) {
     }
   }
 
+  // 1. 过滤阈值 2. 添加 Emoji 前缀
   return Object.entries(countryCounts)
-    .filter(([, count]) => count > FLAGS.countryThreshold)
-    .map(([country]) => `${country}${NODE_SUFFIX}`);
+    .filter(([, count]) => count > ARGS.threshold)
+    .map(([country]) => {
+      const flag = countriesMeta[country].flag;
+      return `${flag} ${country}${NODE_SUFFIX}`;
+    });
 }
 
 /**
- * 组装所有策略组
+ * 构建所有策略组 (移除所有 icon 字段)
  */
-function buildProxyGroups(proxies, countryGroupNames) {
-  const { landing, loadBalance, lowCost: hasLowCostNodes } = FLAGS;
+function buildProxyGroups(proxies, countryGroupNames, hasLowCost) {
+  const { landing, lb } = ARGS;
   
-  // 1. 构建全量候选列表
+  // 1. [基础候选]
   const allProxies = [
     GROUPS.FALLBACK,
     landing ? GROUPS.LANDING : null,
     ...countryGroupNames,
-    hasLowCostNodes ? GROUPS.LOW_COST : null,
+    hasLowCost ? GROUPS.LOW_COST : null,
     GROUPS.MANUAL,
     "DIRECT"
   ].filter(Boolean);
 
-  // 2. 直连优先列表
+  // 2. [直连优先]
   const directFirstProxies = [
     "DIRECT", 
     GROUPS.SELECT, 
     ...allProxies.filter(p => p !== "DIRECT" && p !== GROUPS.SELECT)
   ];
 
-  // 3. 日本优先列表 (Crypto)
-  const japanGroupName = countryGroupNames.find(n => n.includes("日本"));
-  let cryptoProxies = [...allProxies];
-  if (japanGroupName) {
-    cryptoProxies = [japanGroupName, ...allProxies.filter(n => n !== japanGroupName)];
-  }
+  // 3. [日本优先] (Crypto)
+  // 匹配带国旗的日本组名 (例如 "🇯🇵 日本节点")
+  const japanGroupName = countryGroupNames.find(n => n.includes("日本") || n.includes("🇯🇵"));
+  const cryptoProxies = japanGroupName 
+    ? [japanGroupName, ...allProxies.filter(n => n !== japanGroupName)] 
+    : [...allProxies];
 
-  // 4. 媒体专用列表
+  // 4. [媒体专用]
   const mediaProxies = [GROUPS.SELECT, ...countryGroupNames, GROUPS.MANUAL];
 
-  // --- 生成动态国家策略组 ---
+  // --- 动态生成国家策略组 ---
   const countryGroups = countryGroupNames.map(groupName => {
-    const country = groupName.replace(NODE_SUFFIX, "");
-    const meta = countriesMeta[country];
+    // groupName 现在是 "🇭🇰 香港节点"，我们需要提取 "香港" 来找正则
+    // 简单粗暴方法：遍历 meta 找 flag
+    let filterPattern = undefined;
+    for (const [key, meta] of Object.entries(countriesMeta)) {
+        if (groupName.includes(meta.flag)) {
+            filterPattern = meta.pattern;
+            break;
+        }
+    }
+
     const excludeFilter = landing 
-      ? `(?i)${REGEX_LANDING.source}|${REGEX_LOW_COST.source}` 
+      ? `(?i)${REGEX_LANDING_ISOLATE.source}|${REGEX_LOW_COST.source}` 
       : `(?i)${REGEX_LOW_COST.source}`;
 
     return {
       name: groupName,
-      type: loadBalance ? "load-balance" : "url-test",
-      icon: meta ? meta.icon : undefined,
+      type: lb ? "load-balance" : "url-test",
       "include-all": true,
-      filter: meta ? meta.pattern : undefined,
+      filter: filterPattern,
       "exclude-filter": excludeFilter,
       interval: 300, tolerance: 50, lazy: true, 
       url: "https://cp.cloudflare.com/generate_204"
     };
   });
 
-  // --- 生成固定功能策略组 ---
+  // --- 生成固定功能策略组 (无 icon 字段) ---
   const functionalGroups = [
     // 基础控制
     { 
       name: GROUPS.SELECT, type: "select", 
-      icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Proxy.png",
       proxies: [GROUPS.FALLBACK, ...countryGroupNames, GROUPS.MANUAL, "DIRECT"] 
     },
     { 
-      name: GROUPS.MANUAL, type: "select", "include-all": true, 
-      icon: "https://raw.githubusercontent.com/shindgewongxj/WHATSINStash/master/icon/select.png"
+      name: GROUPS.MANUAL, type: "select", "include-all": true 
     },
     { 
       name: GROUPS.FALLBACK, type: "fallback", 
-      icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Bypass.png",
       proxies: [landing ? GROUPS.LANDING : null, ...countryGroupNames, GROUPS.MANUAL].filter(Boolean),
       url: "https://cp.cloudflare.com/generate_204", interval: 300, tolerance: 50, lazy: true
     },
     
     // 核心业务
-    { name: GROUPS.AI,       type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/chatgpt.png" },
-    { name: GROUPS.TELEGRAM, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png" },
-    { name: GROUPS.GOOGLE,   type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/powerfullz/override-rules/master/icons/Google.png" },
-    
-    // 微软系
-    { name: GROUPS.MICROSOFT, type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png" },
-    { name: GROUPS.BING,      type: "select", proxies: directFirstProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Bing.png" },
-    { name: GROUPS.ONEDRIVE,  type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/OneDrive.png" },
-    
-    // 苹果系
-    { name: GROUPS.APPLE,     type: "select", proxies: directFirstProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png" },
+    { name: GROUPS.AI,        type: "select", proxies: allProxies },
+    { name: GROUPS.TELEGRAM,  type: "select", proxies: allProxies },
+    { name: GROUPS.GOOGLE,    type: "select", proxies: allProxies },
+    { name: GROUPS.MICROSOFT, type: "select", proxies: allProxies },
+    { name: GROUPS.BING,      type: "select", proxies: directFirstProxies },
+    { name: GROUPS.ONEDRIVE,  type: "select", proxies: allProxies },
+    { name: GROUPS.APPLE,     type: "select", proxies: directFirstProxies },
     
     // 流媒体
-    { name: GROUPS.YOUTUBE,   type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/YouTube.png" },
-    { name: GROUPS.NETFLIX,   type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Netflix.png" },
-    { name: GROUPS.DISNEY,    type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Disney.png" },
-    { name: GROUPS.SPOTIFY,   type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png" },
-    { name: GROUPS.TIKTOK,    type: "select", proxies: mediaProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok.png" },
+    { name: GROUPS.YOUTUBE,   type: "select", proxies: mediaProxies },
+    { name: GROUPS.NETFLIX,   type: "select", proxies: mediaProxies },
+    { name: GROUPS.DISNEY,    type: "select", proxies: mediaProxies },
+    { name: GROUPS.SPOTIFY,   type: "select", proxies: mediaProxies },
+    { name: GROUPS.TIKTOK,    type: "select", proxies: mediaProxies },
     
-    // 其他业务
-    { name: GROUPS.GAMES,     type: "select", proxies: allProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Game.png" },
-    { name: GROUPS.CRYPTO,    type: "select", proxies: cryptoProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cryptocurrency_3.png" },
-    { name: GROUPS.PT,        type: "select", proxies: directFirstProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Download.png" },
-    { name: GROUPS.SPEEDTEST, type: "select", proxies: directFirstProxies, icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Speedtest.png" },
+    // 其他
+    { name: GROUPS.GAMES,     type: "select", proxies: allProxies },
+    { name: GROUPS.CRYPTO,    type: "select", proxies: cryptoProxies },
+    { name: GROUPS.PT,        type: "select", proxies: directFirstProxies },
+    { name: GROUPS.SPEEDTEST, type: "select", proxies: directFirstProxies },
 
-    // 广告与兜底
-    { name: GROUPS.ADS,       type: "select", proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT], icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AdBlack.png" },
-    { name: GROUPS.DIRECT,    type: "select", proxies: ["DIRECT", GROUPS.SELECT], icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Direct.png" }
+    // 广告与直连
+    { name: GROUPS.ADS,       type: "select", proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT] },
+    { name: GROUPS.DIRECT,    type: "select", proxies: ["DIRECT", GROUPS.SELECT] }
   ];
 
   if (landing) {
     functionalGroups.push({
       name: GROUPS.LANDING, type: "select", "include-all": true,
-      filter: `(?i)${REGEX_LANDING.source}`,
-      icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Airport.png"
+      filter: `(?i)${REGEX_LANDING_ISOLATE.source}`
     });
   }
   
-  if (hasLowCostNodes) {
+  if (hasLowCost) {
     functionalGroups.push({
       name: GROUPS.LOW_COST, type: "url-test", "include-all": true,
       filter: `(?i)${REGEX_LOW_COST.source}`,
-      interval: 300, lazy: true,
-      icon: "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Lab.png"
+      interval: 300, lazy: true
     });
   }
 
@@ -397,30 +393,25 @@ function buildProxyGroups(proxies, countryGroupNames) {
 
 
 // ============================================================================
-// 5. DNS 配置 (Network Layer)
+// 6. DNS 配置 (DNS Configuration)
 // ============================================================================
 
 function buildDnsConfig() {
-  const { fakeIPEnabled, ipv6Enabled } = FLAGS;
+  const { fakeip, ipv6 } = ARGS;
   
   return {
     enable: true,
-    ipv6: ipv6Enabled,   
-    "prefer-h3": false,  
-    "enhanced-mode": fakeIPEnabled ? "fake-ip" : "redir-host",
+    ipv6: ipv6,
+    "prefer-h3": false,
+    "enhanced-mode": fakeip ? "fake-ip" : "redir-host",
     listen: ":1053",
     "use-hosts": true,
     "fake-ip-range": "198.18.0.1/16",
     
     "default-nameserver": ["223.5.5.5", "119.29.29.29"],
-    nameserver: [
-      "https://dns.alidns.com/dns-query",
-      "https://doh.pub/dns-query"
-    ],
-    fallback: [
-      "https://1.1.1.1/dns-query",
-      "https://8.8.8.8/dns-query"
-    ],
+    nameserver: ["https://dns.alidns.com/dns-query", "https://doh.pub/dns-query"],
+    fallback: ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"],
+    
     "fake-ip-filter": [
       "dns.msftncsi.com",
       "www.msftncsi.com",
@@ -430,27 +421,18 @@ function buildDnsConfig() {
       "*.nintendo.net",
       "*.sonyentertainmentnetwork.com"
     ],
-    "fallback-filter": {
-      geoip: true,
-      "geoip-code": "CN",
-      ipcidr: ["240.0.0.0/4"]
-    },
+    "fallback-filter": { geoip: true, "geoip-code": "CN", ipcidr: ["240.0.0.0/4"] },
+    
     "nameserver-policy": {
-      "private,apple,steam,microsoft@cn": [
-        "https://dns.alidns.com/dns-query", 
-        "https://doh.pub/dns-query"
-      ],
-      "geosite:geolocation-!cn,gfw,google,youtube,telegram": [
-        "https://1.1.1.1/dns-query", 
-        "https://8.8.8.8/dns-query"
-      ]
+      "private,apple,steam,microsoft@cn": ["https://dns.alidns.com/dns-query", "https://doh.pub/dns-query"],
+      "geosite:geolocation-!cn,gfw,google,youtube,telegram": ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"]
     }
   };
 }
 
 
 // ============================================================================
-// 6. 主程序入口 (Main Entry)
+// 7. 主程序入口 (Main)
 // ============================================================================
 
 function main(config) {
@@ -460,13 +442,23 @@ function main(config) {
   }
 
   const proxies = config.proxies;
-  FLAGS.lowCost = proxies.some(p => REGEX_LOW_COST.test(p.name));
   
+  // 1. 计算是否包含低倍率节点
+  const hasLowCost = proxies.some(p => REGEX_LOW_COST.test(p.name));
+  
+  // 2. 解析节点，生成带 Emoji 的地区组名 (如: "🇭🇰 香港节点")
   const countryGroupNames = parseCountries(proxies);
-  const proxyGroups = buildProxyGroups(proxies, countryGroupNames);
-  const rules = buildRules(FLAGS);
+  
+  // 3. 构建策略组
+  const proxyGroups = buildProxyGroups(proxies, countryGroupNames, hasLowCost);
+  
+  // 4. 构建规则
+  const rules = buildRules(ARGS.quic);
+  
+  // 5. 构建 DNS
   const dns = buildDnsConfig();
 
+  // 6. 组装结果
   const result = {
     ...config,
     "proxy-groups": proxyGroups,
@@ -475,7 +467,7 @@ function main(config) {
     dns: dns,
     
     "mixed-port": 7890,
-    ipv6: FLAGS.ipv6Enabled,
+    ipv6: ARGS.ipv6,
     "allow-lan": true,
     "unified-delay": true,
     "tcp-concurrent": false,
@@ -493,7 +485,7 @@ function main(config) {
     },
   };
 
-  if (FLAGS.fullConfig) {
+  if (ARGS.full) {
     result["log-level"] = "info";
   }
 
