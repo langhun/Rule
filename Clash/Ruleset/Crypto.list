@@ -1,0 +1,64 @@
+// ================== 💰 加密货币 / 交易所 ==================
+
+// --- Binance ---
+DOMAIN-SUFFIX,binance.com
+DOMAIN-SUFFIX,bnbstatic.com
+
+// --- OKX ---
+DOMAIN-SUFFIX,okx.com
+DOMAIN-SUFFIX,oklink.com
+
+// --- Bybit ---
+DOMAIN-SUFFIX,bybit.com
+
+// --- Gate ---
+DOMAIN-SUFFIX,gate.io
+
+// --- KuCoin ---
+DOMAIN-SUFFIX,kucoin.com
+
+// --- HTX (原火币) ---
+DOMAIN-SUFFIX,htx.com
+DOMAIN-SUFFIX,huobi.com
+
+// --- MEXC ---
+DOMAIN-SUFFIX,mexc.com
+
+// --- Bitget ---
+DOMAIN-SUFFIX,bitget.com
+
+// --- Coinbase ---
+DOMAIN-SUFFIX,coinbase.com
+DOMAIN-SUFFIX,coinbasecdn.com
+
+// --- Kraken ---
+DOMAIN-SUFFIX,kraken.com
+
+// --- Crypto.com ---
+DOMAIN-SUFFIX,crypto.com
+
+// ================== 🪙 区块链浏览器 ==================
+DOMAIN-SUFFIX,etherscan.io
+DOMAIN-SUFFIX,bscscan.com
+DOMAIN-SUFFIX,arbiscan.io
+DOMAIN-SUFFIX,polygonscan.com
+DOMAIN-SUFFIX,solscan.io
+
+// ================== 🧩 Web3 钱包 ==================
+DOMAIN-SUFFIX,metamask.io
+DOMAIN-SUFFIX,phantom.app
+DOMAIN-SUFFIX,trustwallet.com
+DOMAIN-SUFFIX,ledger.com
+DOMAIN-SUFFIX,trezor.io
+
+// ================== 🏦 DeFi ==================
+DOMAIN-SUFFIX,uniswap.org
+DOMAIN-SUFFIX,pancakeswap.finance
+DOMAIN-SUFFIX,aave.com
+DOMAIN-SUFFIX,curve.fi
+DOMAIN-SUFFIX,opensea.io
+
+// ================== 🔗 Web3 基础设施 ==================
+DOMAIN-SUFFIX,infura.io
+DOMAIN-SUFFIX,alchemy.com
+DOMAIN-SUFFIX,quicknode.com
