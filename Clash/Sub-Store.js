@@ -141,7 +141,7 @@ const ruleProviders = {
   "Epic":             { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/epicgames.mrs` },
   "Speedtest":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/ookla-speedtest.mrs` },
   "PT_Domain":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${PROVIDERS_BASE}/geosite/category-pt.mrs` },
-  "Direct_List":      { type: "http", behavior: "domain", format: "txt", interval: 86400, url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list" },
+  "Direct_List":      { type: "http", behavior: "domain", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list" },
 
   // --- IP 规则 (IP-CIDR) ---
   // 用于解决 DNS 污染或某些仅通过 IP 访问的服务
