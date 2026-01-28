@@ -34,34 +34,34 @@ const REGEX_LANDING  = /家宽|家庭|住宅|商宽|商业|ISP|星链|Starlink|�
 // 策略组名称映射表
 const GROUPS = {
   // --- 基础组 ---
-  SELECT:     "🚀 节点选择",
-  MANUAL:     "🎯 手动切换",
-  FALLBACK:   "⚡ 自动切换",
-  DIRECT:     "🎯 全球直连",
-  LANDING:    "🏠 落地节点",
-  LOW_COST:   "🐢 低倍率",
+  SELECT:     "节点选择",
+  MANUAL:     "手动切换",
+  FALLBACK:   "自动切换",
+  DIRECT:     "全球直连",
+  LANDING:    "落地节点",
+  LOW_COST:   "低倍率",
   
   // --- 业务组 ---
-  AI:         "🤖 AI服务",
-  CRYPTO:     "💰 金融服务",    // 定制：优先日本
-  APPLE:      "🍎 Apple",       // 定制：默认直连
-  MICROSOFT:  "Ⓜ️ 微软服务",
-  GOOGLE:     "🇬 Google",       // [已修复] 补充缺失定义
-  BING:       "🔍 Bing",        // 定制：默认直连
-  ONEDRIVE:   "☁️ OneDrive",
+  AI:         "AI服务",
+  CRYPTO:     "金融服务",    // 定制：优先日本
+  APPLE:      "Apple",       // 定制：默认直连
+  MICROSOFT:  "微软服务",
+  GOOGLE:     "Google",       // [已修复] 补充缺失定义
+  BING:       "Bing",        // 定制：默认直连
+  ONEDRIVE:   "OneDrive",
   
-  TELEGRAM:   "✈️ Telegram",
-  YOUTUBE:    "📹 YouTube",
-  NETFLIX:    "🎥 Netflix",
-  DISNEY:     "🏰 Disney+",
-  SPOTIFY:    "🎧 Spotify",
-  TIKTOK:     "🎵 TikTok",
+  TELEGRAM:   "Telegram",
+  YOUTUBE:    "YouTube",
+  NETFLIX:    "Netflix",
+  DISNEY:     "Disney+",
+  SPOTIFY:    "Spotify",
+  TIKTOK:     "TikTok",
   
-  STEAM:      "🚂 Steam",
-  GAMES:      "🎮 游戏加速",
-  PT:         "📦 PT下载",      // 定制：默认直连
-  SPEEDTEST:  "📈 网络测速",    // 定制：默认直连
-  ADS:        "🛑 广告拦截"
+  STEAM:      "Steam",
+  GAMES:      "游戏加速",
+  PT:         "PT下载",      // 定制：默认直连
+  SPEEDTEST:  "网络测速",    // 定制：默认直连
+  ADS:        "广告拦截"
 };
 
 /**
