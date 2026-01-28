@@ -311,6 +311,7 @@ const buildRules = ({ quicEnabled }) => {
     // 6. 区域逻辑
     `RULE-SET,Geolocation_Not_CN,${GROUPS.SELECT}`,
     `RULE-SET,CN_Domain,${GROUPS.DIRECT}`,
+    `RULE-SET,Direct,${GROUPS.DIRECT}`,
     `RULE-SET,CN_IP,${GROUPS.DIRECT},no-resolve`,
 
     // 7. 兜底
