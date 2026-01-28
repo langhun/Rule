@@ -212,6 +212,10 @@ const ruleProviders = {
     type: "http", behavior: "domain", format: "mrs", interval: 86400,
     url: "https://adrules.top/adrules-mihomo.mrs"
   },
+  "Direct": {
+    type: "http", behavior: "domain", format: "txt", interval: 86400,
+    url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list"
+  },
 
   // --- IP 规则 (IPCIDR) ---
   "Binance_IP": {
