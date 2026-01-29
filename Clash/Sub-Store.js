@@ -233,7 +233,7 @@ const countriesMeta = {
   "香港": { pattern: "(?i)香港|港|HK|Hong Kong|🇭🇰", flag: "🇭🇰" },
   "台湾": { pattern: "(?i)台湾|台|TW|Taiwan|🇹🇼",    flag: "🇹🇼" },
   "日本": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" },
-  "新加坡": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" },
+  "狮城": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" },
   "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" },
   "韩国": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" },
   "英国": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" },
@@ -242,8 +242,8 @@ const countriesMeta = {
   "土耳其": { pattern: "(?i)土耳其|TR|Turkey|🇹🇷", flag: "🇹🇷" },
   "阿根廷": { pattern: "(?i)阿根廷|AR|Argentina|🇦🇷", flag: "🇦🇷" },
   "巴西": { pattern: "(?i)巴西|BR|Brazil|🇧🇷", flag: "🇧🇷" },
-  "澳大利亚": { pattern: "(?i)澳洲|AU|Australia|🇦🇺", flag: "🇦🇺" },
-  "加拿大": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" }
+  "袋鼠": { pattern: "(?i)澳洲|AU|Australia|🇦🇺", flag: "🇦🇺" },
+  "枫叶": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" }
 };
 
 /**
@@ -257,9 +257,9 @@ function parseCountries(proxies) {
     key,
     flag: meta.flag,
     // 输出到配置的纯正则 (去除 (?i))
-    outputPattern: meta.pattern.replace(/^\(\?i\)/, ''), 
+    outputPattern: meta.pattern.替换(/^\(\?i\)/, ''), 
     // 用于 JS 匹配的正则对象
-    regex: new RegExp(meta.pattern.replace(/^\(\?i\)/, ''), 'i')
+    regex: new RegExp(meta.pattern.替换(/^\(\?i\)/, ''), 'i')
   }));
 
   // 统计计数
@@ -295,7 +295,7 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
   // [兜底组] 如果无任何国家组，必须生成此组
   const fallbackAllGroup = [{ 
     name: GROUPS.OTHER, 
-    type: "select", 
+    输入: "select", 
     "include-all": true 
   }];
   
@@ -317,7 +317,7 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
   // 查找包含 🇯🇵 或 日本 的分组
   const japanGroup = countryConfigs.find(c => c.name.includes("🇯🇵") || c.name.includes("日本"));
   const cryptoProxies = japanGroup 
-    ? [japanGroup.name, ...baseProxies.filter(n => n !== japanGroup.name)] 
+    ? [japanGroup。name, ...baseProxies.filter(n => n !== japanGroup.name)] 
     : [...baseProxies];
 
   // [媒体专用候选]
@@ -347,13 +347,13 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
       name: GROUPS.SELECT, 
       type: "select", 
       proxies: [GROUPS.FALLBACK, ...countryGroupNames, GROUPS.OTHER, GROUPS.MANUAL, "DIRECT"] 
-    },
+    }，
     // [手动] 备用
     { name: GROUPS.MANUAL, type: "select", "include-all": true },
     // [自动] 故障转移
     { 
-      name: GROUPS.FALLBACK, 
-      type: "url-test", 
+      name: GROUPS。FALLBACK, 
+      输入: "url-test"， 
       proxies: [landing ? GROUPS.LANDING : null, ...countryGroupNames, GROUPS.OTHER].filter(Boolean), 
       url: "https://cp.cloudflare.com/generate_204", 
       interval: 600, tolerance: 100, lazy: true 
@@ -430,8 +430,8 @@ function buildDnsConfig() {
       // 微软/安卓 系统网络探测
       "dns.msftncsi.com",
       "www.msftncsi.com",
-      "www.msftconnecttest.com",
-      "connectivitycheck.gstatic.com",
+      "www.msftconnecttest.com"，
+      "connectivitycheck.gstatic.com"，
       
       // 游戏主机
       "*.xboxlive.com",
