@@ -203,8 +203,6 @@ const ruleProviders = {
   "CN_IP":        { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/cn.mrs` },
   // 私有 IP 段 (局域网、回环等)
   "Private_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/private.mrs` },
-  // 币安 IP 段
-  "Binance_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/binance.mrs` },
   // Google IP 段
   "Google_IP":    { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/google.mrs` },
   // Telegram IP 段
@@ -212,7 +210,7 @@ const ruleProviders = {
   // Netflix IP 段
   "Netflix_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/netflix.mrs` },
   // 苹果 IP 段 (使用精简版)
-  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/apple.mrs` }
+  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo-lite/geoip/apple.mrs" }
 };
 
 
@@ -274,9 +272,9 @@ const buildRules = (quicEnabled) => {
     `RULE-SET,GitHub,${GROUPS.SELECT}`,                  // GitHub → 主选择（自定义选择）
 
     // [兜底规则] 处理未被上述规则匹配的流量
+    `RULE-SET,DirectList,${GROUPS.DIRECT}`,              // 直连列表 → 直连
     `RULE-SET,Geo_Not_CN,${GROUPS.SELECT}`,              // 非国内域名 → 主选择（手动选择国家）
     `RULE-SET,CN,${GROUPS.DIRECT}`,                      // 国内域名 → 直连
-    `RULE-SET,DirectList,${GROUPS.DIRECT}`,              // 直连列表 → 直连
     `RULE-SET,CN_IP,${GROUPS.DIRECT},no-resolve`,        // 国内 IP → 直连
     `MATCH,${GROUPS.SELECT}`                             // 其他流量 → 主选择（最后的兜底）
   ];
