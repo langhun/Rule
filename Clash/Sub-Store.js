@@ -198,7 +198,7 @@ const ruleProviders = {
   // PT 下载 (私人种子)
   "PT":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-pt.mrs` },
   // 直连列表 (自定义的需要直连的域名)
-  "DirectList":   { type: "http", behavior: "domain", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list" },
+  "DirectList":   { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Direct.list" },
 
   // --- IP 规则 - 基于 IP 段的分流 ---
   // 中国大陆 IP 段
