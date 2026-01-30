@@ -1,19 +1,18 @@
 /**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V5.9.1 (别称定制版 · 完美注释)
+ * Sub-Store 终极策略增强脚本 V5.9.3 (Landing Optional)
  * ==================================================================================
  *
  * [版本特性]
- * 1. 🎨 别称定制：使用富有文化韵味的二字别称 (如: 狮城、枫叶、袋鼠、花旗)。
- * 2. 🛡️ 策略保活：全落地节点场景下自动生成兜底组，防止断网。
- * 3. 🚀 性能压榨：关闭并发与 H3，开启 Lazy 懒加载，适合长期养老。
- * 4. 🧩 深度兼容：自动清洗正则语法，兼容所有 Clash Meta/Mihomo 核心。
+ * 1. ⚙️ 灵活落地：恢复落地识别逻辑，但默认不隔离。落地节点默认会进入地区分组。
+ * 2. 🎛️ 参数控制：可通过 landing=true 开启强制隔离模式 (将落地节点移出地区组)。
+ * 3. 🛡️ 核心逻辑：保留 V5.9 的所有特性 (Crypto日本 / Apple直连 / 兜底防断)。
  *
  * [使用参数 (Arguments)]
  * ipv6=true          // [默认开启] 强制开启 IPv6 解析
- * loadbalance=false  // [默认关闭] 负载均衡 (建议 false，使用 url-test 自动优选)
- * landing=true       // [默认开启] 隔离落地/中转节点，保持地区组纯净
- * fakeip=true        // [默认开启] 开启 Fake-IP 模式 (秒开网页的关键)
+ * loadbalance=false  // [默认关闭] 负载均衡 (建议 false)
+ * landing=false      // [默认关闭] 是否隔离落地节点 (False=不隔离, True=隔离)
+ * fakeip=true        // [默认开启] 开启 Fake-IP 模式
  * threshold=0        // [默认 0]  地区节点数量阈值
  */
 
@@ -21,31 +20,28 @@
 // 1. 全局常量定义 (Constants)
 // ============================================================================
 
-// 自动生成的地区分组名称后缀 (例如: "🇸🇬 狮城节点")
 const NODE_SUFFIX = "节点";
 
 // [正则] 匹配低倍率、公益或实验性节点
-// 用于将其从优质地区组中剔除，放入单独的 "🐢 低倍率" 组
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
 
 // [正则] 匹配明确标记为“落地”、“中转”或“Relay”的节点
-// 用于将其从地区组中隔离。注意：不再包含"家宽"，以免误杀优质解锁节点。
 const REGEX_LANDING_ISOLATE = /落地|Relay|To-user/i;
 
-// 策略组名称映射表 (修改此处可一键变更 UI 显示名称)
+// 策略组名称映射表 (全 Emoji 化)
 const GROUPS = {
   // --- 基础控制组 ---
-  SELECT:     "🚀 节点选择", // 主入口，日常使用
-  MANUAL:     "🎯 手动切换", // 备用手动选择
-  FALLBACK:   "⚡ 自动切换", // 自动优选低延迟
-  DIRECT:     "🎯 全球直连", // 强制不走代理
-  LANDING:    "🏳️‍🌈 落地节点", // 被隔离的落地/中转节点
-  LOW_COST:   "🐢 低倍率",   // 被隔离的低倍率节点
+  SELECT:     "🚀 节点选择", // 主入口
+  MANUAL:     "🎯 手动切换", // 备用手动
+  FALLBACK:   "⚡ 自动切换", // 自动优选
+  DIRECT:     "🎯 全球直连", // 强制直连
+  LANDING:    "🏳️‍🌈 落地节点", // [可选] 仅在 landing=true 时生成
+  LOW_COST:   "🐢 低倍率",   // 低倍率/公益节点
   OTHER:      "🐟 兜底节点", // [防断网] 当无地区分组时显示
 
   // --- 业务策略组 ---
   AI:         "🤖 AI服务",
-  CRYPTO:     "💰 加密货币",    // 特性：优先寻找日本(霓虹)节点
+  CRYPTO:     "💰 加密货币",    // 特性：优先日本
   APPLE:      "🍎 Apple",       // 特性：默认直连
   MICROSOFT:  "Ⓜ️ 微软服务",
   GOOGLE:     "🇬 Google",
@@ -70,34 +66,26 @@ const GROUPS = {
 // 2. 工具与参数解析 (Utils)
 // ============================================================================
 
-/**
- * 将字符串参数转换为布尔值
- * @param {any} val 输入值
- * @param {boolean} def 默认值
- */
 function parseBool(val, def = false) {
   if (typeof val === "boolean") return val;
   if (typeof val === "string") return val.toLowerCase() === "true" || val === "1";
   return def;
 }
 
-/**
- * 将字符串参数转换为整数
- */
 function parseNumber(val, def = 0) {
   const num = parseInt(val, 10);
   return isNaN(num) ? def : num;
 }
 
-// 解析 Sub-Store 传入的参数并构建全局配置对象 ARGS
+// 解析参数 (landing 默认为 false)
 const ARGS = ((args) => ({
-  ipv6:      parseBool(args.ipv6Enabled, true),      // IPv6 开关
-  lb:        parseBool(args.loadBalance, false),     // 负载均衡开关
-  landing:   parseBool(args.landing, true),          // 落地隔离开关
-  full:      parseBool(args.fullConfig, false),      // 完整配置输出
-  fakeip:    parseBool(args.fakeIPEnabled, true),    // FakeIP 开关
-  quic:      parseBool(args.quicEnabled, false),     // QUIC 开关 (建议关闭)
-  threshold: parseNumber(args.threshold, 0)          // 地区阈值
+  ipv6:      parseBool(args.ipv6Enabled, true),
+  lb:        parseBool(args.loadBalance, false),
+  landing:   parseBool(args.landing, false), // [变更] 默认为 False，不隔离
+  full:      parseBool(args.fullConfig, false),
+  fakeip:    parseBool(args.fakeIPEnabled, true),
+  quic:      parseBool(args.quicEnabled, false),
+  threshold: parseNumber(args.threshold, 0)
 }))(typeof $arguments !== 'undefined' ? $arguments : {});
 
 
@@ -105,7 +93,6 @@ const ARGS = ((args) => ({
 // 3. 规则集配置 (Rule Providers)
 // ============================================================================
 
-// 统一的基础 URL，使用 MetaCubeX 优化的 MRS 二进制规则 (内存占用极低)
 const META_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
 
 const ruleProviders = {
@@ -117,8 +104,7 @@ const ruleProviders = {
 
   // --- 应用分流 ---
   "AI":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-ai-!cn.mrs` },
-  
-  // [定制] Crypto 规则：使用用户指定的 langhun 列表 (text格式)
+  // [定制] Crypto 规则
   "Crypto":       { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Crypto.list" },
 
   "YouTube":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/youtube.mrs` },
@@ -142,10 +128,9 @@ const ruleProviders = {
   // --- 工具类 ---
   "Speedtest":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/ookla-speedtest.mrs` },
   "PT":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-pt.mrs` },
-  // 补充直连列表
   "DirectList":   { type: "http", behavior: "domain", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/Simondler/Surge/refs/heads/main/Direct.list" },
 
-  // --- IP 规则 (用于解决 DNS 污染或纯 IP 访问) ---
+  // --- IP 规则 ---
   "CN_IP":        { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/cn.mrs` },
   "Private_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/private.mrs` },
   "Binance_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo/geoip/binance.mrs` },
@@ -162,60 +147,50 @@ const ruleProviders = {
 
 const buildRules = (quicEnabled) => {
   const rules = [
-    // [协议控制] 阻断 UDP 443 (QUIC)，强制回退 TCP，防止运营商 QoS 限速导致流媒体卡顿
+    // [协议控制]
     !quicEnabled ? "AND,((DST-PORT,443),(NETWORK,UDP)),REJECT" : null,
 
-    // [基础拦截] 广告与局域网
+    // [基础拦截]
     `RULE-SET,ADBlock,${GROUPS.ADS}`,
     `RULE-SET,Private,${GROUPS.DIRECT}`,
     `RULE-SET,Private_IP,${GROUPS.DIRECT},no-resolve`,
 
-    // [核心业务] AI
+    // [业务分流]
     `RULE-SET,AI,${GROUPS.AI}`,
-    
-    // [Crypto] 定制规则 -> 指向优先日本的策略组
-    `RULE-SET,Crypto,${GROUPS.CRYPTO}`,
+    `RULE-SET,Crypto,${GROUPS.CRYPTO}`, // 指向自定义 Crypto 组
 
-    // [关键排序] YouTube 必须在 Google 之前，否则会被 Google 的泛域名规则拦截
     `RULE-SET,YouTube,${GROUPS.YOUTUBE}`,
     `RULE-SET,Google,${GROUPS.GOOGLE}`,
     `RULE-SET,Google_IP,${GROUPS.GOOGLE},no-resolve`,
     
-    // [微软服务] Bing 和 OneDrive 分离
     `RULE-SET,Bing,${GROUPS.BING}`,
     `RULE-SET,OneDrive,${GROUPS.ONEDRIVE}`,
     `RULE-SET,Microsoft,${GROUPS.MICROSOFT}`,
     
-    // [苹果服务] 默认直连以优化 App Store 体验
     `RULE-SET,AppleTV,${GROUPS.APPLE}`,
     `RULE-SET,Apple,${GROUPS.APPLE}`,
     `RULE-SET,Apple_IP,${GROUPS.APPLE},no-resolve`,
 
-    // [社交媒体]
     `RULE-SET,Telegram,${GROUPS.TELEGRAM}`,
     `RULE-SET,Telegram_IP,${GROUPS.TELEGRAM},no-resolve`,
     `RULE-SET,TikTok,${GROUPS.TIKTOK}`,
     
-    // [流媒体]
     `RULE-SET,Netflix,${GROUPS.NETFLIX}`,
     `RULE-SET,Netflix_IP,${GROUPS.NETFLIX},no-resolve`,
     `RULE-SET,Disney,${GROUPS.DISNEY}`,
     `RULE-SET,Spotify,${GROUPS.SPOTIFY}`,
     
-    // [游戏/下载/测速]
     `RULE-SET,SteamCN,${GROUPS.DIRECT}`,
     `RULE-SET,Epic,${GROUPS.GAMES}`,
-    `RULE-SET,PT,${GROUPS.PT}`,           // PT 必须直连，禁止走代理
+    `RULE-SET,PT,${GROUPS.PT}`,
     `RULE-SET,Speedtest,${GROUPS.SPEEDTEST}`,
     `RULE-SET,GitHub,${GROUPS.SELECT}`,
 
-    // [地区兜底] 非 CN 走代理，CN 走直连
+    // [兜底]
     `RULE-SET,Geo_Not_CN,${GROUPS.SELECT}`,
     `RULE-SET,CN,${GROUPS.DIRECT}`,
     `RULE-SET,DirectList,${GROUPS.DIRECT}`,
     `RULE-SET,CN_IP,${GROUPS.DIRECT},no-resolve`,
-
-    // [最终兜底]
     `MATCH,${GROUPS.SELECT}`
   ];
   return rules.filter(Boolean);
@@ -223,74 +198,71 @@ const buildRules = (quicEnabled) => {
 
 
 // ============================================================================
-// 5. 策略组生成逻辑 (Proxy Groups - 别称定制版)
+// 5. 策略组生成逻辑 (Proxy Groups - Optional Landing)
 // ============================================================================
 
-// 国家与地区元数据配置 (Key 为展示名称，Pattern 为匹配正则)
-// [定制] 使用了别称 (狮城、枫叶、袋鼠、花旗、霓虹 等)
 const countriesMeta = {
-  // 热门区域 (定制别称)
-  "香港": { pattern: "(?i)香港|港|HK|Hong Kong|🇭🇰", flag: "🇭🇰" }, // 经典
-  "台湾": { pattern: "(?i)台湾|台|TW|Taiwan|🇹🇼",    flag: "🇹🇼" }, // 经典
-  "霓虹": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" }, // 日本 -> 霓虹
-  "狮城": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" }, // 新加坡 -> 狮城
-  "鹰酱": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" }, // 美国 -> 鹰酱
-  "高丽": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" }, // 韩国 -> 高丽
-  
-  // 补充区域 (定制别称)
-  "英伦": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" }, // 英国 -> 英伦
-  "战车": { pattern: "(?i)德国|DE|Germany|🇩🇪", flag: "🇩🇪" }, // 德国 -> 战车
-  "高卢": { pattern: "(?i)法国|FR|France|🇫🇷", flag: "🇫🇷" }, // 法国 -> 高卢
-  "毛熊": { pattern: "(?i)俄罗斯|俄|RU|Russia|🇷🇺", flag: "🇷🇺" }, // 俄罗斯 -> 毛熊
-  "枫叶": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" }, // 加拿大 -> 枫叶
-  "袋鼠": { pattern: "(?i)澳大利亚|澳洲|AU|Australia|🇦🇺", flag: "🇦🇺" }, // 澳洲 -> 袋鼠
-  "暹罗": { pattern: "(?i)泰国|泰|TH|Thailand|🇹🇭", flag: "🇹🇭" }, // 泰国 -> 暹罗
-  "天竺": { pattern: "(?i)印度|IN|India|🇮🇳", flag: "🇮🇳" }, // 印度 -> 天竺
-  
-  // 保留标准名
+  "香港": { pattern: "(?i)香港|港|HK|Hong Kong|🇭🇰", flag: "🇭🇰" },
+  "台湾": { pattern: "(?i)台湾|台|TW|Taiwan|🇹🇼",    flag: "🇹🇼" },
+  "日本": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" },
+  "新加坡": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" },
+  "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" },
+  "韩国": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" },
+  "英国": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" },
+  "德国": { pattern: "(?i)德国|DE|Germany|🇩🇪", flag: "🇩🇪" },
+  "法国": { pattern: "(?i)法国|FR|France|🇫🇷", flag: "🇫🇷" },
   "土耳其": { pattern: "(?i)土耳其|TR|Turkey|🇹🇷", flag: "🇹🇷" },
   "阿根廷": { pattern: "(?i)阿根廷|AR|Argentina|🇦🇷", flag: "🇦🇷" },
-  "巴西":   { pattern: "(?i)巴西|BR|Brazil|🇧🇷", flag: "🇧🇷" }
+  "巴西": { pattern: "(?i)巴西|BR|Brazil|🇧🇷", flag: "🇧🇷" },
+  "澳大利亚": { pattern: "(?i)澳洲|AU|Australia|🇦🇺", flag: "🇦🇺" },
+  "加拿大": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" },
+  
+  // 别称映射
+  "狮城": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" },
+  "枫叶": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" },
+  "袋鼠": { pattern: "(?i)澳大利亚|澳洲|AU|Australia|🇦🇺", flag: "🇦🇺" },
+  "花旗": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" },
+  "霓虹": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" },
+  "英伦": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" },
+  "毛熊": { pattern: "(?i)俄罗斯|俄|RU|Russia|🇷🇺", flag: "🇷🇺" },
+  "高丽": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" },
+  "战车": { pattern: "(?i)德国|DE|Germany|🇩🇪", flag: "🇩🇪" },
+  "高卢": { pattern: "(?i)法国|FR|France|🇫🇷", flag: "🇫🇷" }
 };
 
 /**
  * 解析节点列表，生成结构化国家配置
- * [优化] 自动剥离 (?i) 前缀，确保 regex 兼容性
  */
 function parseCountries(proxies) {
   const countryCounts = {};
+  const { landing } = ARGS;
   
-  // 预编译正则对象
   const compiledMeta = Object.entries(countriesMeta).map(([key, meta]) => ({
-    key, // 这里的 key 就是别称 (如"狮城")
+    key,
     flag: meta.flag,
-    // 输出给 Clash 配置的字符串 (去除 (?i))
     outputPattern: meta.pattern.replace(/^\(\?i\)/, ''), 
-    // 用于 JS 匹配的正则对象
     regex: new RegExp(meta.pattern.replace(/^\(\?i\)/, ''), 'i')
   }));
 
-  // 遍历节点统计
   for (const proxy of proxies) {
     const name = proxy.name || '';
-    // 跳过明确标记为落地的节点
-    if (REGEX_LANDING_ISOLATE.test(name)) continue;
+    
+    // [关键] 只有当开启 landing 参数时，才在国家统计中跳过落地节点
+    if (landing && REGEX_LANDING_ISOLATE.test(name)) continue;
     
     for (const meta of compiledMeta) {
       if (meta.regex.test(name)) {
         countryCounts[meta.key] = (countryCounts[meta.key] || 0) + 1;
-        break; // 匹配到一个国家即停止
+        break;
       }
     }
   }
 
-  // 返回满足阈值的国家配置
   return Object.entries(countryCounts)
     .filter(([, count]) => count > ARGS.threshold)
     .map(([key]) => {
       const meta = compiledMeta.find(m => m.key === key);
       return {
-        // 生成最终组名：🇸🇬 狮城节点
         name: `${meta.flag} ${key}${NODE_SUFFIX}`,
         filter: meta.outputPattern
       };
@@ -298,14 +270,13 @@ function parseCountries(proxies) {
 }
 
 /**
- * 构建所有策略组
- * [优化] 包含兜底组逻辑，防止断网
+ * 构建策略组
  */
 function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
-  const { landing, lb } = ARGS;
+  const { lb, landing } = ARGS;
   const countryGroupNames = countryConfigs.map(c => c.name);
 
-  // [兜底组] 如果无任何国家组生成，必须有此组兜底
+  // [兜底组]
   const fallbackAllGroup = [{ 
     name: GROUPS.OTHER, 
     type: "select", 
@@ -313,32 +284,31 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
   }];
   
   // [基础候选列表]
+  // 包含所有国家组、兜底组
+  // 如果 landing=true，则额外包含 LANDING 组
   const baseProxies = [
     GROUPS.FALLBACK,
     landing ? GROUPS.LANDING : null,
     ...countryGroupNames,
-    GROUPS.OTHER, // 始终加入兜底组
+    GROUPS.OTHER, 
     hasLowCost ? GROUPS.LOW_COST : null,
     GROUPS.MANUAL,
     "DIRECT"
   ].filter(Boolean);
 
-  // [直连优先候选]
   const directFirstProxies = ["DIRECT", GROUPS.SELECT, ...baseProxies.filter(p => p !== "DIRECT" && p !== GROUPS.SELECT)];
   
-  // [日本优先候选] (Crypto 专用)
-  // 查找包含 🇯🇵 / 霓虹 / 日本 的分组
-  const japanGroup = countryConfigs.find(c => c.name.includes("🇯🇵") || c.name.includes("霓虹") || c.name.includes("日本"));
+  // [Crypto 优先日本]
+  const japanGroup = countryConfigs.find(c => c.name.includes("🇯🇵") || c.name.includes("日本") || c.name.includes("霓虹"));
   const cryptoProxies = japanGroup 
     ? [japanGroup.name, ...baseProxies.filter(n => n !== japanGroup.name)] 
     : [...baseProxies];
 
-  // [媒体专用候选] (不含直连)
   const mediaProxies = [GROUPS.SELECT, ...countryGroupNames, GROUPS.MANUAL];
 
   // --- 1. 生成国家分组 ---
   const countryGroups = countryConfigs.map(config => {
-    // 排除被隔离的节点
+    // 如果 landing=true，则过滤掉落地节点；始终过滤低倍率
     const excludeFilter = landing 
       ? `(?i)${REGEX_LANDING_ISOLATE.source}|${REGEX_LOW_COST.source}` 
       : `(?i)${REGEX_LOW_COST.source}`;
@@ -349,31 +319,27 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
       "include-all": true,
       filter: config.filter, 
       "exclude-filter": excludeFilter,
-      interval: 600, tolerance: 100, lazy: true, // 600s 养老测速
+      interval: 600, tolerance: 100, lazy: true, 
       url: "https://cp.cloudflare.com/generate_204"
     };
   });
 
   // --- 2. 生成功能分组 ---
   const functionalGroups = [
-    // [入口] 节点选择
+    // 基础控制
     { 
-      name: GROUPS.SELECT, 
-      type: "select", 
+      name: GROUPS.SELECT, type: "select", 
       proxies: [GROUPS.FALLBACK, ...countryGroupNames, GROUPS.OTHER, GROUPS.MANUAL, "DIRECT"] 
     },
-    // [手动] 备用
     { name: GROUPS.MANUAL, type: "select", "include-all": true },
-    // [自动] 故障转移
     { 
-      name: GROUPS.FALLBACK, 
-      type: "url-test", 
+      name: GROUPS.FALLBACK, type: "url-test", 
       proxies: [landing ? GROUPS.LANDING : null, ...countryGroupNames, GROUPS.OTHER].filter(Boolean), 
       url: "https://cp.cloudflare.com/generate_204", 
       interval: 600, tolerance: 100, lazy: true 
     },
     
-    // [业务应用]
+    // 业务应用
     { name: GROUPS.AI,        type: "select", proxies: baseProxies },
     { name: GROUPS.TELEGRAM,  type: "select", proxies: baseProxies },
     { name: GROUPS.GOOGLE,    type: "select", proxies: baseProxies },
@@ -382,24 +348,25 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
     { name: GROUPS.ONEDRIVE,  type: "select", proxies: baseProxies },
     { name: GROUPS.APPLE,     type: "select", proxies: directFirstProxies },
     
-    // [媒体娱乐]
+    // 媒体娱乐
     { name: GROUPS.YOUTUBE,   type: "select", proxies: mediaProxies },
     { name: GROUPS.NETFLIX,   type: "select", proxies: mediaProxies },
     { name: GROUPS.DISNEY,    type: "select", proxies: mediaProxies },
     { name: GROUPS.SPOTIFY,   type: "select", proxies: mediaProxies },
     { name: GROUPS.TIKTOK,    type: "select", proxies: mediaProxies },
     
-    // [其他]
+    // 其他
     { name: GROUPS.GAMES,     type: "select", proxies: baseProxies },
     { name: GROUPS.CRYPTO,    type: "select", proxies: cryptoProxies },
     { name: GROUPS.PT,        type: "select", proxies: directFirstProxies },
     { name: GROUPS.SPEEDTEST, type: "select", proxies: directFirstProxies },
 
-    // [拦截与直连]
+    // 拦截与直连
     { name: GROUPS.ADS,       type: "select", proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT] },
     { name: GROUPS.DIRECT,    type: "select", proxies: ["DIRECT", GROUPS.SELECT] }
   ];
 
+  // 仅在 landing=true 时生成隔离组
   if (landing) {
     functionalGroups.push({
       name: GROUPS.LANDING, type: "select", "include-all": true,
@@ -420,7 +387,7 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
 
 
 // ============================================================================
-// 6. DNS 配置 (DNS - FakeIP & Optimization)
+// 6. DNS 配置 (DNS Configuration)
 // ============================================================================
 
 function buildDnsConfig() {
@@ -429,7 +396,7 @@ function buildDnsConfig() {
   return {
     enable: true,
     ipv6: ipv6,
-    "prefer-h3": false, // 关闭 H3 节省内存
+    "prefer-h3": false, 
     "enhanced-mode": fakeip ? "fake-ip" : "redir-host",
     listen: ":1053",
     "use-hosts": true,
@@ -439,21 +406,18 @@ function buildDnsConfig() {
     nameserver: ["https://dns.alidns.com/dns-query", "https://doh.pub/dns-query"],
     fallback: ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"],
     
-    // [Fake-IP 过滤] 强制以下域名返回真实 IP
-    // 解决 Windows/Android 网络探测失败，以及直连服务的 IP 问题
+    // [Fake-IP 过滤] 
     "fake-ip-filter": [
-      // 系统网络探测
+      // 微软/安卓网络检测
       "dns.msftncsi.com",
       "www.msftncsi.com",
       "www.msftconnecttest.com",
       "connectivitycheck.gstatic.com",
-      
       // 游戏主机
       "*.xboxlive.com",
       "*.nintendo.net",
       "*.sonyentertainmentnetwork.com",
-      
-      // 强制直连的服务 (避免 FakeIP 污染)
+      // 强制直连的服务
       "geosite:cn",
       "geosite:apple",
       "geosite:microsoft",
@@ -480,23 +444,13 @@ function main(config) {
   }
 
   const proxies = config.proxies;
-  
-  // 1. 检查是否有低倍率节点
   const hasLowCost = proxies.some(p => REGEX_LOW_COST.test(p.name));
   
-  // 2. 解析节点，生成地区组配置 (带别称)
   const countryConfigs = parseCountries(proxies);
-  
-  // 3. 构建策略组
   const proxyGroups = buildProxyGroups(proxies, countryConfigs, hasLowCost);
-  
-  // 4. 构建分流规则
   const rules = buildRules(ARGS.quic);
-  
-  // 5. 构建 DNS 配置
   const dns = buildDnsConfig();
 
-  // 6. 组装最终配置
   const result = {
     ...config,
     "proxy-groups": proxyGroups,
@@ -508,9 +462,8 @@ function main(config) {
     ipv6: ARGS.ipv6,
     "allow-lan": true,
     "unified-delay": true,
-    "tcp-concurrent": false, // 关闭并发
+    "tcp-concurrent": false,
     
-    // 嗅探器配置 (解决 DNS 污染和 IP 识别问题)
     sniffer: {
       enable: true,
       "force-dns-mapping": true,
