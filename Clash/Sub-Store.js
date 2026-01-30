@@ -212,7 +212,7 @@ const ruleProviders = {
   // Netflix IP 段
   "Netflix_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/netflix.mrs` },
   // 苹果 IP 段 (使用精简版)
-  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geo-lite/geoip/apple.mrs` }
+  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/apple.mrs` }
 };
 
 
