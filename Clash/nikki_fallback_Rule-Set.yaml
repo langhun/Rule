@@ -64,7 +64,6 @@ sniffer:
   force-domain:
     - "+.netflix.com"                                                   # 强制嗅探  Netflix 主域名
     - "+.nflxvideo.net"                                                 # 强制嗅探  Netflix CDN
-    - "+.amazonaws.com"                                                 # 强制嗅探  AWS 云服务
     - "+.media.dssott.com"                                              # 强制嗅探  Disney+ 流媒体
   skip-domain:
     - "+.apple.com"                                                     # 跳过嗅探  苹果服务
@@ -99,7 +98,7 @@ dns:
 # 策略组（按服务分组）
 proxy-groups:
   - {name: 🚀 节点选择, type: select, proxies: [⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🎯 手动切换, 🎯 全球直连, REJECT]}
-  - {name: ⚡ 自动切换, type: url-test, url: 'https://www.g.cn/generate_204', include-all: true}
+  - {name: ⚡ 自动切换, type: fallback, url: 'https://www.g.cn/generate_204', interval: 300, include-all: true, proxies: [🇯🇵 日本节点, 🇭🇰 香港节点, 🇺🇸 美国节点, 🎯 全球直连, 🐟 其他节点]}
   - {name: 🤖 AI服务, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 💰 加密货币, type: select, proxies: [🇯🇵 日本节点, 🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🍎 Apple, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
@@ -143,7 +142,7 @@ proxy-groups:
   - {name: 🇪🇺 欧洲节点, type: url-test, url: 'https://www.g.cn/generate_204', include-all: true, filter: '^(?i)(?=.*(奥地利|奥地利共和国|比利时|保加利亚|克罗地亚|塞浦路斯|捷克|丹麦|爱沙尼亚|芬兰|法国|德国|希腊|匈牙利|爱尔兰|意大利|拉脱维亚|立陶宛|卢森堡|荷兰|波兰|葡萄牙|罗马尼亚|斯洛伐克|斯洛文尼亚|西班牙|瑞典|英国|🇧🇪|🇨🇿|🇩🇰|🇫🇮|🇫🇷|🇩🇪|🇮🇪|🇮🇹|🇱🇹|🇱🇺|🇳🇱|🇵🇱|🇸🇪|🇬🇧|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU)).*$'}
 
   # 其他组
-  - {name: 🐟 其他节点, type: select, url: 'https://www.g.cn/generate_204', include-all: true, filter: '^(?!.*(DIRECT|直接连接|香港|台湾|台灣|日本|韩国|韓國|新加坡|美国|美國|奥地利|奥地利共和国|比利时|保加利亚|克罗地亚|塞浦路斯|捷克|丹麦|爱沙尼亚|芬兰|法国|德国|希腊|匈牙利|爱尔兰|意大利|拉脱维亚|立陶宛|卢森堡|荷兰|波兰|葡萄牙|罗马尼亚|斯洛伐克|斯洛文尼亚|西班牙|瑞典|英国|🇭🇰|🇹🇼|🇸🇬|🇯🇵|🇰🇷|🇺🇸|🇬🇧|HK|TW|SG|JP|KR|US|GB|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU|HKG|TPE|TSA|KHH|SIN|XSP|NRT|HND|KIX|CTS|FUK|JFK|LAX|ORD|ATL|DFW|SFO|MIA|SEA|IAD|LHR|LGW)).*$'}
+  - {name: 🐟 其他节点, type: url-test, url: 'https://www.g.cn/generate_204', include-all: true, filter: '^(?!.*(DIRECT|直接连接|香港|台湾|台灣|日本|韩国|韓國|新加坡|美国|美國|奥地利|奥地利共和国|比利时|保加利亚|克罗地亚|塞浦路斯|捷克|丹麦|爱沙尼亚|芬兰|法国|德国|希腊|匈牙利|爱尔兰|意大利|拉脱维亚|立陶宛|卢森堡|荷兰|波兰|葡萄牙|罗马尼亚|斯洛伐克|斯洛文尼亚|西班牙|瑞典|英国|🇭🇰|🇹🇼|🇸🇬|🇯🇵|🇰🇷|🇺🇸|🇬🇧|HK|TW|SG|JP|KR|US|GB|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU|HKG|TPE|TSA|KHH|SIN|XSP|NRT|HND|KIX|CTS|FUK|JFK|LAX|ORD|ATL|DFW|SFO|MIA|SEA|IAD|LHR|LGW)).*$'}
 
   # 直连
   - {name: 🎯 全球直连, type: select, proxies: [DIRECT]}
@@ -163,6 +162,7 @@ rules:
   - RULE-SET,crypto_domain,💰 加密货币
   - RULE-SET,google_domain,🇬 Google
   - RULE-SET,google_ip,🇬 Google,no-resolve
+  - RULE-SET,github_domain,🚀 节点选择
   - RULE-SET,youtube_domain,📹 YouTube
   - RULE-SET,tiktok_domain,🎵 TikTok
   - RULE-SET,telegram_domain,✈️ Telegram
