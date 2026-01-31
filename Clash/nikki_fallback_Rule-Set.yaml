@@ -102,13 +102,18 @@ dns:
   default-nameserver:
     - 114.114.114.114                           # 上游 DNS：114 公共 DNS（备用）
     - tls://223.5.5.5:853                       # 上游 DNS：阿里云 DoT（TLS 加密）
+  
+  proxy-server-nameserver:      # 👈 新版 Mihomo 必需字段
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+  
+  direct-nameserver:          # 👈 加这个，专门救规则下载
+    - 223.5.5.5
+    - 114.114.114.114
+
   nameserver:
     - https://doh.pub/dns-query                 # 主 DNS：腾讯 DoH（HTTPS）
     - https://dns.alidns.com/dns-query          # 主 DNS：阿里云 DoH（HTTPS）
-  nameserver-policy:
-    "geosite:geolocation-!cn": "https://doh.pub/dns-query"  # 国外域名使用腾讯 DoH
-
-
 
 # ※※※※※※※※※※※※※※※ 代理策略组 ※※※※※※※※※※※※※※※
 # 策略组（按服务分组）
