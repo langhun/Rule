@@ -193,7 +193,7 @@ rules:
 # 规则来源
 rule-providers: 
   # 直连规则
-  direct_list:       {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Direct.list"}
+  direct_list:       {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Direct.list"}
   # 域名规则
   private_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
   adblock_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://adrules.top/adrules-mihomo.mrs"}
