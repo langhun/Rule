@@ -100,12 +100,13 @@ dns:
 proxy-groups:
   - {name: 🚀 节点选择, type: select, proxies: [⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🎯 手动切换, 🎯 全球直连, REJECT]}
   - {name: ⚡ 自动切换, type: url-test, url: 'https://www.g.cn/generate_204', include-all: true}
+  - {name: 🎯 手动切换, type: select, include-all: true}
   - {name: 🤖 AI服务, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
-  - {name: 💰 加密货币, type: select, proxies: [🇯🇵 日本节点, 🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
+  - {name: 💰 加密货币, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🍎 Apple, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: Ⓜ️ 微软服务, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🇬 Google, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
-  - {name: 🔍 Bing, type: select, proxies: [🎯 全球直连, 🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, REJECT]}
+  - {name: 🔍 Bing, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: ☁️ OneDrive, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: ✈️ Telegram, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 📹 YouTube, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
@@ -115,7 +116,7 @@ proxy-groups:
   - {name: 🎵 TikTok, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🚂 Steam, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🎮 游戏加速, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
-  - {name: 📦 PT下载, type: select, proxies: [🎯 全球直连, 🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, REJECT]}
+  - {name: 📦 PT下载, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 📈 网络测速, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🛑 广告拦截, type: select, proxies: [REJECT, DIRECT]}
   - {name: 🐟 兜底节点, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
@@ -193,7 +194,7 @@ rules:
 # 规则来源
 rule-providers: 
   # 直连规则
-  direct_list:       {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Direct.list"}
+  direct_list:       {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Direct.list"}
   # 域名规则
   private_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
   adblock_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://adrules.top/adrules-mihomo.mrs"}
