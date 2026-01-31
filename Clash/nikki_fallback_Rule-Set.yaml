@@ -1,8 +1,9 @@
 # 名称： Nikki_fallback_Rule-Set
-# 版本： V2026.1.30
-# 日期： 2026年1月30日
+# 版本： V2026.1.31
+# 日期： 2026年1月31日
 # 内核： Mihomo / Clash / OpenClash
-# 说明： ①本文件适用于 Mihomo 内核（支持 Nikki 插件）；②基于 Sub-Store.js V5.9.3 优化；③使用前需补充完整 "订阅链接" 与 "机场名";④已优化策略组名称和规则优先级，更适配 mihomo 内核;
+# 说明： ①本文件适用于 Mihomo 内核（支持 Nikki 插件）；②基于 Sub-Store.js V5.9.3 优化；③使用前需补充完整 "订阅链接" 与 "机场名"；④已优化策略组名称和规则优先级，更适配 Mihomo 内核；
+# 注：本文件所有注释均为中文，已统一格式化，便于本地维护和阅读
 
 
 
@@ -24,6 +25,9 @@ proxy-providers:
 
 # ※※※※※※※※※※※※※※※ 核心配置 ※※※※※※※※※※※※※※※
 # 基础配置
+geodata-mode: true                              # 是否启用地理数据支持（提高 geo 规则精度）
+geodata-loader: memconservative                 # 地理数据加载器模式（memconservative=内存节约模式）
+tcp-fast-open: true                             # 是否启用 TCP Fast Open（可加快首次握手）
 mixed-port: 7893                                # 混合代理监听端口：支持 HTTP 和 SOCKS5 协议
 mode: rule                                      # 工作模式：rule=规则模式（按规则分流）| global=全局代理 | direct=全直连
 allow-lan: true                                 # 允许局域网连接：LAN 设备可通过本机代理
@@ -59,7 +63,7 @@ sniffer:
   enable: true                                  # 启用嗅探：自动识别应用层协议（HTTP、QUIC、TLS）
   override-destination: true                    # 覆盖目标：用嗅探到的域名替代原始 IP
   parse-pure-ip: false                          # 纯 IP 解析：false=不尝试反向解析纯 IP 连接（避免查询延迟）
-  force-dns-mapping: true                       # 强制 DNS 映射：对纯 IP 连接进行 DNS 反查
+  force-dns-mapping: false                       # 强制 DNS 映射：对纯 IP 连接进行 DNS 反查
   sniff:
     QUIC:
       ports: [443]                              # QUIC 嗅探端口：HTTP/3 通常使用 443
@@ -101,6 +105,8 @@ dns:
   nameserver:
     - https://doh.pub/dns-query                 # 主 DNS：腾讯 DoH（HTTPS）
     - https://dns.alidns.com/dns-query          # 主 DNS：阿里云 DoH（HTTPS）
+  nameserver-policy:
+    "geosite:geolocation-!cn": "https://doh.pub/dns-query"  # 国外域名使用腾讯 DoH
 
 
 
@@ -109,10 +115,12 @@ dns:
 proxy-groups:
   # ========== 主要策略组 ==========
   - {name: 🚀 节点选择, type: select, proxies: [⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🎯 手动切换, 🎯 全球直连, REJECT]}  # 主控组：手动选择代理或自动切换
-  - {name: ⚡ 自动切换, type: fallback, url: 'https://cp.cloudflare.com/generate_204', interval: 300, include-all: true, proxies: [🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🎯 手动切换, 🎯 全球直连, 🐟 其他节点]}  # 故障转移：主线路失效自动切换备线
+  - {name: ⚡ 自动切换, type: fallback, url: 'https://cp.cloudflare.com/generate_204', interval: 300, proxies: [🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🐟 其他节点]}  # 故障转移：主线路失效自动切换备线
   - {name: 🎯 手动切换, type: select, include-all: true}  # 手动选择：从所有订阅节点中选择
   # ========== 业务分流（内容优先级） ==========
-  - {name: 🤖 AI服务, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}  # AI 服务：推荐美国/澳洲节点
+  - {name: 🤖 OpenAI, type: select, proxies: [🇸🇬 新加坡节点, 🇯🇵 日本节点, 🚀 节点选择, ⚡ 自动切换]}  # OpenAI 服务策略组：推荐新加坡/日本节点
+  - {name: 🤖 Claude, type: select, proxies: [🇯🇵 日本节点, 🇸🇬 新加坡节点, 🚀 节点选择]}  # Anthropic（Claude）策略组：推荐日本/新加坡
+  - {name: 🤖 Gemini, type: select, proxies: [🇺🇸 美国节点, 🚀 节点选择]}  # Google Gemini 策略组：推荐美国节点
   - {name: 💰 加密货币, type: select, proxies: [🇯🇵 日本节点, 🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}  # 加密货币：优先日本（低延迟）
   - {name: 🍎 Apple, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}  # Apple 服务：CDN 多地部署
   - {name: Ⓜ️ 微软服务, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}  # 微软服务：Office、Teams 等
@@ -149,7 +157,7 @@ proxy-groups:
   - {name: 🇪🇺 欧洲节点, type: url-test, url: 'https://cp.cloudflare.com/generate_204', include-all: true, filter: '^(?i)(?=.*(奥地利|奥地利共和国|比利时|保加利亚|克罗地亚|塞浦路斯|捷克|丹麦|爱沙尼亚|芬兰|法国|德国|希腊|匈牙利|爱尔兰|意大利|拉脱维亚|立陶宛|卢森堡|荷兰|波兰|葡萄牙|罗马尼亚|斯洛伐克|斯洛文尼亚|西班牙|瑞典|英国|🇧🇪|🇨🇿|🇩🇰|🇫🇮|🇫🇷|🇩🇪|🇮🇪|🇮🇹|🇱🇹|🇱🇺|🇳🇱|🇵🇱|🇸🇪|🇬🇧|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU)).*$'}
 
   # 其他节点：排除已分类的节点，包含剩余节点
-  - {name: 🐟 其他节点, type: select, url: 'https://cp.cloudflare.com/generate_204', include-all: true, filter: '^(?!.*(DIRECT|直接连接|香港|台湾|台灣|日本|韩国|韓國|新加坡|美国|美國|奥地利|奥地利共和国|比利时|保加利亚|克罗地亚|塞浦路斯|捷克|丹麦|爱沙尼亚|芬兰|法国|德国|希腊|匈牙利|爱尔兰|意大利|拉脱维亚|立陶宛|卢森堡|荷兰|波兰|葡萄牙|罗马尼亚|斯洛伐克|斯洛文尼亚|西班牙|瑞典|英国|🇭🇰|🇹🇼|🇸🇬|🇯🇵|🇰🇷|🇺🇸|🇬🇧|HK|TW|SG|JP|KR|US|GB|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU|HKG|TPE|TSA|KHH|SIN|XSP|NRT|HND|KIX|CTS|FUK|JFK|LAX|ORD|ATL|DFW|SFO|MIA|SEA|IAD|LHR|LGW)).*$'}
+  - {name: 🐟 其他节点, type: url-test, url: 'https://cp.cloudflare.com/generate_204', include-all: true, filter: '^(?!.*(香港|台湾|日本|韩国|新加坡|美国|奥地利|比利时|法国|德国|荷兰|瑞典|英国|CDG|FRA|AMS|MAD|BCN|FCO|MUC|BRU)).*$'}
 
   # 全球直连
   - {name: 🎯 全球直连, type: select, proxies: [DIRECT]}  # 直连：不走任何代理，直接连接
@@ -165,11 +173,14 @@ rules:
   - RULE-SET,direct_list,🎯 全球直连                               # 直连列表：自定义 domain 直连列表（最高优先级）
 
   # ========== 业务分流（内容类分类）==========
-  - RULE-SET,ai,🤖 AI服务                                          # AI 服务：ChatGPT、Claude、Gemini 等 API 和网站
+  - RULE-SET,openai_domain,🤖 OpenAI
+  - RULE-SET,anthropic_domain,🤖 Claude
+  - RULE-SET,google_ai,🤖 Gemini
+
   - RULE-SET,crypto_domain,💰 加密货币                             # 加密货币：交易所、钱包、NFT 等（优先日本）
   - RULE-SET,google_domain,🇬 Google                               # Google：搜索、Gmail、Drive 等服务
   - RULE-SET,google_ip,🇬 Google,no-resolve                        # Google IP：直接 IP 段匹配
-  - RULE-SET,github_domain,🤖 AI服务                               # GitHub：代码托管（路由到 AI 服务组以保持一致）
+  - RULE-SET,github_domain,🚀 节点选择                               # GitHub：代码托管（路由到 AI 服务组以保持一致）
   - RULE-SET,youtube_domain,📹 YouTube                             # YouTube：视频服务
   - RULE-SET,tiktok_domain,🎵 TikTok                               # TikTok：短视频平台
   - RULE-SET,telegram_domain,✈️ Telegram                            # Telegram：即时通讯 APP
@@ -206,7 +217,10 @@ rule-providers:
   private_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}  # RFC1918 私有域名（.local 等）
   adblock_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://adrules.top/adrules-mihomo.mrs"}  # 【第三方】广告域名列表（AdRules 维护）
   speedtest_domain:  {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/ookla-speedtest.mrs"}  # Ookla 网络测速
-  ai:                {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs"}  # AI 服务列表（OpenAI、Claude、Gemini 等）
+  ai:                {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs"}  # AI 服务列表（包含 OpenAI、Anthropic、Google Gemini）
+  openai_domain:     {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/openai.mrs"}  # OpenAI（ChatGPT）域名规则（MetaCubeX）
+  anthropic_domain:  {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/anthropic.mrs"}  # Anthropic（Claude）域名规则（MetaCubeX）
+  google_ai:         {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google-gemini.mrs"}  # Google Gemini 域名规则（MetaCubeX）
   crypto_domain:     {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Crypto.list"}  # 【自定义】加密货币交易所
   github_domain:     {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}  # GitHub 域名
   youtube_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}  # YouTube 域名
