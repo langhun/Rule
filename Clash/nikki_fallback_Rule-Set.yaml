@@ -99,6 +99,7 @@ dns:
 proxy-groups:
   - {name: 🚀 节点选择, type: select, proxies: [⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🎯 手动切换, 🎯 全球直连, REJECT]}
   - {name: ⚡ 自动切换, type: fallback, url: 'https://www.g.cn/generate_204', interval: 300, include-all: true, proxies: [🇯🇵 日本节点, 🇭🇰 香港节点, 🇺🇸 美国节点, 🎯 全球直连, 🐟 其他节点]}
+  - {name: 🎯 手动切换, type: select, include-all: true}
   - {name: 🤖 AI服务, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 💰 加密货币, type: select, proxies: [🇯🇵 日本节点, 🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
   - {name: 🍎 Apple, type: select, proxies: [🚀 节点选择, ⚡ 自动切换, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇰🇷 韩国节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🇪🇺 欧洲节点, 🐟 其他节点, 🎯 全球直连, REJECT]}
