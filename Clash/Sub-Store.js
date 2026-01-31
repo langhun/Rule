@@ -162,7 +162,7 @@ const ruleProviders = {
   // AI 服务 (ChatGPT、Claude 等)
   "AI":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-ai-!cn.mrs` },
   // 加密货币交易所 (自定义规则)
-  "Crypto":       { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Crypto.list" },
+  "Crypto":       { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Crypto.list" },
 
   // 视频平台
   "YouTube":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/youtube.mrs` },
@@ -198,7 +198,7 @@ const ruleProviders = {
   // PT 下载 (私人种子)
   "PT":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-pt.mrs` },
   // 直连列表 (自定义的需要直连的域名)
-  "DirectList":   { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Direct.list" },
+  "DirectList":   { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Direct.list" },
 
   // --- IP 规则 - 基于 IP 段的分流 ---
   // 中国大陆 IP 段

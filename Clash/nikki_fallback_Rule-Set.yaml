@@ -19,7 +19,7 @@ proxy-providers:
     filter: "^(?!.*(到期|过期|剩余|网址|官网|邮箱|订阅|套餐|流量|说明|重置)).*$"  # 节点名过滤正则：排除包含特定关键词的节点
     url: '机场订阅'                             # 【重要】订阅链接：替换为实际的 Sub.link 或 Panel 订阅地址
     override:                                   # 覆盖配置
-      additional-prefix: '[Xx] '                # 代理名前缀：标记过期/不可用节点
+      additional-prefix: '[Xx]'                # 代理名前缀：标记过期/不可用节点
 
 
 # ※※※※※※※※※※※※※※※ 核心配置 ※※※※※※※※※※※※※※※
@@ -39,15 +39,15 @@ profile:
 # 管理面板
 external-ui-name: zashboard                     # 面板名称：Web UI 的显示名称
 external-ui: ui                                 # 面板目录：Web UI 本地文件路径
-external-controller: 0.0.0.0:9090               # 面板访问地址：http://localhost:9090 访问控制面板
+external-controller: "0.0.0.0:9090"               # 面板访问地址：http://localhost:9090 访问控制面板
 secret: ""                                      # 面板密码：空字符串表示无密码（可设置密码）
-external-ui-url: https://github.com/Zephyruso/zashboard/releases/latest/download/dist-no-fonts.zip  # 面板下载链接
+external-ui-url: "https://github.com/Zephyruso/zashboard/releases/latest/download/dist-no-fonts.zip"  # 面板下载链接
 
 # TUN配置
 tun:
   enable: true                                                          # 网卡模式  是否启用 TUN 虚拟网卡模式  
   stack: system                                                         # 协议类型  网络栈：system（系统栈）/ gvisor（内置用户态栈）/ mixed（混合）
-  dns-hijack: [0.0.0.0:53]                                              # 劫持请求  劫持所有 UDP/TCP 53 端口的 DNS 请求
+  dns-hijack: ['0.0.0.0:53']                                              # 劫持请求  劫持所有 UDP/TCP 53 端口的 DNS 请求
   auto-detect-interface: true                                           # 自动出口  自动识别默认出口网络接口 （仅内核模式有效）
   auto-route: true                                                      # 自动路由  自动添加系统路由表      （仅内核模式有效）
   auto-redirect: true                                                   # 自动定向  自动将流量重定向至 TUN  （仅内核模式有效）
@@ -86,7 +86,7 @@ sniffer:
 # DNS 设置
 dns:
   enable: true                                  # 启用 DNS：使用 Clash 内置 DNS 服务器
-  listen: 0.0.0.0:7874                          # DNS 监听地址：0.0.0.0 表示监听所有接口，端口 7874
+  listen: "0.0.0.0:7874"                          # DNS 监听地址：0.0.0.0 表示监听所有接口，端口 7874
   ipv6: true                                    # IPv6 DNS：启用 IPv6 地址解析
   enhanced-mode: fake-ip                        # 增强模式：fake-ip（Fake-IP 模式）防止 DNS 泄露
   fake-ip-range: 198.18.0.1/16                  # Fake-IP 范围：RFC 6598 测试地址段（不会产生真实流量）
@@ -200,14 +200,14 @@ rules:
 # ========== 规则来源（rule-providers）==========
 rule-providers: 
   # ========== 直连规则 ==========
-  direct_list:       {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Direct.list"}  # 【自定义】直连域名列表（格式：text DOMAIN-SUFFIX）
+  direct_list:       {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Direct.list"}  # 【自定义】直连域名列表（格式：text DOMAIN-SUFFIX）
 
   # ========== 域名规则 ==========
   private_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}  # RFC1918 私有域名（.local 等）
   adblock_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://adrules.top/adrules-mihomo.mrs"}  # 【第三方】广告域名列表（AdRules 维护）
   speedtest_domain:  {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/ookla-speedtest.mrs"}  # Ookla 网络测速
   ai:                {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs"}  # AI 服务列表（OpenAI、Claude、Gemini 等）
-  crypto_domain:     {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/refs/heads/main/Clash/Ruleset/Crypto.list"}  # 【自定义】加密货币交易所
+  crypto_domain:     {type: http, interval: 86400, behavior: classical, format: text, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Crypto.list"}  # 【自定义】加密货币交易所
   github_domain:     {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}  # GitHub 域名
   youtube_domain:    {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}  # YouTube 域名
   google_domain:     {type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}  # Google 搜索、Gmail 等
