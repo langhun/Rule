@@ -412,6 +412,9 @@ function parseCountries(proxies) {
  * @returns {Array<object>} 返回策略组数组
  */
 function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
+  // 性能监控：统计组构建时间，帮助分析大型订阅时的开销
+  console.time("buildProxyGroups");
+
   // 获取 lb (负载均衡) 和 landing (落地隔离) 参数
   const { lb, landing } = ARGS;
   // 提取所有国家策略组的名称
@@ -482,71 +485,84 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
   });
 
   // --- 2. 生成功能分组 ---
+  // 为减少重复，先定义一个配置数组，然后通过映射构造对象列表
+  const serviceConfigs = [
+    // 常规业务，使用基础代理池
+    { name: GROUPS.AI,        proxies: baseProxies },
+    { name: GROUPS.TELEGRAM,  proxies: baseProxies },
+    { name: GROUPS.GOOGLE,    proxies: baseProxies },
+    { name: GROUPS.MICROSOFT, proxies: baseProxies },
+    { name: GROUPS.ONEDRIVE,  proxies: baseProxies },
+    { name: GROUPS.GAMES,     proxies: baseProxies },
+
+    // 需要直连优先的服务
+    { name: GROUPS.BING,      proxies: directFirstProxies },
+    { name: GROUPS.APPLE,     proxies: directFirstProxies },
+    { name: GROUPS.PT,        proxies: directFirstProxies },
+    { name: GROUPS.SPEEDTEST, proxies: directFirstProxies },
+
+    // 媒体服务有自己专用的代理顺序
+    { name: GROUPS.YOUTUBE,   proxies: mediaProxies },
+    { name: GROUPS.NETFLIX,   proxies: mediaProxies },
+    { name: GROUPS.DISNEY,    proxies: mediaProxies },
+    { name: GROUPS.SPOTIFY,   proxies: mediaProxies },
+    { name: GROUPS.TIKTOK,    proxies: mediaProxies },
+
+    // 加密货币单独处理
+    { name: GROUPS.CRYPTO,    proxies: cryptoProxies }
+  ];
+
+  // 基础控制与辅助组不在 serviceConfigs 中，单独构建
   const functionalGroups = [
-    // [基础控制组]
-    { 
-      name: GROUPS.SELECT,          // 🚀 节点选择 (主入口)
-      type: "select",               // 手动选择
+    {
+      name: GROUPS.SELECT,    // 🚀 节点选择 (主入口)
+      type: "select",
       proxies: [
         GROUPS.FALLBACK,
         ...countryGroupNames,
         GROUPS.OTHER,
         GROUPS.MANUAL,
         "DIRECT"
-      ]  // 可选项
+      ]
     },
-    { 
-      name: GROUPS.MANUAL,          // 🎯 手动切换
-      type: "select", 
-      "include-all": true           // 包含所有节点，用户自由选择
+    {
+      name: GROUPS.MANUAL,
+      type: "select",
+      "include-all": true
     },
-    { 
-      name: GROUPS.FALLBACK,        // ⚡ 自动切换
-      type: "url-test",             // 自动测速选择最快节点
-      // 可选节点：落地 (可选) → 所有国家 → 兜底
+    {
+      name: GROUPS.FALLBACK,
+      type: "url-test",
       proxies: [
         landing ? GROUPS.LANDING : null,
         ...countryGroupNames,
         GROUPS.OTHER
       ].filter(Boolean),
-      url: "https://cp.cloudflare.com/generate_204", 
-      interval: 600, 
-      tolerance: 100, 
-      lazy: true 
-    },
-    
-    // [业务应用组] - 根据服务类型进行分流
-    { name: GROUPS.AI,        type: "select", proxies: baseProxies },        // AI 服务
-    { name: GROUPS.TELEGRAM,  type: "select", proxies: baseProxies },        // Telegram
-    { name: GROUPS.GOOGLE,    type: "select", proxies: baseProxies },        // Google
-    { name: GROUPS.MICROSOFT, type: "select", proxies: baseProxies },        // 微软服务
-    { name: GROUPS.BING,      type: "select", proxies: directFirstProxies }, // Bing (优先直连)
-    { name: GROUPS.ONEDRIVE,  type: "select", proxies: baseProxies },        // OneDrive
-    { name: GROUPS.APPLE,     type: "select", proxies: directFirstProxies }, // Apple (优先直连)
-    
-    // [媒体娱乐组] - 流媒体服务
-    { name: GROUPS.YOUTUBE,   type: "select", proxies: mediaProxies },   // YouTube
-    { name: GROUPS.NETFLIX,   type: "select", proxies: mediaProxies },   // Netflix
-    { name: GROUPS.DISNEY,    type: "select", proxies: mediaProxies },   // Disney+
-    { name: GROUPS.SPOTIFY,   type: "select", proxies: mediaProxies },   // Spotify
-    { name: GROUPS.TIKTOK,    type: "select", proxies: mediaProxies },   // TikTok
-    
-    // [其他服务组]
-    { name: GROUPS.GAMES,     type: "select", proxies: baseProxies },        // 游戏加速
-    { name: GROUPS.CRYPTO,    type: "select", proxies: cryptoProxies },      // Crypto (日本优先)
-    { name: GROUPS.PT,        type: "select", proxies: directFirstProxies }, // PT 下载 (禁用代理)
-    { name: GROUPS.SPEEDTEST, type: "select", proxies: directFirstProxies }, // 测速 (禁用代理)
-
-    // [拦截与直连组]
-    { 
-      name: GROUPS.ADS,       type: "select", 
-      proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT]  // 可选：拒绝 / 拒绝丢弃 / 直连
-    },
-    { 
-      name: GROUPS.DIRECT,    type: "select", 
-      proxies: ["DIRECT", GROUPS.SELECT]  // 可选：强制直连 / 切换为代理
+      url: "https://cp.cloudflare.com/generate_204",
+      interval: 600,
+      tolerance: 100,
+      lazy: true
     }
   ];
+
+  // 将 serviceConfigs 映射为策略组对象并追加
+  functionalGroups.push(
+    ...serviceConfigs.map(cfg => ({ name: cfg.name, type: "select", proxies: cfg.proxies }))
+  );
+
+  // [拦截与直连组]
+  functionalGroups.push(
+    {
+      name: GROUPS.ADS,
+      type: "select",
+      proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT]
+    },
+    {
+      name: GROUPS.DIRECT,
+      type: "select",
+      proxies: ["DIRECT", GROUPS.SELECT]
+    }
+  );
 
   // [可选] 仅在 landing=true 时生成落地节点隔离组
   if (landing) {
@@ -572,7 +588,9 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
   }
 
   // 返回完整策略组：功能组 + 国家组 + 兜底组
-  return [...functionalGroups, ...countryGroups, ...fallbackAllGroup];
+  const allGroups = [...functionalGroups, ...countryGroups, ...fallbackAllGroup];
+  console.timeEnd("buildProxyGroups"); // 输出耗时到控制台
+  return allGroups;
 }
 
 
