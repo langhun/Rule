@@ -112,17 +112,19 @@ function parseNumber(val, def = 0) {
  * @returns {object} 验证和规范化后的参数
  */
 function validateArgs(args) {
+  // 规范化输入，返回新的 args 对象（不修改原对象）
+  const normalized = { ...args };
   // 检查 threshold 参数是否合法 (必须为非负整数)
-  const threshold = parseNumber(args.threshold, 0);
+  let threshold = parseNumber(args.threshold, 0);
   if (threshold < 0) {
     console.warn("⚠️ 警告: threshold 不能为负数，已重置为 0");
-    return { ...args, threshold: 0 };
+    threshold = 0;
+  } else if (threshold > 1000) {
+    console.warn("⚠️ 警告: threshold 过大，已重置为 100");
+    threshold = 100;
   }
-  if (threshold > 1000) {
-  console.warn("⚠️ 警告: threshold过大，已重置为 100");
-  return { ...args, threshold: 100 };
-}
-  return args;
+  normalized.threshold = threshold;
+  return normalized;
 }
 
 // 解析用户传入的参数，提供默认值
