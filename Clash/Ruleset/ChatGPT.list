@@ -1,14 +1,16 @@
-# ChatGPT and New Bing
-
-DOMAIN-SUFFIX,bing.com
-DOMAIN-SUFFIX,ai.com
+# ========== OpenAI核心服务 ==========
 DOMAIN-SUFFIX,openai.com
 DOMAIN-SUFFIX,chat.openai.com
-DOMAIN-SUFFIX,auth0.openai.com
-DOMAIN-SUFFIX,challenges.cloudflare.com
+DOMAIN-SUFFIX,platform.openai.com     # API平台
+DOMAIN-SUFFIX,api.openai.com           # API端点 ⭐ 关键
+DOMAIN-SUFFIX,cdn-api.openai.com       # API CDN加速
 
-DOMAIN-SUFFIX,auth0.com
-DOMAIN-SUFFIX,deepl.com
-DOMAIN-SUFFIX,sentry.io
-DOMAIN-SUFFIX,hcaptcha.com
-DOMAIN-SUFFIX,akamaized.net
+# ========== CDN与静态资源 ==========
+DOMAIN-SUFFIX,akamai.net               # OpenAI使用的CDN
+DOMAIN-SUFFIX,fastly.net               # 备用CDN
+
+# ========== 认证与支付 ==========
+DOMAIN-SUFFIX,stripe.com               # 支付服务
+
+# ========== IP段规则 (可选补充到rule-providers) ==========
+# 将来可添加OpenAI IP段规则

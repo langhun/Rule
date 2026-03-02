@@ -118,6 +118,10 @@ function validateArgs(args) {
     console.warn("⚠️ 警告: threshold 不能为负数，已重置为 0");
     return { ...args, threshold: 0 };
   }
+  if (threshold > 1000) {
+  console.warn("⚠️ 警告: threshold过大，已重置为 100");
+  return { ...args, threshold: 100 };
+}
   return args;
 }
 
@@ -426,13 +430,17 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
   // [基础候选列表] 所有策略组都可以选择的节点列表
   // 包含：自动切换 → 落地节点 (可选) → 所有国家 → 兜底 → 低倍率 (可选) → 手动 → 直连
   const baseProxies = [
-    GROUPS.FALLBACK,
-    landing ? GROUPS.LANDING : null,            // 仅 landing=true 时包含
-    ...countryGroupNames,
-    GROUPS.OTHER, 
-    hasLowCost ? GROUPS.LOW_COST : null,        // 仅存在低倍率节点时包含
-    GROUPS.MANUAL,
-    "DIRECT"
+    //GROUPS.FALLBACK,
+    //landing ? GROUPS.LANDING : null,            // 仅 landing=true 时包含
+    //...countryGroupNames,
+    //GROUPS.OTHER, 
+    //hasLowCost ? GROUPS.LOW_COST : null,        // 仅存在低倍率节点时包含
+    //GROUPS.MANUAL,
+    //"DIRECT"
+    GROUPS.FALLBACK,      // 自动切换
+    GROUPS.SELECT,        // 回溯到节点选择组 (递归)
+    GROUPS.MANUAL,        // 手动选择
+    "DIRECT"              // 直连
   ].filter(Boolean);  // 过滤掉 null 值
 
   // [直连优先列表] 用于 Bing、Apple 等需要优先直连的服务
