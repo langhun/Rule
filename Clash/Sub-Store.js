@@ -152,8 +152,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.97.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.97.0。
+const SCRIPT_VERSION = "8.98.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.98.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -514,8 +514,16 @@ const COUNTRY_DEFINITIONS = [
   { name: "巴基斯坦", flag: "🇵🇰", aliases: ["巴基斯坦", "PAK", "Pakistan", "Karachi", "Islamabad", "Lahore", "卡拉奇", "伊斯兰堡", "拉合尔"] },
   // 孟加拉常见命名方式；显示名沿用简短中文风格。
   { name: "孟加拉", flag: "🇧🇩", aliases: ["孟加拉", "孟加拉国", "BGD", "Bangladesh", "Dhaka", "达卡"] },
+  // 尼泊尔常见命名方式；优先使用中文名、三位缩写与首都，减少 NP 误判。
+  { name: "尼泊尔", flag: "🇳🇵", aliases: ["尼泊尔", "NPL", "Nepal", "Kathmandu", "加德满都"] },
+  // 斯里兰卡常见命名方式；优先使用中文名、三位缩写与首都/商业城市。
+  { name: "斯里兰卡", flag: "🇱🇰", aliases: ["斯里兰卡", "LKA", "Sri Lanka", "Colombo", "科伦坡"] },
   // 哈萨克斯坦常见命名方式；KZ 在节点命名里较常见，这里保留两位缩写兼容。
   { name: "哈萨克", flag: "🇰🇿", aliases: ["哈萨克", "哈萨克斯坦", "KZ", "KAZ", "Kazakhstan", "Almaty", "Astana", "阿拉木图", "阿斯塔纳"] },
+  // 乌兹别克斯坦常见命名方式；优先使用中文名、三位缩写与首都，减少 UZ 误判。
+  { name: "乌兹别克", flag: "🇺🇿", aliases: ["乌兹别克", "乌兹别克斯坦", "UZB", "Uzbekistan", "Tashkent", "塔什干"] },
+  // 吉尔吉斯斯坦常见命名方式；显示名沿用简短中文风格。
+  { name: "吉尔吉斯", flag: "🇰🇬", aliases: ["吉尔吉斯", "吉尔吉斯斯坦", "KGZ", "Kyrgyzstan", "Bishkek", "比什凯克"] },
   // 马来西亚常见命名方式，这里沿用“大马”作为显示名称；不使用容易误判的 MY 两位缩写。
   { name: "大马", flag: "🇲🇾", aliases: ["马来西亚", "大马", "MYS", "Malaysia", "Kuala Lumpur", "Penang", "Johor", "吉隆坡", "槟城", "柔佛"] },
   // 泰国常见命名方式。
@@ -538,6 +546,12 @@ const COUNTRY_DEFINITIONS = [
   { name: "科威特", flag: "🇰🇼", aliases: ["科威特", "KWT", "Kuwait", "Kuwait City", "科威特城"] },
   // 沙特常见命名方式。
   { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
+  // 亚美尼亚常见命名方式；优先使用中文名、三位缩写与首都，减少 AM 误判。
+  { name: "亚美尼亚", flag: "🇦🇲", aliases: ["亚美尼亚", "ARM", "Armenia", "Yerevan", "埃里温"] },
+  // 格鲁吉亚常见命名方式；优先使用中文名、三位缩写与首都，减少 GE 误判。
+  { name: "格鲁吉亚", flag: "🇬🇪", aliases: ["格鲁吉亚", "GEO", "Georgia", "Tbilisi", "第比利斯"] },
+  // 阿塞拜疆常见命名方式；优先使用中文名、三位缩写与首都，减少 AZ 误判。
+  { name: "阿塞拜疆", flag: "🇦🇿", aliases: ["阿塞拜疆", "AZE", "Azerbaijan", "Baku", "巴库"] },
   // 埃及常见命名方式；优先使用中文名、三位缩写与城市名，减少 EG 误判。
   { name: "埃及", flag: "🇪🇬", aliases: ["埃及", "EGY", "Egypt", "Cairo", "开罗"] },
   // 墨西哥常见命名方式。
@@ -548,12 +562,18 @@ const COUNTRY_DEFINITIONS = [
   { name: "哥伦比亚", flag: "🇨🇴", aliases: ["哥伦比亚", "COL", "Colombia", "Bogota", "Bogotá", "波哥大"] },
   // 秘鲁常见命名方式；优先使用中文名、三位缩写与城市名，减少 PE 误判。
   { name: "秘鲁", flag: "🇵🇪", aliases: ["秘鲁", "PER", "Peru", "Lima", "利马"] },
+  // 乌拉圭常见命名方式；优先使用中文名、三位缩写与首都，减少 UY 误判。
+  { name: "乌拉圭", flag: "🇺🇾", aliases: ["乌拉圭", "URY", "Uruguay", "Montevideo", "蒙得维的亚"] },
   // 南非常见命名方式。
   { name: "南非", flag: "🇿🇦", aliases: ["南非", "ZAF", "South Africa", "Johannesburg", "Cape Town", "约翰内斯堡", "开普敦"] },
   // 尼日利亚常见命名方式；补充拉各斯 / 阿布贾这类常见机房城市。
   { name: "尼日利亚", flag: "🇳🇬", aliases: ["尼日利亚", "NGA", "Nigeria", "Lagos", "Abuja", "拉各斯", "阿布贾"] },
   // 摩洛哥常见命名方式。
   { name: "摩洛哥", flag: "🇲🇦", aliases: ["摩洛哥", "MAR", "Morocco", "Casablanca", "Rabat", "卡萨布兰卡", "拉巴特"] },
+  // 阿尔及利亚常见命名方式；优先使用中文名、三位缩写与首都，减少 DZ 误判。
+  { name: "阿尔及利亚", flag: "🇩🇿", aliases: ["阿尔及利亚", "DZA", "Algeria", "Algiers", "阿尔及尔"] },
+  // 突尼斯常见命名方式；优先使用中文名、三位缩写与首都，减少 TN 误判。
+  { name: "突尼斯", flag: "🇹🇳", aliases: ["突尼斯", "TUN", "Tunisia", "Tunis", "突尼斯市"] },
   // 肯尼亚常见命名方式。
   { name: "肯尼亚", flag: "🇰🇪", aliases: ["肯尼亚", "KEN", "Kenya", "Nairobi", "内罗毕"] },
   // 以色列常见命名方式；不使用容易误判的 IL 两位缩写。
@@ -572,7 +592,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "asia",
     name: "🌏 亚洲节点",
     aliases: ["asia", "asian", "as", "apac", "亚洲区", "亚洲"],
-    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "哈萨克", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱"]
+    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "尼泊尔", "斯里兰卡", "哈萨克", "乌兹别克", "吉尔吉斯", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱", "亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
   },
   {
     key: "eastasia",
@@ -593,7 +613,21 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "🕌 南亚节点",
     aliases: ["southasia", "south-asia", "saasia", "南亚"],
     includeInAuto: false,
-    countryKeys: ["印度", "巴基斯坦", "孟加拉"]
+    countryKeys: ["印度", "巴基斯坦", "孟加拉", "尼泊尔", "斯里兰卡"]
+  },
+  {
+    key: "centralasia",
+    name: "🐎 中亚节点",
+    aliases: ["centralasia", "central-asia", "middleasia", "middle-asia", "中亚"],
+    includeInAuto: false,
+    countryKeys: ["哈萨克", "乌兹别克", "吉尔吉斯"]
+  },
+  {
+    key: "caucasus",
+    name: "⛰️ 高加索节点",
+    aliases: ["caucasus", "caucasia", "highcaucasus", "高加索"],
+    includeInAuto: false,
+    countryKeys: ["亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
   },
   {
     key: "europe",
@@ -619,7 +653,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "americas",
     name: "🌎 美洲节点",
     aliases: ["americas", "america", "amer", "美洲"],
-    countryKeys: ["美国", "枫叶", "墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁"]
+    countryKeys: ["美国", "枫叶", "墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "northamerica",
@@ -633,7 +667,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "💃 南美节点",
     aliases: ["southamerica", "south-america", "saonly", "南美"],
     includeInAuto: false,
-    countryKeys: ["阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁"]
+    countryKeys: ["阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "middleeast",
@@ -658,7 +692,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "africa",
     name: "🌍 非洲节点",
     aliases: ["africa", "af", "非洲"],
-    countryKeys: ["南非", "埃及", "尼日利亚", "摩洛哥", "肯尼亚"]
+    countryKeys: ["南非", "埃及", "尼日利亚", "摩洛哥", "阿尔及利亚", "突尼斯", "肯尼亚"]
   }
 ]);
 
