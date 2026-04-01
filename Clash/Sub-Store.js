@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.84.0
+ * Sub-Store 终极策略增强脚本 V8.85.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -128,11 +128,13 @@
  * 123. 国家别名安全增强：对 India / Malaysia / Italy 等容易和普通英文单词冲突的两位缩写做保守收紧，优先依赖国家名、三位缩写与城市名识别，减少误判。
  * 124. 自定义国家别名增强：新增 country-extra-aliases 参数，支持不改脚本源码直接追加你自己的节点命名别名。
  * 125. 国家优先链兼容增强：country-extra-aliases 追加的别名会同时参与节点国家识别与 prefer-countries 参数匹配，便于直接复用到 AI / GitHub / Steam / Dev 优先链。
+ * 126. 国家识别继续扩充：新增捷克、匈牙利、罗马尼亚、希腊、乌克兰、冰岛、埃及、智利、哥伦比亚、秘鲁等常见机场国家识别。
+ * 127. 自定义国家别名预览增强：full 日志与响应调试头会额外输出 country-extra-aliases 的简要预览，便于直接确认绑定关系。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.84.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.84.0。
+const SCRIPT_VERSION = "8.85.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.85.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -344,6 +346,18 @@ const COUNTRY_DEFINITIONS = [
   { name: "奥地利", flag: "🇦🇹", aliases: ["奥地利", "AUT", "Austria", "Vienna", "维也纳"] },
   // 波兰常见命名方式。
   { name: "波兰", flag: "🇵🇱", aliases: ["波兰", "POL", "Poland", "Warsaw", "华沙"] },
+  // 捷克常见命名方式。
+  { name: "捷克", flag: "🇨🇿", aliases: ["捷克", "CZ", "CZE", "Czech", "Czech Republic", "Czechia", "Prague", "布拉格"] },
+  // 匈牙利常见命名方式。
+  { name: "匈牙利", flag: "🇭🇺", aliases: ["匈牙利", "HU", "HUN", "Hungary", "Budapest", "布达佩斯"] },
+  // 罗马尼亚常见命名方式；优先使用中文名、三位缩写与城市名，减少 RO 误判。
+  { name: "罗马尼亚", flag: "🇷🇴", aliases: ["罗马尼亚", "ROU", "Romania", "Bucharest", "布加勒斯特"] },
+  // 希腊常见命名方式。
+  { name: "希腊", flag: "🇬🇷", aliases: ["希腊", "GR", "GRC", "Greece", "Athens", "雅典"] },
+  // 乌克兰常见命名方式。
+  { name: "乌克兰", flag: "🇺🇦", aliases: ["乌克兰", "UA", "UKR", "Ukraine", "Kyiv", "Kiev", "基辅"] },
+  // 冰岛常见命名方式；不使用容易误判的 IS 两位缩写。
+  { name: "冰岛", flag: "🇮🇸", aliases: ["冰岛", "ISL", "Iceland", "Reykjavik", "雷克雅未克"] },
 
   // 土耳其常见命名方式。
   { name: "土耳其", flag: "🇹🇷", aliases: ["土耳其", "TR", "TUR", "Turkey", "Istanbul", "伊斯坦布尔"] },
@@ -363,8 +377,16 @@ const COUNTRY_DEFINITIONS = [
   { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "迪拜", "阿布扎比"] },
   // 沙特常见命名方式。
   { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
+  // 埃及常见命名方式；优先使用中文名、三位缩写与城市名，减少 EG 误判。
+  { name: "埃及", flag: "🇪🇬", aliases: ["埃及", "EGY", "Egypt", "Cairo", "开罗"] },
   // 墨西哥常见命名方式。
   { name: "墨西哥", flag: "🇲🇽", aliases: ["墨西哥", "MX", "MEX", "Mexico", "Mexico City", "墨西哥城"] },
+  // 智利常见命名方式；不使用容易误判的 CL 两位缩写。
+  { name: "智利", flag: "🇨🇱", aliases: ["智利", "CHL", "Chile", "Santiago", "圣地亚哥"] },
+  // 哥伦比亚常见命名方式；优先使用中文名、三位缩写与城市名，减少 CO 误判。
+  { name: "哥伦比亚", flag: "🇨🇴", aliases: ["哥伦比亚", "COL", "Colombia", "Bogota", "Bogotá", "波哥大"] },
+  // 秘鲁常见命名方式；优先使用中文名、三位缩写与城市名，减少 PE 误判。
+  { name: "秘鲁", flag: "🇵🇪", aliases: ["秘鲁", "PER", "Peru", "Lima", "利马"] },
   // 南非常见命名方式。
   { name: "南非", flag: "🇿🇦", aliases: ["南非", "ZAF", "South Africa", "Johannesburg", "Cape Town", "约翰内斯堡", "开普敦"] },
   // 以色列常见命名方式；不使用容易误判的 IL 两位缩写。
@@ -1038,6 +1060,35 @@ function parseCountryExtraAliasEntries(value) {
   result.invalidEntries = uniqueStrings(result.invalidEntries);
   result.unknownCountryMarkers = uniqueStrings(result.unknownCountryMarkers);
   return result;
+}
+
+// 把 country-extra-aliases 的配置压成短摘要，便于 full 日志和响应调试头直接查看。
+function formatCountryExtraAliasPreview(aliasMap, maxCountries, maxAliasesPerCountry, maxAliasLength) {
+  const source = isObject(aliasMap) ? aliasMap : {};
+  const countryNames = Object.keys(source);
+
+  if (!countryNames.length) {
+    return "none";
+  }
+
+  const countryLimit = Number.isFinite(maxCountries) && maxCountries > 0 ? Math.floor(maxCountries) : 4;
+  const aliasLimit = Number.isFinite(maxAliasesPerCountry) && maxAliasesPerCountry > 0 ? Math.floor(maxAliasesPerCountry) : 2;
+  const aliasNameLimit = Number.isFinite(maxAliasLength) && maxAliasLength > 4 ? Math.floor(maxAliasLength) : 18;
+  const visibleCountries = countryNames.slice(0, countryLimit).map((countryName) => {
+    const aliases = uniqueStrings(
+      (Array.isArray(source[countryName]) ? source[countryName] : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    );
+    const visibleAliases = aliases
+      .slice(0, aliasLimit)
+      .map((alias) => (alias.length > aliasNameLimit ? `${alias.slice(0, aliasNameLimit - 3)}...` : alias));
+    const remainingAliases = aliases.length - visibleAliases.length;
+    return `${countryName}=${visibleAliases.join("/")}${remainingAliases > 0 ? `(+${remainingAliases})` : ""}`;
+  });
+  const remainingCountries = countryNames.length - visibleCountries.length;
+
+  return `${visibleCountries.join(";")}${remainingCountries > 0 ? `(+${remainingCountries}国)` : ""}`;
 }
 
 // 把 Mihomo `exclude-type` 这类“类型列表”参数统一规范成 `A|B|C` 形式，兼容逗号 / 竖线 / 换行输入。
@@ -2543,6 +2594,7 @@ function resolveArgs(rawArgs) {
   const countryExtraAliasesMap = parsedCountryExtraAliases.map;
   const countryExtraAliasCountryCount = Object.keys(countryExtraAliasesMap).length;
   const countryExtraAliasEntryCount = Object.keys(countryExtraAliasesMap).reduce((total, key) => total + countryExtraAliasesMap[key].length, 0);
+  const countryExtraAliasPreview = formatCountryExtraAliasPreview(countryExtraAliasesMap, 4, 2, 18);
   const githubPreferGroups = toStringList(rawGithubPreferGroups);
   const steamPreferGroups = toStringList(rawSteamPreferGroups);
   const devPreferGroups = toStringList(rawDevPreferGroups);
@@ -3298,6 +3350,7 @@ function resolveArgs(rawArgs) {
     hasCountryExtraAliases: !!countryExtraAliasCountryCount,
     countryExtraAliasCountryCount,
     countryExtraAliasEntryCount,
+    countryExtraAliasPreview,
     githubPreferGroups,
     hasGithubPreferGroups: !!githubPreferGroups.length,
     steamPreferGroups,
@@ -9327,6 +9380,7 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Country-Extra-Aliases`]: ARGS.hasCountryExtraAliases ? "configured" : "default",
     [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
     [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
+    [`${prefix}Country-Extra-Alias-Preview`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasPreview : "none",
     [`${prefix}GitHub-Prefer-Nodes`]: ARGS.hasGithubPreferNodes ? "configured" : "default",
     [`${prefix}Steam-Prefer-Nodes`]: ARGS.hasSteamPreferNodes ? "configured" : "default",
     [`${prefix}Dev-Prefer-Nodes`]: ARGS.hasDevPreferNodes ? "configured" : "default",
@@ -10639,7 +10693,7 @@ function logBuildSummary(stats) {
   // 输出 AI / Crypto / GitHub / Steam / Dev 国家优先链参数覆盖情况。
   console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
   // 输出 country-extra-aliases 参数覆盖情况，便于确认这轮自定义国家别名是否真正生效。
-  console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount}` : "default"}`);
+  console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},preview=${ARGS.countryExtraAliasPreview}` : "default"}`);
   // 输出开发服务组参数覆盖情况。
   console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
   // 输出开发服务组高级项覆盖情况。
