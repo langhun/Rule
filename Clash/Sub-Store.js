@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.5.0
+ * Sub-Store 终极策略增强脚本 V9.6.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -160,15 +160,19 @@
  * 155. 诊断复用优化：把区域可见性、规则优先级风险与策略组优先级风险分析改成主流程统一复用，减少重复扫描。
  * 156. 开发锚点修正：修复规则顺序别名表里 `dev` 被 `GitLab` 别名覆盖的问题，保证开发规则块锚点稳定指向 DevList。
  * 157. 注释增强：继续给关键规范化、可见性诊断与缓存别名逻辑补充更细粒度的逐行中文注释。
- * 158. 国家识别继续扩容：新增巴林、阿曼、约旦、白俄罗斯、马耳他、巴拿马等常见节点国家，补齐更多机场命名。
- * 159. 子区域继续增强：新增西欧、东欧、伊比利亚、比荷卢、DACH、华语区、英语区、黎凡特等区域 token，便于 region-groups 与 prefer-countries 精细编排。
- * 160. 优先链预设继续增强：新增 workspace-core / westeurope-core / easteurope-core / greaterchina-core / anglosphere-core / gulf-core / asia-5 等 preset，减少手写长串 token。
+ * 158. 国家识别继续扩容：新增巴林、阿曼、约旦、白俄罗斯、马耳他、老挝、巴拿马等常见节点国家，补齐更多机场命名。
+ * 159. 子区域继续增强：新增华语区、西欧、东欧、伊比利亚、比荷卢、DACH、西亚、亚太、英语区、黎凡特等区域 token，便于 region-groups 与 prefer-countries 精细编排。
+ * 160. 优先链预设继续增强：新增 apac-core / westasia-core / workspace-core / westeurope-core / easteurope-core / greaterchina-core / anglosphere-core / gulf-core / asia-5 等 preset，减少手写长串 token。
  * 161. 默认面板布局增强：新增 workspace / compact / national 布局预设，并把默认 balanced 布局中的区域组/国家组前移，兼顾工作流优先、紧凑面板与国家组优先三种常见玩法。
+ * 162. 区域玩法继续扩容：继续补齐 greaterchina / westasia / dach / anglosphere 等更贴近日常机场选线的区域 token。
+ * 163. 优先链预设继续补厚：继续补上 apac-core / westasia-core / greaterchina-core / anglosphere-core / asia-5 等组合 preset。
+ * 164. 国家覆盖继续补洞：继续补巴拿马并接入美洲 / 北美 / 拉美聚合，减少中美洲节点掉进兜底节点。
+ * 165. 布局语义修正：`groupOrderPreset=country/countries` 现在会真正落到国家优先布局，而不再错误映射到区域优先布局。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.5.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.5.0。
+const SCRIPT_VERSION = "9.6.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.6.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -297,8 +301,8 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   regionalfirst: "region",
   geofirst: "region",
   geography: "region",
-  country: "region",
-  countries: "region",
+  country: "national",
+  countries: "national",
   countryfirst: "national",
   national: "national",
   nationalfirst: "national",
@@ -314,6 +318,9 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   mini: "compact",
   lite: "compact"
 });
+
+// group-order-preset 的合法值统一收口到顶层常量，避免新增布局后漏改校验名单。
+const VALID_GROUP_ORDER_PRESET_TOKENS = Object.freeze(["default", "script"].concat(Object.keys(GROUP_ORDER_PRESET_ALIAS_MAP)));
 
 // 统一维护所有策略组的展示名称，后面所有规则和分组都从这里取值。
 const GROUPS = {
@@ -381,7 +388,7 @@ const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs"
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
-  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "regions", "countries", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
   service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
@@ -492,6 +499,18 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     markers: ["eastasia", "southeastasia", "northeurope", "centraleurope", "northamerica", "gulf"]
   },
   {
+    key: "apac-core",
+    name: "🌏 亚太核心链",
+    aliases: ["apaccore", "apac-core", "asiapacificcore", "asia-pacific-core", "亚太核心"],
+    markers: ["apac", "eastasia", "southeastasia", "oceania"]
+  },
+  {
+    key: "westasia-core",
+    name: "🧿 西亚核心链",
+    aliases: ["westasiacore", "westasia-core", "西亚核心"],
+    markers: ["westasia", "gulf", "levant"]
+  },
+  {
     key: "workspace-core",
     name: "🧑‍💻 工作流核心链",
     aliases: ["workspacecore", "workspace-core", "workbenchcore", "workbench-core", "办公核心", "工作流核心"],
@@ -516,6 +535,18 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     markers: ["gulf", "levant"]
   },
   {
+    key: "greaterchina-core",
+    name: "🀄 华语核心链",
+    aliases: ["greaterchinacore", "greaterchina-core", "greater-china-core", "sinospherecore", "sinosphere-core", "华语核心"],
+    markers: ["greaterchina"]
+  },
+  {
+    key: "anglosphere-core",
+    name: "🌐 英语区核心链",
+    aliases: ["anglospherecore", "anglosphere-core", "englishcore", "english-core", "英语区核心"],
+    markers: ["anglosphere"]
+  },
+  {
     key: "classic-4",
     name: "✨ 经典四地",
     aliases: ["classic4", "classic-4", "popular4", "popular-4", "common4", "common-4", "hksgjpus", "hk-sg-jp-us", "经典四地"],
@@ -538,6 +569,12 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🌟 经典六地",
     aliases: ["classic6", "classic-6", "popular6", "popular-6", "common6", "common-6", "hktwsgjpkrus", "hk-tw-sg-jp-kr-us", "经典六地"],
     markers: ["香港", "台湾", "狮城", "日本", "韩国", "美国"]
+  },
+  {
+    key: "asia-5",
+    name: "🌏 亚洲五地",
+    aliases: ["asia5", "asia-5", "eastasia5", "east-asia-5", "hktwsgjpkr", "hk-tw-sg-jp-kr", "亚洲五地"],
+    markers: ["香港", "台湾", "狮城", "日本", "韩国"]
   }
 ]);
 
@@ -677,6 +714,8 @@ const COUNTRY_DEFINITIONS = [
   { name: "柬埔寨", flag: "🇰🇭", aliases: ["柬埔寨", "KHM", "Cambodia", "Phnom Penh", "金边"] },
   // 文莱常见命名方式；在东南亚节点里偶尔出现，这里补上。
   { name: "文莱", flag: "🇧🇳", aliases: ["文莱", "BRN", "Brunei", "Bandar Seri Begawan", "斯里巴加湾"] },
+  // 老挝常见命名方式；在东南亚/中南半岛节点里偶有出现。
+  { name: "老挝", flag: "🇱🇦", aliases: ["老挝", "LAO", "Laos", "Lao", "Vientiane", "万象"] },
   // 阿联酋常见命名方式。
   { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "迪拜", "阿布扎比"] },
   // 卡塔尔常见命名方式。
@@ -701,6 +740,8 @@ const COUNTRY_DEFINITIONS = [
   { name: "埃及", flag: "🇪🇬", aliases: ["埃及", "EGY", "Egypt", "Cairo", "开罗"] },
   // 墨西哥常见命名方式。
   { name: "墨西哥", flag: "🇲🇽", aliases: ["墨西哥", "MX", "MEX", "Mexico", "Mexico City", "墨西哥城"] },
+  // 巴拿马常见命名方式；中美洲/中转节点里偶尔会直接写 Panama City。
+  { name: "巴拿马", flag: "🇵🇦", aliases: ["巴拿马", "PAN", "Panama", "Panama City", "巴拿马城"] },
   // 智利常见命名方式；不使用容易误判的 CL 两位缩写。
   { name: "智利", flag: "🇨🇱", aliases: ["智利", "CHL", "Chile", "Santiago", "圣地亚哥"] },
   // 哥伦比亚常见命名方式；优先使用中文名、三位缩写与城市名，减少 CO 误判。
@@ -738,8 +779,15 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
   {
     key: "asia",
     name: "🌏 亚洲节点",
-    aliases: ["asia", "asian", "as", "apac", "亚洲区", "亚洲"],
-    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "尼泊尔", "斯里兰卡", "哈萨克", "乌兹别克", "吉尔吉斯", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱", "亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
+    aliases: ["asia", "asian", "as", "亚洲区", "亚洲"],
+    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "尼泊尔", "斯里兰卡", "哈萨克", "乌兹别克", "吉尔吉斯", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱", "老挝", "亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
+  },
+  {
+    key: "greaterchina",
+    name: "🀄 华语节点",
+    aliases: ["greaterchina", "greater-china", "greatercn", "sinosphere", "华语", "大中华"],
+    includeInAuto: false,
+    countryKeys: ["香港", "澳门", "台湾"]
   },
   {
     key: "eastasia",
@@ -753,7 +801,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "🌴 东南亚节点",
     aliases: ["southeastasia", "south-east-asia", "sea", "seasia", "东南亚"],
     includeInAuto: false,
-    countryKeys: ["狮城", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱"]
+    countryKeys: ["狮城", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱", "老挝"]
   },
   {
     key: "southasia",
@@ -825,6 +873,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     countryKeys: ["德国", "荷兰", "比利时", "卢森堡", "奥地利", "瑞士", "波兰", "捷克", "斯洛伐克", "匈牙利"]
   },
   {
+    key: "dach",
+    name: "🏔️ DACH节点",
+    aliases: ["dach", "de-at-ch", "德语区"],
+    includeInAuto: false,
+    countryKeys: ["德国", "奥地利", "瑞士"]
+  },
+  {
     key: "balkans",
     name: "🧭 巴尔干节点",
     aliases: ["balkans", "balkan", "south-eastern-europe", "巴尔干"],
@@ -835,14 +890,14 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "americas",
     name: "🌎 美洲节点",
     aliases: ["americas", "america", "amer", "美洲"],
-    countryKeys: ["美国", "枫叶", "墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "northamerica",
     name: "🗽 北美节点",
     aliases: ["northamerica", "north-america", "naonly", "北美"],
     includeInAuto: false,
-    countryKeys: ["美国", "枫叶", "墨西哥"]
+    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马"]
   },
   {
     key: "southamerica",
@@ -856,7 +911,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "🌮 拉美节点",
     aliases: ["latam", "latinamerica", "latin-america", "latinamericas", "拉美", "拉丁美洲"],
     includeInAuto: false,
-    countryKeys: ["墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["墨西哥", "巴拿马", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "middleeast",
@@ -879,10 +934,31 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     countryKeys: ["阿联酋", "沙特", "卡塔尔", "科威特", "巴林", "阿曼"]
   },
   {
+    key: "westasia",
+    name: "🧿 西亚节点",
+    aliases: ["westasia", "west-asia", "西亚"],
+    includeInAuto: false,
+    countryKeys: ["土耳其", "塞浦路斯", "约旦", "以色列", "阿联酋", "巴林", "阿曼", "沙特", "卡塔尔", "科威特", "亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
+  },
+  {
     key: "oceania",
     name: "🦘 大洋洲节点",
     aliases: ["oceania", "oceana", "oce", "pacific", "大洋洲"],
     countryKeys: ["袋鼠", "新西兰"]
+  },
+  {
+    key: "apac",
+    name: "🌏 亚太节点",
+    aliases: ["apac", "asia-pacific", "asiapacific", "亚太"],
+    includeInAuto: false,
+    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "尼泊尔", "斯里兰卡", "哈萨克", "乌兹别克", "吉尔吉斯", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱", "老挝", "袋鼠", "新西兰"]
+  },
+  {
+    key: "anglosphere",
+    name: "🌐 英语区节点",
+    aliases: ["anglosphere", "englishworld", "english-world", "英语区"],
+    includeInAuto: false,
+    countryKeys: ["美国", "枫叶", "英国", "袋鼠", "新西兰"]
   },
   {
     key: "africa",
@@ -3991,30 +4067,7 @@ function resolveArgs(rawArgs) {
   }
 
   // 如果策略组布局预设非法，则回退默认值并提示。
-  if (rawGroupOrderPreset !== undefined && ![
-    "default",
-    "script",
-    "balanced",
-    "core",
-    "corefirst",
-    "main",
-    "mainfirst",
-    "service",
-    "services",
-    "servicefirst",
-    "business",
-    "businessfirst",
-    "media",
-    "mediafirst",
-    "streaming",
-    "streamingfirst",
-    "region",
-    "regions",
-    "regionfirst",
-    "country",
-    "countries",
-    "countryfirst"
-  ].includes(normalizeGroupMarkerToken(rawGroupOrderPreset))) {
+  if (rawGroupOrderPreset !== undefined && !VALID_GROUP_ORDER_PRESET_TOKENS.includes(normalizeGroupMarkerToken(rawGroupOrderPreset))) {
     console.warn(`⚠️ 警告: group-order-preset 无效，已重置为 ${groupOrderPreset}`);
   }
 
