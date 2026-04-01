@@ -1,776 +1,9341 @@
 /**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V5.9.3 (Landing Optional)
+ * Sub-Store 终极策略增强脚本 V8.60.0
  * ==================================================================================
- * 内核支持：Clash / Mihomo / OpenClash
- * 适用场景：Sub-Store 集成
- * 
- * [版本特性]
- * 1. ⚙️ 灵活落地：恢复落地识别逻辑，但默认不隔离。落地节点默认会进入地区分组。
- * 2. 🎛️ 参数控制：可通过 landing=true 开启强制隔离模式 (将落地节点移出地区组)。
- * 3. 🛡️ 核心逻辑：保留 V5.9 的所有特性 (Crypto日本 / Apple直连 / 兜底防断)。
- * 4. ✨ 增强功能：完整的错误处理、性能优化、配置验证。
- *
- * [使用参数 (Arguments)]
- * ipv6=true          // [默认开启] 强制开启 IPv6 解析
- * loadbalance=false  // [默认关闭] 负载均衡 (建议 false)
- * landing=false      // [默认关闭] 是否隔离落地节点 (False=不隔离, True=隔离)
- * fakeip=true        // [默认开启] 开启 Fake-IP 模式
- * threshold=0        // [默认 0]  地区节点数量阈值
- * quic=false         // [默认关闭] 启用 QUIC 协议支持
- * fullConfig=false   // [默认关闭] 完整配置模式
+ * 这版重构重点：
+ * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
+ * 2. 国家识别：降低单字符误判，低倍率节点不再参与国家计数。
+ * 3. 策略生成：抽离重复逻辑，统一测速组/选择组构造，避免重复与空组。
+ * 4. 配置合并：保留原配置中的自定义规则、策略组、DNS 与 Sniffer 扩展项。
+ * 5. 自检增强：自动规范重复节点名，并对 provider / 目标组 / 组引用做一致性校验。
+ * 6. 覆盖率增强：统计国家识别覆盖率，并提示未命中国家规则的节点样本。
+ * 7. 分组增强：新增 GitHub 独立策略组与 Steam 独立策略组。
+ * 8. 官方高级项：加入 Mihomo 文档支持的健康检查增强、DNS 高级项、include-all-proxies、可选隐藏辅助组与 rule-provider 缓存路径。
+ * 9. 内核增强：补充 Mihomo 通用内核默认项，以及 Sniffer 官方示例中的 HTTP 覆写与保底 skip-domain。
+ * 10. DNS 进阶：补充 fake-ip-range6、proxy-server-nameserver-policy 与 fallback-filter.domain。
+ * 11. GEO 数据增强：补充 geodata-mode、geox-url，并将 keep-alive / tcp-concurrent 默认值对齐 Mihomo 文档。
+ * 12. 风险自检：对官方已弃用项和 DNS 高风险组合追加告警提示。
+ * 13. 下载链路增强：补充 geo-auto-update、geo-update-interval 与 global-ua。
+ * 14. 高级参数化：支持通过脚本参数控制 profile 缓存、Geo 自动更新与 global-ua，并追加 GEO 配置自检。
+ * 15. 核心项参数化：继续开放 unified-delay、tcp-concurrent、find-process-mode、geodata-loader 与 profile 子项控制。
+ * 16. DNS 参数化：开放 respect-rules、prefer-h3、cache-algorithm、fake-ip-filter-mode、fake-ip-ttl 等高级项，并自动适配 rule 模式语法。
+ * 17. 细节继续参数化：新增测速组健康检查参数、Sniffer 开关参数，以及 DNS 监听/Fake-IP 地址池参数，并追加对应自检。
+ * 18. 规则源增强：接入 ChatGPT 自定义规则文件，并开放 Direct/Crypto/ChatGPT 规则源 URL 参数化与链接自检。
+ * 19. 业务优选增强：AI / Crypto 组升级为多国家优先级链，而不是只优先单一国家。
+ * 20. AI 规则增强：补充 OpenAI / Anthropic / Gemini 官方规则，并开放 AI / Crypto 国家优先链参数，同时追加 AI 默认强制嗅探域名。
+ * 21. AI DNS 增强：在 nameserver-policy 中显式把 OpenAI / Anthropic / Gemini 指向国际 DNS，减少 AI 域名解析误判。
+ * 22. Sniffer 域名参数化：开放 force-domain / skip-domain 附加参数，便于后续持续扩展 AI 与特殊站点嗅探规则。
+ * 23. Sub-Store 官方兼容增强：按官方 `$options` 说明，支持 querystring / JSON 字符串形式的脚本参数输入。
+ * 24. 参数体验增强：兼容常见 `#a=1&b=2` 前缀写法，并对 AI / Crypto 优先链里未命中的国家标记追加显式告警。
+ * 25. 运行环境增强：合并全局 `$options + $arguments` 参数源，并读取官方 `target` / `targetPlatform` 线索，对非 Clash/Mihomo 目标给出显式提醒。
+ * 26. 官方链接增强：直接读取请求 query 中的脚本参数，并识别 `/download/xxx/ClashMeta` 这类多一级路由目标；若与 query target 冲突则显式提醒。
+ * 27. 官方链接体验增强：当 `_req.query` 缺失时直接从请求 URL 解析 query，并把无值旗标参数（如 `#noCache`、`?full`）视作 `true`。
+ * 28. 官方请求兼容增强：追加 `_req.path` 回退来源，并把 `query / url / path` 三路参数做智能合并，尽量还原真实下载链路。
+ * 29. 官方路由兼容增强：支持从 `_req.params.target` / `_req.params.platform` 直接识别路由目标，补齐更多后端实现差异。
+ * 30. 官方响应调试增强：支持借助 `_res.headers` 回写脚本版本 / 目标平台 / 参数命中摘要，便于排查真实下载链路。
+ * 31. 官方链接诊断增强：补充请求路由类型/名称识别，并汇总 `url/content/mergeSources/noCache` 等官方保留参数状态。
+ * 32. Provider 缓存增强：开放 rule-provider 本地缓存目录与刷新间隔参数化，减少多脚本/多配置共存时的缓存文件冲突。
+ * 33. Provider 下载增强：追加 rule-provider 下载代理、大小限制与常用请求头参数化，对齐 Mihomo 官方高级项。
+ * 34. 独立组优选增强：开放 GitHub / Steam 独立组国家优先链参数，让独立组不再只有固定顺序。
+ * 35. 独立组模式增强：开放 GitHub / Steam 独立组模式参数，可切换直连优先 / 主选择优先 / 纯代理优先。
+ * 36. 独立组类型增强：开放 GitHub / Steam 独立组类型参数，可切换 select / url-test / fallback / load-balance。
+ * 37. 独立组测速增强：开放 GitHub / Steam 独立组专属测速地址与测速间隔参数，便于细调测速类独立组。
+ * 38. 独立组健康检查增强：开放 GitHub / Steam 独立组专属容差、超时、lazy、失败次数与 expected-status 参数。
+ * 39. 独立组节点池增强：开放 GitHub / Steam 独立组原始节点筛选、排除与协议排除参数，支持 include-all-proxies + filter / exclude-filter / exclude-type 高级玩法。
+ * 40. 独立组编排增强：开放 GitHub / Steam 独立组任意前置组参数，可额外引用已生成策略组、内置策略与用户自定义组。
+ * 41. 独立组点名增强：开放 GitHub / Steam 独立组指定节点优先参数，可直接把明确节点名固定插到候选链最前面。
+ * 42. 规则入口增强：开放 GitHub / Steam / SteamCN 规则目标参数，可把规则入口直接改写到任意组或内置策略。
+ * 43. 规则顺序增强：开放 GitHub / Steam / SteamCN 规则锚点与前后位置参数，可重排规则入口在整条 RULE-SET 链里的先后顺序。
+ * 44. 独立组展示增强：开放 GitHub / Steam 独立组 hidden / icon / disable-udp 参数，对齐 Mihomo Proxy-Group 官方字段。
+ * 45. 负载策略增强：开放全局与 GitHub / Steam 独立组 load-balance strategy 参数，对齐 Mihomo 官方 round-robin / consistent-hashing / sticky-sessions。
+ * 46. Provider 池增强：开放 GitHub / Steam 独立组 use / include-all-providers 参数，可直接吸收原配置里的 proxy-providers。
+ * 47. 全量池增强：开放 GitHub / Steam 独立组 include-all 参数，并对 provider 型健康检查盲区追加官方语义提醒。
+ * 48. 健康检查语法增强：按 Mihomo 官方 expected-status 语法校验多状态/范围写法，非法值自动回退并显式告警。
+ * 49. 策略组网络增强：开放全局与 GitHub / Steam 独立组 interface-name / routing-mark 参数，并对官方 deprecated 状态追加提醒。
+ * 50. 节点池玩法增强：开放 GitHub / Steam 独立组 include-all-proxies 显式参数，支持无筛选条件时也能直接吸收全部原始节点。
+ * 51. 代理集合增强：开放现有 proxy-providers 的下载控制与 health-check 参数化，并补充 provider 自检。
+ * 52. 代理集合节点池增强：开放现有 proxy-providers 的 filter / exclude-filter / exclude-type 参数，便于批量筛选 provider 内节点。
+ * 53. 代理集合 Override 增强：开放现有 proxy-providers 的 override 前后缀、传输与网络字段，便于批量改写 provider 内节点行为。
+ * 54. 代理集合改名增强：开放现有 proxy-providers 的 override.proxy-name 正则改名规则，便于批量重写 provider 内节点名。
+ * 55. 代理集合路径增强：开放现有 proxy-providers 的本地缓存目录参数，便于统一隔离 provider 缓存路径并补充路径冲突自检。
+ * 56. 代理集合请求头增强：开放现有 proxy-providers 的通用自定义请求头参数，便于统一下发任意 HTTP 头并补充请求头自检。
+ * 57. 代理集合 Payload 增强：开放现有 proxy-providers 的 payload 参数，便于统一注入 inline/后备节点池并补充节点结构自检。
+ * 58. 代理集合官方语义自检增强：按 Mihomo 官方 type/url/path/payload 关系补充 provider 结构校验，并对 HomeDir/SAFE_PATHS 路径限制追加提醒。
+ * 59. 规则集合官方语义自检增强：按 Mihomo 官方 rule-provider 的 type/behavior/format/path/payload 关系补充结构校验，并同步 SAFE_PATHS 提醒。
+ * 60. 规则集合请求头增强：开放脚本内置 rule-providers 的通用自定义请求头参数，便于统一下发任意 HTTP Header 并补充请求头自检。
+ * 61. 规则集合语义细化增强：按 Mihomo 官方限制补充 `payload` 仅对 inline 生效、`mrs` 仅支持 domain/ipcidr 的细粒度告警。
+ * 62. 规则集合统一接管增强：现有与内置 http rule-providers 统一吃到 path/interval/proxy/size-limit/header 参数，并补充作用范围摘要。
+ * 63. 规则集合 Payload 增强：开放现有 inline rule-providers 的 payload 参数，支持 JSON / 多行规则写法并补充作用范围摘要。
+ * 64. 代理集合作用范围摘要增强：把 path/download/payload/filter/override/health-check 的实际接管范围统一写入日志与响应调试头。
+ * 65. 规则源作用范围摘要增强：把 path/download/payload 的实际接管范围统一抽成 helper，并补充详细响应调试头。
+ * 66. Provider 命中统计增强：为 rule-provider / proxy-provider 输出实际命中数量摘要，便于排查参数真正打到了多少条目。
+ * 67. Provider 改动统计增强：继续区分新增写入与覆盖旧值，便于判断参数究竟是在补字段还是替换原配置。
+ * 68. Provider 无变化统计增强：在改动统计里继续补上 noop 数量，便于判断命中后是否其实已与目标值一致。
+ * 69. Provider 命中预览增强：在命中统计之外继续补上 provider 名称样本预览，便于快速定位究竟是哪些 provider 吃到了参数。
+ * 70. Provider 改动预览增强：在改动统计之外继续补上 added/overrode/noop 的 provider 名称样本，便于直接定位是哪批 provider 被补全、覆盖或保持不变。
+ * 71. 官方链接参数语义增强：按 Sub-Store 官方链接参数说明补充 url/mergeSources/produceType/noCache/proxy/ua/ignoreFailedRemoteSub 语义校验与调试摘要。
+ * 72. 参数来源追踪增强：补充 $arguments/$options/_req.query/_req.url/_req.path/_req.params 的来源摘要，便于排查真实运行环境下参数到底从哪一路进入脚本。
+ * 73. 参数生效来源增强：补充 query/$options/$arguments 的最终生效来源与覆盖关系摘要，便于定位同名参数冲突时究竟哪一路赢了优先级。
+ * 74. 未消费参数增强：补充未被脚本识别/消费的参数摘要，便于快速定位拼写错误、别名写错或当前版本暂未支持的参数。
+ * 75. 顺序观测增强：补充策略组排列、关键组候选优先级与规则匹配先后摘要，便于直接判断“哪些组排在前面、哪些流量先命中”。
+ * 76. 规则入口映射增强：补充规则入口 -> 目标组映射与目标分布摘要，便于直接看出各业务规则最终被打到哪里。
+ * 77. 规则优先级风险增强：补充宽泛规则抢先命中特定业务规则的风险提示，便于及时发现 GitHub / Steam / SteamCN 被前置大规则提前吃掉。
+ * 78. 候选链风险增强：补充关键策略组的候选链顺序风险提示，便于及时发现 DIRECT / REJECT / FALLBACK / SELECT 排位异常。
+ * 79. 分流链路总览增强：把请求入口、规则入口、目标组和关键组候选链串成统一摘要，便于快速观察整条流量分流路径。
+ * 80. 业务链路总览增强：把 GitHub / Steam / SteamCN / AI / Crypto 的规则入口、目标组、组类型与头部候选链单独拉平输出，便于直接检查每类业务到底会怎么走。
+ * 81. 规则层级总览增强：把最终 rules 按拦截层 / 本地直连层 / AI-Crypto 层 / 通用业务层 / 地区层 / 自定义层 / 兜底层拆开统计，便于更直观看“哪些流量先走”。
+ * 82. 自定义规则区间增强：把 config.rules 的原始条数、有效插入条数、所在区间、主要类型和目标组单独拉平输出，便于检查外部自定义规则到底插进了哪里、真正生效了多少条。
  */
 
-// ============================================================================
-// 1. 全局常量定义 (Constants) - 定义脚本中使用的所有常量
-// ============================================================================
-
-// 定义节点后缀名称，用于拼接国家分组名
+// 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
+const SCRIPT_VERSION = "8.60.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.60.0。
+// 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
+const BUILTIN_DIRECT = "DIRECT";
+// 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
 const NODE_SUFFIX = "节点";
-
-// 正则表达式：匹配低倍率、公益或实验性节点
-// 用于过滤掉这类低质量节点，不纳入国家分组计数
-const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
-
-// 正则表达式：匹配明确标记为"落地"、"中转"或"Relay"的节点
-// 当 landing=true 时，这类节点会被隔离到专门的策略组
-const REGEX_LANDING_ISOLATE = /落地|Relay|To-user|中转/i;
-
-// 策略组名称映射表 - 使用全 Emoji 化的名称，便于视觉识别
-const GROUPS = {
-  // --- 基础控制组 - 用于节点选择和流量控制 ---
-  SELECT:     "🚀 节点选择",  // 主入口，用户首选
-  MANUAL:     "🎯 手动切换",  // 备用手动选择
-  FALLBACK:   "⚡ 自动切换",  // 自动优选，用于故障转移
-  DIRECT:     "🎯 全球直连",  // 强制直连，不走代理
-  LANDING:    "🏳️‍🌈 落地节点", // [可选] 仅在 landing=true 时生成
-  LOW_COST:   "🐢 低倍率",    // 低倍率/公益节点
-  OTHER:      "🐟 兜底节点",  // [防断网] 当无地区分组时显示
-
-  // --- 业务策略组 - 根据应用类型进行分流 ---
-  AI:         "🤖 AI服务",     // ChatGPT 等 AI 服务
-  CRYPTO:     "💰 加密货币",   // 特性：优先日本（低 ping）
-  APPLE:      "🍎 Apple",      // 特性：默认直连（优化体验）
-  MICROSOFT:  "Ⓜ️ 微软服务",   // Office、Teams 等
-  GOOGLE:     "🇬 Google",      // Google 搜索等
-  BING:       "🔍 Bing",       // 特性：默认直连
-  ONEDRIVE:   "☁️ OneDrive",   // 云存储服务
-
-  TELEGRAM:   "✈️ Telegram",   // 即时通讯
-  YOUTUBE:    "📹 YouTube",    // 视频平台
-  NETFLIX:    "🎥 Netflix",    // 流媒体
-  DISNEY:     "🏰 Disney+",    // 流媒体
-  SPOTIFY:    "🎧 Spotify",    // 音乐流媒体
-  TIKTOK:     "🎵 TikTok",     // 短视频
-
-  STEAM:      "🚂 Steam",      // 游戏平台
-  GAMES:      "🎮 游戏加速",   // 其他游戏
-  PT:         "📦 PT下载",     // 特性：默认直连（禁用代理）
-  SPEEDTEST:  "📈 网络测速",   // 特性：默认直连
-  ADS:        "🛑 广告拦截"    // 广告过滤
+// 所有测速类策略组共用的探测地址。
+const TEST_URL = "https://cp.cloudflare.com/generate_204";
+// 规则提供器的刷新间隔，单位秒，这里按 24 小时更新一次。
+const RULE_INTERVAL = 86400;
+// proxy-provider 的默认刷新间隔，单位秒。
+const PROXY_PROVIDER_INTERVAL = 3600;
+// URL-Test / Load-Balance 这类策略组的测速间隔，单位秒。
+const GROUP_INTERVAL = 600;
+// 健康检查超时时间，单位毫秒。
+const GROUP_TIMEOUT = 5000;
+// proxy-provider health-check 的默认超时时间，单位毫秒。
+const PROXY_PROVIDER_HEALTH_CHECK_TIMEOUT = 5000;
+// URL-Test / Load-Balance 允许的延迟波动阈值。
+const GROUP_TOLERANCE = 100;
+// 健康检查最大失败次数，超过后会触发强制检查。
+const GROUP_MAX_FAILED_TIMES = 5;
+// 对 Cloudflare 204 检测地址采用更严格的预期状态码判断。
+const GROUP_EXPECTED_STATUS = "204";
+// threshold 参数的最大值，避免用户传入离谱的大数导致分组失真。
+const MAX_THRESHOLD = 100;
+// 如果原配置没有 mixed-port，则回落到这个默认端口。
+const DEFAULT_MIXED_PORT = 7890;
+// rule-provider 本地缓存目录。
+const RULE_PROVIDER_PATH_DIR = "./providers/rules";
+// MetaCubeX 标准 geo 规则仓库根地址。
+const META_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
+// MetaCubeX geo-lite 规则仓库根地址，部分 IP 库使用更轻量的版本。
+const META_GEO_LITE_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo-lite";
+// 当前仓库规则文件的默认 Raw 根地址，方便给自定义 classical 规则统一拼 URL。
+const RULESET_REPO_BASE_URL = "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset";
+// 默认直连规则地址。
+const DIRECT_LIST_URL = `${RULESET_REPO_BASE_URL}/Direct.list`;
+// 默认加密货币规则地址。
+const CRYPTO_LIST_URL = `${RULESET_REPO_BASE_URL}/Crypto.list`;
+// 默认 ChatGPT / OpenAI 规则地址。
+const CHATGPT_LIST_URL = `${RULESET_REPO_BASE_URL}/ChatGPT.list`;
+// Mihomo 官方 General 配置文档中的推荐 GeoX 下载地址。
+const GEOX_URLS = {
+  geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat",
+  geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat",
+  mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb",
+  asn: "https://github.com/xishang0128/geoip/releases/download/latest/GeoLite2-ASN.mmdb"
 };
 
-// ============================================================================
-// 2. 工具与参数解析 (Utils) - 辅助函数集合
-// ============================================================================
+// 用于识别低倍率、公益、实验性等不适合参与主国家分组统计的节点。
+const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
+// 用于识别“落地 / 中转 / Relay”等需要单独隔离的节点。
+const REGEX_LANDING_ISOLATE = /落地|Relay|To-user|中转/i;
+// 这些名称属于策略引擎内置保留策略，不需要在 proxy-groups 中额外定义。
+const BUILTIN_POLICY_NAMES = ["DIRECT", "REJECT", "REJECT-DROP", "PASS", "GLOBAL", "COMPATIBLE"];
+// 规则顺序编排时，用这两个哨兵值表示“移到最前 / 移到最后（MATCH 之前）”。
+const RULE_ORDER_START = "__RULE_ORDER_START__";
+const RULE_ORDER_END = "__RULE_ORDER_END__";
 
-/**
- * 将各种类型的值转换为布尔值
- * @param {any} val - 待转换的值 (boolean | string | 其他)
- * @param {boolean} def - 默认值，当无法转换时使用 (默认 false)
- * @returns {boolean} 转换后的布尔值
- */
-function parseBool(val, def = false) {
-  // 如果已经是布尔类型，直接返回
-  if (typeof val === "boolean") {
-    return val;
-  }
-  // 如果是字符串，判断是否为 "true" 或 "1"
-  if (typeof val === "string") {
-    return val.toLowerCase() === "true" || val === "1";
-  }
-  // 其他情况返回默认值
-  return def;
+// 统一维护所有策略组的展示名称，后面所有规则和分组都从这里取值。
+const GROUPS = {
+  // 主入口，用户最终在客户端里最常选择的总开关。
+  SELECT: "🚀 节点选择",
+  // 手动切换组，直接列出所有节点供用户人工挑选。
+  MANUAL: "🎯 手动切换",
+  // 自动切换组，给自动优选、故障转移场景使用。
+  FALLBACK: "⚡ 自动切换",
+  // 全局直连组，给国内服务或特殊服务优先直连使用。
+  DIRECT: "🎯 全球直连",
+  // 落地节点隔离组，仅在 landing=true 时生成。
+  LANDING: "🏳️‍🌈 落地节点",
+  // 低倍率节点集合，只在检测到对应节点时生成。
+  LOW_COST: "🐢 低倍率",
+  // 真正的兜底分组，接住没有被国家分组吸收的剩余节点。
+  OTHER: "🐟 兜底节点",
+
+  // AI 服务专用策略组。
+  AI: "🤖 AI服务",
+  // 加密货币相关服务专用策略组。
+  CRYPTO: "💰 加密货币",
+  // Apple 服务专用策略组。
+  APPLE: "🍎 Apple",
+  // Microsoft 服务专用策略组。
+  MICROSOFT: "Ⓜ️ 微软服务",
+  // Google 服务专用策略组。
+  GOOGLE: "🇬 Google",
+  // GitHub 专用策略组。
+  GITHUB: "🐙 GitHub",
+  // Bing 专用策略组。
+  BING: "🔍 Bing",
+  // OneDrive 专用策略组。
+  ONEDRIVE: "☁️ OneDrive",
+
+  // Telegram 专用策略组。
+  TELEGRAM: "✈️ Telegram",
+  // YouTube 专用策略组。
+  YOUTUBE: "📹 YouTube",
+  // Netflix 专用策略组。
+  NETFLIX: "🎥 Netflix",
+  // Disney+ 专用策略组。
+  DISNEY: "🏰 Disney+",
+  // Spotify 专用策略组。
+  SPOTIFY: "🎧 Spotify",
+  // TikTok 专用策略组。
+  TIKTOK: "🎵 TikTok",
+
+  // Steam 专用策略组。
+  STEAM: "🚂 Steam",
+  // 泛游戏流量策略组。
+  GAMES: "🎮 游戏加速",
+  // PT 下载策略组。
+  PT: "📦 PT下载",
+  // 测速流量策略组。
+  SPEEDTEST: "📈 网络测速",
+  // 广告拦截策略组。
+  ADS: "🛑 广告拦截"
+};
+
+// 某些自动分组天然允许为空，不必为此输出告警。
+const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
+// 允许通过参数隐藏的辅助策略组。
+const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST];
+// AI 默认优先国家链：新加坡 -> 日本 -> 美国 -> 香港。
+const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"], ["🇭🇰", "香港"]];
+// Crypto 默认优先国家链：日本 -> 新加坡 -> 香港。
+const DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS = [["🇯🇵", "日本"], ["🇸🇬", "狮城", "新加坡"], ["🇭🇰", "香港"]];
+
+// 国家/地区识别配置表。
+// 这里不只放国家名，还放旗帜和别名，用于后续自动识别节点归属。
+const COUNTRY_DEFINITIONS = [
+  // 香港常见命名方式。
+  { name: "香港", flag: "🇭🇰", aliases: ["香港", "HK", "HKG", "Hong Kong", "HongKong"] },
+  // 台湾常见命名方式。
+  { name: "台湾", flag: "🇹🇼", aliases: ["台湾", "台北", "新北", "TW", "TWN", "Taiwan"] },
+  // 日本常见命名方式。
+  { name: "日本", flag: "🇯🇵", aliases: ["日本", "东京", "大阪", "埼玉", "JP", "JPN", "Japan", "Tokyo", "Osaka"] },
+  // 新加坡/狮城常见命名方式。
+  { name: "狮城", flag: "🇸🇬", aliases: ["新加坡", "狮城", "SG", "SGP", "Singapore"] },
+  // 韩国常见命名方式。
+  { name: "韩国", flag: "🇰🇷", aliases: ["韩国", "首尔", "KR", "KOR", "Korea", "Seoul"] },
+
+  // 美国常见命名方式，同时补充常见机房/城市关键词。
+  { name: "美国", flag: "🇺🇸", aliases: ["美国", "美区", "US", "USA", "United States", "America", "Los Angeles", "Seattle", "San Jose", "Santa Clara", "Oregon", "Phoenix", "Dallas", "Chicago", "洛杉矶", "西雅图", "圣何塞", "圣克拉拉", "俄勒冈", "凤凰城", "达拉斯", "芝加哥", "硅谷", "费利蒙", "波特兰", "拉斯维加斯"] },
+  // 阿根廷常见命名方式。
+  { name: "阿根廷", flag: "🇦🇷", aliases: ["阿根廷", "AR", "ARG", "Argentina"] },
+  // 巴西常见命名方式。
+  { name: "巴西", flag: "🇧🇷", aliases: ["巴西", "BR", "BRA", "Brazil"] },
+  // 加拿大常见命名方式，这里用“枫叶”作为显示名称。
+  { name: "枫叶", flag: "🇨🇦", aliases: ["加拿大", "枫叶", "CA", "CAN", "Canada", "Toronto", "Vancouver", "多伦多", "温哥华"] },
+
+  // 英国常见命名方式。
+  { name: "英国", flag: "🇬🇧", aliases: ["英国", "英伦", "UK", "GB", "GBR", "United Kingdom", "Britain", "London", "伦敦"] },
+  // 德国常见命名方式。
+  { name: "德国", flag: "🇩🇪", aliases: ["德国", "战车", "DE", "DEU", "Germany", "Frankfurt", "法兰克福"] },
+  // 法国常见命名方式。
+  { name: "法国", flag: "🇫🇷", aliases: ["法国", "高卢", "FR", "FRA", "France", "Paris", "巴黎"] },
+
+  // 土耳其常见命名方式。
+  { name: "土耳其", flag: "🇹🇷", aliases: ["土耳其", "TR", "TUR", "Turkey", "Istanbul", "伊斯坦布尔"] },
+  // 澳大利亚常见命名方式，这里用“袋鼠”作为显示名称。
+  { name: "袋鼠", flag: "🇦🇺", aliases: ["澳大利亚", "澳洲", "袋鼠", "AU", "AUS", "Australia", "Sydney", "Melbourne", "悉尼", "墨尔本"] },
+  // 俄罗斯常见命名方式，这里用“毛熊”作为显示名称。
+  { name: "毛熊", flag: "🇷🇺", aliases: ["俄罗斯", "毛熊", "RU", "RUS", "Russia", "Moscow", "莫斯科"] }
+];
+
+// 判断对象自身是否真的拥有某个键，避免原型链上的同名属性干扰。
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
-/**
- * 将字符串转换为数字
- * @param {any} val - 待转换的值
- * @param {number} def - 默认值，当转换失败时使用 (默认 0)
- * @returns {number} 转换后的数字
- */
-function parseNumber(val, def = 0) {
-  // 使用 parseInt 转换，基数为 10
-  const num = parseInt(val, 10);
-  // 如果转换失败 (NaN)，返回默认值
-  return isNaN(num) ? def : num;
+// 判断某个值是不是普通对象，排除 null 和数组。
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/**
- * 验证配置参数的完整性和合法性
- * @param {object} args - 用户传入的参数对象
- * @returns {object} 验证和规范化后的参数
- */
-function validateArgs(args) {
-  // 规范化输入，返回新的 args 对象（不修改原对象）
-  const normalized = { ...args };
-  // 检查 threshold 参数是否合法 (必须为非负整数)
-  let threshold = parseNumber(args.threshold, 0);
-  if (threshold < 0) {
-    console.warn("⚠️ 警告: threshold 不能为负数，已重置为 0");
-    threshold = 0;
-  } else if (threshold > 1000) {
-    console.warn("⚠️ 警告: threshold 过大，已重置为 100");
-    threshold = 100;
+// 对字符串数组做清洗：去空、去首尾空格、去重。
+function uniqueStrings(list) {
+  // 用无原型对象作为去重表，避免键名冲突。
+  const seen = Object.create(null);
+  // 收集最终清洗后的结果。
+  const result = [];
+
+  // 逐个遍历输入数组里的元素。
+  for (const item of Array.isArray(list) ? list : []) {
+    // 只保留字符串值，其他类型全部跳过。
+    if (typeof item !== "string") {
+      continue;
+    }
+
+    // 统一去掉首尾空格，避免“同名不同空格”导致去重失败。
+    const value = item.trim();
+    // 如果是空串或已经出现过，则不再收录。
+    if (!value || seen[value]) {
+      continue;
+    }
+
+    // 标记当前字符串已出现。
+    seen[value] = true;
+    // 写入最终结果数组。
+    result.push(value);
   }
-  normalized.threshold = threshold;
+
+  // 返回清洗和去重后的字符串列表。
+  return result;
+}
+
+// 对数字数组做清洗：转 number、过滤 NaN/Infinity、去重。
+function uniqueNumbers(list) {
+  // 用无原型对象记录已出现的数字。
+  const seen = Object.create(null);
+  // 收集最终结果。
+  const result = [];
+
+  // 逐个遍历输入项。
+  for (const item of Array.isArray(list) ? list : []) {
+    // 把传入值统一转成数字。
+    const value = Number(item);
+    // 非有限数字直接跳过。
+    if (!isFinite(value)) {
+      continue;
+    }
+
+    // 已出现的数字不重复加入。
+    if (seen[value]) {
+      continue;
+    }
+
+    // 标记为已出现。
+    seen[value] = true;
+    // 加入结果数组。
+    result.push(value);
+  }
+
+  // 返回清洗后的数字列表。
+  return result;
+}
+
+// 合并两个普通对象，extra 的同名键会覆盖 base。
+function mergeObjects(base, extra) {
+  return Object.assign({}, isObject(base) ? base : {}, isObject(extra) ? extra : {});
+}
+
+// 把输入值安全地转换成字符串数组，不是数组就返回空数组。
+function toStringArray(value) {
+  if (typeof value === "string") {
+    return uniqueStrings([value]);
+  }
+
+  return uniqueStrings(Array.isArray(value) ? value : []);
+}
+
+// 规范化 DNS policy 映射，把 string/array 都收敛成字符串数组，便于后续合并。
+function normalizeDnsPolicyMap(value) {
+  const source = isObject(value) ? value : {};
+  const result = {};
+
+  for (const key of Object.keys(source)) {
+    result[key] = toStringArray(source[key]);
+  }
+
+  return result;
+}
+
+// 合并两个 DNS policy 映射，同名键按“默认值 + 用户值”去重拼接。
+function mergeDnsPolicyMaps(base, extra) {
+  const normalizedBase = normalizeDnsPolicyMap(base);
+  const normalizedExtra = normalizeDnsPolicyMap(extra);
+  const result = {};
+  const keys = uniqueStrings(Object.keys(normalizedBase).concat(Object.keys(normalizedExtra)));
+
+  for (const key of keys) {
+    result[key] = uniqueStrings([]
+      .concat(normalizedBase[key] || [])
+      .concat(normalizedExtra[key] || []));
+  }
+
+  return result;
+}
+
+// 把传统 fake-ip-filter 条目转换成 fake-ip-filter-mode=rule 可用的规则语法。
+function convertFakeIpFilterEntryToRule(entry) {
+  const value = String(entry || "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  if (/^(MATCH|GEOSITE|RULE-SET|DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD),/i.test(value)) {
+    return /(,fake-ip|,real-ip)$/i.test(value) ? value : `${value},real-ip`;
+  }
+
+  if (/^geosite:/i.test(value)) {
+    return `GEOSITE,${value.slice(8)},real-ip`;
+  }
+
+  if (/^\+\./.test(value) || /^\*\./.test(value)) {
+    return `DOMAIN-SUFFIX,${value.slice(2)},real-ip`;
+  }
+
+  if (/^\./.test(value)) {
+    return `DOMAIN-SUFFIX,${value.slice(1)},real-ip`;
+  }
+
+  return `DOMAIN,${value},real-ip`;
+}
+
+// 根据 fake-ip-filter-mode 构建最终 fake-ip-filter，并在 rule 模式下自动补齐规则语法。
+function buildFakeIpFilter(defaultEntries, customEntries, mode) {
+  const entries = uniqueStrings([]
+    .concat(Array.isArray(defaultEntries) ? defaultEntries : [])
+    .concat(toStringArray(customEntries)));
+
+  if (String(mode || "").trim().toLowerCase() !== "rule") {
+    return entries;
+  }
+
+  const rules = uniqueStrings(entries.map((item) => convertFakeIpFilterEntryToRule(item)).filter(Boolean));
+
+  if (!rules.some((item) => /^MATCH,\s*fake-ip$/i.test(item))) {
+    rules.push("MATCH,fake-ip");
+  }
+
+  return rules;
+}
+
+// 创建一个“存在性查找表”，便于后面 O(1) 判断某个名字是否存在。
+function createLookup(list) {
+  // 用无原型对象避免原型链污染。
+  const lookup = Object.create(null);
+  // 遍历并登记所有非空字符串。
+  for (const item of uniqueStrings(list)) {
+    lookup[item] = true;
+  }
+  // 返回查找表。
+  return lookup;
+}
+
+// 从参数对象里按别名顺序取值，拿到第一个非空值就返回。
+function pickArg(args, aliases) {
+  // 非对象时直接返回 undefined。
+  if (!isObject(args)) {
+    return undefined;
+  }
+
+  // 按优先顺序遍历允许的参数名。
+  for (const alias of aliases) {
+    // 只有对象自身存在这个键时才继续读取。
+    if (hasOwn(args, alias)) {
+      // 取出当前参数值。
+      const value = args[alias];
+      // 过滤掉 undefined / null / 空串，避免把“没传”误当成有效值。
+      if (value !== undefined && value !== null && value !== "") {
+        return value;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+// 把各种布尔风格输入转成真正的 boolean。
+function parseBool(value, defaultValue) {
+  // 已经是布尔值则原样返回。
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  // 数字时按 0 / 非 0 处理。
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  // 字符串时兼容常见的真值/假值写法。
+  if (typeof value === "string") {
+    // 先做 trim + 小写归一化。
+    const normalized = value.trim().toLowerCase();
+
+    // 常见真值集合。
+    if (["true", "1", "yes", "y", "on"].includes(normalized)) {
+      return true;
+    }
+
+    // 常见假值集合。
+    if (["false", "0", "no", "n", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  // 无法识别时回落到默认值。
+  return defaultValue;
+}
+
+// 判断一个值是否至少长得像布尔量，便于对配置对象做宽松校验。
+function isBooleanLike(value) {
+  if (typeof value === "boolean") {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return value === 0 || value === 1;
+  }
+
+  if (typeof value === "string") {
+    return ["true", "1", "yes", "y", "on", "false", "0", "no", "n", "off"].includes(value.trim().toLowerCase());
+  }
+
+  return false;
+}
+
+// 把输入值转成整数，失败时返回默认值。
+function parseNumber(value, defaultValue) {
+  // 已经是正常数字时直接向下取整。
+  if (typeof value === "number" && isFinite(value)) {
+    return Math.floor(value);
+  }
+
+  // 字符串时尝试转数字。
+  if (typeof value === "string") {
+    // 先去掉首尾空格。
+    const normalized = value.trim();
+    // 空串直接回退默认值。
+    if (!normalized) {
+      return defaultValue;
+    }
+
+    // 用 Number 做更宽松的数字解析。
+    const numeric = Number(normalized);
+    // 转换成功就向下取整，失败则回退默认值。
+    return isFinite(numeric) ? Math.floor(numeric) : defaultValue;
+  }
+
+  // 其他类型一律使用默认值。
+  return defaultValue;
+}
+
+// 把一个数字限制在给定上下界之间。
+function clampNumber(value, minValue, maxValue) {
+  return Math.max(minValue, Math.min(maxValue, value));
+}
+
+// 统一把字符串参数做 trim；非字符串一律转为空串。
+function normalizeStringArg(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+// 规范化可选目录参数：统一斜杠、去尾部 `/`，并尽量转成相对路径写法。
+function normalizeOptionalPathDir(value) {
+  const source = normalizeStringArg(value).replace(/\\/g, "/");
+
+  if (!source) {
+    return "";
+  }
+
+  let normalized = source.replace(/\/+/g, "/").replace(/\/+$/g, "");
+
+  if (!normalized || normalized === ".") {
+    return "";
+  }
+
+  if (!/^(?:\.{1,2}\/|\/|[A-Za-z]:\/)/.test(normalized)) {
+    normalized = `./${normalized}`;
+  }
+
   return normalized;
 }
 
-// 解析用户传入的参数，提供默认值
-// $arguments 是 Sub-Store 提供的全局参数对象
-const ARGS = ((args) => {
-  // 首先验证参数合法性
-  const validatedArgs = validateArgs(args);
-  // 返回规范化后的参数对象
-  return {
-    ipv6:      parseBool(validatedArgs.ipv6Enabled, true),        // [默认开启] IPv6 支持
-    lb:        parseBool(validatedArgs.loadBalance, false),        // [默认关闭] 负载均衡
-    landing:   parseBool(validatedArgs.landing, false),            // [默认关闭] 是否隔离落地节点
-    full:      parseBool(validatedArgs.fullConfig, false),         // [默认关闭] 完整配置模式
-    fakeip:    parseBool(validatedArgs.fakeIPEnabled, true),       // [默认开启] Fake-IP 模式
-    quic:      parseBool(validatedArgs.quicEnabled, false),        // [默认关闭] QUIC 协议支持
-    threshold: parseNumber(validatedArgs.threshold, 0)             // [默认 0] 国家节点数量阈值
+// 规范化 rule-provider 本地缓存目录：如果未设置则回退脚本默认目录。
+function normalizeRuleProviderPathDir(value) {
+  return normalizeOptionalPathDir(value) || RULE_PROVIDER_PATH_DIR;
+}
+
+// 规范化 proxy-provider 本地缓存目录：只有显式传值时才启用，避免改动现有默认行为。
+function normalizeProxyProviderPathDir(value) {
+  return normalizeOptionalPathDir(value);
+}
+
+// 规范化 Mihomo expected-status 参数：兼容字符串与数字输入，便于后续统一按官方语法校验。
+function normalizeExpectedStatusArg(value) {
+  if (typeof value === "number" && isFinite(value)) {
+    return String(Math.floor(value));
+  }
+
+  return normalizeStringArg(value);
+}
+
+// 规范化 Mihomo proxy-group 的 interface-name：只接受非空字符串，空值统一视为未设置。
+function normalizeInterfaceNameArg(value) {
+  return normalizeStringArg(value);
+}
+
+// 规范化 Mihomo proxy-group 的 routing-mark：兼容数字与纯数字字符串，只接受大于等于 0 的整数。
+function normalizeRoutingMarkArg(value) {
+  if (typeof value === "number" && isFinite(value) && Math.floor(value) === value && value >= 0) {
+    return value;
+  }
+
+  const normalized = normalizeStringArg(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  return /^\d+$/.test(normalized) ? Number(normalized) : null;
+}
+
+// 校验 Mihomo expected-status 语法：支持 `*`、单个状态码，以及 `200/302/400-503` 这类多状态/范围写法。
+function isValidExpectedStatusValue(value) {
+  const normalized = normalizeExpectedStatusArg(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized === "*") {
+    return true;
+  }
+
+  for (const part of normalized.split("/")) {
+    const token = String(part || "").trim();
+    if (!token) {
+      return false;
+    }
+
+    if (/^\d{3}$/.test(token)) {
+      continue;
+    }
+
+    const rangeMatch = token.match(/^(\d{3})-(\d{3})$/);
+    if (!rangeMatch) {
+      return false;
+    }
+
+    const start = Number(rangeMatch[1]);
+    const end = Number(rangeMatch[2]);
+    if (!isFinite(start) || !isFinite(end) || start > end) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// 规范化 GitHub / Steam 这类独立组的模式参数。
+function normalizeServiceGroupMode(value, defaultMode) {
+  const normalized = normalizeStringArg(value).toLowerCase();
+
+  if (["select", "direct", "proxy"].includes(normalized)) {
+    return normalized;
+  }
+
+  return defaultMode;
+}
+
+// 规范化 GitHub / Steam 这类独立组的策略组类型参数。
+function normalizeServiceGroupType(value, defaultType) {
+  const normalized = normalizeStringArg(value).toLowerCase();
+
+  if (["select", "url-test", "fallback", "load-balance"].includes(normalized)) {
+    return normalized;
+  }
+
+  return defaultType;
+}
+
+// 规范化 Mihomo load-balance 的 strategy 参数，兼容常见连字符/空格/驼峰写法。
+function normalizeLoadBalanceStrategy(value, defaultStrategy) {
+  const normalized = normalizeGroupMarkerToken(value);
+  const aliasMap = {
+    roundrobin: "round-robin",
+    consistenthashing: "consistent-hashing",
+    sticky: "sticky-sessions",
+    stickysession: "sticky-sessions",
+    stickysessions: "sticky-sessions"
   };
-})(typeof $arguments !== 'undefined' ? $arguments : {});
 
+  return aliasMap[normalized] || defaultStrategy;
+}
 
-// ============================================================================
-// 3. 规则集配置 (Rule Providers) - 定义规则数据源
-// ============================================================================
+// 规范化 Mihomo `ip-version` 参数，兼容常见连字符/空格写法。
+function normalizeIpVersionArg(value, defaultValue) {
+  const normalized = normalizeGroupMarkerToken(value);
+  const aliasMap = {
+    dual: "dual",
+    ipv4: "ipv4",
+    ipv6: "ipv6",
+    ipv4prefer: "ipv4-prefer",
+    ipv6prefer: "ipv6-prefer",
+    preferipv4: "ipv4-prefer",
+    preferipv6: "ipv6-prefer"
+  };
 
-// MetaCubeX 规则库的基础 URL
-const META_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
+  return aliasMap[normalized] || defaultValue;
+}
 
-// 规则提供商配置对象
-const ruleProviders = {
-  // --- 基础规则 - 用于基本的流量分类 ---
-  // 私有域名和 IP (本地网络、内部服务)
-  "Private":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/private.mrs` },
-  // 中国大陆域名 (用于判断国内流量)
-  "CN":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/cn.mrs` },
-  // 广告阻止列表
-  "ADBlock":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: "https://adrules.top/adrules-mihomo.mrs" },
-  // 非中国大陆域名 (用于判断国际流量)
-  "Geo_Not_CN":   { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/geolocation-!cn.mrs` },
+// 规范化 GitHub / Steam / SteamCN 规则顺序参数，只允许 before / after 两种写法。
+function normalizeRuleOrderPosition(value, defaultPosition) {
+  const normalized = normalizeStringArg(value).toLowerCase();
 
-  // --- 应用分流 - 针对特定应用/服务的规则 ---
-  // AI 服务 (ChatGPT、Claude 等)
-  "AI":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-ai-!cn.mrs` },
-  // 加密货币交易所 (自定义规则)
-  "Crypto":       { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Crypto.list" },
+  if (["before", "after"].includes(normalized)) {
+    return normalized;
+  }
 
-  // 视频平台
-  "YouTube":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/youtube.mrs` },
-  // 搜索引擎
-  "Google":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/google.mrs` },
-  // 代码托管
-  "GitHub":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/github.mrs` },
-  // 即时通讯
-  "Telegram":     { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/telegram.mrs` },
-  // 流媒体
-  "Netflix":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/netflix.mrs` },
-  "Disney":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/disney.mrs` },
-  "Spotify":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/spotify.mrs` },
-  "TikTok":       { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/tiktok.mrs` },
-  
-  // --- 厂商服务 - 特定公司的域名集合 ---
-  "Microsoft":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/microsoft.mrs` },
-  // 微软搜索引擎
-  "Bing":         { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/bing.mrs` },
-  // 微软云存储
-  "OneDrive":     { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/onedrive.mrs` },
-  // 苹果相关服务
-  "Apple":        { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/apple.mrs` },
-  "AppleTV":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/apple-tvplus.mrs` },
-  // 游戏平台 - Steam 中国区
-  "SteamCN":      { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/steam@cn.mrs` },
-  // Epic Games 商店
-  "Epic":         { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/epicgames.mrs` },
-  
-  // --- 工具类 - 特定用途的规则 ---
-  // 网络测速 (Speedtest)
-  "Speedtest":    { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/ookla-speedtest.mrs` },
-  // PT 下载 (私人种子)
-  "PT":           { type: "http", behavior: "domain", format: "mrs", interval: 86400, url: `${META_URL}/geosite/category-pt.mrs` },
-  // 直连列表 (自定义的需要直连的域名)
-  "DirectList":   { type: "http", behavior: "classical", format: "text", interval: 86400, url: "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset/Direct.list" },
+  return defaultPosition;
+}
 
-  // --- IP 规则 - 基于 IP 段的分流 ---
-  // 中国大陆 IP 段
-  "CN_IP":        { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/cn.mrs` },
-  // 私有 IP 段 (局域网、回环等)
-  "Private_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/private.mrs` },
-  // Google IP 段
-  "Google_IP":    { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/google.mrs` },
-  // Telegram IP 段
-  "Telegram_IP":  { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/telegram.mrs` },
-  // Netflix IP 段
-  "Netflix_IP":   { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: `${META_URL}/geoip/netflix.mrs` },
-  // 苹果 IP 段 (使用精简版)
-  "Apple_IP":     { type: "http", behavior: "ipcidr", format: "mrs", interval: 86400, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo-lite/geoip/apple.mrs" }
-};
+// 判断某个 provider 类型是不是 Mihomo proxy-provider 官方支持的范围。
+function isOfficialProxyProviderType(value) {
+  return ["http", "file", "inline"].includes(normalizeStringArg(value).toLowerCase());
+}
 
+// 判断某个 provider 类型是不是 Mihomo rule-provider 官方支持的范围。
+function isOfficialRuleProviderType(value) {
+  return ["http", "file", "inline"].includes(normalizeStringArg(value).toLowerCase());
+}
 
-// ============================================================================
-// 4. 规则匹配逻辑 (Rules Construction) - 构建流量分流规则列表
-// ============================================================================
+// 判断某个 rule-provider behavior 是否在 Mihomo 官方支持范围内。
+function isOfficialRuleProviderBehavior(value) {
+  return ["domain", "ipcidr", "classical"].includes(normalizeStringArg(value).toLowerCase());
+}
 
-/**
- * 构建规则数组，定义了流量如何分配到不同的策略组
- * @param {boolean} quicEnabled - 是否启用 QUIC 协议支持
- * @returns {Array<string>} 规则数组
- */
-const buildRules = (quicEnabled) => {
-  // 初始化规则数组
-  const rules = [
-    // [协议控制] 如果不支持 QUIC，则拒绝所有 UDP 443 连接
-    !quicEnabled ? "AND,((DST-PORT,443),(NETWORK,UDP)),REJECT" : null,
+// 判断某个 rule-provider format 是否在 Mihomo 官方支持范围内。
+function isOfficialRuleProviderFormat(value) {
+  return ["yaml", "text", "mrs"].includes(normalizeStringArg(value).toLowerCase());
+}
 
-    // [基础拦截] 广告过滤、私有域名、私有 IP 直接拦截或直连
-    `RULE-SET,ADBlock,${GROUPS.ADS}`,                    // 广告域名 → 广告拦截组
-    `RULE-SET,Private,${GROUPS.DIRECT}`,                 // 私有域名 → 直连
-    `RULE-SET,Private_IP,${GROUPS.DIRECT},no-resolve`,   // 私有 IP → 直连（不解析域名）
+// 判断 provider path 是否看起来可能超出 HomeDir，便于提示 SAFE_PATHS 官方限制。
+function mayRequireProviderSafePaths(path) {
+  const normalized = normalizeStringArg(path).replace(/\\/g, "/");
 
-    // [业务分流] 将特定应用流量路由到对应策略组
-    `RULE-SET,AI,${GROUPS.AI}`,                          // AI 服务 → AI 组
-    `RULE-SET,Crypto,${GROUPS.CRYPTO}`,                  // 加密货币 → Crypto 组（优先日本）
+  if (!normalized) {
+    return false;
+  }
 
-    // 视频和社交媒体
-    `RULE-SET,YouTube,${GROUPS.YOUTUBE}`,                // YouTube → YouTube 组
-    `RULE-SET,Google,${GROUPS.GOOGLE}`,                  // Google → Google 组
-    `RULE-SET,Google_IP,${GROUPS.GOOGLE},no-resolve`,    // Google IP → Google 组
-    
-    // 微软服务
-    `RULE-SET,Bing,${GROUPS.BING}`,                      // Bing → Bing 组（优先直连）
-    `RULE-SET,OneDrive,${GROUPS.ONEDRIVE}`,              // OneDrive → OneDrive 组
-    `RULE-SET,Microsoft,${GROUPS.MICROSOFT}`,            // 其他微软服务 → Microsoft 组
-    
-    // 苹果服务 - 优先直连以保证体验
-    `RULE-SET,AppleTV,${GROUPS.APPLE}`,                  // Apple TV → Apple 组
-    `RULE-SET,Apple,${GROUPS.APPLE}`,                    // 其他苹果服务 → Apple 组
-    `RULE-SET,Apple_IP,${GROUPS.APPLE},no-resolve`,      // 苹果 IP → Apple 组
+  return /^(?:\/|[A-Za-z]:\/)/.test(normalized) || normalized === ".." || normalized.startsWith("../") || normalized.includes("/../");
+}
 
-    // 即时通讯和其他
-    `RULE-SET,Telegram,${GROUPS.TELEGRAM}`,              // Telegram → Telegram 组
-    `RULE-SET,Telegram_IP,${GROUPS.TELEGRAM},no-resolve`, // Telegram IP → Telegram 组
-    `RULE-SET,TikTok,${GROUPS.TIKTOK}`,                  // TikTok → TikTok 组
-    
-    // 流媒体服务
-    `RULE-SET,Netflix,${GROUPS.NETFLIX}`,                // Netflix → Netflix 组
-    `RULE-SET,Netflix_IP,${GROUPS.NETFLIX},no-resolve`,  // Netflix IP → Netflix 组
-    `RULE-SET,Disney,${GROUPS.DISNEY}`,                  // Disney+ → Disney 组
-    `RULE-SET,Spotify,${GROUPS.SPOTIFY}`,                // Spotify → Spotify 组
-    
-    // 游戏和工具
-    `RULE-SET,SteamCN,${GROUPS.DIRECT}`,                 // Steam 中国区 → 直连（国内优化）
-    `RULE-SET,Epic,${GROUPS.GAMES}`,                     // Epic Games → 游戏组
-    `RULE-SET,PT,${GROUPS.PT}`,                          // PT 下载 → PT 组（禁用代理）
-    `RULE-SET,Speedtest,${GROUPS.SPEEDTEST}`,            // 网络测速 → 测速组（禁用代理）
-    `RULE-SET,GitHub,${GROUPS.SELECT}`,                  // GitHub → 主选择（自定义选择）
+// 把自定义响应头名片段清洗成更安全的 HTTP Header Token。
+function normalizeHeaderToken(value) {
+  return normalizeStringArg(value).replace(/[^A-Za-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+}
 
-    // [兜底规则] 处理未被上述规则匹配的流量
-    `RULE-SET,DirectList,${GROUPS.DIRECT}`,              // 直连列表 → 直连
-    `RULE-SET,Geo_Not_CN,${GROUPS.SELECT}`,              // 非国内域名 → 主选择（手动选择国家）
-    `RULE-SET,CN,${GROUPS.DIRECT}`,                      // 国内域名 → 直连
-    `RULE-SET,CN_IP,${GROUPS.DIRECT},no-resolve`,        // 国内 IP → 直连
-    `MATCH,${GROUPS.SELECT}`                             // 其他流量 → 主选择（最后的兜底）
+// 校验 HTTP Header 名称是否合法；这里按常见 `A-Za-z0-9-` 写法收口，避免生成奇怪请求头。
+function isValidRequestHeaderName(value) {
+  return /^[A-Za-z0-9-]+$/.test(normalizeStringArg(value));
+}
+
+// 规范化响应头前缀，确保最终总是以连字符结尾，便于后续统一拼接。
+function normalizeHeaderPrefix(value) {
+  const token = normalizeHeaderToken(value);
+  return `${token || "X-SubStore"}-`;
+}
+
+// 把调试信息安全写回 Sub-Store 官方 `_res.headers`，便于下载链路里直接观测。
+function setRuntimeResponseHeaders(rawOptions, headers) {
+  if (!isObject(rawOptions)) {
+    return false;
+  }
+
+  const response = isObject(rawOptions._res) ? rawOptions._res : {};
+  const resultHeaders = isObject(response.headers) ? Object.assign({}, response.headers) : {};
+
+  for (const key of Object.keys(isObject(headers) ? headers : {})) {
+    const headerName = normalizeHeaderToken(key);
+    const headerValue = headers[key];
+
+    if (!headerName || headerValue === undefined || headerValue === null || headerValue === "") {
+      continue;
+    }
+
+    resultHeaders[headerName] = String(headerValue);
+  }
+
+  response.headers = resultHeaders;
+  rawOptions._res = response;
+  return true;
+}
+
+// 粗略判断一个字符串是否像 CIDR 网段，主要用于给参数输错时做提醒。
+function looksLikeCidr(value) {
+  const normalized = normalizeStringArg(value);
+
+  if (!normalized || normalized.indexOf("/") === -1) {
+    return false;
+  }
+
+  if (normalized.indexOf(":") !== -1) {
+    return /^[0-9a-f:.]+\/\d{1,3}$/i.test(normalized);
+  }
+
+  return /^\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2}$/.test(normalized);
+}
+
+// 粗略判断一个字符串是否像 http(s) URL，用于远程规则源参数轻量校验。
+function looksLikeHttpUrl(value) {
+  return /^https?:\/\/\S+$/i.test(normalizeStringArg(value));
+}
+
+// 把“逗号分隔字符串 / 数组”统一转成字符串列表，便于做国家优先链参数化。
+function toStringList(value) {
+  // 字符串时兼容逗号、竖线、换行分隔。
+  if (typeof value === "string") {
+    return uniqueStrings(value.split(/[,|\n]/).map((item) => String(item || "").trim()));
+  }
+
+  // 数组时把每一项都转成字符串再去重。
+  if (Array.isArray(value)) {
+    return uniqueStrings(value.map((item) => String(item || "").trim()));
+  }
+
+  // 其他类型一律回空数组。
+  return [];
+}
+
+// 把“明确节点名列表”统一转成数组；这里只支持逗号 / 分号 / 换行分隔，避免把节点名里的 `|` 误切开。
+function toExplicitNameList(value) {
+  if (typeof value === "string") {
+    return uniqueStrings(value.split(/[,，;\n]/).map((item) => String(item || "").trim()));
+  }
+
+  if (Array.isArray(value)) {
+    return uniqueStrings(value.map((item) => String(item || "").trim()));
+  }
+
+  return [];
+}
+
+// 把 Mihomo `exclude-type` 这类“类型列表”参数统一规范成 `A|B|C` 形式，兼容逗号 / 竖线 / 换行输入。
+function normalizeTypeListArg(value) {
+  return toStringList(value).join("|");
+}
+
+// 把 `exclude-type` 这类类型列表解析成小写数组，方便后面做大小写无关匹配。
+function parseTypeList(value) {
+  return uniqueStrings(toStringList(value).map((item) => String(item || "").trim().toLowerCase()).filter(Boolean));
+}
+
+// 解析 proxy-provider override.proxy-name 规则，支持 `pattern=>target||pattern2=>target2`、换行和对象数组三种输入。
+function parseProxyNameOverrideRules(value) {
+  const result = [];
+  const seen = Object.create(null);
+  const items = [];
+
+  if (typeof value === "string") {
+    items.push.apply(items, String(value || "").split(/\r?\n|\|\||;;/));
+  } else if (Array.isArray(value)) {
+    items.push.apply(items, value);
+  } else if (isObject(value)) {
+    items.push(value);
+  }
+
+  for (const item of items) {
+    let pattern = "";
+    let target = "";
+
+    if (isObject(item)) {
+      pattern = normalizeStringArg(item.pattern);
+      target = normalizeStringArg(item.target);
+    } else {
+      const source = String(item || "").trim();
+      const separatorIndex = source.indexOf("=>");
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      pattern = source.slice(0, separatorIndex).trim();
+      target = source.slice(separatorIndex + 2).trim();
+    }
+
+    if (!pattern || !target) {
+      continue;
+    }
+
+    const key = `${pattern}=>${target}`;
+    if (seen[key]) {
+      continue;
+    }
+
+    seen[key] = true;
+    result.push({ pattern, target });
+  }
+
+  return result;
+}
+
+// 把用户传入的“策略组标记”做归一化，便于兼容 `manual-switch / Manual Switch / manual_switch` 这类写法。
+function normalizeGroupMarkerToken(value) {
+  return normalizeStringArg(value).toLowerCase().replace(/[\s_-]+/g, "");
+}
+
+// 规范化常见代理类型别名，兼容 Mihomo 文档里的展示名与配置里常见的短类型写法。
+function getProxyTypeAliases(type) {
+  const normalized = normalizeStringArg(type).toLowerCase();
+  const aliasMap = {
+    ss: ["ss", "shadowsocks"],
+    shadowsocks: ["ss", "shadowsocks"],
+    ssr: ["ssr", "shadowsocksr"],
+    shadowsocksr: ["ssr", "shadowsocksr"],
+    http: ["http"],
+    https: ["https", "http"],
+    socks: ["socks", "socks5"],
+    socks5: ["socks", "socks5"],
+    socks4: ["socks4"],
+    vmess: ["vmess"],
+    vless: ["vless"],
+    trojan: ["trojan"],
+    snell: ["snell"],
+    ssh: ["ssh"],
+    hysteria: ["hysteria", "hy", "hysteria1"],
+    hysteria1: ["hysteria", "hy", "hysteria1"],
+    hy: ["hysteria", "hy", "hysteria1"],
+    hysteria2: ["hysteria2", "hy2"],
+    hy2: ["hysteria2", "hy2"],
+    tuic: ["tuic"],
+    wireguard: ["wireguard", "wg"],
+    wg: ["wireguard", "wg"],
+    anytls: ["anytls"],
+    mieru: ["mieru"],
+    direct: ["direct"],
+    relay: ["relay"]
+  };
+
+  return aliasMap[normalized] || (normalized ? [normalized] : []);
+}
+
+// 安全解码 URL 编码字符串；若解码失败则保留原值，避免单个坏参数拖垮整批解析。
+function safeDecodeUriComponent(value) {
+  try {
+    return decodeURIComponent(String(value || "").replace(/\+/g, "%20"));
+  } catch (error) {
+    return String(value || "");
+  }
+}
+
+// 把形如 a=1&b=2 的 querystring 解析成对象，兼容 Sub-Store 官方 `$options` 常见写法。
+function parseQueryLikeArgs(text) {
+  const source = normalizeStringArg(text).replace(/^[?#]/, "");
+  const result = {};
+
+  if (!source) {
+    return result;
+  }
+
+  for (const segment of source.split("&")) {
+    const item = String(segment || "").trim();
+    if (!item) {
+      continue;
+    }
+
+    const separatorIndex = item.indexOf("=");
+    const rawKey = separatorIndex >= 0 ? item.slice(0, separatorIndex) : item;
+    const rawValue = separatorIndex >= 0 ? item.slice(separatorIndex + 1) : "true";
+    const key = safeDecodeUriComponent(rawKey).trim();
+    const value = safeDecodeUriComponent(rawValue);
+
+    if (!key) {
+      continue;
+    }
+
+    // 同名参数若重复出现，则自动扩展成数组，便于后续 list 类参数直接复用。
+    if (hasOwn(result, key)) {
+      result[key] = Array.isArray(result[key]) ? result[key].concat(value) : [result[key], value];
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return result;
+}
+
+// 判断参数值是否“有实际内容”，用于多来源 query 合并时避免空值覆盖有效值。
+function hasUsableArgValue(value) {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value !== "";
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return true;
+}
+
+// 合并两份 query 参数，extra 优先，但空值不会把 base 里的有效值冲掉。
+function mergeQueryArgs(base, extra) {
+  const result = Object.assign({}, isObject(base) ? base : {});
+  const source = isObject(extra) ? extra : {};
+
+  for (const key of Object.keys(source)) {
+    const value = source[key];
+
+    if (!hasUsableArgValue(value) && hasUsableArgValue(result[key])) {
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return result;
+}
+
+// 解析 `_req.query` 字段本身，兼容对象与 querystring 两种常见结构。
+function parseRequestQueryPayload(payload) {
+  if (isObject(payload)) {
+    return Object.assign({}, payload);
+  }
+
+  if (typeof payload === "string") {
+    return parseQueryLikeArgs(payload);
+  }
+
+  return {};
+}
+
+// 从 `_req.url` / `_req.path` 这类请求位置字符串中提取 query 参数。
+function parseQueryArgsFromRequestLocation(location) {
+  const source = normalizeStringArg(location);
+  const questionIndex = source.indexOf("?");
+  const hashIndex = source.indexOf("#");
+  let result = {};
+
+  if (!source || (questionIndex === -1 && hashIndex === -1)) {
+    return result;
+  }
+
+  if (questionIndex >= 0) {
+    const endIndex = hashIndex >= 0 && hashIndex > questionIndex ? hashIndex : source.length;
+    result = mergeQueryArgs(result, parseQueryLikeArgs(source.slice(questionIndex + 1, endIndex)));
+  }
+
+  if (hashIndex >= 0) {
+    result = mergeQueryArgs(result, parseQueryLikeArgs(source.slice(hashIndex + 1)));
+  }
+
+  return result;
+}
+
+// 把 query 值规范成单值，若出现重复参数数组，则优先取最后一个，贴近常见 query 覆盖习惯。
+function normalizeQueryValue(value) {
+  if (Array.isArray(value)) {
+    return value.length ? value[value.length - 1] : undefined;
+  }
+
+  return value;
+}
+
+// 尝试把 JSON 字符串解析成普通对象，失败则返回空对象。
+function parseJsonLikeArgs(text) {
+  const source = normalizeStringArg(text);
+  if (!source) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(source);
+    return isObject(parsed) ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+// 统一解析 Sub-Store 官方 `$options` 负载，兼容对象、querystring、JSON 字符串三种输入形式。
+function parseOptionPayload(payload) {
+  if (isObject(payload)) {
+    return Object.assign({}, payload);
+  }
+
+  if (typeof payload !== "string") {
+    return {};
+  }
+
+  const source = normalizeStringArg(payload);
+  if (!source) {
+    return {};
+  }
+
+  // 形如 {"a":1} 的 JSON 字符串优先按 JSON 解析；失败再退回 querystring。
+  if (/^[{\[]/.test(source)) {
+    const jsonPayload = parseJsonLikeArgs(source);
+    if (Object.keys(jsonPayload).length) {
+      return jsonPayload;
+    }
+  }
+
+  return parseQueryLikeArgs(source);
+}
+
+// 统一把 Sub-Store 传入的原始参数规范成对象，兼容官方 `$options`、字符串与嵌套对象写法。
+function normalizeScriptArgs(rawArgs) {
+  // 纯字符串时，直接按 `$options` 负载解析。
+  if (typeof rawArgs === "string") {
+    return parseOptionPayload(rawArgs);
+  }
+
+  // 普通对象时，允许 `$options` / `options` 再嵌一层字符串或对象。
+  if (isObject(rawArgs)) {
+    const nestedOptions = mergeObjects(
+      parseOptionPayload(rawArgs.$options),
+      parseOptionPayload(rawArgs.options)
+    );
+    const topLevelArgs = Object.assign({}, rawArgs);
+
+    delete topLevelArgs.$options;
+    delete topLevelArgs.options;
+
+    // 显式顶层参数优先级高于 `$options` 内的同名项。
+    return Object.assign({}, nestedOptions, topLevelArgs);
+  }
+
+  // 其他类型统一回空对象。
+  return {};
+}
+
+// 统一读取运行时请求 query，兼容 Sub-Store 官方 demo.js 中 `$options._req.query` 结构。
+function getRuntimeRequestQuery(rawOptions) {
+  const options = isObject(rawOptions) ? rawOptions : {};
+  const request = isObject(options._req) ? options._req : {};
+  const queryFromPath = parseQueryArgsFromRequestLocation(request.path);
+  const queryFromUrl = parseQueryArgsFromRequestLocation(request.url);
+  const queryFromField = parseRequestQueryPayload(request.query);
+
+  return mergeQueryArgs(
+    mergeQueryArgs(queryFromPath, queryFromUrl),
+    queryFromField
+  );
+}
+
+// Sub-Store 官方下载链接里有一批保留 query 参数，这里把它们排除，剩余的再当成脚本参数候选。
+const RESERVED_QUERY_ARG_KEYS = createLookup([
+  "$options",
+  "options",
+  "target",
+  "platform",
+  "url",
+  "content",
+  "ua",
+  "proxy",
+  "mergeSources",
+  "ignoreFailedRemoteSub",
+  "produceType",
+  "noCache",
+  "includeUnsupportedProxy"
+]);
+
+// Sub-Store 官方 mergeSources 只支持 localFirst / remoteFirst。
+const RUNTIME_LINK_MERGE_SOURCE_VALUES = ["localFirst", "remoteFirst"];
+// Sub-Store 官方 produceType 只支持 internal / raw。
+const RUNTIME_LINK_PRODUCE_TYPE_VALUES = ["internal", "raw"];
+// 这些键属于运行环境或保留字段，不应计入“脚本参数来源”统计。
+const RUNTIME_INTERNAL_ARG_SOURCE_KEYS = createLookup(["$options", "options", "_req", "_res", "target", "platform", "targetPlatform"]);
+// 这些键属于运行环境或官方保留参数，不应计入“未消费脚本参数”统计。
+const RUNTIME_UNUSED_ARG_IGNORE_KEYS = createLookup(
+  Object.keys(RUNTIME_INTERNAL_ARG_SOURCE_KEYS).concat(Object.keys(RESERVED_QUERY_ARG_KEYS))
+);
+
+// 规范化官方 mergeSources 参数，便于做统一校验与摘要输出。
+function normalizeRuntimeLinkMergeSources(value) {
+  const normalized = normalizeStringArg(value).toLowerCase();
+  return RUNTIME_LINK_MERGE_SOURCE_VALUES.find((item) => item.toLowerCase() === normalized) || "";
+}
+
+// 规范化官方 produceType 参数，便于做统一校验与摘要输出。
+function normalizeRuntimeLinkProduceType(value) {
+  const normalized = normalizeStringArg(value).toLowerCase();
+  return RUNTIME_LINK_PRODUCE_TYPE_VALUES.includes(normalized) ? normalized : "";
+}
+
+// 判断官方下载链接里的 url 是远程订阅、单节点本地内容，还是根本没传。
+function resolveRuntimeLinkUrlKind(value) {
+  const source = normalizeStringArg(value);
+
+  if (!source) {
+    return "none";
+  }
+
+  return looksLikeHttpUrl(source) ? "remote-http" : "local-node";
+}
+
+// 判断当前官方下载链接里是否存在真正的远程订阅来源。
+function hasRemoteRuntimeLinkSource(linkOptions) {
+  return isObject(linkOptions) && linkOptions.urlKind === "remote-http";
+}
+
+// 把官方下载链接参数的语义压成紧凑摘要，便于日志与响应调试头直接复用。
+function buildRuntimeLinkSemanticSummary(linkOptions) {
+  const source = isObject(linkOptions) ? linkOptions : {};
+  const hasRemoteSource = hasRemoteRuntimeLinkSource(source);
+
+  return `url-kind=${source.urlKind || "none"},content=${source.hasContent ? "yes" : "no"},merge=${source.hasMergeSources ? (source.mergeSourcesNormalized || source.mergeSources) : "default"},produce=${source.hasProduceType ? (source.produceTypeNormalized || source.produceType) : "default"},ua=${source.hasUa ? (hasRemoteSource ? "remote-fetch" : "no-remote") : "default"},proxy=${source.hasProxy ? (hasRemoteSource ? "remote-fetch" : "no-remote") : "default"},ignore-failed=${source.hasIgnoreFailedRemoteSub ? (source.ignoreFailedRemoteSub ? (hasRemoteSource ? "remote-only" : "no-remote") : "off") : "default"},no-cache=${source.hasNoCache ? (source.noCache ? (hasRemoteSource ? "remote-only" : "no-remote") : "off") : "default"}`;
+}
+
+// 提取原始参数对象里“直接挂在顶层”的脚本参数键，跳过运行环境保留字段。
+function extractDirectScriptArgKeys(rawArgs) {
+  if (typeof rawArgs === "string") {
+    return Object.keys(parseOptionPayload(rawArgs));
+  }
+
+  if (!isObject(rawArgs)) {
+    return [];
+  }
+
+  return Object.keys(rawArgs).filter((key) => !RUNTIME_INTERNAL_ARG_SOURCE_KEYS[key] && !/^_/.test(key));
+}
+
+// 提取原始参数对象里嵌套在 $options / options 中的脚本参数键。
+function extractNestedScriptArgKeys(rawArgs) {
+  if (!isObject(rawArgs)) {
+    return [];
+  }
+
+  return Object.keys(
+    mergeObjects(
+      parseOptionPayload(rawArgs.$options),
+      parseOptionPayload(rawArgs.options)
+    )
+  );
+}
+
+// 拆分运行时 query 中“直接参数”和“query.$options/options 嵌套参数”两类来源。
+function extractRuntimeQueryArgBreakdown(rawOptions) {
+  const query = getRuntimeRequestQuery(rawOptions);
+  const nestedArgs = mergeObjects(
+    parseOptionPayload(query.$options),
+    parseOptionPayload(query.options)
+  );
+  const directArgs = {};
+
+  for (const key of Object.keys(query)) {
+    if (RESERVED_QUERY_ARG_KEYS[key]) {
+      continue;
+    }
+
+    directArgs[key] = query[key];
+  }
+
+  return {
+    directKeys: Object.keys(directArgs),
+    nestedKeys: Object.keys(nestedArgs)
+  };
+}
+
+// 判断 route-target 最终是从 params / url / path 哪一路识别出来的。
+function resolveRouteTargetSource(rawOptions) {
+  const options = isObject(rawOptions) ? rawOptions : {};
+  const request = isObject(options._req) ? options._req : {};
+  const params = isObject(request.params) ? request.params : {};
+
+  if (normalizeStringArg(params.target || params.platform || "")) {
+    return "params";
+  }
+
+  if (extractRouteTargetFromUrl(request.url)) {
+    return "url";
+  }
+
+  if (extractRouteTargetFromUrl(request.path)) {
+    return "path";
+  }
+
+  return "none";
+}
+
+// 判断 route-kind/route-name 是从 path / url 哪一路识别出来的。
+function resolveRouteInfoSource(rawOptions) {
+  const options = isObject(rawOptions) ? rawOptions : {};
+  const request = isObject(options._req) ? options._req : {};
+  const routeInfoFromPath = extractRouteInfoFromLocation(request.path);
+
+  if (routeInfoFromPath.routeKind) {
+    return "path";
+  }
+
+  const routeInfoFromUrl = extractRouteInfoFromLocation(request.url);
+  return routeInfoFromUrl.routeKind ? "url" : "none";
+}
+
+// 汇总当前运行环境下脚本参数到底来自哪几路，便于快速排查官方 demo.js / 后端差异。
+function analyzeRuntimeArgSources(rawOptions, rawArguments, mergedArgs) {
+  const options = isObject(rawOptions) ? rawOptions : {};
+  const request = isObject(options._req) ? options._req : {};
+  const queryFromField = parseRequestQueryPayload(request.query);
+  const queryFromUrl = parseQueryArgsFromRequestLocation(request.url);
+  const queryFromPath = parseQueryArgsFromRequestLocation(request.path);
+  const queryBreakdown = extractRuntimeQueryArgBreakdown(rawOptions);
+
+  return {
+    queryDirectCount: uniqueStrings(queryBreakdown.directKeys).length,
+    queryNestedCount: uniqueStrings(queryBreakdown.nestedKeys).length,
+    optionsDirectCount: uniqueStrings(extractDirectScriptArgKeys(rawOptions)).length,
+    optionsNestedCount: uniqueStrings(extractNestedScriptArgKeys(rawOptions)).length,
+    argumentsDirectCount: uniqueStrings(extractDirectScriptArgKeys(rawArguments)).length,
+    argumentsNestedCount: uniqueStrings(extractNestedScriptArgKeys(rawArguments)).length,
+    requestQuerySource: Object.keys(queryFromField).length ? "yes" : "no",
+    requestUrlSource: Object.keys(queryFromUrl).length ? "yes" : "no",
+    requestPathSource: Object.keys(queryFromPath).length ? "yes" : "no",
+    routeTargetSource: resolveRouteTargetSource(rawOptions),
+    routeInfoSource: resolveRouteInfoSource(rawOptions),
+    mergedCount: Object.keys(isObject(mergedArgs) ? mergedArgs : {}).length
+  };
+}
+
+// 把参数来源统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatRuntimeArgSourceSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `query-direct=${Number(current.queryDirectCount) || 0},query-options=${Number(current.queryNestedCount) || 0},options-top=${Number(current.optionsDirectCount) || 0},options-nested=${Number(current.optionsNestedCount) || 0},arguments-top=${Number(current.argumentsDirectCount) || 0},arguments-nested=${Number(current.argumentsNestedCount) || 0},req-query=${current.requestQuerySource || "no"},req-url=${current.requestUrlSource || "no"},req-path=${current.requestPathSource || "no"},route-target=${current.routeTargetSource || "none"},route-info=${current.routeInfoSource || "none"},merged=${Number(current.mergedCount) || 0}`;
+}
+
+// 统计最终生效参数分别由 query / $options / $arguments 哪一路提供，并额外统计覆盖关系。
+function analyzeRuntimeArgEffectiveSources(queryArgs, optionArgs, argumentArgs, mergedArgs) {
+  const query = isObject(queryArgs) ? queryArgs : {};
+  const options = isObject(optionArgs) ? optionArgs : {};
+  const argumentsSource = isObject(argumentArgs) ? argumentArgs : {};
+  const merged = isObject(mergedArgs) ? mergedArgs : {};
+  const result = {
+    total: 0,
+    queryWin: 0,
+    optionsWin: 0,
+    argumentsWin: 0,
+    optionsOverrideQuery: 0,
+    argumentsOverrideQuery: 0,
+    argumentsOverrideOptions: 0,
+    queryKeys: [],
+    optionsKeys: [],
+    argumentsKeys: []
+  };
+
+  for (const key of Object.keys(merged)) {
+    result.total += 1;
+
+    if (hasOwn(argumentsSource, key)) {
+      result.argumentsWin += 1;
+      result.argumentsKeys.push(key);
+    } else if (hasOwn(options, key)) {
+      result.optionsWin += 1;
+      result.optionsKeys.push(key);
+    } else if (hasOwn(query, key)) {
+      result.queryWin += 1;
+      result.queryKeys.push(key);
+    }
+
+    if (hasOwn(options, key) && hasOwn(query, key)) {
+      result.optionsOverrideQuery += 1;
+    }
+
+    if (hasOwn(argumentsSource, key) && hasOwn(query, key)) {
+      result.argumentsOverrideQuery += 1;
+    }
+
+    if (hasOwn(argumentsSource, key) && hasOwn(options, key)) {
+      result.argumentsOverrideOptions += 1;
+    }
+  }
+
+  return result;
+}
+
+// 把参数生效来源统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatRuntimeArgEffectiveSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},query-win=${Number(current.queryWin) || 0},options-win=${Number(current.optionsWin) || 0},arguments-win=${Number(current.argumentsWin) || 0},options>query=${Number(current.optionsOverrideQuery) || 0},arguments>query=${Number(current.argumentsOverrideQuery) || 0},arguments>options=${Number(current.argumentsOverrideOptions) || 0}`;
+}
+
+// 把最终生效参数的来源样本压成紧凑预览，便于快速定位哪些参数最终由哪一路接管。
+function formatRuntimeArgEffectivePreview(source) {
+  const current = isObject(source) ? source : {};
+  return `query=${formatProviderPreviewNames(current.queryKeys, 3, 18)},options=${formatProviderPreviewNames(current.optionsKeys, 3, 18)},arguments=${formatProviderPreviewNames(current.argumentsKeys, 3, 18)}`;
+}
+
+// 统计当前合并后的脚本参数里，有多少键已经被 resolveArgs 识别，有多少其实根本没消费到。
+function analyzeUnusedScriptArgs(mergedArgs) {
+  const merged = isObject(mergedArgs) ? mergedArgs : {};
+  const candidateKeys = Object.keys(merged).filter((key) => !RUNTIME_UNUSED_ARG_IGNORE_KEYS[key] && !/^_/.test(key));
+  const unusedKeys = uniqueStrings(candidateKeys.filter((key) => !KNOWN_SCRIPT_ARG_KEYS[key]));
+
+  return {
+    total: candidateKeys.length,
+    recognizedCount: candidateKeys.length - unusedKeys.length,
+    unusedCount: unusedKeys.length,
+    unusedKeys
+  };
+}
+
+// 把未消费参数统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatUnusedScriptArgsSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},recognized=${Number(current.recognizedCount) || 0},unused=${Number(current.unusedCount) || 0}`;
+}
+
+// 把未消费参数样本压成预览字符串，便于快速锁定拼错或暂未支持的参数名。
+function formatUnusedScriptArgsPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.unusedKeys, 5, 18);
+}
+
+// 如果检测到未消费参数，则输出显式提醒，避免用户误以为参数已经生效。
+function validateUnusedScriptArgs(source) {
+  const current = isObject(source) ? source : {};
+
+  if (!(Number(current.unusedCount) > 0)) {
+    return [];
+  }
+
+  return [
+    `检测到 ${current.unusedCount} 个未消费脚本参数: ${formatUnusedScriptArgsPreview(current)}；请检查参数名拼写、别名写法，或确认当前版本是否已支持`
   ];
-  // 过滤掉所有 null 值 (由 quic 判断导出)
-  return rules.filter(Boolean);
-};
+}
 
+// 从官方 `_req.query` 中提取“直接挂在下载链接上的脚本参数”，避免必须先包进 `$options`。
+function parseRuntimeQueryArgs(rawOptions) {
+  const query = getRuntimeRequestQuery(rawOptions);
+  const nestedOptionsArgs = Object.assign(
+    {},
+    parseOptionPayload(query.$options),
+    parseOptionPayload(query.options)
+  );
+  const directArgs = {};
 
-// ============================================================================
-// 5. 策略组生成逻辑 (Proxy Groups - Optional Landing)
-// ============================================================================
+  for (const key of Object.keys(query)) {
+    if (RESERVED_QUERY_ARG_KEYS[key]) {
+      continue;
+    }
 
-// 国家/地区配置映射表
-// 每个国家都有正则表达式和对应的旗帜emoji
-const countriesMeta = {
-  // 亚太地区
-  "香港": { pattern: "(?i)香港|港|HK|Hong Kong|🇭🇰", flag: "🇭🇰" },
-  "台湾": { pattern: "(?i)台湾|台|TW|Taiwan|🇹🇼",    flag: "🇹🇼" },
-  "日本": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" },
-  "狮城": { pattern: "(?i)新加坡|坡|狮城|SG|Singapore|🇸🇬", flag: "🇸🇬" },
-  "韩国": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" },
-  
-  // 美洲
-  "美国": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" },
-  "阿根廷": { pattern: "(?i)阿根廷|AR|Argentina|🇦🇷", flag: "🇦🇷" },
-  "巴西": { pattern: "(?i)巴西|BR|Brazil|🇧🇷", flag: "🇧🇷" },
-  "枫叶": { pattern: "(?i)加拿大|CA|Canada|🇨🇦", flag: "🇨🇦" },
-  
-  // 欧洲
-  "英国": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" },
-  "德国": { pattern: "(?i)德国|DE|Germany|🇩🇪", flag: "🇩🇪" },
-  "法国": { pattern: "(?i)法国|FR|France|🇫🇷", flag: "🇫🇷" },
-  
-  // 其他地区
-  "土耳其": { pattern: "(?i)土耳其|TR|Turkey|🇹🇷", flag: "🇹🇷" },
-  "袋鼠": { pattern: "(?i)澳洲|澳大利亚|AU|Australia|🇦🇺", flag: "🇦🇺" },
-  "毛熊": { pattern: "(?i)俄罗斯|俄|RU|Russia|🇷🇺", flag: "🇷🇺" },
-  
-  // 别称映射 (同一国家的多个别称)
-  "花旗": { pattern: "(?i)美国|美|US|United States|🇺🇸", flag: "🇺🇸" },
-  "霓虹": { pattern: "(?i)日本|东京|大阪|JP|Japan|🇯🇵", flag: "🇯🇵" },
-  "英伦": { pattern: "(?i)英国|UK|United Kingdom|🇬🇧", flag: "🇬🇧" },
-  "高丽": { pattern: "(?i)韩国|KR|Korea|🇰🇷", flag: "🇰🇷" },
-  "战车": { pattern: "(?i)德国|DE|Germany|🇩🇪", flag: "🇩🇪" },
-  "高卢": { pattern: "(?i)法国|FR|France|🇫🇷", flag: "🇫🇷" }
-};
+    directArgs[key] = query[key];
+  }
 
-/**
- * 解析节点列表，生成结构化国家配置
- * 统计各国家节点数量，过滤低质量节点
- * @param {Array<object>} proxies - 所有代理节点数组
- * @returns {Array<object>} 返回按国家分组的配置数组
- */
-function parseCountries(proxies) {
-  // 用于统计各国家的节点数量
-  const countryCounts = {};
-  // 获取 landing 参数（是否隔离落地节点）
-  const { landing } = ARGS;
-  
-  // 预编译正则表达式以提高性能（避免重复编译）
-  const compiledMeta = Object.entries(countriesMeta)
-    .map(([key, meta]) => ({
-      key,                                           // 国家名称
-      flag: meta.flag,                               // 国家旗帜
-      outputPattern: meta.pattern.replace(/^\(\?i\)/, ''), // 去掉 (?i) 后的正则表达式
-      regex: new RegExp(meta.pattern.replace(/^\(\?i\)/, ''), 'i') // 编译的正则表达式对象
-    }))
-    .filter((item, index, self) => {
-      // 去重：同一 flag 只保留第一个出现的配置（去除别称重复）
-      return self.findIndex(x => x.flag === item.flag) === index;
+  // 同一条链接里，显式 query 参数优先级高于 query.$options。
+  return Object.assign({}, nestedOptionsArgs, directArgs);
+}
+
+// 从请求 URL 中提取多一级路由目标，例如 `/download/xxx/ClashMeta` 里的 `ClashMeta`。
+function extractRouteTargetFromUrl(requestUrl) {
+  const source = normalizeStringArg(requestUrl);
+  if (!source) {
+    return "";
+  }
+
+  const matched = source.match(/\/download\/[^/?#]+\/([^/?#]+)/i);
+  return matched ? safeDecodeUriComponent(matched[1]).trim() : "";
+}
+
+// 统一从官方请求上下文里提取路由目标，优先 params，再回退 url/path。
+function getRuntimeRouteTarget(request) {
+  const source = isObject(request) ? request : {};
+  const params = isObject(source.params) ? source.params : {};
+  const paramsTarget = normalizeStringArg(params.target || params.platform || "");
+
+  return paramsTarget || extractRouteTargetFromUrl(source.url) || extractRouteTargetFromUrl(source.path);
+}
+
+// 从请求 URL / path 中提取“纯路径部分”，去掉协议、域名、query 与 hash。
+function extractRequestPathname(location) {
+  const source = normalizeStringArg(location);
+  if (!source) {
+    return "";
+  }
+
+  const noHash = source.split("#")[0];
+  const noQuery = noHash.split("?")[0];
+  const matched = noQuery.match(/^[a-z]+:\/\/[^/]+(\/.*)$/i);
+  return matched ? matched[1] : noQuery;
+}
+
+// 从请求路径中识别当前访问的是 download / share / file 哪类路由，以及对应名称。
+function extractRouteInfoFromLocation(location) {
+  const pathname = extractRequestPathname(location);
+  const segments = pathname
+    .split("/")
+    .map((segment) => safeDecodeUriComponent(segment).trim())
+    .filter(Boolean);
+
+  if (!segments.length) {
+    return { routeKind: "", routeName: "", routePath: pathname };
+  }
+
+  if (/^download$/i.test(segments[0]) && segments[1]) {
+    return {
+      routeKind: "download",
+      routeName: segments[1],
+      routePath: pathname
+    };
+  }
+
+  if (/^share$/i.test(segments[0]) && segments[1]) {
+    return {
+      routeKind: "share",
+      routeName: segments[1],
+      routePath: pathname
+    };
+  }
+
+  if (/^api$/i.test(segments[0]) && /^file$/i.test(segments[1] || "") && segments[2]) {
+    return {
+      routeKind: "file",
+      routeName: segments[2],
+      routePath: pathname
+    };
+  }
+
+  return {
+    routeKind: "",
+    routeName: "",
+    routePath: pathname
+  };
+}
+
+// 读取官方链接上的保留 query 参数，给日志 / 诊断 / 响应头复用。
+function resolveRuntimeLinkOptions(rawOptions) {
+  const query = getRuntimeRequestQuery(rawOptions);
+  const url = normalizeQueryValue(query.url);
+  const content = normalizeQueryValue(query.content);
+  const ua = normalizeQueryValue(query.ua);
+  const proxy = normalizeQueryValue(query.proxy);
+  const mergeSources = normalizeStringArg(normalizeQueryValue(query.mergeSources));
+  const produceType = normalizeStringArg(normalizeQueryValue(query.produceType));
+  const ignoreFailedRemoteSub = parseBool(normalizeQueryValue(query.ignoreFailedRemoteSub), false);
+  const noCache = parseBool(normalizeQueryValue(query.noCache), false);
+  const includeUnsupportedProxy = parseBool(normalizeQueryValue(query.includeUnsupportedProxy), false);
+  const mergeSourcesNormalized = normalizeRuntimeLinkMergeSources(mergeSources);
+  const produceTypeNormalized = normalizeRuntimeLinkProduceType(produceType);
+  const urlKind = resolveRuntimeLinkUrlKind(url);
+
+  return {
+    hasUrl: hasUsableArgValue(url),
+    hasContent: hasUsableArgValue(content),
+    hasUa: hasUsableArgValue(ua),
+    hasProxy: hasUsableArgValue(proxy),
+    urlKind,
+    mergeSources,
+    mergeSourcesNormalized,
+    hasMergeSources: !!mergeSources,
+    produceType,
+    produceTypeNormalized,
+    hasProduceType: !!produceType,
+    ignoreFailedRemoteSub,
+    hasIgnoreFailedRemoteSub: hasOwn(query, "ignoreFailedRemoteSub"),
+    noCache,
+    hasNoCache: hasOwn(query, "noCache"),
+    includeUnsupportedProxy,
+    hasIncludeUnsupportedProxy: hasOwn(query, "includeUnsupportedProxy")
+  };
+}
+
+// 按 Sub-Store 官方链接参数说明校验下载链路语义，避免保留参数传了却没有按预期生效。
+function validateRuntimeLinkOptionWarnings(linkOptions) {
+  const source = isObject(linkOptions) ? linkOptions : {};
+  const warnings = [];
+  const hasRemoteSource = hasRemoteRuntimeLinkSource(source);
+
+  if (source.hasUrl && source.urlKind === "local-node") {
+    warnings.push("当前链接里的 url 不是 http(s)；按 Sub-Store 官方说明它会被视为单条本地节点内容，而不是远程订阅地址");
+  }
+
+  if (source.hasMergeSources) {
+    if (!source.mergeSourcesNormalized) {
+      warnings.push(`mergeSources=${source.mergeSources} 仅支持 ${RUNTIME_LINK_MERGE_SOURCE_VALUES.join(" / ")}`);
+    }
+
+    if (!(source.hasUrl && source.hasContent)) {
+      warnings.push("mergeSources 仅在同时传入 url 与 content 时才有实际意义");
+    }
+  }
+
+  if (source.hasProduceType && !source.produceTypeNormalized) {
+    warnings.push(`produceType=${source.produceType} 仅支持 ${RUNTIME_LINK_PRODUCE_TYPE_VALUES.join(" / ")}`);
+  }
+
+  if (source.hasUrl && source.hasContent && !source.hasMergeSources) {
+    warnings.push("当前链接同时携带了 url 与 content，但未显式声明 mergeSources；请确认是否符合预期");
+  }
+
+  if (source.hasIgnoreFailedRemoteSub && source.ignoreFailedRemoteSub && !hasRemoteSource) {
+    warnings.push("ignoreFailedRemoteSub 只对远程订阅 url 生效；当前链接里没有可识别的远程订阅地址");
+  }
+
+  if (source.hasNoCache && source.noCache && !hasRemoteSource) {
+    warnings.push("noCache 只对远程链接来源生效；当前链接里没有可识别的远程订阅地址");
+  }
+
+  if (source.hasUa && !hasRemoteSource) {
+    warnings.push("ua 主要用于请求远程订阅；当前链接里没有可识别的远程订阅地址");
+  }
+
+  if (source.hasProxy && !hasRemoteSource) {
+    warnings.push("proxy 主要用于获取远程订阅；当前链接里没有可识别的远程订阅地址");
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 解析当前运行环境里的目标平台信息，优先使用官方上下文字段。
+function resolveRuntimeContext(rawOptions) {
+  const options = isObject(rawOptions) ? rawOptions : {};
+  const request = isObject(options._req) ? options._req : {};
+  const requestQuery = getRuntimeRequestQuery(options);
+  const requestHeaders = isObject(request.headers) ? request.headers : {};
+  const requestParams = isObject(request.params) ? request.params : {};
+  const requestUrl = normalizeStringArg(request.url);
+  const requestPath = normalizeStringArg(request.path);
+  const routeInfoFromPath = extractRouteInfoFromLocation(requestPath);
+  const routeInfoFromUrl = extractRouteInfoFromLocation(requestUrl);
+  const routeInfo = routeInfoFromPath.routeKind ? routeInfoFromPath : routeInfoFromUrl;
+  const requestParamsTarget = normalizeStringArg(requestParams.target || requestParams.platform || "");
+  const routeTarget = getRuntimeRouteTarget(request);
+  const queryTarget = normalizeStringArg(requestQuery.target || requestQuery.platform || "");
+  const target = normalizeStringArg(
+    typeof targetPlatform !== "undefined"
+      ? targetPlatform
+      : (
+        options.targetPlatform ||
+        routeTarget ||
+        queryTarget ||
+        ""
+      )
+  );
+  const userAgent = normalizeStringArg(
+    requestHeaders["user-agent"] ||
+    requestHeaders["User-Agent"] ||
+    ""
+  );
+
+  return {
+    target,
+    routeTarget,
+    queryTarget,
+    requestUrl,
+    requestPath,
+    routeKind: routeInfo.routeKind,
+    routeName: routeInfo.routeName,
+    routePath: routeInfo.routePath,
+    requestParamsTarget,
+    userAgent
+  };
+}
+
+// 判断当前目标是否看起来属于 Clash / Mihomo 体系；若不是，只做提醒不阻断执行。
+function isClashLikeTarget(target) {
+  return /(clash|mihomo|meta|openclash)/i.test(normalizeStringArg(target));
+}
+
+// 统一规范节点名称，做 trim，并把连续空白折叠成单空格。
+function normalizeProxyName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ");
+}
+
+// 转义正则特殊字符，避免别名中出现特殊符号时把正则语义搞乱。
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// 统一去掉脚本内部自定义的 (?i) 前缀，后面会在 RegExp 构造时显式传 i 标记。
+function normalizePatternSource(pattern) {
+  return String(pattern || "").replace(/^\(\?i\)/, "");
+}
+
+// 把脚本内部使用的正则源码安全地编译成 RegExp 对象。
+function compilePatternRegExp(pattern) {
+  // 非字符串或空字符串时，说明没有可编译内容。
+  if (typeof pattern !== "string" || !pattern.trim()) {
+    return null;
+  }
+
+  // 去掉自定义的 (?i) 前缀后，统一使用 JS RegExp 的 i 标志。
+  return new RegExp(normalizePatternSource(pattern), "i");
+}
+
+// 把多个正则片段合并成一个大小写不敏感的正则表达式源码。
+function composeCaseInsensitivePattern(patterns) {
+  // 收集每一段已经清洗过的源码。
+  const sources = [];
+
+  // 遍历所有传入的模式片段。
+  for (const pattern of patterns) {
+    // 先把片段规范化，去掉重复的 (?i)。
+    const source = normalizePatternSource(pattern);
+    // 只有非空片段才拼进去。
+    if (source) {
+      sources.push(source);
+    }
+  }
+
+  // 有内容就拼成 (?i)source1|source2...，没有内容就返回空串。
+  return sources.length ? `(?i)${sources.join("|")}` : "";
+}
+
+// 把单个国家别名转换成一个更稳的正则片段。
+function aliasToRegex(alias) {
+  // 统一把别名转成去空格后的字符串。
+  const value = String(alias || "").trim();
+  // 空值直接返回空串，不参与后续拼接。
+  if (!value) {
+    return "";
+  }
+
+  // 纯英文短代码（如 US / JP）两边加边界，减少误伤普通单词。
+  if (/^[A-Z]{2,4}$/.test(value)) {
+    return `(?:^|[^A-Za-z])${escapeRegex(value)}(?:[^A-Za-z]|$)`;
+  }
+
+  // 英文词组允许中间空格有一定弹性，比如 Hong Kong / United States。
+  if (/^[A-Za-z][A-Za-z\s-]+$/.test(value)) {
+    return `(?:^|[^A-Za-z])${escapeRegex(value).replace(/\\ /g, "\\s*")}(?:[^A-Za-z]|$)`;
+  }
+
+  // 中文、emoji 等内容直接转义后使用。
+  return escapeRegex(value);
+}
+
+// 把一个国家的所有别名拼成最终过滤正则。
+function buildCountryPattern(aliases) {
+  return composeCaseInsensitivePattern(uniqueStrings(aliases).map(aliasToRegex));
+}
+
+// 预编译国家元数据，把别名表变成真正可匹配的 regex。
+function buildCompiledCountries() {
+  // 把 COUNTRY_DEFINITIONS 逐条加工成运行时更易用的对象。
+  return COUNTRY_DEFINITIONS.map((country) => {
+    // 先把旗帜和别名全部合并成策略组可复用的 filter 表达式。
+    const filter = buildCountryPattern([country.flag].concat(country.aliases));
+    return {
+      // 国家显示名。
+      name: country.name,
+      // 国家旗帜。
+      flag: country.flag,
+      // 给策略组 include-all 过滤器直接复用的源码。
+      filter,
+      // 给运行期节点识别直接复用的正则对象。
+      regex: new RegExp(normalizePatternSource(filter), "i")
+    };
+  });
+}
+
+// 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
+function resolveArgs(rawArgs) {
+  // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
+  const args = normalizeScriptArgs(rawArgs);
+  // 读取 threshold 原始值。
+  const rawThreshold = pickArg(args, ["threshold"]);
+  // 读取测速组探测地址参数原始值。
+  const rawTestUrl = pickArg(args, ["testUrl", "test-url", "groupTestUrl", "group-test-url"]);
+  // 读取测速组 interval 参数原始值。
+  const rawGroupInterval = pickArg(args, ["groupInterval", "group-interval"]);
+  // 读取测速组 tolerance 参数原始值。
+  const rawGroupTolerance = pickArg(args, ["groupTolerance", "group-tolerance"]);
+  // 读取测速组 timeout 参数原始值。
+  const rawGroupTimeout = pickArg(args, ["groupTimeout", "group-timeout"]);
+  // 读取测速组最大失败次数参数原始值。
+  const rawGroupMaxFailedTimes = pickArg(args, ["groupMaxFailedTimes", "group-max-failed-times"]);
+  // 读取测速组 expected-status 参数原始值。
+  const rawGroupExpectedStatus = pickArg(args, ["groupExpectedStatus", "group-expected-status"]);
+  // 读取测速组 lazy 参数原始值。
+  const rawGroupLazy = pickArg(args, ["groupLazy", "group-lazy"]);
+  // 读取 load-balance strategy 参数原始值。
+  const rawGroupStrategy = pickArg(args, ["groupStrategy", "group-strategy", "loadBalanceStrategy", "load-balance-strategy"]);
+  // 读取全局 proxy-group interface-name 参数原始值。
+  const rawGroupInterfaceName = pickArg(args, ["groupInterfaceName", "group-interface-name", "proxyGroupInterfaceName", "proxy-group-interface-name"]);
+  // 读取全局 proxy-group routing-mark 参数原始值。
+  const rawGroupRoutingMark = pickArg(args, ["groupRoutingMark", "group-routing-mark", "proxyGroupRoutingMark", "proxy-group-routing-mark"]);
+  // 读取 Direct.list 规则源地址参数原始值。
+  const rawDirectListUrl = pickArg(args, ["directListUrl", "direct-list-url"]);
+  // 读取 Crypto.list 规则源地址参数原始值。
+  const rawCryptoListUrl = pickArg(args, ["cryptoListUrl", "crypto-list-url"]);
+  // 读取 ChatGPT.list 规则源地址参数原始值。
+  const rawChatGptListUrl = pickArg(args, ["chatgptListUrl", "chatgpt-list-url", "chatGPTListUrl", "chatGPT-list-url"]);
+  // 读取 rule-provider 本地缓存目录参数原始值。
+  const rawRuleProviderPathDir = pickArg(args, ["ruleProviderPathDir", "rule-provider-path-dir", "providerPathDir", "provider-path-dir"]);
+  // 读取 rule-provider 刷新间隔参数原始值。
+  const rawRuleProviderInterval = pickArg(args, ["ruleProviderInterval", "rule-provider-interval", "providerInterval", "provider-interval"]);
+  // 读取 rule-provider 下载代理参数原始值。
+  const rawRuleProviderProxy = pickArg(args, ["ruleProviderProxy", "rule-provider-proxy", "providerProxy", "provider-proxy"]);
+  // 读取 rule-provider 大小限制参数原始值。
+  const rawRuleProviderSizeLimit = pickArg(args, ["ruleProviderSizeLimit", "rule-provider-size-limit", "providerSizeLimit", "provider-size-limit"]);
+  // 读取 rule-provider 请求 User-Agent 参数原始值。
+  const rawRuleProviderUserAgent = pickArg(args, ["ruleProviderUserAgent", "rule-provider-user-agent", "providerUserAgent", "provider-user-agent", "ruleProviderUA", "rule-provider-ua"]);
+  // 读取 rule-provider 请求 Authorization 参数原始值。
+  const rawRuleProviderAuthorization = pickArg(args, ["ruleProviderAuthorization", "rule-provider-authorization", "providerAuthorization", "provider-authorization", "ruleProviderAuth", "rule-provider-auth"]);
+  // 读取 rule-provider 通用自定义请求头参数原始值。
+  const rawRuleProviderHeader = pickArg(args, ["ruleProviderHeader", "rule-provider-header", "providerHeader", "provider-header", "ruleProviderHeaders", "rule-provider-headers"]);
+  // 读取 rule-provider inline payload 参数原始值。
+  const rawRuleProviderPayload = pickArg(args, ["ruleProviderPayload", "rule-provider-payload"]);
+  // 读取 proxy-provider 刷新间隔参数原始值。
+  const rawProxyProviderInterval = pickArg(args, ["proxyProviderInterval", "proxy-provider-interval"]);
+  // 读取 proxy-provider 下载代理参数原始值。
+  const rawProxyProviderProxy = pickArg(args, ["proxyProviderProxy", "proxy-provider-proxy"]);
+  // 读取 proxy-provider 大小限制参数原始值。
+  const rawProxyProviderSizeLimit = pickArg(args, ["proxyProviderSizeLimit", "proxy-provider-size-limit"]);
+  // 读取 proxy-provider 请求 User-Agent 参数原始值。
+  const rawProxyProviderUserAgent = pickArg(args, ["proxyProviderUserAgent", "proxy-provider-user-agent", "proxyProviderUA", "proxy-provider-ua"]);
+  // 读取 proxy-provider 请求 Authorization 参数原始值。
+  const rawProxyProviderAuthorization = pickArg(args, ["proxyProviderAuthorization", "proxy-provider-authorization", "proxyProviderAuth", "proxy-provider-auth"]);
+  // 读取 proxy-provider 通用自定义请求头参数原始值。
+  const rawProxyProviderHeader = pickArg(args, ["proxyProviderHeader", "proxy-provider-header", "proxyProviderHeaders", "proxy-provider-headers"]);
+  // 读取 proxy-provider fallback/inline payload 参数原始值。
+  const rawProxyProviderPayload = pickArg(args, ["proxyProviderPayload", "proxy-provider-payload"]);
+  // 读取 proxy-provider 本地缓存目录参数原始值。
+  const rawProxyProviderPathDir = pickArg(args, ["proxyProviderPathDir", "proxy-provider-path-dir", "proxyProviderDir", "proxy-provider-dir"]);
+  // 读取 proxy-provider 节点筛选 filter 参数原始值。
+  const rawProxyProviderFilter = pickArg(args, ["proxyProviderFilter", "proxy-provider-filter"]);
+  // 读取 proxy-provider 节点排除 exclude-filter 参数原始值。
+  const rawProxyProviderExcludeFilter = pickArg(args, ["proxyProviderExcludeFilter", "proxy-provider-exclude-filter"]);
+  // 读取 proxy-provider 协议排除 exclude-type 参数原始值。
+  const rawProxyProviderExcludeType = pickArg(args, ["proxyProviderExcludeType", "proxy-provider-exclude-type"]);
+  // 读取 proxy-provider override additional-prefix 参数原始值。
+  const rawProxyProviderOverrideAdditionalPrefix = pickArg(args, ["proxyProviderOverrideAdditionalPrefix", "proxy-provider-override-additional-prefix", "proxyProviderAdditionalPrefix", "proxy-provider-additional-prefix"]);
+  // 读取 proxy-provider override additional-suffix 参数原始值。
+  const rawProxyProviderOverrideAdditionalSuffix = pickArg(args, ["proxyProviderOverrideAdditionalSuffix", "proxy-provider-override-additional-suffix", "proxyProviderAdditionalSuffix", "proxy-provider-additional-suffix"]);
+  // 读取 proxy-provider override udp 参数原始值。
+  const rawProxyProviderOverrideUdp = pickArg(args, ["proxyProviderOverrideUdp", "proxy-provider-override-udp"]);
+  // 读取 proxy-provider override udp-over-tcp 参数原始值。
+  const rawProxyProviderOverrideUdpOverTcp = pickArg(args, ["proxyProviderOverrideUdpOverTcp", "proxy-provider-override-udp-over-tcp"]);
+  // 读取 proxy-provider override down 参数原始值。
+  const rawProxyProviderOverrideDown = pickArg(args, ["proxyProviderOverrideDown", "proxy-provider-override-down"]);
+  // 读取 proxy-provider override up 参数原始值。
+  const rawProxyProviderOverrideUp = pickArg(args, ["proxyProviderOverrideUp", "proxy-provider-override-up"]);
+  // 读取 proxy-provider override tfo 参数原始值。
+  const rawProxyProviderOverrideTfo = pickArg(args, ["proxyProviderOverrideTfo", "proxy-provider-override-tfo"]);
+  // 读取 proxy-provider override mptcp 参数原始值。
+  const rawProxyProviderOverrideMptcp = pickArg(args, ["proxyProviderOverrideMptcp", "proxy-provider-override-mptcp"]);
+  // 读取 proxy-provider override skip-cert-verify 参数原始值。
+  const rawProxyProviderOverrideSkipCertVerify = pickArg(args, ["proxyProviderOverrideSkipCertVerify", "proxy-provider-override-skip-cert-verify"]);
+  // 读取 proxy-provider override dialer-proxy 参数原始值。
+  const rawProxyProviderOverrideDialerProxy = pickArg(args, ["proxyProviderOverrideDialerProxy", "proxy-provider-override-dialer-proxy"]);
+  // 读取 proxy-provider override interface-name 参数原始值。
+  const rawProxyProviderOverrideInterfaceName = pickArg(args, ["proxyProviderOverrideInterfaceName", "proxy-provider-override-interface-name"]);
+  // 读取 proxy-provider override routing-mark 参数原始值。
+  const rawProxyProviderOverrideRoutingMark = pickArg(args, ["proxyProviderOverrideRoutingMark", "proxy-provider-override-routing-mark"]);
+  // 读取 proxy-provider override ip-version 参数原始值。
+  const rawProxyProviderOverrideIpVersion = pickArg(args, ["proxyProviderOverrideIpVersion", "proxy-provider-override-ip-version"]);
+  // 读取 proxy-provider override proxy-name 正则改名参数原始值。
+  const rawProxyProviderOverrideProxyName = pickArg(args, ["proxyProviderOverrideProxyName", "proxy-provider-override-proxy-name"]);
+  // 读取 proxy-provider health-check enable 参数原始值。
+  const rawProxyProviderHealthCheckEnable = pickArg(args, ["proxyProviderHealthCheckEnable", "proxy-provider-health-check-enable", "proxyProviderHealthCheck", "proxy-provider-health-check"]);
+  // 读取 proxy-provider health-check url 参数原始值。
+  const rawProxyProviderHealthCheckUrl = pickArg(args, ["proxyProviderHealthCheckUrl", "proxy-provider-health-check-url"]);
+  // 读取 proxy-provider health-check interval 参数原始值。
+  const rawProxyProviderHealthCheckInterval = pickArg(args, ["proxyProviderHealthCheckInterval", "proxy-provider-health-check-interval"]);
+  // 读取 proxy-provider health-check timeout 参数原始值。
+  const rawProxyProviderHealthCheckTimeout = pickArg(args, ["proxyProviderHealthCheckTimeout", "proxy-provider-health-check-timeout"]);
+  // 读取 proxy-provider health-check lazy 参数原始值。
+  const rawProxyProviderHealthCheckLazy = pickArg(args, ["proxyProviderHealthCheckLazy", "proxy-provider-health-check-lazy"]);
+  // 读取 proxy-provider health-check expected-status 参数原始值。
+  const rawProxyProviderHealthCheckExpectedStatus = pickArg(args, ["proxyProviderHealthCheckExpectedStatus", "proxy-provider-health-check-expected-status"]);
+  // 读取 AI 国家优先链参数原始值。
+  const rawAiPreferCountries = pickArg(args, ["aiPreferCountries", "ai-prefer-countries", "aiPrefer", "ai-prefer"]);
+  // 读取加密货币国家优先链参数原始值。
+  const rawCryptoPreferCountries = pickArg(args, ["cryptoPreferCountries", "crypto-prefer-countries", "cryptoPrefer", "crypto-prefer"]);
+  // 读取 GitHub 国家优先链参数原始值。
+  const rawGithubPreferCountries = pickArg(args, ["githubPreferCountries", "github-prefer-countries", "githubPrefer", "github-prefer"]);
+  // 读取 Steam 国家优先链参数原始值。
+  const rawSteamPreferCountries = pickArg(args, ["steamPreferCountries", "steam-prefer-countries", "steamPrefer", "steam-prefer"]);
+  // 读取 GitHub 独立组额外前置组参数原始值。
+  const rawGithubPreferGroups = pickArg(args, ["githubPreferGroups", "github-prefer-groups", "githubPreferredGroups", "github-preferred-groups"]);
+  // 读取 Steam 独立组额外前置组参数原始值。
+  const rawSteamPreferGroups = pickArg(args, ["steamPreferGroups", "steam-prefer-groups", "steamPreferredGroups", "steam-preferred-groups"]);
+  // 读取 GitHub 独立组指定节点优先参数原始值。
+  const rawGithubPreferNodes = pickArg(args, ["githubPreferNodes", "github-prefer-nodes", "githubPreferredNodes", "github-preferred-nodes"]);
+  // 读取 Steam 独立组指定节点优先参数原始值。
+  const rawSteamPreferNodes = pickArg(args, ["steamPreferNodes", "steam-prefer-nodes", "steamPreferredNodes", "steam-preferred-nodes"]);
+  // 读取 GitHub 规则目标参数原始值。
+  const rawGithubRuleTarget = pickArg(args, ["githubRuleTarget", "github-rule-target"]);
+  // 读取 Steam 全球规则目标参数原始值。
+  const rawSteamRuleTarget = pickArg(args, ["steamRuleTarget", "steam-rule-target"]);
+  // 读取 Steam 中国区规则目标参数原始值。
+  const rawSteamCnRuleTarget = pickArg(args, ["steamCnRuleTarget", "steam-cn-rule-target", "steamCNRuleTarget", "steam-cn-rule-target"]);
+  // 读取 GitHub 规则顺序锚点参数原始值。
+  const rawGithubRuleAnchor = pickArg(args, ["githubRuleAnchor", "github-rule-anchor"]);
+  // 读取 GitHub 规则顺序前后位置参数原始值。
+  const rawGithubRulePosition = pickArg(args, ["githubRulePosition", "github-rule-position"]);
+  // 读取 Steam 全球规则顺序锚点参数原始值。
+  const rawSteamRuleAnchor = pickArg(args, ["steamRuleAnchor", "steam-rule-anchor"]);
+  // 读取 Steam 全球规则顺序前后位置参数原始值。
+  const rawSteamRulePosition = pickArg(args, ["steamRulePosition", "steam-rule-position"]);
+  // 读取 Steam 中国区规则顺序锚点参数原始值。
+  const rawSteamCnRuleAnchor = pickArg(args, ["steamCnRuleAnchor", "steam-cn-rule-anchor", "steamCNRuleAnchor", "steam-cn-rule-anchor"]);
+  // 读取 Steam 中国区规则顺序前后位置参数原始值。
+  const rawSteamCnRulePosition = pickArg(args, ["steamCnRulePosition", "steam-cn-rule-position", "steamCNRulePosition", "steam-cn-rule-position"]);
+  // 读取 GitHub 独立组模式参数原始值。
+  const rawGithubMode = pickArg(args, ["githubMode", "github-mode"]);
+  // 读取 Steam 独立组模式参数原始值。
+  const rawSteamMode = pickArg(args, ["steamMode", "steam-mode"]);
+  // 读取 GitHub 独立组类型参数原始值。
+  const rawGithubType = pickArg(args, ["githubType", "github-type", "githubGroupType", "github-group-type"]);
+  // 读取 Steam 独立组类型参数原始值。
+  const rawSteamType = pickArg(args, ["steamType", "steam-type", "steamGroupType", "steam-group-type"]);
+  // 读取 GitHub 独立组专属测速地址参数原始值。
+  const rawGithubTestUrl = pickArg(args, ["githubTestUrl", "github-test-url"]);
+  // 读取 Steam 独立组专属测速地址参数原始值。
+  const rawSteamTestUrl = pickArg(args, ["steamTestUrl", "steam-test-url"]);
+  // 读取 GitHub 独立组专属测速间隔参数原始值。
+  const rawGithubGroupInterval = pickArg(args, ["githubGroupInterval", "github-group-interval"]);
+  // 读取 Steam 独立组专属测速间隔参数原始值。
+  const rawSteamGroupInterval = pickArg(args, ["steamGroupInterval", "steam-group-interval"]);
+  // 读取 GitHub 独立组专属测速容差参数原始值。
+  const rawGithubGroupTolerance = pickArg(args, ["githubGroupTolerance", "github-group-tolerance"]);
+  // 读取 Steam 独立组专属测速容差参数原始值。
+  const rawSteamGroupTolerance = pickArg(args, ["steamGroupTolerance", "steam-group-tolerance"]);
+  // 读取 GitHub 独立组专属测速超时参数原始值。
+  const rawGithubGroupTimeout = pickArg(args, ["githubGroupTimeout", "github-group-timeout"]);
+  // 读取 Steam 独立组专属测速超时参数原始值。
+  const rawSteamGroupTimeout = pickArg(args, ["steamGroupTimeout", "steam-group-timeout"]);
+  // 读取 GitHub 独立组专属 lazy 参数原始值。
+  const rawGithubGroupLazy = pickArg(args, ["githubGroupLazy", "github-group-lazy"]);
+  // 读取 Steam 独立组专属 lazy 参数原始值。
+  const rawSteamGroupLazy = pickArg(args, ["steamGroupLazy", "steam-group-lazy"]);
+  // 读取 GitHub 独立组专属最大失败次数参数原始值。
+  const rawGithubGroupMaxFailedTimes = pickArg(args, ["githubGroupMaxFailedTimes", "github-group-max-failed-times"]);
+  // 读取 Steam 独立组专属最大失败次数参数原始值。
+  const rawSteamGroupMaxFailedTimes = pickArg(args, ["steamGroupMaxFailedTimes", "steam-group-max-failed-times"]);
+  // 读取 GitHub 独立组专属 expected-status 参数原始值。
+  const rawGithubGroupExpectedStatus = pickArg(args, ["githubGroupExpectedStatus", "github-group-expected-status"]);
+  // 读取 GitHub 独立组专属 load-balance strategy 参数原始值。
+  const rawGithubGroupStrategy = pickArg(args, ["githubGroupStrategy", "github-group-strategy", "githubLoadBalanceStrategy", "github-load-balance-strategy"]);
+  // 读取 Steam 独立组专属 expected-status 参数原始值。
+  const rawSteamGroupExpectedStatus = pickArg(args, ["steamGroupExpectedStatus", "steam-group-expected-status"]);
+  // 读取 Steam 独立组专属 load-balance strategy 参数原始值。
+  const rawSteamGroupStrategy = pickArg(args, ["steamGroupStrategy", "steam-group-strategy", "steamLoadBalanceStrategy", "steam-load-balance-strategy"]);
+  // 读取 GitHub 独立组 proxy-provider 引用参数原始值。
+  const rawGithubUseProviders = pickArg(args, ["githubUseProviders", "github-use-providers", "githubUseProvider", "github-use-provider"]);
+  // 读取 Steam 独立组 proxy-provider 引用参数原始值。
+  const rawSteamUseProviders = pickArg(args, ["steamUseProviders", "steam-use-providers", "steamUseProvider", "steam-use-provider"]);
+  // 读取 GitHub 独立组 include-all 参数原始值。
+  const rawGithubIncludeAll = pickArg(args, ["githubIncludeAll", "github-include-all", "githubAll", "github-all"]);
+  // 读取 Steam 独立组 include-all 参数原始值。
+  const rawSteamIncludeAll = pickArg(args, ["steamIncludeAll", "steam-include-all", "steamAll", "steam-all"]);
+  // 读取 GitHub 独立组 include-all-proxies 参数原始值。
+  const rawGithubIncludeAllProxies = pickArg(args, ["githubIncludeAllProxies", "github-include-all-proxies", "githubAllProxies", "github-all-proxies"]);
+  // 读取 Steam 独立组 include-all-proxies 参数原始值。
+  const rawSteamIncludeAllProxies = pickArg(args, ["steamIncludeAllProxies", "steam-include-all-proxies", "steamAllProxies", "steam-all-proxies"]);
+  // 读取 GitHub 独立组 include-all-providers 参数原始值。
+  const rawGithubIncludeAllProviders = pickArg(args, ["githubIncludeAllProviders", "github-include-all-providers", "githubAllProviders", "github-all-providers"]);
+  // 读取 Steam 独立组 include-all-providers 参数原始值。
+  const rawSteamIncludeAllProviders = pickArg(args, ["steamIncludeAllProviders", "steam-include-all-providers", "steamAllProviders", "steam-all-providers"]);
+  // 读取 GitHub 独立组 hidden 参数原始值。
+  const rawGithubHidden = pickArg(args, ["githubHidden", "github-hidden", "githubGroupHidden", "github-group-hidden"]);
+  // 读取 Steam 独立组 hidden 参数原始值。
+  const rawSteamHidden = pickArg(args, ["steamHidden", "steam-hidden", "steamGroupHidden", "steam-group-hidden"]);
+  // 读取 GitHub 独立组 disable-udp 参数原始值。
+  const rawGithubDisableUdp = pickArg(args, ["githubDisableUdp", "github-disable-udp", "githubDisableUDP", "github-group-disable-udp", "githubGroupDisableUdp"]);
+  // 读取 Steam 独立组 disable-udp 参数原始值。
+  const rawSteamDisableUdp = pickArg(args, ["steamDisableUdp", "steam-disable-udp", "steamDisableUDP", "steam-group-disable-udp", "steamGroupDisableUdp"]);
+  // 读取 GitHub 独立组 icon 参数原始值。
+  const rawGithubIcon = pickArg(args, ["githubIcon", "github-icon", "githubGroupIcon", "github-group-icon"]);
+  // 读取 Steam 独立组 icon 参数原始值。
+  const rawSteamIcon = pickArg(args, ["steamIcon", "steam-icon", "steamGroupIcon", "steam-group-icon"]);
+  // 读取 GitHub 独立组 interface-name 参数原始值。
+  const rawGithubInterfaceName = pickArg(args, ["githubInterfaceName", "github-interface-name", "githubGroupInterfaceName", "github-group-interface-name"]);
+  // 读取 Steam 独立组 interface-name 参数原始值。
+  const rawSteamInterfaceName = pickArg(args, ["steamInterfaceName", "steam-interface-name", "steamGroupInterfaceName", "steam-group-interface-name"]);
+  // 读取 GitHub 独立组 routing-mark 参数原始值。
+  const rawGithubRoutingMark = pickArg(args, ["githubRoutingMark", "github-routing-mark", "githubGroupRoutingMark", "github-group-routing-mark"]);
+  // 读取 Steam 独立组 routing-mark 参数原始值。
+  const rawSteamRoutingMark = pickArg(args, ["steamRoutingMark", "steam-routing-mark", "steamGroupRoutingMark", "steam-group-routing-mark"]);
+  // 读取 GitHub 独立组原始节点筛选参数原始值。
+  const rawGithubNodeFilter = pickArg(args, ["githubNodeFilter", "github-node-filter", "githubFilter", "github-filter"]);
+  // 读取 Steam 独立组原始节点筛选参数原始值。
+  const rawSteamNodeFilter = pickArg(args, ["steamNodeFilter", "steam-node-filter", "steamFilter", "steam-filter"]);
+  // 读取 GitHub 独立组原始节点排除筛选参数原始值。
+  const rawGithubNodeExcludeFilter = pickArg(args, ["githubNodeExcludeFilter", "github-node-exclude-filter", "githubExcludeFilter", "github-exclude-filter"]);
+  // 读取 Steam 独立组原始节点排除筛选参数原始值。
+  const rawSteamNodeExcludeFilter = pickArg(args, ["steamNodeExcludeFilter", "steam-node-exclude-filter", "steamExcludeFilter", "steam-exclude-filter"]);
+  // 读取 GitHub 独立组协议排除参数原始值。
+  const rawGithubNodeExcludeType = pickArg(args, ["githubNodeExcludeType", "github-node-exclude-type", "githubExcludeType", "github-exclude-type"]);
+  // 读取 Steam 独立组协议排除参数原始值。
+  const rawSteamNodeExcludeType = pickArg(args, ["steamNodeExcludeType", "steam-node-exclude-type", "steamExcludeType", "steam-exclude-type"]);
+  // 读取 profile 缓存参数原始值。
+  const rawProfileCache = pickArg(args, ["profileCache", "profile-cache", "cacheProfile", "cache-profile"]);
+  // 读取 profile.store-selected 参数原始值。
+  const rawProfileSelected = pickArg(args, ["profileSelected", "profile-selected", "storeSelected", "store-selected"]);
+  // 读取 profile.store-fake-ip 参数原始值。
+  const rawProfileFakeIp = pickArg(args, ["profileFakeIP", "profileFakeIp", "profile-fake-ip", "storeFakeIP", "storeFakeIp", "store-fake-ip"]);
+  // 读取 geo 自动更新参数原始值。
+  const rawGeoAutoUpdate = pickArg(args, ["geoAutoUpdate", "geo-auto-update", "geoUpdate", "geo-update"]);
+  // 读取 geo 更新间隔参数原始值。
+  const rawGeoUpdateInterval = pickArg(args, ["geoUpdateInterval", "geo-update-interval"]);
+  // 读取全局 UA 参数原始值。
+  const rawGlobalUa = pickArg(args, ["globalUA", "globalUa", "global-ua"]);
+  // 读取调试响应头开关参数原始值。
+  const rawResponseHeaders = pickArg(args, ["responseHeaders", "response-headers", "debugHeaders", "debug-headers", "resHeaders", "res-headers"]);
+  // 读取调试响应头前缀参数原始值。
+  const rawResponseHeaderPrefix = pickArg(args, ["responseHeaderPrefix", "response-header-prefix", "debugHeaderPrefix", "debug-header-prefix", "resHeaderPrefix", "res-header-prefix"]);
+  // 读取 DNS prefer-h3 参数原始值。
+  const rawDnsPreferH3 = pickArg(args, ["dnsPreferH3", "dns-prefer-h3", "preferH3", "prefer-h3"]);
+  // 读取 DNS respect-rules 参数原始值。
+  const rawDnsRespectRules = pickArg(args, ["dnsRespectRules", "dns-respect-rules", "respectRules", "respect-rules"]);
+  // 读取 DNS cache-algorithm 参数原始值。
+  const rawDnsCacheAlgorithm = pickArg(args, ["dnsCacheAlgorithm", "dns-cache-algorithm", "cacheAlgorithm", "cache-algorithm"]);
+  // 读取 use-system-hosts 参数原始值。
+  const rawDnsUseSystemHosts = pickArg(args, ["dnsUseSystemHosts", "dns-use-system-hosts", "useSystemHosts", "use-system-hosts"]);
+  // 读取 DNS listen 参数原始值。
+  const rawDnsListen = pickArg(args, ["dnsListen", "dns-listen"]);
+  // 读取 fake-ip-filter-mode 参数原始值。
+  const rawFakeIpFilterMode = pickArg(args, ["fakeIpFilterMode", "fake-ip-filter-mode"]);
+  // 读取 fake-ip-ttl 参数原始值。
+  const rawFakeIpTtl = pickArg(args, ["fakeIpTTL", "fakeIpTtl", "fake-ip-ttl"]);
+  // 读取 fake-ip-range 参数原始值。
+  const rawFakeIpRange = pickArg(args, ["fakeIpRange", "fake-ip-range"]);
+  // 读取 fake-ip-range6 参数原始值。
+  const rawFakeIpRange6 = pickArg(args, ["fakeIpRange6", "fake-ip-range6"]);
+  // 读取 unified-delay 参数原始值。
+  const rawUnifiedDelay = pickArg(args, ["unifiedDelay", "unified-delay"]);
+  // 读取 tcp-concurrent 参数原始值。
+  const rawTcpConcurrent = pickArg(args, ["tcpConcurrent", "tcp-concurrent"]);
+  // 读取进程识别模式参数原始值。
+  const rawProcessMode = pickArg(args, ["processMode", "process-mode", "findProcessMode", "find-process-mode"]);
+  // 读取 geodata-loader 参数原始值。
+  const rawGeodataLoader = pickArg(args, ["geodataLoader", "geodata-loader"]);
+  // 读取 geodata-mode 参数原始值。
+  const rawGeodataMode = pickArg(args, ["geodataMode", "geodata-mode"]);
+  // 读取 Sniffer force-dns-mapping 参数原始值。
+  const rawSnifferForceDnsMapping = pickArg(args, ["snifferForceDnsMapping", "sniffer-force-dns-mapping"]);
+  // 读取 Sniffer parse-pure-ip 参数原始值。
+  const rawSnifferParsePureIp = pickArg(args, ["snifferParsePureIp", "sniffer-parse-pure-ip"]);
+  // 读取 Sniffer 全局 override-destination 参数原始值。
+  const rawSnifferOverrideDestination = pickArg(args, ["snifferOverrideDestination", "sniffer-override-destination"]);
+  // 读取 HTTP Sniffer override-destination 参数原始值。
+  const rawSnifferHttpOverrideDestination = pickArg(args, ["snifferHttpOverrideDestination", "sniffer-http-override-destination"]);
+  // 读取 Sniffer force-domain 追加参数原始值。
+  const rawSnifferForceDomains = pickArg(args, ["snifferForceDomains", "sniffer-force-domains", "forceDomains", "force-domains"]);
+  // 读取 Sniffer skip-domain 追加参数原始值。
+  const rawSnifferSkipDomains = pickArg(args, ["snifferSkipDomains", "sniffer-skip-domains", "skipDomains", "skip-domains"]);
+  // 尝试把 threshold 转成数字。
+  const parsedThreshold = parseNumber(rawThreshold, 0);
+  // 尝试把测速组 interval 转成数字。
+  const parsedGroupInterval = parseNumber(rawGroupInterval, GROUP_INTERVAL);
+  // 尝试把测速组 tolerance 转成数字。
+  const parsedGroupTolerance = parseNumber(rawGroupTolerance, GROUP_TOLERANCE);
+  // 尝试把测速组 timeout 转成数字。
+  const parsedGroupTimeout = parseNumber(rawGroupTimeout, GROUP_TIMEOUT);
+  // 尝试把测速组最大失败次数转成数字。
+  const parsedGroupMaxFailedTimes = parseNumber(rawGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
+  // 尝试把 geo 更新间隔转成数字。
+  const parsedGeoUpdateInterval = parseNumber(rawGeoUpdateInterval, 24);
+  // 尝试把 rule-provider 刷新间隔转成数字。
+  const parsedRuleProviderInterval = parseNumber(rawRuleProviderInterval, RULE_INTERVAL);
+  // 尝试把 rule-provider 大小限制转成数字。
+  const parsedRuleProviderSizeLimit = parseNumber(rawRuleProviderSizeLimit, 0);
+  // 尝试把 proxy-provider 刷新间隔转成数字。
+  const parsedProxyProviderInterval = parseNumber(rawProxyProviderInterval, PROXY_PROVIDER_INTERVAL);
+  // 尝试把 proxy-provider 大小限制转成数字。
+  const parsedProxyProviderSizeLimit = parseNumber(rawProxyProviderSizeLimit, 0);
+  // 尝试把 proxy-provider health-check interval 转成数字。
+  const parsedProxyProviderHealthCheckInterval = parseNumber(rawProxyProviderHealthCheckInterval, GROUP_INTERVAL);
+  // 尝试把 proxy-provider health-check timeout 转成数字。
+  const parsedProxyProviderHealthCheckTimeout = parseNumber(rawProxyProviderHealthCheckTimeout, PROXY_PROVIDER_HEALTH_CHECK_TIMEOUT);
+  // 尝试把 GitHub 独立组测速间隔转成数字。
+  const parsedGithubGroupInterval = parseNumber(rawGithubGroupInterval, GROUP_INTERVAL);
+  // 尝试把 Steam 独立组测速间隔转成数字。
+  const parsedSteamGroupInterval = parseNumber(rawSteamGroupInterval, GROUP_INTERVAL);
+  // 尝试把 GitHub 独立组测速容差转成数字。
+  const parsedGithubGroupTolerance = parseNumber(rawGithubGroupTolerance, GROUP_TOLERANCE);
+  // 尝试把 Steam 独立组测速容差转成数字。
+  const parsedSteamGroupTolerance = parseNumber(rawSteamGroupTolerance, GROUP_TOLERANCE);
+  // 尝试把 GitHub 独立组测速超时转成数字。
+  const parsedGithubGroupTimeout = parseNumber(rawGithubGroupTimeout, GROUP_TIMEOUT);
+  // 尝试把 Steam 独立组测速超时转成数字。
+  const parsedSteamGroupTimeout = parseNumber(rawSteamGroupTimeout, GROUP_TIMEOUT);
+  // 尝试把 GitHub 独立组最大失败次数转成数字。
+  const parsedGithubGroupMaxFailedTimes = parseNumber(rawGithubGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
+  // 尝试把 Steam 独立组最大失败次数转成数字。
+  const parsedSteamGroupMaxFailedTimes = parseNumber(rawSteamGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
+  // 尝试把 fake-ip-ttl 转成数字。
+  const parsedFakeIpTtl = parseNumber(rawFakeIpTtl, 1);
+  // 再把 threshold 限制在允许范围内。
+  const threshold = clampNumber(parsedThreshold, 0, MAX_THRESHOLD);
+  // 测速组 interval 至少为 1 秒。
+  const groupInterval = Math.max(1, parsedGroupInterval);
+  // 测速组 tolerance 允许为 0，但不能为负数。
+  const groupTolerance = Math.max(0, parsedGroupTolerance);
+  // 测速组 timeout 至少为 1 毫秒。
+  const groupTimeout = Math.max(1, parsedGroupTimeout);
+  // 健康检查最大失败次数至少为 1。
+  const groupMaxFailedTimes = Math.max(1, parsedGroupMaxFailedTimes);
+  // geo 更新间隔至少为 1 小时，避免生成非法配置。
+  const geoUpdateInterval = Math.max(1, parsedGeoUpdateInterval);
+  // rule-provider 刷新间隔至少为 1 秒，避免生成非法配置。
+  const ruleProviderInterval = Math.max(1, parsedRuleProviderInterval);
+  // rule-provider 大小限制最小为 0，0 表示不额外限制。
+  const ruleProviderSizeLimit = Math.max(0, parsedRuleProviderSizeLimit);
+  // proxy-provider 刷新间隔至少为 1 秒，避免生成非法配置。
+  const proxyProviderInterval = Math.max(1, parsedProxyProviderInterval);
+  // proxy-provider 大小限制最小为 0，0 表示不额外限制。
+  const proxyProviderSizeLimit = Math.max(0, parsedProxyProviderSizeLimit);
+  // proxy-provider health-check interval 至少为 1 秒。
+  const proxyProviderHealthCheckInterval = Math.max(1, parsedProxyProviderHealthCheckInterval);
+  // proxy-provider health-check timeout 至少为 1 毫秒。
+  const proxyProviderHealthCheckTimeout = Math.max(1, parsedProxyProviderHealthCheckTimeout);
+  // GitHub 独立组测速间隔至少为 1 秒。
+  const githubGroupInterval = Math.max(1, parsedGithubGroupInterval);
+  // Steam 独立组测速间隔至少为 1 秒。
+  const steamGroupInterval = Math.max(1, parsedSteamGroupInterval);
+  // GitHub 独立组测速容差允许为 0。
+  const githubGroupTolerance = Math.max(0, parsedGithubGroupTolerance);
+  // Steam 独立组测速容差允许为 0。
+  const steamGroupTolerance = Math.max(0, parsedSteamGroupTolerance);
+  // GitHub 独立组测速超时至少为 1。
+  const githubGroupTimeout = Math.max(1, parsedGithubGroupTimeout);
+  // Steam 独立组测速超时至少为 1。
+  const steamGroupTimeout = Math.max(1, parsedSteamGroupTimeout);
+  // GitHub 独立组最大失败次数至少为 1。
+  const githubGroupMaxFailedTimes = Math.max(1, parsedGithubGroupMaxFailedTimes);
+  // Steam 独立组最大失败次数至少为 1。
+  const steamGroupMaxFailedTimes = Math.max(1, parsedSteamGroupMaxFailedTimes);
+  // fake-ip-ttl 至少为 1，避免生成非法配置。
+  const fakeIpTtl = Math.max(1, parsedFakeIpTtl);
+  // 把字符串类参数统一做 trim，后面复用时就不用反复判断。
+  const testUrl = normalizeStringArg(rawTestUrl);
+  const rawNormalizedGroupExpectedStatus = normalizeExpectedStatusArg(rawGroupExpectedStatus);
+  const groupExpectedStatus = isValidExpectedStatusValue(rawNormalizedGroupExpectedStatus) ? rawNormalizedGroupExpectedStatus : "";
+  const groupStrategy = normalizeLoadBalanceStrategy(rawGroupStrategy, "");
+  const groupInterfaceName = normalizeInterfaceNameArg(rawGroupInterfaceName);
+  const groupRoutingMark = normalizeRoutingMarkArg(rawGroupRoutingMark);
+  const dnsListen = normalizeStringArg(rawDnsListen);
+  const fakeIpRange = normalizeStringArg(rawFakeIpRange);
+  const fakeIpRange6 = normalizeStringArg(rawFakeIpRange6);
+  const directListUrl = normalizeStringArg(rawDirectListUrl);
+  const cryptoListUrl = normalizeStringArg(rawCryptoListUrl);
+  const chatGptListUrl = normalizeStringArg(rawChatGptListUrl);
+  const ruleProviderPathDir = normalizeRuleProviderPathDir(rawRuleProviderPathDir);
+  const ruleProviderProxy = normalizeStringArg(rawRuleProviderProxy);
+  const ruleProviderUserAgent = normalizeStringArg(rawRuleProviderUserAgent);
+  const ruleProviderAuthorization = normalizeStringArg(rawRuleProviderAuthorization);
+  const parsedRuleProviderHeaderEntries = parseProviderHeaderEntries(rawRuleProviderHeader);
+  const ruleProviderHeader = parsedRuleProviderHeaderEntries.headers;
+  const parsedRuleProviderPayload = parseRuleProviderPayload(rawRuleProviderPayload);
+  const ruleProviderPayload = parsedRuleProviderPayload.items;
+  const proxyProviderProxy = normalizeStringArg(rawProxyProviderProxy);
+  const proxyProviderUserAgent = normalizeStringArg(rawProxyProviderUserAgent);
+  const proxyProviderAuthorization = normalizeStringArg(rawProxyProviderAuthorization);
+  const parsedProxyProviderHeaderEntries = parseProviderHeaderEntries(rawProxyProviderHeader);
+  const proxyProviderHeader = parsedProxyProviderHeaderEntries.headers;
+  const parsedProxyProviderPayload = parseProxyProviderPayload(rawProxyProviderPayload);
+  const proxyProviderPayload = parsedProxyProviderPayload.items;
+  const proxyProviderPathDir = normalizeProxyProviderPathDir(rawProxyProviderPathDir);
+  const proxyProviderFilter = normalizeStringArg(rawProxyProviderFilter);
+  const proxyProviderExcludeFilter = normalizeStringArg(rawProxyProviderExcludeFilter);
+  const proxyProviderExcludeType = normalizeTypeListArg(rawProxyProviderExcludeType);
+  const proxyProviderOverrideAdditionalPrefix = normalizeStringArg(rawProxyProviderOverrideAdditionalPrefix);
+  const proxyProviderOverrideAdditionalSuffix = normalizeStringArg(rawProxyProviderOverrideAdditionalSuffix);
+  const proxyProviderOverrideDown = normalizeStringArg(rawProxyProviderOverrideDown);
+  const proxyProviderOverrideUp = normalizeStringArg(rawProxyProviderOverrideUp);
+  const proxyProviderOverrideDialerProxy = normalizeStringArg(rawProxyProviderOverrideDialerProxy);
+  const proxyProviderOverrideInterfaceName = normalizeInterfaceNameArg(rawProxyProviderOverrideInterfaceName);
+  const proxyProviderOverrideRoutingMark = normalizeRoutingMarkArg(rawProxyProviderOverrideRoutingMark);
+  const proxyProviderOverrideIpVersion = normalizeIpVersionArg(rawProxyProviderOverrideIpVersion, "");
+  const parsedProxyProviderOverrideProxyNameRules = parseProxyNameOverrideRules(rawProxyProviderOverrideProxyName);
+  const proxyProviderOverrideProxyNameRules = parsedProxyProviderOverrideProxyNameRules.filter((rule) => {
+    try {
+      compilePatternRegExp(rule.pattern);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  });
+  const proxyProviderHealthCheckUrl = normalizeStringArg(rawProxyProviderHealthCheckUrl);
+  const rawNormalizedProxyProviderHealthCheckExpectedStatus = normalizeExpectedStatusArg(rawProxyProviderHealthCheckExpectedStatus);
+  const proxyProviderHealthCheckExpectedStatus = isValidExpectedStatusValue(rawNormalizedProxyProviderHealthCheckExpectedStatus) ? rawNormalizedProxyProviderHealthCheckExpectedStatus : "";
+  const githubTestUrl = normalizeStringArg(rawGithubTestUrl);
+  const steamTestUrl = normalizeStringArg(rawSteamTestUrl);
+  const rawNormalizedGithubGroupExpectedStatus = normalizeExpectedStatusArg(rawGithubGroupExpectedStatus);
+  const githubGroupExpectedStatus = isValidExpectedStatusValue(rawNormalizedGithubGroupExpectedStatus) ? rawNormalizedGithubGroupExpectedStatus : "";
+  const githubGroupStrategy = normalizeLoadBalanceStrategy(rawGithubGroupStrategy, "");
+  const rawNormalizedSteamGroupExpectedStatus = normalizeExpectedStatusArg(rawSteamGroupExpectedStatus);
+  const steamGroupExpectedStatus = isValidExpectedStatusValue(rawNormalizedSteamGroupExpectedStatus) ? rawNormalizedSteamGroupExpectedStatus : "";
+  const steamGroupStrategy = normalizeLoadBalanceStrategy(rawSteamGroupStrategy, "");
+  const githubInterfaceName = normalizeInterfaceNameArg(rawGithubInterfaceName);
+  const steamInterfaceName = normalizeInterfaceNameArg(rawSteamInterfaceName);
+  const githubRoutingMark = normalizeRoutingMarkArg(rawGithubRoutingMark);
+  const steamRoutingMark = normalizeRoutingMarkArg(rawSteamRoutingMark);
+  const githubUseProviders = toStringList(rawGithubUseProviders);
+  const steamUseProviders = toStringList(rawSteamUseProviders);
+  const githubIcon = normalizeStringArg(rawGithubIcon);
+  const steamIcon = normalizeStringArg(rawSteamIcon);
+  const githubNodeFilter = normalizeStringArg(rawGithubNodeFilter);
+  const steamNodeFilter = normalizeStringArg(rawSteamNodeFilter);
+  const githubNodeExcludeFilter = normalizeStringArg(rawGithubNodeExcludeFilter);
+  const steamNodeExcludeFilter = normalizeStringArg(rawSteamNodeExcludeFilter);
+  const githubNodeExcludeType = normalizeTypeListArg(rawGithubNodeExcludeType);
+  const steamNodeExcludeType = normalizeTypeListArg(rawSteamNodeExcludeType);
+  const aiPreferCountries = toStringList(rawAiPreferCountries);
+  const cryptoPreferCountries = toStringList(rawCryptoPreferCountries);
+  const githubPreferCountries = toStringList(rawGithubPreferCountries);
+  const steamPreferCountries = toStringList(rawSteamPreferCountries);
+  const githubPreferGroups = toStringList(rawGithubPreferGroups);
+  const steamPreferGroups = toStringList(rawSteamPreferGroups);
+  const githubPreferNodes = toExplicitNameList(rawGithubPreferNodes);
+  const steamPreferNodes = toExplicitNameList(rawSteamPreferNodes);
+  const githubRuleTarget = normalizeStringArg(rawGithubRuleTarget);
+  const steamRuleTarget = normalizeStringArg(rawSteamRuleTarget);
+  const steamCnRuleTarget = normalizeStringArg(rawSteamCnRuleTarget);
+  const githubRuleAnchor = normalizeStringArg(rawGithubRuleAnchor);
+  const githubRulePosition = normalizeRuleOrderPosition(rawGithubRulePosition, "before");
+  const steamRuleAnchor = normalizeStringArg(rawSteamRuleAnchor);
+  const steamRulePosition = normalizeRuleOrderPosition(rawSteamRulePosition, "before");
+  const steamCnRuleAnchor = normalizeStringArg(rawSteamCnRuleAnchor);
+  const steamCnRulePosition = normalizeRuleOrderPosition(rawSteamCnRulePosition, "before");
+  const githubMode = normalizeServiceGroupMode(rawGithubMode, "select");
+  const steamMode = normalizeServiceGroupMode(rawSteamMode, "direct");
+  const githubType = normalizeServiceGroupType(rawGithubType, "select");
+  const steamType = normalizeServiceGroupType(rawSteamType, "select");
+  const snifferForceDomains = toStringList(rawSnifferForceDomains);
+  const snifferSkipDomains = toStringList(rawSnifferSkipDomains);
+  const responseHeaderPrefix = normalizeHeaderPrefix(rawResponseHeaderPrefix);
+
+  // 如果用户传入值被修正了，就打印一条警告帮助定位问题。
+  if (parsedThreshold !== threshold) {
+    console.warn(`⚠️ 警告: threshold 超出范围，已重置为 ${threshold}`);
+  }
+
+  // 如果测速组 interval 被修正，也打印提示。
+  if (rawGroupInterval !== undefined && parsedGroupInterval !== groupInterval) {
+    console.warn(`⚠️ 警告: group-interval 无效，已重置为 ${groupInterval}`);
+  }
+
+  // 如果测速组 tolerance 被修正，也打印提示。
+  if (rawGroupTolerance !== undefined && parsedGroupTolerance !== groupTolerance) {
+    console.warn(`⚠️ 警告: group-tolerance 无效，已重置为 ${groupTolerance}`);
+  }
+
+  // 如果测速组 timeout 被修正，也打印提示。
+  if (rawGroupTimeout !== undefined && parsedGroupTimeout !== groupTimeout) {
+    console.warn(`⚠️ 警告: group-timeout 无效，已重置为 ${groupTimeout}`);
+  }
+
+  // 如果全局 load-balance strategy 非法，则回退默认值并提示。
+  if (rawGroupStrategy !== undefined && !groupStrategy) {
+    console.warn("⚠️ 警告: group-strategy 无效，已回退为默认策略");
+  }
+
+  // 如果全局 interface-name 传了空值或非法值，则提示已经忽略。
+  if (rawGroupInterfaceName !== undefined && !groupInterfaceName) {
+    console.warn("⚠️ 警告: group-interface-name 为空，已忽略");
+  }
+
+  // 如果全局 routing-mark 非法，则显式提示帮助排查。
+  if (rawGroupRoutingMark !== undefined && groupRoutingMark === null) {
+    console.warn("⚠️ 警告: group-routing-mark 仅支持大于等于 0 的整数，已忽略");
+  }
+
+  // 如果测速组最大失败次数被修正，也打印提示。
+  if (rawGroupMaxFailedTimes !== undefined && parsedGroupMaxFailedTimes !== groupMaxFailedTimes) {
+    console.warn(`⚠️ 警告: group-max-failed-times 无效，已重置为 ${groupMaxFailedTimes}`);
+  }
+
+  // 如果全局 expected-status 语法非法，则回退默认值并提示。
+  if (rawGroupExpectedStatus !== undefined && rawNormalizedGroupExpectedStatus && !groupExpectedStatus) {
+    console.warn("⚠️ 警告: group-expected-status 语法无效，已回退为默认值");
+  }
+
+  // 如果自定义规则源 URL 看起来不像 http(s)，打印提示帮助定位问题。
+  if (directListUrl && !looksLikeHttpUrl(directListUrl)) {
+    console.warn(`⚠️ 警告: direct-list-url 看起来不像合法 http(s) 地址: ${directListUrl}`);
+  }
+
+  if (cryptoListUrl && !looksLikeHttpUrl(cryptoListUrl)) {
+    console.warn(`⚠️ 警告: crypto-list-url 看起来不像合法 http(s) 地址: ${cryptoListUrl}`);
+  }
+
+  if (chatGptListUrl && !looksLikeHttpUrl(chatGptListUrl)) {
+    console.warn(`⚠️ 警告: chatgpt-list-url 看起来不像合法 http(s) 地址: ${chatGptListUrl}`);
+  }
+
+  if (githubTestUrl && !looksLikeHttpUrl(githubTestUrl)) {
+    console.warn(`⚠️ 警告: github-test-url 看起来不像合法 http(s) 地址: ${githubTestUrl}`);
+  }
+
+  if (steamTestUrl && !looksLikeHttpUrl(steamTestUrl)) {
+    console.warn(`⚠️ 警告: steam-test-url 看起来不像合法 http(s) 地址: ${steamTestUrl}`);
+  }
+
+  // 如果 rule-provider 路径目录传了空值，则回退默认目录并提示。
+  if (rawRuleProviderPathDir !== undefined && !normalizeStringArg(rawRuleProviderPathDir)) {
+    console.warn(`⚠️ 警告: rule-provider-path-dir 为空，已回退为默认目录 ${RULE_PROVIDER_PATH_DIR}`);
+  }
+
+  // 如果 rule-provider 自定义请求头完全没解析成功，则显式提示正确写法。
+  if (rawRuleProviderHeader !== undefined && hasUsableArgValue(rawRuleProviderHeader) && !parsedRuleProviderHeaderEntries.entries.length) {
+    console.warn("⚠️ 警告: rule-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
+  }
+
+  // 逐条提示 rule-provider 自定义请求头里的无效项，帮助定位拼写问题。
+  for (const item of parsedRuleProviderHeaderEntries.invalidLines) {
+    console.warn(`⚠️ 警告: rule-provider-header 条目无效，已忽略: ${item}`);
+  }
+
+  // 如果 rule-provider payload 完全没解析成功，则显式提示正确写法。
+  if (rawRuleProviderPayload !== undefined && hasUsableArgValue(rawRuleProviderPayload) && !ruleProviderPayload.length) {
+    const reason = parsedRuleProviderPayload.parseFailed
+      ? "请使用 JSON 数组、换行或 || 分隔的规则列表"
+      : "请至少提供一条非空规则字符串";
+    console.warn(`⚠️ 警告: rule-provider-payload 无有效规则，已忽略；${reason}`);
+  }
+
+  // 逐条提示 rule-provider payload 里无效的规则项，帮助定位数组结构问题。
+  for (const item of parsedRuleProviderPayload.invalidItems) {
+    console.warn(`⚠️ 警告: rule-provider-payload 条目无效，已忽略: ${item}`);
+  }
+
+  // 如果 proxy-provider 路径目录传了空值，则忽略本轮目录接管并提示。
+  if (rawProxyProviderPathDir !== undefined && !normalizeStringArg(rawProxyProviderPathDir)) {
+    console.warn("⚠️ 警告: proxy-provider-path-dir 为空，已忽略本轮缓存目录接管");
+  }
+
+  // 如果 proxy-provider 路径目录看起来无效，则显式提示本轮不会生效。
+  if (rawProxyProviderPathDir !== undefined && hasUsableArgValue(rawProxyProviderPathDir) && !proxyProviderPathDir) {
+    console.warn(`⚠️ 警告: proxy-provider-path-dir 无效，已忽略: ${rawProxyProviderPathDir}`);
+  }
+
+  // 如果 proxy-provider 自定义请求头完全没解析成功，则显式提示正确写法。
+  if (rawProxyProviderHeader !== undefined && hasUsableArgValue(rawProxyProviderHeader) && !parsedProxyProviderHeaderEntries.entries.length) {
+    console.warn("⚠️ 警告: proxy-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
+  }
+
+  // 逐条提示 proxy-provider 自定义请求头里无效的项，帮助定位拼写问题。
+  for (const item of parsedProxyProviderHeaderEntries.invalidLines) {
+    console.warn(`⚠️ 警告: proxy-provider-header 条目无效，已忽略: ${item}`);
+  }
+
+  // 如果 proxy-provider payload 完全没解析成功，则提示应改为 JSON 数组/对象写法。
+  if (rawProxyProviderPayload !== undefined && hasUsableArgValue(rawProxyProviderPayload) && !proxyProviderPayload.length) {
+    const reason = parsedProxyProviderPayload.parseFailed
+      ? "请使用 JSON 数组/对象写法"
+      : "请至少提供带 name/type 的节点对象";
+    console.warn(`⚠️ 警告: proxy-provider-payload 无有效节点，已忽略；${reason}`);
+  }
+
+  // 逐条提示 proxy-provider payload 里无效的节点项，帮助定位字段缺失。
+  for (const item of parsedProxyProviderPayload.invalidItems) {
+    console.warn(`⚠️ 警告: proxy-provider-payload 条目无效，已忽略: ${item}`);
+  }
+
+  // 如果 geo 更新间隔被修正，也打印提示。
+  if (rawGeoUpdateInterval !== undefined && parsedGeoUpdateInterval !== geoUpdateInterval) {
+    console.warn(`⚠️ 警告: geo-update-interval 无效，已重置为 ${geoUpdateInterval}`);
+  }
+
+  // 如果 rule-provider 刷新间隔被修正，也打印提示。
+  if (rawRuleProviderInterval !== undefined && parsedRuleProviderInterval !== ruleProviderInterval) {
+    console.warn(`⚠️ 警告: rule-provider-interval 无效，已重置为 ${ruleProviderInterval}`);
+  }
+
+  // 如果 rule-provider 大小限制被修正，也打印提示。
+  if (rawRuleProviderSizeLimit !== undefined && parsedRuleProviderSizeLimit !== ruleProviderSizeLimit) {
+    console.warn(`⚠️ 警告: rule-provider-size-limit 无效，已重置为 ${ruleProviderSizeLimit}`);
+  }
+
+  // 如果 proxy-provider 刷新间隔被修正，也打印提示。
+  if (rawProxyProviderInterval !== undefined && parsedProxyProviderInterval !== proxyProviderInterval) {
+    console.warn(`⚠️ 警告: proxy-provider-interval 无效，已重置为 ${proxyProviderInterval}`);
+  }
+
+  // 如果 proxy-provider 大小限制被修正，也打印提示。
+  if (rawProxyProviderSizeLimit !== undefined && parsedProxyProviderSizeLimit !== proxyProviderSizeLimit) {
+    console.warn(`⚠️ 警告: proxy-provider-size-limit 无效，已重置为 ${proxyProviderSizeLimit}`);
+  }
+
+  // 如果 proxy-provider health-check interval 被修正，也打印提示。
+  if (rawProxyProviderHealthCheckInterval !== undefined && parsedProxyProviderHealthCheckInterval !== proxyProviderHealthCheckInterval) {
+    console.warn(`⚠️ 警告: proxy-provider-health-check-interval 无效，已重置为 ${proxyProviderHealthCheckInterval}`);
+  }
+
+  // 如果 proxy-provider health-check timeout 被修正，也打印提示。
+  if (rawProxyProviderHealthCheckTimeout !== undefined && parsedProxyProviderHealthCheckTimeout !== proxyProviderHealthCheckTimeout) {
+    console.warn(`⚠️ 警告: proxy-provider-health-check-timeout 无效，已重置为 ${proxyProviderHealthCheckTimeout}`);
+  }
+
+  // 如果 proxy-provider health-check URL 看起来不像 http(s)，打印提示帮助定位问题。
+  if (proxyProviderHealthCheckUrl && !looksLikeHttpUrl(proxyProviderHealthCheckUrl)) {
+    console.warn(`⚠️ 警告: proxy-provider-health-check-url 看起来不像合法 http(s) 地址: ${proxyProviderHealthCheckUrl}`);
+  }
+
+  // 如果 proxy-provider health-check expected-status 语法非法，则回退为空并提示。
+  if (rawProxyProviderHealthCheckExpectedStatus !== undefined && rawNormalizedProxyProviderHealthCheckExpectedStatus && !proxyProviderHealthCheckExpectedStatus) {
+    console.warn("⚠️ 警告: proxy-provider-health-check-expected-status 语法无效，已忽略");
+  }
+
+  // 如果 proxy-provider filter 正则无法编译，则提前提示。
+  if (rawProxyProviderFilter !== undefined && proxyProviderFilter) {
+    try {
+      compilePatternRegExp(proxyProviderFilter);
+    } catch (error) {
+      console.warn(`⚠️ 警告: proxy-provider-filter 正则无效: ${error.message}`);
+    }
+  }
+
+  // 如果 proxy-provider exclude-filter 正则无法编译，则提前提示。
+  if (rawProxyProviderExcludeFilter !== undefined && proxyProviderExcludeFilter) {
+    try {
+      compilePatternRegExp(proxyProviderExcludeFilter);
+    } catch (error) {
+      console.warn(`⚠️ 警告: proxy-provider-exclude-filter 正则无效: ${error.message}`);
+    }
+  }
+
+  // 如果 proxy-provider exclude-type 清洗后为空，则提醒用户参数未生效。
+  if (rawProxyProviderExcludeType !== undefined && normalizeStringArg(rawProxyProviderExcludeType) && !proxyProviderExcludeType) {
+    console.warn("⚠️ 警告: proxy-provider-exclude-type 为空或格式无效，已忽略");
+  }
+
+  // Mihomo 官方文档说明 exclude-type 不支持正则；若看起来像正则语法则提前提醒。
+  if (rawProxyProviderExcludeType !== undefined && /[()[\]{}*+?^$\\]/.test(normalizeStringArg(rawProxyProviderExcludeType))) {
+    console.warn("⚠️ 警告: proxy-provider-exclude-type 不支持正则，请只保留类型名并使用 | 分隔");
+  }
+
+  // 如果 proxy-provider override udp 写法不像布尔量，则显式提示。
+  if (rawProxyProviderOverrideUdp !== undefined && !isBooleanLike(rawProxyProviderOverrideUdp)) {
+    console.warn("⚠️ 警告: proxy-provider-override-udp 仅支持布尔值，已回退为 false");
+  }
+
+  // 如果 proxy-provider override udp-over-tcp 写法不像布尔量，则显式提示。
+  if (rawProxyProviderOverrideUdpOverTcp !== undefined && !isBooleanLike(rawProxyProviderOverrideUdpOverTcp)) {
+    console.warn("⚠️ 警告: proxy-provider-override-udp-over-tcp 仅支持布尔值，已回退为 false");
+  }
+
+  // 如果 proxy-provider override down 为空，则提示已忽略。
+  if (rawProxyProviderOverrideDown !== undefined && !proxyProviderOverrideDown) {
+    console.warn("⚠️ 警告: proxy-provider-override-down 为空，已忽略");
+  }
+
+  // 如果 proxy-provider override up 为空，则提示已忽略。
+  if (rawProxyProviderOverrideUp !== undefined && !proxyProviderOverrideUp) {
+    console.warn("⚠️ 警告: proxy-provider-override-up 为空，已忽略");
+  }
+
+  // 如果 proxy-provider override tfo 写法不像布尔量，则显式提示。
+  if (rawProxyProviderOverrideTfo !== undefined && !isBooleanLike(rawProxyProviderOverrideTfo)) {
+    console.warn("⚠️ 警告: proxy-provider-override-tfo 仅支持布尔值，已回退为 false");
+  }
+
+  // 如果 proxy-provider override mptcp 写法不像布尔量，则显式提示。
+  if (rawProxyProviderOverrideMptcp !== undefined && !isBooleanLike(rawProxyProviderOverrideMptcp)) {
+    console.warn("⚠️ 警告: proxy-provider-override-mptcp 仅支持布尔值，已回退为 false");
+  }
+
+  // 如果 proxy-provider override skip-cert-verify 写法不像布尔量，则显式提示。
+  if (rawProxyProviderOverrideSkipCertVerify !== undefined && !isBooleanLike(rawProxyProviderOverrideSkipCertVerify)) {
+    console.warn("⚠️ 警告: proxy-provider-override-skip-cert-verify 仅支持布尔值，已回退为 false");
+  }
+
+  // 如果 proxy-provider override interface-name 为空，则提示已忽略。
+  if (rawProxyProviderOverrideInterfaceName !== undefined && !proxyProviderOverrideInterfaceName) {
+    console.warn("⚠️ 警告: proxy-provider-override-interface-name 为空，已忽略");
+  }
+
+  // 如果 proxy-provider override routing-mark 非法，则显式提示。
+  if (rawProxyProviderOverrideRoutingMark !== undefined && proxyProviderOverrideRoutingMark === null) {
+    console.warn("⚠️ 警告: proxy-provider-override-routing-mark 仅支持大于等于 0 的整数，已忽略");
+  }
+
+  // 如果 proxy-provider override ip-version 非法，则显式提示。
+  if (rawProxyProviderOverrideIpVersion !== undefined && normalizeStringArg(rawProxyProviderOverrideIpVersion) && !proxyProviderOverrideIpVersion) {
+    console.warn("⚠️ 警告: proxy-provider-override-ip-version 无效，已忽略");
+  }
+
+  // 如果 proxy-provider override proxy-name 规则未解析出任何有效项，则显式提示。
+  if (rawProxyProviderOverrideProxyName !== undefined && hasUsableArgValue(rawProxyProviderOverrideProxyName) && !proxyProviderOverrideProxyNameRules.length) {
+    console.warn("⚠️ 警告: proxy-provider-override-proxy-name 语法无效，已忽略；请使用 pattern=>target||pattern2=>target2");
+  }
+
+  // 逐条校验 proxy-provider override proxy-name 的正则是否可编译。
+  for (const rule of parsedProxyProviderOverrideProxyNameRules) {
+    try {
+      compilePatternRegExp(rule.pattern);
+    } catch (error) {
+      console.warn(`⚠️ 警告: proxy-provider-override-proxy-name 正则无效 (${rule.pattern}): ${error.message}`);
+    }
+  }
+
+  // 如果 GitHub 独立组测速间隔被修正，也打印提示。
+  if (rawGithubGroupInterval !== undefined && parsedGithubGroupInterval !== githubGroupInterval) {
+    console.warn(`⚠️ 警告: github-group-interval 无效，已重置为 ${githubGroupInterval}`);
+  }
+
+  // 如果 Steam 独立组测速间隔被修正，也打印提示。
+  if (rawSteamGroupInterval !== undefined && parsedSteamGroupInterval !== steamGroupInterval) {
+    console.warn(`⚠️ 警告: steam-group-interval 无效，已重置为 ${steamGroupInterval}`);
+  }
+
+  // 如果 GitHub 独立组测速容差被修正，也打印提示。
+  if (rawGithubGroupTolerance !== undefined && parsedGithubGroupTolerance !== githubGroupTolerance) {
+    console.warn(`⚠️ 警告: github-group-tolerance 无效，已重置为 ${githubGroupTolerance}`);
+  }
+
+  // 如果 Steam 独立组测速容差被修正，也打印提示。
+  if (rawSteamGroupTolerance !== undefined && parsedSteamGroupTolerance !== steamGroupTolerance) {
+    console.warn(`⚠️ 警告: steam-group-tolerance 无效，已重置为 ${steamGroupTolerance}`);
+  }
+
+  // 如果 GitHub 独立组测速超时被修正，也打印提示。
+  if (rawGithubGroupTimeout !== undefined && parsedGithubGroupTimeout !== githubGroupTimeout) {
+    console.warn(`⚠️ 警告: github-group-timeout 无效，已重置为 ${githubGroupTimeout}`);
+  }
+
+  // 如果 Steam 独立组测速超时被修正，也打印提示。
+  if (rawSteamGroupTimeout !== undefined && parsedSteamGroupTimeout !== steamGroupTimeout) {
+    console.warn(`⚠️ 警告: steam-group-timeout 无效，已重置为 ${steamGroupTimeout}`);
+  }
+
+  // 如果 GitHub 独立组最大失败次数被修正，也打印提示。
+  if (rawGithubGroupMaxFailedTimes !== undefined && parsedGithubGroupMaxFailedTimes !== githubGroupMaxFailedTimes) {
+    console.warn(`⚠️ 警告: github-group-max-failed-times 无效，已重置为 ${githubGroupMaxFailedTimes}`);
+  }
+
+  // 如果 Steam 独立组最大失败次数被修正，也打印提示。
+  if (rawSteamGroupMaxFailedTimes !== undefined && parsedSteamGroupMaxFailedTimes !== steamGroupMaxFailedTimes) {
+    console.warn(`⚠️ 警告: steam-group-max-failed-times 无效，已重置为 ${steamGroupMaxFailedTimes}`);
+  }
+
+  // 如果 GitHub 模式非法，则回退默认值并提示。
+  if (rawGithubMode !== undefined && normalizeStringArg(rawGithubMode).toLowerCase() !== githubMode) {
+    console.warn(`⚠️ 警告: github-mode 无效，已重置为 ${githubMode}`);
+  }
+
+  // 如果 Steam 模式非法，则回退默认值并提示。
+  if (rawSteamMode !== undefined && normalizeStringArg(rawSteamMode).toLowerCase() !== steamMode) {
+    console.warn(`⚠️ 警告: steam-mode 无效，已重置为 ${steamMode}`);
+  }
+
+  // 如果 GitHub 组类型非法，则回退默认值并提示。
+  if (rawGithubType !== undefined && normalizeStringArg(rawGithubType).toLowerCase() !== githubType) {
+    console.warn(`⚠️ 警告: github-type 无效，已重置为 ${githubType}`);
+  }
+
+  // 如果 Steam 组类型非法，则回退默认值并提示。
+  if (rawSteamType !== undefined && normalizeStringArg(rawSteamType).toLowerCase() !== steamType) {
+    console.warn(`⚠️ 警告: steam-type 无效，已重置为 ${steamType}`);
+  }
+
+  // 如果 GitHub 独立组 strategy 非法，则回退默认值并提示。
+  if (rawGithubGroupStrategy !== undefined && !githubGroupStrategy) {
+    console.warn("⚠️ 警告: github-group-strategy 无效，已回退为默认策略");
+  }
+
+  // 如果 Steam 独立组 strategy 非法，则回退默认值并提示。
+  if (rawSteamGroupStrategy !== undefined && !steamGroupStrategy) {
+    console.warn("⚠️ 警告: steam-group-strategy 无效，已回退为默认策略");
+  }
+
+  // 如果 GitHub 独立组 expected-status 语法非法，则回退默认值并提示。
+  if (rawGithubGroupExpectedStatus !== undefined && rawNormalizedGithubGroupExpectedStatus && !githubGroupExpectedStatus) {
+    console.warn("⚠️ 警告: github-group-expected-status 语法无效，已回退为默认值");
+  }
+
+  // 如果 Steam 独立组 expected-status 语法非法，则回退默认值并提示。
+  if (rawSteamGroupExpectedStatus !== undefined && rawNormalizedSteamGroupExpectedStatus && !steamGroupExpectedStatus) {
+    console.warn("⚠️ 警告: steam-group-expected-status 语法无效，已回退为默认值");
+  }
+
+  // 如果 GitHub / Steam 独立组 interface-name 传了空值，则提示已经忽略。
+  if (rawGithubInterfaceName !== undefined && !githubInterfaceName) {
+    console.warn("⚠️ 警告: github-interface-name 为空，已忽略");
+  }
+
+  if (rawSteamInterfaceName !== undefined && !steamInterfaceName) {
+    console.warn("⚠️ 警告: steam-interface-name 为空，已忽略");
+  }
+
+  // 如果 GitHub / Steam 独立组 routing-mark 非法，则显式提示帮助排查。
+  if (rawGithubRoutingMark !== undefined && githubRoutingMark === null) {
+    console.warn("⚠️ 警告: github-routing-mark 仅支持大于等于 0 的整数，已忽略");
+  }
+
+  if (rawSteamRoutingMark !== undefined && steamRoutingMark === null) {
+    console.warn("⚠️ 警告: steam-routing-mark 仅支持大于等于 0 的整数，已忽略");
+  }
+
+  // 如果同时设置了 GitHub use-providers 与 include-all-providers，则提示 use-providers 会被忽略。
+  if (rawGithubIncludeAllProviders !== undefined && parseBool(rawGithubIncludeAllProviders, false) && githubUseProviders.length) {
+    console.warn("⚠️ 警告: github-include-all-providers 已开启，github-use-providers 将被忽略");
+  }
+
+  // 如果同时设置了 Steam use-providers 与 include-all-providers，则提示 use-providers 会被忽略。
+  if (rawSteamIncludeAllProviders !== undefined && parseBool(rawSteamIncludeAllProviders, false) && steamUseProviders.length) {
+    console.warn("⚠️ 警告: steam-include-all-providers 已开启，steam-use-providers 将被忽略");
+  }
+
+  // 如果 GitHub include-all 已开启，则 use-providers / include-all-providers 都会被更高优先级的 include-all 覆盖。
+  if (rawGithubIncludeAll !== undefined && parseBool(rawGithubIncludeAll, false) && (githubUseProviders.length || parseBool(rawGithubIncludeAllProviders, false))) {
+    console.warn("⚠️ 警告: github-include-all 已开启，github-use-providers / github-include-all-providers 将被忽略");
+  }
+
+  // 如果 Steam include-all 已开启，则 use-providers / include-all-providers 都会被更高优先级的 include-all 覆盖。
+  if (rawSteamIncludeAll !== undefined && parseBool(rawSteamIncludeAll, false) && (steamUseProviders.length || parseBool(rawSteamIncludeAllProviders, false))) {
+    console.warn("⚠️ 警告: steam-include-all 已开启，steam-use-providers / steam-include-all-providers 将被忽略");
+  }
+
+  // 如果 GitHub include-all 已开启，则 include-all-proxies 也会被更高优先级的 include-all 覆盖。
+  if (rawGithubIncludeAll !== undefined && parseBool(rawGithubIncludeAll, false) && parseBool(rawGithubIncludeAllProxies, false)) {
+    console.warn("⚠️ 警告: github-include-all 已开启，github-include-all-proxies 将被忽略");
+  }
+
+  // 如果 Steam include-all 已开启，则 include-all-proxies 也会被更高优先级的 include-all 覆盖。
+  if (rawSteamIncludeAll !== undefined && parseBool(rawSteamIncludeAll, false) && parseBool(rawSteamIncludeAllProxies, false)) {
+    console.warn("⚠️ 警告: steam-include-all 已开启，steam-include-all-proxies 将被忽略");
+  }
+
+  // 如果给 GitHub 传了 strategy，但当前组类型不是 load-balance，也提示其仅在 load-balance 下生效。
+  if (rawGithubGroupStrategy !== undefined && githubGroupStrategy && githubType !== "load-balance") {
+    console.warn("⚠️ 警告: github-group-strategy 仅在 github-type=load-balance 时生效");
+  }
+
+  // 如果给 Steam 传了 strategy，但当前组类型不是 load-balance，也提示其仅在 load-balance 下生效。
+  if (rawSteamGroupStrategy !== undefined && steamGroupStrategy && steamType !== "load-balance") {
+    console.warn("⚠️ 警告: steam-group-strategy 仅在 steam-type=load-balance 时生效");
+  }
+
+  // 如果 GitHub icon 传了空值，则给出提示，避免用户误以为已经生效。
+  if (rawGithubIcon !== undefined && !githubIcon) {
+    console.warn("⚠️ 警告: github-icon 为空，已忽略");
+  }
+
+  // 如果 Steam icon 传了空值，则给出提示，避免用户误以为已经生效。
+  if (rawSteamIcon !== undefined && !steamIcon) {
+    console.warn("⚠️ 警告: steam-icon 为空，已忽略");
+  }
+
+  // 官方文档已将 interface-name 标记为 deprecated，这里主动提醒，避免长期依赖。
+  if (groupInterfaceName || githubInterfaceName || steamInterfaceName) {
+    console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 interface-name 标记为 deprecated，请仅在必须绑定出口网卡时使用");
+  }
+
+  // 官方文档已将 routing-mark 标记为 deprecated，这里主动提醒，避免长期依赖。
+  if (groupRoutingMark !== null || githubRoutingMark !== null || steamRoutingMark !== null) {
+    console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 routing-mark 标记为 deprecated，请仅在必须配合策略路由打标时使用");
+  }
+
+  // 如果 GitHub 规则顺序位置非法，则回退默认值并提示。
+  if (rawGithubRulePosition !== undefined && normalizeStringArg(rawGithubRulePosition).toLowerCase() !== githubRulePosition) {
+    console.warn(`⚠️ 警告: github-rule-position 无效，已重置为 ${githubRulePosition}`);
+  }
+
+  // 如果 Steam 规则顺序位置非法，则回退默认值并提示。
+  if (rawSteamRulePosition !== undefined && normalizeStringArg(rawSteamRulePosition).toLowerCase() !== steamRulePosition) {
+    console.warn(`⚠️ 警告: steam-rule-position 无效，已重置为 ${steamRulePosition}`);
+  }
+
+  // 如果 SteamCN 规则顺序位置非法，则回退默认值并提示。
+  if (rawSteamCnRulePosition !== undefined && normalizeStringArg(rawSteamCnRulePosition).toLowerCase() !== steamCnRulePosition) {
+    console.warn(`⚠️ 警告: steam-cn-rule-position 无效，已重置为 ${steamCnRulePosition}`);
+  }
+
+  // 如果 fake-ip-ttl 被修正，也打印提示。
+  if (rawFakeIpTtl !== undefined && parsedFakeIpTtl !== fakeIpTtl) {
+    console.warn(`⚠️ 警告: fake-ip-ttl 无效，已重置为 ${fakeIpTtl}`);
+  }
+
+  // 返回最终规范化后的参数对象。
+  return {
+    // ipv6 兼容 ipv6Enabled / ipv6。
+    ipv6: parseBool(pickArg(args, ["ipv6Enabled", "ipv6"]), true),
+    // load-balance 兼容多种大小写/命名风格。
+    lb: parseBool(pickArg(args, ["loadBalance", "loadbalance", "load-balance", "lb"]), false),
+    // landing 只控制是否隔离落地节点。
+    landing: parseBool(pickArg(args, ["landing"]), false),
+    // hidden 控制是否隐藏辅助策略组，兼容多种写法。
+    hidden: parseBool(pickArg(args, ["hiddenGroups", "hiddengroups", "hidden-groups", "hidden"]), false),
+    // full 控制是否输出更完整的日志。
+    full: parseBool(pickArg(args, ["fullConfig", "fullconfig", "full"]), false),
+    // 允许用参数显式控制是否注入 profile.store-selected / store-fake-ip。
+    profileCache: parseBool(rawProfileCache, false),
+    hasProfileCache: rawProfileCache !== undefined,
+    // 允许用参数覆盖自定义 classical 规则源地址。
+    directListUrl,
+    hasDirectListUrl: !!directListUrl,
+    cryptoListUrl,
+    hasCryptoListUrl: !!cryptoListUrl,
+    chatGptListUrl,
+    hasChatGptListUrl: !!chatGptListUrl,
+    ruleProviderPathDir,
+    hasRuleProviderPathDir: rawRuleProviderPathDir !== undefined,
+    ruleProviderInterval,
+    hasRuleProviderInterval: rawRuleProviderInterval !== undefined,
+    ruleProviderProxy,
+    hasRuleProviderProxy: !!ruleProviderProxy,
+    ruleProviderSizeLimit,
+    hasRuleProviderSizeLimit: rawRuleProviderSizeLimit !== undefined,
+    ruleProviderUserAgent,
+    hasRuleProviderUserAgent: !!ruleProviderUserAgent,
+    ruleProviderAuthorization,
+    hasRuleProviderAuthorization: !!ruleProviderAuthorization,
+    ruleProviderHeader,
+    hasRuleProviderHeader: !!Object.keys(ruleProviderHeader).length,
+    ruleProviderHeaderEntryCount: parsedRuleProviderHeaderEntries.entries.length,
+    ruleProviderPayload,
+    hasRuleProviderPayload: !!ruleProviderPayload.length,
+    ruleProviderPayloadCount: ruleProviderPayload.length,
+    proxyProviderInterval,
+    hasProxyProviderInterval: rawProxyProviderInterval !== undefined,
+    proxyProviderProxy,
+    hasProxyProviderProxy: !!proxyProviderProxy,
+    proxyProviderSizeLimit,
+    hasProxyProviderSizeLimit: rawProxyProviderSizeLimit !== undefined,
+    proxyProviderUserAgent,
+    hasProxyProviderUserAgent: !!proxyProviderUserAgent,
+    proxyProviderAuthorization,
+    hasProxyProviderAuthorization: !!proxyProviderAuthorization,
+    proxyProviderHeader,
+    hasProxyProviderHeader: !!Object.keys(proxyProviderHeader).length,
+    proxyProviderHeaderEntryCount: parsedProxyProviderHeaderEntries.entries.length,
+    proxyProviderPayload,
+    hasProxyProviderPayload: !!proxyProviderPayload.length,
+    proxyProviderPayloadCount: proxyProviderPayload.length,
+    proxyProviderPathDir,
+    hasProxyProviderPathDir: !!proxyProviderPathDir,
+    proxyProviderFilter,
+    hasProxyProviderFilter: !!proxyProviderFilter,
+    proxyProviderExcludeFilter,
+    hasProxyProviderExcludeFilter: !!proxyProviderExcludeFilter,
+    proxyProviderExcludeType,
+    hasProxyProviderExcludeType: !!proxyProviderExcludeType,
+    proxyProviderOverrideAdditionalPrefix,
+    hasProxyProviderOverrideAdditionalPrefix: !!proxyProviderOverrideAdditionalPrefix,
+    proxyProviderOverrideAdditionalSuffix,
+    hasProxyProviderOverrideAdditionalSuffix: !!proxyProviderOverrideAdditionalSuffix,
+    proxyProviderOverrideUdp: parseBool(rawProxyProviderOverrideUdp, false),
+    hasProxyProviderOverrideUdp: rawProxyProviderOverrideUdp !== undefined,
+    proxyProviderOverrideUdpOverTcp: parseBool(rawProxyProviderOverrideUdpOverTcp, false),
+    hasProxyProviderOverrideUdpOverTcp: rawProxyProviderOverrideUdpOverTcp !== undefined,
+    proxyProviderOverrideDown,
+    hasProxyProviderOverrideDown: !!proxyProviderOverrideDown,
+    proxyProviderOverrideUp,
+    hasProxyProviderOverrideUp: !!proxyProviderOverrideUp,
+    proxyProviderOverrideTfo: parseBool(rawProxyProviderOverrideTfo, false),
+    hasProxyProviderOverrideTfo: rawProxyProviderOverrideTfo !== undefined,
+    proxyProviderOverrideMptcp: parseBool(rawProxyProviderOverrideMptcp, false),
+    hasProxyProviderOverrideMptcp: rawProxyProviderOverrideMptcp !== undefined,
+    proxyProviderOverrideSkipCertVerify: parseBool(rawProxyProviderOverrideSkipCertVerify, false),
+    hasProxyProviderOverrideSkipCertVerify: rawProxyProviderOverrideSkipCertVerify !== undefined,
+    proxyProviderOverrideDialerProxy,
+    hasProxyProviderOverrideDialerProxy: !!proxyProviderOverrideDialerProxy,
+    proxyProviderOverrideInterfaceName,
+    hasProxyProviderOverrideInterfaceName: !!proxyProviderOverrideInterfaceName,
+    proxyProviderOverrideRoutingMark,
+    hasProxyProviderOverrideRoutingMark: rawProxyProviderOverrideRoutingMark !== undefined && proxyProviderOverrideRoutingMark !== null,
+    proxyProviderOverrideIpVersion,
+    hasProxyProviderOverrideIpVersion: !!proxyProviderOverrideIpVersion,
+    proxyProviderOverrideProxyNameRules,
+    hasProxyProviderOverrideProxyNameRules: !!proxyProviderOverrideProxyNameRules.length,
+    proxyProviderHealthCheckEnable: parseBool(rawProxyProviderHealthCheckEnable, true),
+    hasProxyProviderHealthCheckEnable: rawProxyProviderHealthCheckEnable !== undefined,
+    proxyProviderHealthCheckUrl,
+    hasProxyProviderHealthCheckUrl: !!proxyProviderHealthCheckUrl,
+    proxyProviderHealthCheckInterval,
+    hasProxyProviderHealthCheckInterval: rawProxyProviderHealthCheckInterval !== undefined,
+    proxyProviderHealthCheckTimeout,
+    hasProxyProviderHealthCheckTimeout: rawProxyProviderHealthCheckTimeout !== undefined,
+    proxyProviderHealthCheckLazy: parseBool(rawProxyProviderHealthCheckLazy, true),
+    hasProxyProviderHealthCheckLazy: rawProxyProviderHealthCheckLazy !== undefined,
+    proxyProviderHealthCheckExpectedStatus,
+    hasProxyProviderHealthCheckExpectedStatus: !!proxyProviderHealthCheckExpectedStatus,
+    // 允许用参数覆盖 AI / Crypto 的国家优先链。
+    aiPreferCountries,
+    hasAiPreferCountries: !!aiPreferCountries.length,
+    cryptoPreferCountries,
+    hasCryptoPreferCountries: !!cryptoPreferCountries.length,
+    githubPreferCountries,
+    hasGithubPreferCountries: !!githubPreferCountries.length,
+    steamPreferCountries,
+    hasSteamPreferCountries: !!steamPreferCountries.length,
+    githubPreferGroups,
+    hasGithubPreferGroups: !!githubPreferGroups.length,
+    steamPreferGroups,
+    hasSteamPreferGroups: !!steamPreferGroups.length,
+    githubPreferNodes,
+    hasGithubPreferNodes: !!githubPreferNodes.length,
+    steamPreferNodes,
+    hasSteamPreferNodes: !!steamPreferNodes.length,
+    githubRuleTarget,
+    hasGithubRuleTarget: !!githubRuleTarget,
+    steamRuleTarget,
+    hasSteamRuleTarget: !!steamRuleTarget,
+    steamCnRuleTarget,
+    hasSteamCnRuleTarget: !!steamCnRuleTarget,
+    githubRuleAnchor,
+    hasGithubRuleAnchor: !!githubRuleAnchor,
+    githubRulePosition,
+    hasGithubRulePosition: rawGithubRulePosition !== undefined,
+    steamRuleAnchor,
+    hasSteamRuleAnchor: !!steamRuleAnchor,
+    steamRulePosition,
+    hasSteamRulePosition: rawSteamRulePosition !== undefined,
+    steamCnRuleAnchor,
+    hasSteamCnRuleAnchor: !!steamCnRuleAnchor,
+    steamCnRulePosition,
+    hasSteamCnRulePosition: rawSteamCnRulePosition !== undefined,
+    githubMode,
+    hasGithubMode: rawGithubMode !== undefined,
+    steamMode,
+    hasSteamMode: rawSteamMode !== undefined,
+    githubType,
+    hasGithubType: rawGithubType !== undefined,
+    steamType,
+    hasSteamType: rawSteamType !== undefined,
+    githubTestUrl,
+    hasGithubTestUrl: !!githubTestUrl,
+    githubGroupInterval,
+    hasGithubGroupInterval: rawGithubGroupInterval !== undefined,
+    githubGroupTolerance,
+    hasGithubGroupTolerance: rawGithubGroupTolerance !== undefined,
+    githubGroupTimeout,
+    hasGithubGroupTimeout: rawGithubGroupTimeout !== undefined,
+    githubGroupLazy: parseBool(rawGithubGroupLazy, true),
+    hasGithubGroupLazy: rawGithubGroupLazy !== undefined,
+    githubGroupMaxFailedTimes,
+    hasGithubGroupMaxFailedTimes: rawGithubGroupMaxFailedTimes !== undefined,
+    githubGroupExpectedStatus,
+    hasGithubGroupExpectedStatus: !!githubGroupExpectedStatus,
+    githubGroupStrategy,
+    hasGithubGroupStrategy: !!githubGroupStrategy,
+    githubInterfaceName,
+    hasGithubInterfaceName: !!githubInterfaceName,
+    githubRoutingMark,
+    hasGithubRoutingMark: githubRoutingMark !== null,
+    githubUseProviders,
+    hasGithubUseProviders: !!githubUseProviders.length,
+    githubIncludeAll: parseBool(rawGithubIncludeAll, false),
+    hasGithubIncludeAll: rawGithubIncludeAll !== undefined,
+    githubIncludeAllProxies: parseBool(rawGithubIncludeAllProxies, false),
+    hasGithubIncludeAllProxies: rawGithubIncludeAllProxies !== undefined,
+    githubIncludeAllProviders: parseBool(rawGithubIncludeAllProviders, false),
+    hasGithubIncludeAllProviders: rawGithubIncludeAllProviders !== undefined,
+    githubHidden: parseBool(rawGithubHidden, false),
+    hasGithubHidden: rawGithubHidden !== undefined,
+    githubDisableUdp: parseBool(rawGithubDisableUdp, false),
+    hasGithubDisableUdp: rawGithubDisableUdp !== undefined,
+    githubIcon,
+    hasGithubIcon: !!githubIcon,
+    githubNodeFilter,
+    hasGithubNodeFilter: !!githubNodeFilter,
+    githubNodeExcludeFilter,
+    hasGithubNodeExcludeFilter: !!githubNodeExcludeFilter,
+    githubNodeExcludeType,
+    hasGithubNodeExcludeType: !!githubNodeExcludeType,
+    steamTestUrl,
+    hasSteamTestUrl: !!steamTestUrl,
+    steamGroupInterval,
+    hasSteamGroupInterval: rawSteamGroupInterval !== undefined,
+    steamGroupTolerance,
+    hasSteamGroupTolerance: rawSteamGroupTolerance !== undefined,
+    steamGroupTimeout,
+    hasSteamGroupTimeout: rawSteamGroupTimeout !== undefined,
+    steamGroupLazy: parseBool(rawSteamGroupLazy, true),
+    hasSteamGroupLazy: rawSteamGroupLazy !== undefined,
+    steamGroupMaxFailedTimes,
+    hasSteamGroupMaxFailedTimes: rawSteamGroupMaxFailedTimes !== undefined,
+    steamGroupExpectedStatus,
+    hasSteamGroupExpectedStatus: !!steamGroupExpectedStatus,
+    steamGroupStrategy,
+    hasSteamGroupStrategy: !!steamGroupStrategy,
+    steamInterfaceName,
+    hasSteamInterfaceName: !!steamInterfaceName,
+    steamRoutingMark,
+    hasSteamRoutingMark: steamRoutingMark !== null,
+    steamUseProviders,
+    hasSteamUseProviders: !!steamUseProviders.length,
+    steamIncludeAll: parseBool(rawSteamIncludeAll, false),
+    hasSteamIncludeAll: rawSteamIncludeAll !== undefined,
+    steamIncludeAllProxies: parseBool(rawSteamIncludeAllProxies, false),
+    hasSteamIncludeAllProxies: rawSteamIncludeAllProxies !== undefined,
+    steamIncludeAllProviders: parseBool(rawSteamIncludeAllProviders, false),
+    hasSteamIncludeAllProviders: rawSteamIncludeAllProviders !== undefined,
+    steamHidden: parseBool(rawSteamHidden, false),
+    hasSteamHidden: rawSteamHidden !== undefined,
+    steamDisableUdp: parseBool(rawSteamDisableUdp, false),
+    hasSteamDisableUdp: rawSteamDisableUdp !== undefined,
+    steamIcon,
+    hasSteamIcon: !!steamIcon,
+    steamNodeFilter,
+    hasSteamNodeFilter: !!steamNodeFilter,
+    steamNodeExcludeFilter,
+    hasSteamNodeExcludeFilter: !!steamNodeExcludeFilter,
+    steamNodeExcludeType,
+    hasSteamNodeExcludeType: !!steamNodeExcludeType,
+    // 允许用参数分别控制 profile.store-selected / store-fake-ip。
+    profileSelected: parseBool(rawProfileSelected, true),
+    hasProfileSelected: rawProfileSelected !== undefined,
+    profileFakeIp: parseBool(rawProfileFakeIp, true),
+    hasProfileFakeIp: rawProfileFakeIp !== undefined,
+    // fake-ip 兼容多种写法。
+    fakeip: parseBool(pickArg(args, ["fakeIPEnabled", "fakeIpEnabled", "fakeip", "fake-ip"]), true),
+    // quic 兼容 quicEnabled / quic。
+    quic: parseBool(pickArg(args, ["quicEnabled", "quic"]), false),
+    // 允许用参数直接覆盖 unified-delay / tcp-concurrent。
+    unifiedDelay: parseBool(rawUnifiedDelay, true),
+    hasUnifiedDelay: rawUnifiedDelay !== undefined,
+    tcpConcurrent: parseBool(rawTcpConcurrent, true),
+    hasTcpConcurrent: rawTcpConcurrent !== undefined,
+    // 允许用参数显式控制 Geo 自动更新。
+    geoAutoUpdate: parseBool(rawGeoAutoUpdate, false),
+    hasGeoAutoUpdate: rawGeoAutoUpdate !== undefined,
+    // 允许用参数显式控制 Geo 更新间隔。
+    geoUpdateInterval,
+    hasGeoUpdateInterval: rawGeoUpdateInterval !== undefined,
+    // 允许用参数显式覆盖 global-ua。
+    globalUa: typeof rawGlobalUa === "string" ? rawGlobalUa.trim() : "",
+    hasGlobalUa: typeof rawGlobalUa === "string" && !!rawGlobalUa.trim(),
+    // 允许把运行时调试摘要写进下载响应头，方便直接在 HTTP 层排查。
+    responseHeaders: parseBool(rawResponseHeaders, false),
+    hasResponseHeaders: rawResponseHeaders !== undefined,
+    responseHeaderPrefix,
+    hasResponseHeaderPrefix: typeof rawResponseHeaderPrefix === "string" && !!rawResponseHeaderPrefix.trim(),
+    // 允许用参数显式覆盖 DNS 高级项。
+    dnsPreferH3: parseBool(rawDnsPreferH3, false),
+    hasDnsPreferH3: rawDnsPreferH3 !== undefined,
+    dnsRespectRules: parseBool(rawDnsRespectRules, false),
+    hasDnsRespectRules: rawDnsRespectRules !== undefined,
+    dnsCacheAlgorithm: typeof rawDnsCacheAlgorithm === "string" ? rawDnsCacheAlgorithm.trim().toLowerCase() : "",
+    hasDnsCacheAlgorithm: typeof rawDnsCacheAlgorithm === "string" && !!rawDnsCacheAlgorithm.trim(),
+    dnsUseSystemHosts: parseBool(rawDnsUseSystemHosts, true),
+    hasDnsUseSystemHosts: rawDnsUseSystemHosts !== undefined,
+    fakeIpFilterMode: typeof rawFakeIpFilterMode === "string" ? rawFakeIpFilterMode.trim().toLowerCase() : "",
+    hasFakeIpFilterMode: typeof rawFakeIpFilterMode === "string" && !!rawFakeIpFilterMode.trim(),
+    fakeIpTtl,
+    hasFakeIpTtl: rawFakeIpTtl !== undefined,
+    // 允许用参数显式覆盖 find-process-mode / geodata-loader / geodata-mode。
+    processMode: typeof rawProcessMode === "string" ? rawProcessMode.trim().toLowerCase() : "",
+    hasProcessMode: typeof rawProcessMode === "string" && !!rawProcessMode.trim(),
+    geodataLoader: typeof rawGeodataLoader === "string" ? rawGeodataLoader.trim().toLowerCase() : "",
+    hasGeodataLoader: typeof rawGeodataLoader === "string" && !!rawGeodataLoader.trim(),
+    geodataMode: parseBool(rawGeodataMode, true),
+    hasGeodataMode: rawGeodataMode !== undefined,
+    // 使用前面已校验过的 threshold。
+    threshold,
+    // 允许用参数覆盖测速组健康检查细节。
+    testUrl,
+    hasTestUrl: !!testUrl,
+    groupInterval,
+    hasGroupInterval: rawGroupInterval !== undefined,
+    groupTolerance,
+    hasGroupTolerance: rawGroupTolerance !== undefined,
+    groupTimeout,
+    hasGroupTimeout: rawGroupTimeout !== undefined,
+    groupMaxFailedTimes,
+    hasGroupMaxFailedTimes: rawGroupMaxFailedTimes !== undefined,
+    groupExpectedStatus,
+    hasGroupExpectedStatus: !!groupExpectedStatus,
+    groupStrategy,
+    hasGroupStrategy: !!groupStrategy,
+    groupInterfaceName,
+    hasGroupInterfaceName: !!groupInterfaceName,
+    groupRoutingMark,
+    hasGroupRoutingMark: groupRoutingMark !== null,
+    groupLazy: parseBool(rawGroupLazy, true),
+    hasGroupLazy: rawGroupLazy !== undefined,
+    // 允许用参数覆盖 DNS 监听地址与 Fake-IP 地址池。
+    dnsListen,
+    hasDnsListen: !!dnsListen,
+    fakeIpRange,
+    hasFakeIpRange: !!fakeIpRange,
+    fakeIpRange6,
+    hasFakeIpRange6: !!fakeIpRange6,
+    // 允许用参数覆盖 Sniffer 官方示例中的核心布尔项。
+    snifferForceDnsMapping: parseBool(rawSnifferForceDnsMapping, true),
+    hasSnifferForceDnsMapping: rawSnifferForceDnsMapping !== undefined,
+    snifferParsePureIp: parseBool(rawSnifferParsePureIp, true),
+    hasSnifferParsePureIp: rawSnifferParsePureIp !== undefined,
+    snifferOverrideDestination: parseBool(rawSnifferOverrideDestination, false),
+    hasSnifferOverrideDestination: rawSnifferOverrideDestination !== undefined,
+    snifferHttpOverrideDestination: parseBool(rawSnifferHttpOverrideDestination, true),
+    hasSnifferHttpOverrideDestination: rawSnifferHttpOverrideDestination !== undefined,
+    snifferForceDomains,
+    hasSnifferForceDomains: !!snifferForceDomains.length,
+    snifferSkipDomains,
+    hasSnifferSkipDomains: !!snifferSkipDomains.length
+  };
+}
+
+// 从 resolveArgs 源码里自动提取 pickArg 别名，避免后续每加一个参数都要手写维护白名单。
+function collectKnownScriptArgAliases() {
+  const source = typeof resolveArgs === "function" ? resolveArgs.toString() : "";
+  const aliases = [];
+  const pickArgPattern = /pickArg\(args,\s*\[([\s\S]*?)\]\)/g;
+  let matched = pickArgPattern.exec(source);
+
+  while (matched) {
+    const aliasSource = matched[1];
+    const aliasPattern = /["']([^"']+)["']/g;
+    let aliasMatched = aliasPattern.exec(aliasSource);
+
+    while (aliasMatched) {
+      aliases.push(aliasMatched[1]);
+      aliasMatched = aliasPattern.exec(aliasSource);
+    }
+
+    matched = pickArgPattern.exec(source);
+  }
+
+  return uniqueStrings(aliases);
+}
+
+// 建立所有“已知脚本参数别名”的查找表，给未消费参数诊断复用。
+const KNOWN_SCRIPT_ARG_KEYS = createLookup(collectKnownScriptArgAliases());
+
+// 根据 rule-provider 的格式推断更合适的本地缓存文件扩展名。
+function getRuleProviderExtension(format) {
+  const normalized = String(format || "yaml").trim().toLowerCase();
+
+  if (normalized === "mrs") {
+    return "mrs";
+  }
+
+  if (normalized === "text") {
+    return "list";
+  }
+
+  return "yaml";
+}
+
+// 把 provider 名称转换成安全的本地文件名片段，避免路径里出现特殊字符。
+function sanitizeFileToken(value) {
+  const token = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return token || "ruleset";
+}
+
+// 为 rule-provider 生成稳定的本地缓存路径，并保证同一批 provider 内不重名。
+function buildRuleProviderPath(name, provider, usedPaths) {
+  const seen = isObject(usedPaths) ? usedPaths : {};
+  const extension = getRuleProviderExtension(isObject(provider) ? provider.format : "");
+  const baseToken = sanitizeFileToken(name);
+  const pathDir = typeof ARGS !== "undefined" && ARGS && ARGS.ruleProviderPathDir ? ARGS.ruleProviderPathDir : RULE_PROVIDER_PATH_DIR;
+  let index = 0;
+
+  while (true) {
+    const suffix = index === 0 ? "" : `-${index + 1}`;
+    const path = `${pathDir}/${baseToken}${suffix}.${extension}`;
+
+    if (!seen[path]) {
+      seen[path] = true;
+      return path;
+    }
+
+    index += 1;
+  }
+}
+
+// 从 path / url 这类字符串里提取文件扩展名，自动忽略 query/hash。
+function getPathLikeExtension(value, fallback) {
+  const source = normalizeStringArg(value).replace(/\\/g, "/");
+
+  if (!source) {
+    return fallback || "";
+  }
+
+  const normalized = source.replace(/[?#].*$/, "");
+  const matched = normalized.match(/\.([A-Za-z0-9_-]+)$/);
+  return matched ? matched[1].toLowerCase() : (fallback || "");
+}
+
+// 给 proxy-provider 推断缓存文件扩展名：优先沿用现有 path，其次尝试从 url 提取，最后回退 yaml。
+function getProxyProviderExtension(provider) {
+  if (!isObject(provider)) {
+    return "yaml";
+  }
+
+  const pathExtension = getPathLikeExtension(provider.path, "");
+  if (pathExtension) {
+    return pathExtension;
+  }
+
+  return getPathLikeExtension(provider.url, "yaml");
+}
+
+// 为 proxy-provider 生成稳定的本地缓存路径，并尽量避免与现有 path 冲突。
+function buildProxyProviderPath(name, provider, usedPaths) {
+  const seen = isObject(usedPaths) ? usedPaths : {};
+  const pathDir = typeof ARGS !== "undefined" && ARGS && ARGS.proxyProviderPathDir ? ARGS.proxyProviderPathDir : "";
+  const extension = getProxyProviderExtension(provider);
+  const baseToken = sanitizeFileToken(name);
+  let index = 0;
+
+  while (true) {
+    const suffix = index === 0 ? "" : `-${index + 1}`;
+    const path = `${pathDir}/${baseToken}${suffix}.${extension}`;
+
+    if (!seen[path]) {
+      seen[path] = true;
+      return path;
+    }
+
+    index += 1;
+  }
+}
+
+// 判断某个 rule-provider 是否属于可统一接管下载控制/缓存路径的 http 类型。
+function canAutoAssignRuleProviderPath(provider) {
+  return isObject(provider) && String(provider.type || "http").trim().toLowerCase() === "http";
+}
+
+// 判断当前是否开启了 rule-provider 的 http 下载控制接管，便于日志、响应头与校验共用同一套口径。
+function hasRuleProviderDownloadConfiguredOptions() {
+  return !!(
+    typeof ARGS !== "undefined" &&
+    ARGS &&
+    (
+      ARGS.hasRuleProviderInterval ||
+      ARGS.hasRuleProviderProxy ||
+      ARGS.hasRuleProviderSizeLimit ||
+      ARGS.hasRuleProviderHeader ||
+      ARGS.hasRuleProviderUserAgent ||
+      ARGS.hasRuleProviderAuthorization
+    )
+  );
+}
+
+// 汇总 rule-provider 各类参数的实际接管范围，便于 full 日志与响应调试头直接复用。
+function buildRuleProviderApplyScopeSummary() {
+  if (typeof ARGS === "undefined" || !ARGS) {
+    return "default";
+  }
+
+  const scopes = [];
+
+  if (ARGS.hasRuleProviderPathDir) {
+    scopes.push("path=http-only");
+  }
+
+  if (hasRuleProviderDownloadConfiguredOptions()) {
+    scopes.push("download=http-only");
+  }
+
+  if (ARGS.hasRuleProviderPayload) {
+    scopes.push("payload=inline-only");
+  }
+
+  return scopes.length ? scopes.join(",") : "default";
+}
+
+// 统计 rule-provider 在当前参数组合下的实际命中数量，便于把“作用范围”进一步落到真实条目数上。
+function analyzeRuleProviderApplyStats(providers) {
+  const source = isObject(providers) ? providers : {};
+  const stats = {
+    total: 0,
+    http: 0,
+    file: 0,
+    inline: 0,
+    other: 0,
+    invalid: 0,
+    pathHit: 0,
+    downloadHit: 0,
+    payloadHit: 0
+  };
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    stats.total += 1;
+
+    if (!isObject(provider)) {
+      stats.invalid += 1;
+      continue;
+    }
+
+    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
+
+    if (type === "http") {
+      stats.http += 1;
+      if (ARGS.hasRuleProviderPathDir) {
+        stats.pathHit += 1;
+      }
+      if (hasRuleProviderDownloadConfiguredOptions()) {
+        stats.downloadHit += 1;
+      }
+      continue;
+    }
+
+    if (type === "file") {
+      stats.file += 1;
+      continue;
+    }
+
+    if (type === "inline") {
+      stats.inline += 1;
+      if (ARGS.hasRuleProviderPayload) {
+        stats.payloadHit += 1;
+      }
+      continue;
+    }
+
+    stats.other += 1;
+  }
+
+  return stats;
+}
+
+// 把 rule-provider 命中统计压成紧凑摘要，方便写入 full 日志与响应调试头。
+function formatRuleProviderApplyStats(stats) {
+  const source = isObject(stats) ? stats : {};
+  return `total=${Number(source.total) || 0},http=${Number(source.http) || 0},file=${Number(source.file) || 0},inline=${Number(source.inline) || 0},other=${Number(source.other) || 0},invalid=${Number(source.invalid) || 0},path-hit=${ARGS.hasRuleProviderPathDir ? (Number(source.pathHit) || 0) : "off"},download-hit=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadHit) || 0) : "off"},payload-hit=${ARGS.hasRuleProviderPayload ? (Number(source.payloadHit) || 0) : "off"}`;
+}
+
+// 清洗 provider 名称样本，避免预览摘要里的分隔符与超长名称把调试信息挤爆。
+function sanitizeProviderPreviewName(name) {
+  return normalizeStringArg(name)
+    .replace(/\s+/g, " ")
+    .replace(/\|/g, "/")
+    .replace(/,/g, ";");
+}
+
+// 把 provider 名称样本压成固定长度的可读片段，便于直接写入日志与响应头。
+function formatProviderPreviewNames(names, maxItems, maxNameLength) {
+  const source = uniqueStrings(
+    (Array.isArray(names) ? names : [])
+      .map((name) => sanitizeProviderPreviewName(name))
+      .filter(Boolean)
+  );
+
+  if (!source.length) {
+    return "none";
+  }
+
+  const itemLimit = Number.isFinite(maxItems) && maxItems > 0 ? Math.floor(maxItems) : 3;
+  const nameLimit = Number.isFinite(maxNameLength) && maxNameLength > 4 ? Math.floor(maxNameLength) : 18;
+  const visibleNames = source
+    .slice(0, itemLimit)
+    .map((name) => (name.length > nameLimit ? `${name.slice(0, nameLimit - 3)}...` : name));
+  const remaining = source.length - visibleNames.length;
+
+  return `${visibleNames.join("|")}${remaining > 0 ? `(+${remaining})` : ""}`;
+}
+
+// 统一格式化单类 provider 命中预览，未开启时标记 off，开启但未命中时标记 none。
+function formatProviderPreviewEntry(label, names, enabled) {
+  return `${label}=${enabled ? formatProviderPreviewNames(names, 3, 18) : "off"}`;
+}
+
+// 汇总 rule-provider 实际命中的名称样本，便于在统计之外快速定位具体条目。
+function analyzeRuleProviderApplyPreview(providers) {
+  const source = isObject(providers) ? providers : {};
+  const preview = {
+    path: [],
+    download: [],
+    payload: []
+  };
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+
+    if (!isObject(provider)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
+
+    if (type === "http") {
+      if (ARGS.hasRuleProviderPathDir) {
+        preview.path.push(name);
+      }
+      if (hasRuleProviderDownloadConfiguredOptions()) {
+        preview.download.push(name);
+      }
+      continue;
+    }
+
+    if (type === "inline" && ARGS.hasRuleProviderPayload) {
+      preview.payload.push(name);
+    }
+  }
+
+  return preview;
+}
+
+// 把 rule-provider 命中样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
+function formatRuleProviderApplyPreview(preview) {
+  const source = isObject(preview) ? preview : {};
+  return [
+    formatProviderPreviewEntry("path", source.path, ARGS.hasRuleProviderPathDir),
+    formatProviderPreviewEntry("download", source.download, hasRuleProviderDownloadConfiguredOptions()),
+    formatProviderPreviewEntry("payload", source.payload, ARGS.hasRuleProviderPayload)
+  ].join(",");
+}
+
+// 判断两个 JSON 兼容值在当前脚本语义下是否等价，便于区分“新增写入”和“覆盖旧值”。
+function areJsonValuesEqual(left, right) {
+  if (left === right) {
+    return true;
+  }
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch (error) {
+    return false;
+  }
+}
+
+// 统计一组字段在“原始 provider -> 最终 provider”之间是新增写入还是覆盖旧值。
+function analyzeProviderMutationByKeys(beforeProvider, afterProvider, keys) {
+  const result = {
+    added: false,
+    overrode: false,
+    noop: false
+  };
+  const source = isObject(beforeProvider) ? beforeProvider : {};
+  const target = isObject(afterProvider) ? afterProvider : {};
+  let compared = false;
+
+  for (const key of Array.isArray(keys) ? keys : []) {
+    const beforeHas = hasOwn(source, key);
+    const afterHas = hasOwn(target, key);
+
+    if (!afterHas) {
+      continue;
+    }
+
+    compared = true;
+
+    if (beforeHas && areJsonValuesEqual(source[key], target[key])) {
+      continue;
+    }
+
+    if (!beforeHas) {
+      result.added = true;
+      continue;
+    }
+
+    result.overrode = true;
+  }
+
+  if (compared && !result.added && !result.overrode) {
+    result.noop = true;
+  }
+
+  return result;
+}
+
+// 创建一组 provider 改动样本桶，分别记录新增、覆盖与无变化的名称样本。
+function createProviderMutationPreviewEntry() {
+  return {
+    added: [],
+    overrode: [],
+    noop: []
+  };
+}
+
+// 把当前 provider 的改动类型写进样本桶，便于后续输出紧凑预览。
+function appendProviderMutationPreviewEntry(entry, name, mutation) {
+  const target = isObject(entry) ? entry : createProviderMutationPreviewEntry();
+
+  if (!isObject(mutation)) {
+    return target;
+  }
+
+  if (mutation.added) {
+    target.added.push(name);
+  }
+
+  if (mutation.overrode) {
+    target.overrode.push(name);
+  }
+
+  if (mutation.noop) {
+    target.noop.push(name);
+  }
+
+  return target;
+}
+
+// 把单类 provider 改动样本压成紧凑摘要，未开启时显示 off，开启后分别预览 added/overrode/noop。
+function formatProviderMutationPreviewEntry(label, entry, enabled) {
+  const source = isObject(entry) ? entry : {};
+  return `${label}=${enabled ? `added:${formatProviderPreviewNames(source.added, 2, 14)}/overrode:${formatProviderPreviewNames(source.overrode, 2, 14)}/noop:${formatProviderPreviewNames(source.noop, 2, 14)}` : "off"}`;
+}
+
+// 统计 rule-provider 参数最终是新增字段还是覆盖旧字段，帮助区分“补全”与“替换”。
+function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
+  const source = isObject(beforeProviders) ? beforeProviders : {};
+  const target = isObject(afterProviders) ? afterProviders : {};
+  const stats = {
+    total: 0,
+    pathAdded: 0,
+    pathOverrode: 0,
+    pathNoop: 0,
+    downloadAdded: 0,
+    downloadOverrode: 0,
+    downloadNoop: 0,
+    payloadAdded: 0,
+    payloadOverrode: 0,
+    payloadNoop: 0
+  };
+
+  for (const name of Object.keys(target)) {
+    const beforeProvider = isObject(source[name]) ? source[name] : {};
+    const afterProvider = target[name];
+
+    if (!isObject(afterProvider)) {
+      continue;
+    }
+
+    stats.total += 1;
+    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
+    const isHttpProvider = type === "http";
+    const isInlineProvider = type === "inline";
+
+    if (ARGS.hasRuleProviderPathDir && isHttpProvider) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"]);
+      if (mutation.added) {
+        stats.pathAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.pathOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.pathNoop += 1;
+      }
+    }
+
+    if (hasRuleProviderDownloadConfiguredOptions() && isHttpProvider) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"]);
+      if (mutation.added) {
+        stats.downloadAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.downloadOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.downloadNoop += 1;
+      }
+    }
+
+    if (ARGS.hasRuleProviderPayload && isInlineProvider) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"]);
+      if (mutation.added) {
+        stats.payloadAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.payloadOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.payloadNoop += 1;
+      }
+    }
+  }
+
+  return stats;
+}
+
+// 汇总 rule-provider 的改动样本，便于快速定位哪些 provider 被新增写入、覆盖或保持不变。
+function analyzeRuleProviderMutationPreview(beforeProviders, afterProviders) {
+  const source = isObject(beforeProviders) ? beforeProviders : {};
+  const target = isObject(afterProviders) ? afterProviders : {};
+  const preview = {
+    path: createProviderMutationPreviewEntry(),
+    download: createProviderMutationPreviewEntry(),
+    payload: createProviderMutationPreviewEntry()
+  };
+
+  for (const name of Object.keys(target)) {
+    const beforeProvider = isObject(source[name]) ? source[name] : {};
+    const afterProvider = target[name];
+
+    if (!isObject(afterProvider)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
+    const isHttpProvider = type === "http";
+    const isInlineProvider = type === "inline";
+
+    if (ARGS.hasRuleProviderPathDir && isHttpProvider) {
+      appendProviderMutationPreviewEntry(
+        preview.path,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"])
+      );
+    }
+
+    if (hasRuleProviderDownloadConfiguredOptions() && isHttpProvider) {
+      appendProviderMutationPreviewEntry(
+        preview.download,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"])
+      );
+    }
+
+    if (ARGS.hasRuleProviderPayload && isInlineProvider) {
+      appendProviderMutationPreviewEntry(
+        preview.payload,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"])
+      );
+    }
+  }
+
+  return preview;
+}
+
+// 把 rule-provider 改动统计压成紧凑摘要，便于写入 full 日志与响应调试头。
+function formatRuleProviderMutationStats(stats) {
+  const source = isObject(stats) ? stats : {};
+  return `total=${Number(source.total) || 0},path-added=${ARGS.hasRuleProviderPathDir ? (Number(source.pathAdded) || 0) : "off"},path-overrode=${ARGS.hasRuleProviderPathDir ? (Number(source.pathOverrode) || 0) : "off"},path-noop=${ARGS.hasRuleProviderPathDir ? (Number(source.pathNoop) || 0) : "off"},download-added=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadAdded) || 0) : "off"},download-overrode=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadOverrode) || 0) : "off"},download-noop=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadNoop) || 0) : "off"},payload-added=${ARGS.hasRuleProviderPayload ? (Number(source.payloadAdded) || 0) : "off"},payload-overrode=${ARGS.hasRuleProviderPayload ? (Number(source.payloadOverrode) || 0) : "off"},payload-noop=${ARGS.hasRuleProviderPayload ? (Number(source.payloadNoop) || 0) : "off"}`;
+}
+
+// 把 rule-provider 改动样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
+function formatRuleProviderMutationPreview(preview) {
+  const source = isObject(preview) ? preview : {};
+  return [
+    formatProviderMutationPreviewEntry("path", source.path, ARGS.hasRuleProviderPathDir),
+    formatProviderMutationPreviewEntry("download", source.download, hasRuleProviderDownloadConfiguredOptions()),
+    formatProviderMutationPreviewEntry("payload", source.payload, ARGS.hasRuleProviderPayload)
+  ].join(",");
+}
+
+// 把最终 rule-provider 做统一定稿：补本地缓存路径，并把 http 类型的下载控制统一接管。
+function finalizeRuleProviders(providers) {
+  const source = isObject(providers) ? providers : {};
+  const usedPaths = Object.create(null);
+  const result = {};
+  const hasDownloadConfiguredOptions = hasRuleProviderDownloadConfiguredOptions();
+  const hasPayloadConfiguredOption = ARGS.hasRuleProviderPayload;
+
+  // 先登记本轮不会被 path-dir 接管的既有路径，避免后续自动分配时撞上已有缓存文件。
+  for (const name of Object.keys(source)) {
+    const currentProvider = source[name];
+    if (!isObject(currentProvider)) {
+      continue;
+    }
+
+    const isHttpProvider = canAutoAssignRuleProviderPath(currentProvider);
+    const shouldReassignPath = isHttpProvider && ARGS.hasRuleProviderPathDir;
+    const currentPath = normalizeStringArg(currentProvider.path).replace(/\\/g, "/");
+
+    if (currentPath && !shouldReassignPath && !usedPaths[currentPath]) {
+      usedPaths[currentPath] = true;
+    }
+  }
+
+  for (const name of Object.keys(source)) {
+    const currentProvider = source[name];
+    if (!isObject(currentProvider)) {
+      result[name] = currentProvider;
+      continue;
+    }
+
+    const provider = Object.assign({}, currentProvider);
+    const currentPath = normalizeStringArg(provider.path).replace(/\\/g, "/");
+    const type = normalizeStringArg(provider.type || "http").toLowerCase();
+    const isHttpProvider = type === "http";
+    const isInlineProvider = type === "inline";
+
+    if (isHttpProvider && ARGS.hasRuleProviderPathDir) {
+      provider.path = buildRuleProviderPath(name, provider, usedPaths);
+    } else if (currentPath && !usedPaths[currentPath]) {
+      provider.path = currentPath;
+      usedPaths[currentPath] = true;
+    } else if (isHttpProvider) {
+      provider.path = buildRuleProviderPath(name, provider, usedPaths);
+    }
+
+    if (isHttpProvider && ARGS.hasRuleProviderInterval) {
+      provider.interval = ARGS.ruleProviderInterval;
+    }
+
+    if (isHttpProvider && ARGS.hasRuleProviderProxy) {
+      provider.proxy = ARGS.ruleProviderProxy;
+    }
+
+    if (isHttpProvider && ARGS.hasRuleProviderSizeLimit) {
+      provider["size-limit"] = ARGS.ruleProviderSizeLimit;
+    }
+
+    if (isHttpProvider && hasDownloadConfiguredOptions) {
+      const headers = mergeProviderHeaders(
+        provider.header,
+        ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "",
+        ARGS.hasRuleProviderAuthorization ? ARGS.ruleProviderAuthorization : "",
+        ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeader : {}
+      );
+
+      if (headers) {
+        provider.header = headers;
+      }
+    }
+
+    if (isInlineProvider && hasPayloadConfiguredOption) {
+      provider.payload = cloneJsonCompatibleValue(ARGS.ruleProviderPayload, []);
+    }
+
+    result[name] = provider;
+  }
+
+  return result;
+}
+
+// 合并用户原有 provider 与脚本内置 provider，并统一完成 path 去冲突与 http 下载控制接管。
+function mergeRuleProviders(existingProviders, generatedProviders) {
+  return finalizeRuleProviders(
+    Object.assign(
+      {},
+      isObject(existingProviders) ? existingProviders : {},
+      isObject(generatedProviders) ? generatedProviders : {}
+    )
+  );
+}
+
+// 把 JSON 兼容的数据做一次深拷贝，避免多个 provider 共享同一份 payload / header 引用。
+function cloneJsonCompatibleValue(value, fallback) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    return fallback;
+  }
+}
+
+// 解析 rule-provider payload 参数，支持字符串数组、JSON 数组，以及换行 / || 分隔的规则列表。
+function parseRuleProviderPayload(value) {
+  let source = value;
+
+  if (typeof source === "string") {
+    const text = normalizeStringArg(source);
+    if (!text) {
+      return { items: [], invalidItems: [], parseFailed: false };
+    }
+
+    try {
+      source = JSON.parse(text);
+    } catch (error) {
+      source = text.replace(/\r/g, "").split(/\n|\|\|/);
+    }
+  }
+
+  if (!Array.isArray(source) && typeof source !== "string") {
+    return {
+      items: [],
+      invalidItems: ["payload 根结构必须是字符串或字符串数组"],
+      parseFailed: true
+    };
+  }
+
+  const rawItems = Array.isArray(source)
+    ? source
+    : String(source || "").replace(/\r/g, "").split(/\n|\|\|/);
+  const items = [];
+  const invalidItems = [];
+
+  for (let index = 0; index < rawItems.length; index += 1) {
+    const item = rawItems[index];
+
+    if (typeof item !== "string") {
+      invalidItems.push(`payload[${index}] 不是字符串`);
+      continue;
+    }
+
+    const rule = normalizeStringArg(item);
+    if (!rule) {
+      continue;
+    }
+
+    items.push(rule);
+  }
+
+  return {
+    items,
+    invalidItems,
+    parseFailed: false
+  };
+}
+
+// 解析 proxy-provider payload 参数，支持对象、数组以及 JSON 字符串输入。
+function parseProxyProviderPayload(value) {
+  let source = value;
+
+  if (typeof source === "string") {
+    const text = normalizeStringArg(source);
+    if (!text) {
+      return { items: [], invalidItems: [], parseFailed: false };
+    }
+
+    try {
+      source = JSON.parse(text);
+    } catch (error) {
+      return { items: [], invalidItems: [text], parseFailed: true };
+    }
+  }
+
+  const rawItems = Array.isArray(source)
+    ? source
+    : (isObject(source) ? [source] : []);
+  const items = [];
+  const invalidItems = [];
+
+  for (let index = 0; index < rawItems.length; index += 1) {
+    const item = rawItems[index];
+
+    if (!isObject(item)) {
+      invalidItems.push(`payload[${index}] 不是对象`);
+      continue;
+    }
+
+    const name = normalizeStringArg(item.name);
+    const type = normalizeStringArg(item.type);
+
+    if (!name || !type) {
+      invalidItems.push(`payload[${index}] 缺少有效的 name/type`);
+      continue;
+    }
+
+    items.push(cloneJsonCompatibleValue(item, Object.assign({}, item)));
+  }
+
+  return {
+    items,
+    invalidItems,
+    parseFailed: false
+  };
+}
+
+// 解析 provider 自定义请求头参数，支持 `Header: value||Header2: value2` 与多行写法。
+function parseProviderHeaderEntries(value) {
+  const sourceList = Array.isArray(value) ? value : [value];
+  const headers = {};
+  const entries = [];
+  const invalidLines = [];
+
+  for (const sourceItem of sourceList) {
+    const lines = String(sourceItem == null ? "" : sourceItem).replace(/\r/g, "").split(/\n|\|\|/);
+
+    for (const rawLine of lines) {
+      const line = normalizeStringArg(rawLine);
+
+      if (!line) {
+        continue;
+      }
+
+      const arrowIndex = line.indexOf("=>");
+      const colonIndex = line.indexOf(":");
+      const splitIndex = arrowIndex > 0 ? arrowIndex : colonIndex;
+      const separatorLength = arrowIndex > 0 ? 2 : 1;
+
+      if (splitIndex <= 0) {
+        invalidLines.push(line);
+        continue;
+      }
+
+      const name = line.slice(0, splitIndex).trim();
+      const headerValue = line.slice(splitIndex + separatorLength).trim();
+
+      if (!name || !headerValue || !isValidRequestHeaderName(name)) {
+        invalidLines.push(line);
+        continue;
+      }
+
+      if (!Array.isArray(headers[name])) {
+        headers[name] = [];
+      }
+
+      headers[name].push(headerValue);
+      entries.push({ name, value: headerValue });
+    }
+  }
+
+  return {
+    headers,
+    entries,
+    invalidLines
+  };
+}
+
+// 合并 provider 请求头，允许在保留现有 header 的前提下覆盖通用自定义头与常用 UA / Authorization。
+function mergeProviderHeaders(baseHeaders, userAgent, authorization, extraHeaders) {
+  const headers = isObject(baseHeaders) ? Object.assign({}, baseHeaders) : {};
+
+  for (const name of Object.keys(isObject(extraHeaders) ? extraHeaders : {})) {
+    const values = (Array.isArray(extraHeaders[name]) ? extraHeaders[name] : [extraHeaders[name]])
+      .map((item) => normalizeStringArg(item))
+      .filter(Boolean);
+
+    if (values.length) {
+      headers[name] = values;
+    }
+  }
+
+  if (userAgent) {
+    headers["User-Agent"] = [userAgent];
+  }
+
+  if (authorization) {
+    headers.Authorization = [authorization];
+  }
+
+  return Object.keys(headers).length ? headers : undefined;
+}
+
+// 判断当前是否开启了 proxy-provider 的 http 下载控制接管，便于日志、响应头与校验共用同一套口径。
+function hasProxyProviderDownloadConfiguredOptions() {
+  return !!(
+    typeof ARGS !== "undefined" &&
+    ARGS &&
+    (
+      ARGS.hasProxyProviderInterval ||
+      ARGS.hasProxyProviderProxy ||
+      ARGS.hasProxyProviderSizeLimit ||
+      ARGS.hasProxyProviderHeader ||
+      ARGS.hasProxyProviderUserAgent ||
+      ARGS.hasProxyProviderAuthorization
+    )
+  );
+}
+
+// 判断当前是否开启了 proxy-provider 节点池筛选参数，避免多处重复拼同一串布尔判断。
+function hasProxyProviderCollectionConfiguredOptions() {
+  return !!(
+    typeof ARGS !== "undefined" &&
+    ARGS &&
+    (
+      ARGS.hasProxyProviderFilter ||
+      ARGS.hasProxyProviderExcludeFilter ||
+      ARGS.hasProxyProviderExcludeType
+    )
+  );
+}
+
+// 判断当前是否开启了 proxy-provider override 批量改写参数。
+function hasProxyProviderOverrideConfiguredOptions() {
+  return !!(
+    typeof ARGS !== "undefined" &&
+    ARGS &&
+    (
+      ARGS.hasProxyProviderOverrideAdditionalPrefix ||
+      ARGS.hasProxyProviderOverrideAdditionalSuffix ||
+      ARGS.hasProxyProviderOverrideUdp ||
+      ARGS.hasProxyProviderOverrideUdpOverTcp ||
+      ARGS.hasProxyProviderOverrideDown ||
+      ARGS.hasProxyProviderOverrideUp ||
+      ARGS.hasProxyProviderOverrideTfo ||
+      ARGS.hasProxyProviderOverrideMptcp ||
+      ARGS.hasProxyProviderOverrideSkipCertVerify ||
+      ARGS.hasProxyProviderOverrideDialerProxy ||
+      ARGS.hasProxyProviderOverrideInterfaceName ||
+      ARGS.hasProxyProviderOverrideRoutingMark ||
+      ARGS.hasProxyProviderOverrideIpVersion ||
+      ARGS.hasProxyProviderOverrideProxyNameRules
+    )
+  );
+}
+
+// 判断当前是否开启了 proxy-provider health-check 接管参数。
+function hasProxyProviderHealthCheckConfiguredOptions() {
+  return !!(
+    typeof ARGS !== "undefined" &&
+    ARGS &&
+    (
+      ARGS.hasProxyProviderHealthCheckEnable ||
+      ARGS.hasProxyProviderHealthCheckUrl ||
+      ARGS.hasProxyProviderHealthCheckInterval ||
+      ARGS.hasProxyProviderHealthCheckTimeout ||
+      ARGS.hasProxyProviderHealthCheckLazy ||
+      ARGS.hasProxyProviderHealthCheckExpectedStatus
+    )
+  );
+}
+
+// 汇总 proxy-provider 各类参数的实际接管范围，便于 full 日志与响应调试头直接复用。
+function buildProxyProviderApplyScopeSummary() {
+  if (typeof ARGS === "undefined" || !ARGS) {
+    return "default";
+  }
+
+  const scopes = [];
+
+  if (ARGS.hasProxyProviderPathDir) {
+    scopes.push("path=http-only");
+  }
+
+  if (hasProxyProviderDownloadConfiguredOptions()) {
+    scopes.push("download=http-only");
+  }
+
+  if (ARGS.hasProxyProviderPayload) {
+    scopes.push("payload=all-provider-types");
+  }
+
+  if (hasProxyProviderCollectionConfiguredOptions()) {
+    scopes.push("collection=all-provider-types");
+  }
+
+  if (hasProxyProviderOverrideConfiguredOptions()) {
+    scopes.push("override=all-provider-types");
+  }
+
+  if (hasProxyProviderHealthCheckConfiguredOptions()) {
+    scopes.push("health-check=all-provider-types");
+  }
+
+  return scopes.length ? scopes.join(",") : "default";
+}
+
+// 统计 proxy-provider 在当前参数组合下的实际命中数量，便于确认每类接管到底打到了多少 provider。
+function analyzeProxyProviderApplyStats(proxyProviders) {
+  const source = isObject(proxyProviders) ? proxyProviders : {};
+  const stats = {
+    total: 0,
+    http: 0,
+    file: 0,
+    inline: 0,
+    other: 0,
+    invalid: 0,
+    pathHit: 0,
+    downloadHit: 0,
+    payloadHit: 0,
+    collectionHit: 0,
+    overrideHit: 0,
+    healthCheckHit: 0
+  };
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    stats.total += 1;
+
+    if (!isObject(provider)) {
+      stats.invalid += 1;
+      continue;
+    }
+
+    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
+
+    if (type === "http") {
+      stats.http += 1;
+      if (ARGS.hasProxyProviderPathDir) {
+        stats.pathHit += 1;
+      }
+      if (hasProxyProviderDownloadConfiguredOptions()) {
+        stats.downloadHit += 1;
+      }
+    } else if (type === "file") {
+      stats.file += 1;
+    } else if (type === "inline") {
+      stats.inline += 1;
+    } else {
+      stats.other += 1;
+    }
+
+    if (ARGS.hasProxyProviderPayload) {
+      stats.payloadHit += 1;
+    }
+
+    if (hasProxyProviderCollectionConfiguredOptions()) {
+      stats.collectionHit += 1;
+    }
+
+    if (hasProxyProviderOverrideConfiguredOptions()) {
+      stats.overrideHit += 1;
+    }
+
+    if (hasProxyProviderHealthCheckConfiguredOptions()) {
+      stats.healthCheckHit += 1;
+    }
+  }
+
+  return stats;
+}
+
+// 把 proxy-provider 命中统计压成紧凑摘要，方便写入 full 日志与响应调试头。
+function formatProxyProviderApplyStats(stats) {
+  const source = isObject(stats) ? stats : {};
+  return `total=${Number(source.total) || 0},http=${Number(source.http) || 0},file=${Number(source.file) || 0},inline=${Number(source.inline) || 0},other=${Number(source.other) || 0},invalid=${Number(source.invalid) || 0},path-hit=${ARGS.hasProxyProviderPathDir ? (Number(source.pathHit) || 0) : "off"},download-hit=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadHit) || 0) : "off"},payload-hit=${ARGS.hasProxyProviderPayload ? (Number(source.payloadHit) || 0) : "off"},collection-hit=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionHit) || 0) : "off"},override-hit=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideHit) || 0) : "off"},health-check-hit=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckHit) || 0) : "off"}`;
+}
+
+// 汇总 proxy-provider 实际命中的名称样本，便于快速定位具体 provider。
+function analyzeProxyProviderApplyPreview(proxyProviders) {
+  const source = isObject(proxyProviders) ? proxyProviders : {};
+  const preview = {
+    path: [],
+    download: [],
+    payload: [],
+    collection: [],
+    override: [],
+    healthCheck: []
+  };
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+
+    if (!isObject(provider)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
+    const isHttpProvider = type === "http";
+
+    if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
+      preview.path.push(name);
+    }
+
+    if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
+      preview.download.push(name);
+    }
+
+    if (ARGS.hasProxyProviderPayload) {
+      preview.payload.push(name);
+    }
+
+    if (hasProxyProviderCollectionConfiguredOptions()) {
+      preview.collection.push(name);
+    }
+
+    if (hasProxyProviderOverrideConfiguredOptions()) {
+      preview.override.push(name);
+    }
+
+    if (hasProxyProviderHealthCheckConfiguredOptions()) {
+      preview.healthCheck.push(name);
+    }
+  }
+
+  return preview;
+}
+
+// 把 proxy-provider 命中样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
+function formatProxyProviderApplyPreview(preview) {
+  const source = isObject(preview) ? preview : {};
+  return [
+    formatProviderPreviewEntry("path", source.path, ARGS.hasProxyProviderPathDir),
+    formatProviderPreviewEntry("download", source.download, hasProxyProviderDownloadConfiguredOptions()),
+    formatProviderPreviewEntry("payload", source.payload, ARGS.hasProxyProviderPayload),
+    formatProviderPreviewEntry("collection", source.collection, hasProxyProviderCollectionConfiguredOptions()),
+    formatProviderPreviewEntry("override", source.override, hasProxyProviderOverrideConfiguredOptions()),
+    formatProviderPreviewEntry("health-check", source.healthCheck, hasProxyProviderHealthCheckConfiguredOptions())
+  ].join(",");
+}
+
+// 统计 proxy-provider 参数最终是新增字段还是覆盖旧字段，帮助区分“补全”与“替换”。
+function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
+  const source = isObject(beforeProviders) ? beforeProviders : {};
+  const target = isObject(afterProviders) ? afterProviders : {};
+  const stats = {
+    total: 0,
+    pathAdded: 0,
+    pathOverrode: 0,
+    pathNoop: 0,
+    downloadAdded: 0,
+    downloadOverrode: 0,
+    downloadNoop: 0,
+    payloadAdded: 0,
+    payloadOverrode: 0,
+    payloadNoop: 0,
+    collectionAdded: 0,
+    collectionOverrode: 0,
+    collectionNoop: 0,
+    overrideAdded: 0,
+    overrideOverrode: 0,
+    overrideNoop: 0,
+    healthCheckAdded: 0,
+    healthCheckOverrode: 0,
+    healthCheckNoop: 0
+  };
+
+  for (const name of Object.keys(target)) {
+    const beforeProvider = isObject(source[name]) ? source[name] : {};
+    const afterProvider = target[name];
+
+    if (!isObject(afterProvider)) {
+      continue;
+    }
+
+    stats.total += 1;
+    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
+    const isHttpProvider = type === "http";
+
+    if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"]);
+      if (mutation.added) {
+        stats.pathAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.pathOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.pathNoop += 1;
+      }
+    }
+
+    if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"]);
+      if (mutation.added) {
+        stats.downloadAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.downloadOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.downloadNoop += 1;
+      }
+    }
+
+    if (ARGS.hasProxyProviderPayload) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"]);
+      if (mutation.added) {
+        stats.payloadAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.payloadOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.payloadNoop += 1;
+      }
+    }
+
+    if (hasProxyProviderCollectionConfiguredOptions()) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["filter", "exclude-filter", "exclude-type"]);
+      if (mutation.added) {
+        stats.collectionAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.collectionOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.collectionNoop += 1;
+      }
+    }
+
+    if (hasProxyProviderOverrideConfiguredOptions()) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["override"]);
+      if (mutation.added) {
+        stats.overrideAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.overrideOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.overrideNoop += 1;
+      }
+    }
+
+    if (hasProxyProviderHealthCheckConfiguredOptions()) {
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["health-check"]);
+      if (mutation.added) {
+        stats.healthCheckAdded += 1;
+      }
+      if (mutation.overrode) {
+        stats.healthCheckOverrode += 1;
+      }
+      if (mutation.noop) {
+        stats.healthCheckNoop += 1;
+      }
+    }
+  }
+
+  return stats;
+}
+
+// 汇总 proxy-provider 的改动样本，便于快速定位哪些 provider 被新增写入、覆盖或保持不变。
+function analyzeProxyProviderMutationPreview(beforeProviders, afterProviders) {
+  const source = isObject(beforeProviders) ? beforeProviders : {};
+  const target = isObject(afterProviders) ? afterProviders : {};
+  const preview = {
+    path: createProviderMutationPreviewEntry(),
+    download: createProviderMutationPreviewEntry(),
+    payload: createProviderMutationPreviewEntry(),
+    collection: createProviderMutationPreviewEntry(),
+    override: createProviderMutationPreviewEntry(),
+    healthCheck: createProviderMutationPreviewEntry()
+  };
+
+  for (const name of Object.keys(target)) {
+    const beforeProvider = isObject(source[name]) ? source[name] : {};
+    const afterProvider = target[name];
+
+    if (!isObject(afterProvider)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
+    const isHttpProvider = type === "http";
+
+    if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
+      appendProviderMutationPreviewEntry(
+        preview.path,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"])
+      );
+    }
+
+    if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
+      appendProviderMutationPreviewEntry(
+        preview.download,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"])
+      );
+    }
+
+    if (ARGS.hasProxyProviderPayload) {
+      appendProviderMutationPreviewEntry(
+        preview.payload,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"])
+      );
+    }
+
+    if (hasProxyProviderCollectionConfiguredOptions()) {
+      appendProviderMutationPreviewEntry(
+        preview.collection,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["filter", "exclude-filter", "exclude-type"])
+      );
+    }
+
+    if (hasProxyProviderOverrideConfiguredOptions()) {
+      appendProviderMutationPreviewEntry(
+        preview.override,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["override"])
+      );
+    }
+
+    if (hasProxyProviderHealthCheckConfiguredOptions()) {
+      appendProviderMutationPreviewEntry(
+        preview.healthCheck,
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["health-check"])
+      );
+    }
+  }
+
+  return preview;
+}
+
+// 把 proxy-provider 改动统计压成紧凑摘要，便于写入 full 日志与响应调试头。
+function formatProxyProviderMutationStats(stats) {
+  const source = isObject(stats) ? stats : {};
+  return `total=${Number(source.total) || 0},path-added=${ARGS.hasProxyProviderPathDir ? (Number(source.pathAdded) || 0) : "off"},path-overrode=${ARGS.hasProxyProviderPathDir ? (Number(source.pathOverrode) || 0) : "off"},path-noop=${ARGS.hasProxyProviderPathDir ? (Number(source.pathNoop) || 0) : "off"},download-added=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadAdded) || 0) : "off"},download-overrode=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadOverrode) || 0) : "off"},download-noop=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadNoop) || 0) : "off"},payload-added=${ARGS.hasProxyProviderPayload ? (Number(source.payloadAdded) || 0) : "off"},payload-overrode=${ARGS.hasProxyProviderPayload ? (Number(source.payloadOverrode) || 0) : "off"},payload-noop=${ARGS.hasProxyProviderPayload ? (Number(source.payloadNoop) || 0) : "off"},collection-added=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionAdded) || 0) : "off"},collection-overrode=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionOverrode) || 0) : "off"},collection-noop=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionNoop) || 0) : "off"},override-added=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideAdded) || 0) : "off"},override-overrode=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideOverrode) || 0) : "off"},override-noop=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideNoop) || 0) : "off"},health-check-added=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckAdded) || 0) : "off"},health-check-overrode=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckOverrode) || 0) : "off"},health-check-noop=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckNoop) || 0) : "off"}`;
+}
+
+// 把 proxy-provider 改动样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
+function formatProxyProviderMutationPreview(preview) {
+  const source = isObject(preview) ? preview : {};
+  return [
+    formatProviderMutationPreviewEntry("path", source.path, ARGS.hasProxyProviderPathDir),
+    formatProviderMutationPreviewEntry("download", source.download, hasProxyProviderDownloadConfiguredOptions()),
+    formatProviderMutationPreviewEntry("payload", source.payload, ARGS.hasProxyProviderPayload),
+    formatProviderMutationPreviewEntry("collection", source.collection, hasProxyProviderCollectionConfiguredOptions()),
+    formatProviderMutationPreviewEntry("override", source.override, hasProxyProviderOverrideConfiguredOptions()),
+    formatProviderMutationPreviewEntry("health-check", source.healthCheck, hasProxyProviderHealthCheckConfiguredOptions())
+  ].join(",");
+}
+
+// 统一增强现有 proxy-providers，便于批量接入下载控制与 health-check 参数。
+function finalizeProxyProviders(existingProviders) {
+  const source = isObject(existingProviders) ? existingProviders : {};
+  const result = {};
+  const usedPaths = Object.create(null);
+  const hasOverrideOptions = hasProxyProviderOverrideConfiguredOptions();
+  const hasHealthCheckOptions = hasProxyProviderHealthCheckConfiguredOptions();
+
+  // 先登记不会被本轮重写的 path，避免后续自动生成目录时撞上原有缓存文件。
+  for (const name of Object.keys(source)) {
+    const currentProvider = source[name];
+    if (!isObject(currentProvider)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(currentProvider.type).toLowerCase();
+    const isHttpProvider = type === "http";
+    const shouldAssignPath = isHttpProvider && ARGS.hasProxyProviderPathDir;
+    const currentPath = normalizeStringArg(currentProvider.path).replace(/\\/g, "/");
+
+    if (currentPath && !shouldAssignPath && !usedPaths[currentPath]) {
+      usedPaths[currentPath] = true;
+    }
+  }
+
+  for (const name of Object.keys(source)) {
+    const currentProvider = source[name];
+    if (!isObject(currentProvider)) {
+      result[name] = currentProvider;
+      continue;
+    }
+
+    const provider = Object.assign({}, currentProvider);
+    const type = normalizeStringArg(provider.type).toLowerCase();
+    const isHttpProvider = type === "http";
+
+    if (isHttpProvider && ARGS.hasProxyProviderPathDir) {
+      provider.path = buildProxyProviderPath(name, provider, usedPaths);
+    }
+
+    if (ARGS.hasProxyProviderPayload) {
+      provider.payload = cloneJsonCompatibleValue(ARGS.proxyProviderPayload, []);
+    }
+
+    if (isHttpProvider && ARGS.hasProxyProviderInterval) {
+      provider.interval = ARGS.proxyProviderInterval;
+    }
+
+    if (isHttpProvider && ARGS.hasProxyProviderProxy) {
+      provider.proxy = ARGS.proxyProviderProxy;
+    }
+
+    if (isHttpProvider && ARGS.hasProxyProviderSizeLimit) {
+      provider["size-limit"] = ARGS.proxyProviderSizeLimit;
+    }
+
+    if (isHttpProvider && (ARGS.hasProxyProviderHeader || ARGS.hasProxyProviderUserAgent || ARGS.hasProxyProviderAuthorization)) {
+      const headers = mergeProviderHeaders(
+        provider.header,
+        ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "",
+        ARGS.hasProxyProviderAuthorization ? ARGS.proxyProviderAuthorization : "",
+        ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeader : {}
+      );
+      if (headers) {
+        provider.header = headers;
+      }
+    }
+
+    if (ARGS.hasProxyProviderFilter) {
+      provider.filter = ARGS.proxyProviderFilter;
+    }
+
+    if (ARGS.hasProxyProviderExcludeFilter) {
+      provider["exclude-filter"] = ARGS.proxyProviderExcludeFilter;
+    }
+
+    if (ARGS.hasProxyProviderExcludeType) {
+      provider["exclude-type"] = ARGS.proxyProviderExcludeType;
+    }
+
+    if (hasOverrideOptions) {
+      const override = mergeObjects(provider.override, {});
+
+      if (ARGS.hasProxyProviderOverrideAdditionalPrefix) {
+        override["additional-prefix"] = ARGS.proxyProviderOverrideAdditionalPrefix;
+      }
+
+      if (ARGS.hasProxyProviderOverrideAdditionalSuffix) {
+        override["additional-suffix"] = ARGS.proxyProviderOverrideAdditionalSuffix;
+      }
+
+      if (ARGS.hasProxyProviderOverrideUdp) {
+        override.udp = ARGS.proxyProviderOverrideUdp;
+      }
+
+      if (ARGS.hasProxyProviderOverrideUdpOverTcp) {
+        override["udp-over-tcp"] = ARGS.proxyProviderOverrideUdpOverTcp;
+      }
+
+      if (ARGS.hasProxyProviderOverrideDown) {
+        override.down = ARGS.proxyProviderOverrideDown;
+      }
+
+      if (ARGS.hasProxyProviderOverrideUp) {
+        override.up = ARGS.proxyProviderOverrideUp;
+      }
+
+      if (ARGS.hasProxyProviderOverrideTfo) {
+        override.tfo = ARGS.proxyProviderOverrideTfo;
+      }
+
+      if (ARGS.hasProxyProviderOverrideMptcp) {
+        override.mptcp = ARGS.proxyProviderOverrideMptcp;
+      }
+
+      if (ARGS.hasProxyProviderOverrideSkipCertVerify) {
+        override["skip-cert-verify"] = ARGS.proxyProviderOverrideSkipCertVerify;
+      }
+
+      if (ARGS.hasProxyProviderOverrideDialerProxy) {
+        override["dialer-proxy"] = ARGS.proxyProviderOverrideDialerProxy;
+      }
+
+      if (ARGS.hasProxyProviderOverrideInterfaceName) {
+        override["interface-name"] = ARGS.proxyProviderOverrideInterfaceName;
+      }
+
+      if (ARGS.hasProxyProviderOverrideRoutingMark) {
+        override["routing-mark"] = ARGS.proxyProviderOverrideRoutingMark;
+      }
+
+      if (ARGS.hasProxyProviderOverrideIpVersion) {
+        override["ip-version"] = ARGS.proxyProviderOverrideIpVersion;
+      }
+
+      if (ARGS.hasProxyProviderOverrideProxyNameRules) {
+        override["proxy-name"] = ARGS.proxyProviderOverrideProxyNameRules.map((rule) => ({ pattern: rule.pattern, target: rule.target }));
+      }
+
+      provider.override = override;
+    }
+
+    if (hasHealthCheckOptions) {
+      const healthCheck = mergeObjects(provider["health-check"], {});
+
+      if (ARGS.hasProxyProviderHealthCheckEnable) {
+        healthCheck.enable = ARGS.proxyProviderHealthCheckEnable;
+      }
+
+      if (ARGS.hasProxyProviderHealthCheckUrl) {
+        healthCheck.url = ARGS.proxyProviderHealthCheckUrl;
+      }
+
+      if (ARGS.hasProxyProviderHealthCheckInterval) {
+        healthCheck.interval = ARGS.proxyProviderHealthCheckInterval;
+      }
+
+      if (ARGS.hasProxyProviderHealthCheckTimeout) {
+        healthCheck.timeout = ARGS.proxyProviderHealthCheckTimeout;
+      }
+
+      if (ARGS.hasProxyProviderHealthCheckLazy) {
+        healthCheck.lazy = ARGS.proxyProviderHealthCheckLazy;
+      }
+
+      if (ARGS.hasProxyProviderHealthCheckExpectedStatus) {
+        healthCheck["expected-status"] = ARGS.proxyProviderHealthCheckExpectedStatus;
+      }
+
+      provider["health-check"] = healthCheck;
+    }
+
+    result[name] = provider;
+  }
+
+  return result;
+}
+
+// 统一创建规则提供器对象，避免每个 provider 都手写重复字段。
+function createRuleProvider(behavior, url, format) {
+  const provider = {
+    // 统一使用 http 远程规则。
+    type: "http",
+    // 传入具体行为类型，例如 domain / ipcidr / classical。
+    behavior,
+    // 默认规则格式是 mrs，classical 文本规则会单独传 text。
+    format: format || "mrs",
+    // 使用全局统一的更新间隔，允许通过脚本参数覆盖。
+    interval: typeof ARGS !== "undefined" && ARGS && ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL,
+    // 传入规则源地址。
+    url
+  };
+
+  // 允许统一指定 rule-provider 下载代理。
+  if (typeof ARGS !== "undefined" && ARGS && ARGS.hasRuleProviderProxy) {
+    provider.proxy = ARGS.ruleProviderProxy;
+  }
+
+  // 允许统一指定 rule-provider 下载大小限制。
+  if (typeof ARGS !== "undefined" && ARGS && ARGS.hasRuleProviderSizeLimit) {
+    provider["size-limit"] = ARGS.ruleProviderSizeLimit;
+  }
+
+  // 允许统一给 rule-provider 请求补充通用 Header / UA / Authorization。
+  if (typeof ARGS !== "undefined" && ARGS && (ARGS.hasRuleProviderHeader || ARGS.hasRuleProviderUserAgent || ARGS.hasRuleProviderAuthorization)) {
+    const headers = mergeProviderHeaders(
+      {},
+      ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "",
+      ARGS.hasRuleProviderAuthorization ? ARGS.ruleProviderAuthorization : "",
+      ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeader : {}
+    );
+    provider.header = headers;
+  }
+
+  return provider;
+}
+
+// 拼接 geosite 规则完整地址。
+function metaGeoSite(name) {
+  return `${META_URL}/geosite/${name}.mrs`;
+}
+
+// 拼接 geoip 规则完整地址。
+function metaGeoIp(name) {
+  return `${META_URL}/geoip/${name}.mrs`;
+}
+
+// 拼接 geo-lite 版本的 geoip 规则完整地址。
+function metaGeoLiteIp(name) {
+  return `${META_GEO_LITE_URL}/geoip/${name}.mrs`;
+}
+
+// 统一合并官方 `$options` 与 `$arguments`，并让显式 `$arguments` 保持更高优先级。
+const RAW_OPTIONS = typeof $options !== "undefined" ? $options : {};
+const RAW_ARGUMENTS = typeof $arguments !== "undefined" ? $arguments : {};
+const RUNTIME_QUERY_ARGS = parseRuntimeQueryArgs(RAW_OPTIONS);
+const RUNTIME_LINK_OPTIONS = resolveRuntimeLinkOptions(RAW_OPTIONS);
+const NORMALIZED_OPTION_ARGS = normalizeScriptArgs(RAW_OPTIONS);
+const NORMALIZED_ARGUMENT_ARGS = normalizeScriptArgs(RAW_ARGUMENTS);
+const MERGED_SCRIPT_ARGS = Object.assign(
+  {},
+  RUNTIME_QUERY_ARGS,
+  NORMALIZED_OPTION_ARGS,
+  NORMALIZED_ARGUMENT_ARGS
+);
+// 记录本轮参数到底来自哪几路，便于排查官方运行环境差异。
+const RUNTIME_ARG_SOURCES = analyzeRuntimeArgSources(RAW_OPTIONS, RAW_ARGUMENTS, MERGED_SCRIPT_ARGS);
+// 记录最终到底是哪一路参数赢了优先级，便于排查同名参数冲突。
+const RUNTIME_ARG_EFFECTIVE = analyzeRuntimeArgEffectiveSources(RUNTIME_QUERY_ARGS, NORMALIZED_OPTION_ARGS, NORMALIZED_ARGUMENT_ARGS, MERGED_SCRIPT_ARGS);
+// 记录当前传入参数里有哪些根本没被脚本消费到，便于快速定位拼错或暂未支持的参数。
+const RUNTIME_UNUSED_ARGS = analyzeUnusedScriptArgs(MERGED_SCRIPT_ARGS);
+// 解析运行环境上下文，供后续日志与兼容性提醒使用。
+const RUNTIME_CONTEXT = resolveRuntimeContext(RAW_OPTIONS);
+// 从合并后的参数对象读取并规范化参数。
+const ARGS = resolveArgs(MERGED_SCRIPT_ARGS);
+// 脚本初始化阶段就把国家正则全部编译好，后续识别节点时直接复用。
+const COMPILED_COUNTRIES = buildCompiledCountries();
+
+// 规则提供器定义。
+// 后面 rules 会通过 RULE-SET,provider,target 的方式引用这里的名字。
+const ruleProviders = finalizeRuleProviders({
+  // 私有域名规则，局域网/保留域名直连。
+  Private: createRuleProvider("domain", metaGeoSite("private")),
+  // 中国大陆域名规则。
+  CN: createRuleProvider("domain", metaGeoSite("cn")),
+  // 广告拦截规则。
+  ADBlock: createRuleProvider("domain", "https://adrules.top/adrules-mihomo.mrs"),
+  // 非中国大陆域名规则。
+  Geo_Not_CN: createRuleProvider("domain", metaGeoSite("geolocation-!cn")),
+
+  // AI 服务规则。
+  AI: createRuleProvider("domain", metaGeoSite("category-ai-!cn")),
+  // OpenAI 官方规则。
+  OpenAI: createRuleProvider("domain", metaGeoSite("openai")),
+  // Anthropic 官方规则。
+  Anthropic: createRuleProvider("domain", metaGeoSite("anthropic")),
+  // Google Gemini 官方规则。
+  Gemini: createRuleProvider("domain", metaGeoSite("google-gemini")),
+  // 自定义 ChatGPT / OpenAI 规则，用来补足本地维护的精细域名。
+  ChatGPT: createRuleProvider("classical", ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : CHATGPT_LIST_URL, "text"),
+  // 自定义加密货币规则。
+  Crypto: createRuleProvider("classical", ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : CRYPTO_LIST_URL, "text"),
+
+  // YouTube 规则。
+  YouTube: createRuleProvider("domain", metaGeoSite("youtube")),
+  // Google 规则。
+  Google: createRuleProvider("domain", metaGeoSite("google")),
+  // GitHub 规则。
+  GitHub: createRuleProvider("domain", metaGeoSite("github")),
+  // Telegram 规则。
+  Telegram: createRuleProvider("domain", metaGeoSite("telegram")),
+  // Netflix 规则。
+  Netflix: createRuleProvider("domain", metaGeoSite("netflix")),
+  // Disney 规则。
+  Disney: createRuleProvider("domain", metaGeoSite("disney")),
+  // Spotify 规则。
+  Spotify: createRuleProvider("domain", metaGeoSite("spotify")),
+  // TikTok 规则。
+  TikTok: createRuleProvider("domain", metaGeoSite("tiktok")),
+
+  // 微软服务规则。
+  Microsoft: createRuleProvider("domain", metaGeoSite("microsoft")),
+  // Bing 规则。
+  Bing: createRuleProvider("domain", metaGeoSite("bing")),
+  // OneDrive 规则。
+  OneDrive: createRuleProvider("domain", metaGeoSite("onedrive")),
+  // Apple 规则。
+  Apple: createRuleProvider("domain", metaGeoSite("apple")),
+  // Apple TV+ 规则。
+  AppleTV: createRuleProvider("domain", metaGeoSite("apple-tvplus")),
+  // Steam 全球规则。
+  Steam: createRuleProvider("domain", metaGeoSite("steam")),
+  // Steam 中国区规则。
+  SteamCN: createRuleProvider("domain", metaGeoSite("steam@cn")),
+  // Epic Games 规则。
+  Epic: createRuleProvider("domain", metaGeoSite("epicgames")),
+
+  // Ookla Speedtest 规则。
+  Speedtest: createRuleProvider("domain", metaGeoSite("ookla-speedtest")),
+  // PT 下载规则。
+  PT: createRuleProvider("domain", metaGeoSite("category-pt")),
+  // 自定义直连列表。
+  DirectList: createRuleProvider("classical", ARGS.hasDirectListUrl ? ARGS.directListUrl : DIRECT_LIST_URL, "text"),
+
+  // 中国大陆 IP 段规则。
+  CN_IP: createRuleProvider("ipcidr", metaGeoIp("cn")),
+  // 私有 IP 段规则。
+  Private_IP: createRuleProvider("ipcidr", metaGeoIp("private")),
+  // Google IP 段规则。
+  Google_IP: createRuleProvider("ipcidr", metaGeoIp("google")),
+  // Telegram IP 段规则。
+  Telegram_IP: createRuleProvider("ipcidr", metaGeoIp("telegram")),
+  // Netflix IP 段规则。
+  Netflix_IP: createRuleProvider("ipcidr", metaGeoIp("netflix")),
+  // Apple IP 段规则，使用更轻量的 geo-lite 数据。
+  Apple_IP: createRuleProvider("ipcidr", metaGeoLiteIp("apple"))
+});
+
+// 规则引用清单。
+// 这里只描述“哪个 provider 进入哪个策略组”，真正拼 RULE-SET 字符串在 buildRules 里做。
+const RULE_SET_DEFINITIONS = [
+  // 广告规则命中后直接交给广告拦截组处理。
+  { provider: "ADBlock", target: GROUPS.ADS },
+  // 私有域名走直连。
+  { provider: "Private", target: GROUPS.DIRECT },
+  // 私有 IP 走直连，并且不做 DNS 解析。
+  { provider: "Private_IP", target: GROUPS.DIRECT, noResolve: true },
+
+  // 自定义 ChatGPT / OpenAI 规则优先进入 AI 组。
+  { provider: "ChatGPT", target: GROUPS.AI },
+  // OpenAI 官方规则进入 AI 组。
+  { provider: "OpenAI", target: GROUPS.AI },
+  // Anthropic 官方规则进入 AI 组。
+  { provider: "Anthropic", target: GROUPS.AI },
+  // Gemini 官方规则进入 AI 组。
+  { provider: "Gemini", target: GROUPS.AI },
+  // AI 域名交给 AI 组。
+  { provider: "AI", target: GROUPS.AI },
+  // 加密货币域名交给加密货币组。
+  { provider: "Crypto", target: GROUPS.CRYPTO },
+
+  // YouTube 流量交给 YouTube 组。
+  { provider: "YouTube", target: GROUPS.YOUTUBE },
+  // Google 域名交给 Google 组。
+  { provider: "Google", target: GROUPS.GOOGLE },
+  // Google IP 段交给 Google 组，并关闭解析。
+  { provider: "Google_IP", target: GROUPS.GOOGLE, noResolve: true },
+
+  // Bing 流量交给 Bing 组。
+  { provider: "Bing", target: GROUPS.BING },
+  // OneDrive 流量交给 OneDrive 组。
+  { provider: "OneDrive", target: GROUPS.ONEDRIVE },
+  // 其他微软流量交给微软服务组。
+  { provider: "Microsoft", target: GROUPS.MICROSOFT },
+
+  // Apple TV+ 流量交给 Apple 组。
+  { provider: "AppleTV", target: GROUPS.APPLE },
+  // Apple 域名交给 Apple 组。
+  { provider: "Apple", target: GROUPS.APPLE },
+  // Apple IP 段交给 Apple 组，并关闭解析。
+  { provider: "Apple_IP", target: GROUPS.APPLE, noResolve: true },
+
+  // Telegram 域名交给 Telegram 组。
+  { provider: "Telegram", target: GROUPS.TELEGRAM },
+  // Telegram IP 段交给 Telegram 组，并关闭解析。
+  { provider: "Telegram_IP", target: GROUPS.TELEGRAM, noResolve: true },
+  // TikTok 流量交给 TikTok 组。
+  { provider: "TikTok", target: GROUPS.TIKTOK },
+
+  // Netflix 域名交给 Netflix 组。
+  { provider: "Netflix", target: GROUPS.NETFLIX },
+  // Netflix IP 段交给 Netflix 组，并关闭解析。
+  { provider: "Netflix_IP", target: GROUPS.NETFLIX, noResolve: true },
+  // Disney+ 流量交给 Disney 组。
+  { provider: "Disney", target: GROUPS.DISNEY },
+  // Spotify 流量交给 Spotify 组。
+  { provider: "Spotify", target: GROUPS.SPOTIFY },
+
+  // Steam 全球流量交给 Steam 独立组。
+  {
+    provider: "Steam",
+    target: GROUPS.STEAM,
+    overrideKey: "steamRuleTarget",
+    overrideFlagKey: "hasSteamRuleTarget",
+    overrideLabel: "Steam",
+    ruleOrderAnchorKey: "steamRuleAnchor",
+    ruleOrderPositionKey: "steamRulePosition"
+  },
+  // Steam 中国区流量也交给 Steam 独立组，由组内顺序决定优先直连。
+  {
+    provider: "SteamCN",
+    target: GROUPS.STEAM,
+    overrideKey: "steamCnRuleTarget",
+    overrideFlagKey: "hasSteamCnRuleTarget",
+    overrideLabel: "SteamCN",
+    ruleOrderAnchorKey: "steamCnRuleAnchor",
+    ruleOrderPositionKey: "steamCnRulePosition"
+  },
+  // Epic Games 流量交给游戏组。
+  { provider: "Epic", target: GROUPS.GAMES },
+  // PT 下载流量交给 PT 组。
+  { provider: "PT", target: GROUPS.PT },
+  // Speedtest 流量交给测速组。
+  { provider: "Speedtest", target: GROUPS.SPEEDTEST },
+  // GitHub 流量交给 GitHub 独立组。
+  {
+    provider: "GitHub",
+    target: GROUPS.GITHUB,
+    overrideKey: "githubRuleTarget",
+    overrideFlagKey: "hasGithubRuleTarget",
+    overrideLabel: "GitHub",
+    ruleOrderAnchorKey: "githubRuleAnchor",
+    ruleOrderPositionKey: "githubRulePosition"
+  },
+
+  // 自定义直连列表强制直连。
+  { provider: "DirectList", target: GROUPS.DIRECT },
+  // 非大陆流量默认交给主选择组。
+  { provider: "Geo_Not_CN", target: GROUPS.SELECT },
+  // 中国大陆域名强制直连。
+  { provider: "CN", target: GROUPS.DIRECT },
+  // 中国大陆 IP 段强制直连，并关闭解析。
+  { provider: "CN_IP", target: GROUPS.DIRECT, noResolve: true }
+];
+
+// 业务链路专属摘要重点关注的规则入口。
+const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
+  { provider: "GitHub", label: "GitHub", expectedTarget: GROUPS.GITHUB },
+  { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
+  { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
+  { provider: "AI", label: "AI", expectedTarget: GROUPS.AI },
+  { provider: "Crypto", label: "Crypto", expectedTarget: GROUPS.CRYPTO }
+];
+
+// 构造单条 RULE-SET 规则字符串。
+function buildRule(provider, target, noResolve) {
+  // 按 Mihomo / Clash 规则格式输出 RULE-SET 语句，可选追加 no-resolve。
+  return `RULE-SET,${provider},${target}${noResolve ? ",no-resolve" : ""}`;
+}
+
+// 根据用户参数把 GitHub / Steam / SteamCN 的规则目标解析成最终可用目标；解析失败时自动回退默认值。
+function resolveRuleSetDefinitions(availableTargets) {
+  return RULE_SET_DEFINITIONS.map((definition) => {
+    if (!definition || !definition.overrideKey || !definition.overrideFlagKey || !ARGS[definition.overrideFlagKey]) {
+      return definition;
+    }
+
+    const matchedTarget = findPreferredGroupReference(availableTargets, ARGS[definition.overrideKey]);
+    return Object.assign({}, definition, {
+      target: matchedTarget || definition.target
     });
+  });
+}
 
-  // [验证] 检查代理数组是否为空
+// 根据用户参数把 GitHub / Steam / SteamCN 的规则入口顺序重排到指定锚点前/后；支持 top/start 与 end/match 这种特殊位置。
+function applyRuleSetDefinitionOrder(ruleDefinitions) {
+  let orderedDefinitions = Array.isArray(ruleDefinitions) ? ruleDefinitions.slice() : RULE_SET_DEFINITIONS.slice();
+  const sourceDefinitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : RULE_SET_DEFINITIONS;
+
+  for (const definition of sourceDefinitions) {
+    if (!definition || !definition.ruleOrderAnchorKey || !ARGS[definition.ruleOrderAnchorKey]) {
+      continue;
+    }
+
+    const anchorResult = inspectRuleProviderReference(orderedDefinitions, ARGS[definition.ruleOrderAnchorKey]);
+    if (!anchorResult.match || anchorResult.match === definition.provider) {
+      continue;
+    }
+
+    orderedDefinitions = moveRuleDefinitionByAnchor(
+      orderedDefinitions,
+      definition.provider,
+      anchorResult.match,
+      definition.ruleOrderPositionKey ? ARGS[definition.ruleOrderPositionKey] : "before"
+    );
+  }
+
+  return orderedDefinitions;
+}
+
+// 校验 GitHub / Steam / SteamCN 规则目标参数是否真的能匹配到当前可用的策略组/内置策略。
+function validateRuleTargetMarkers(availableTargets, ruleDefinitions) {
+  const warnings = [];
+
+  for (const definition of Array.isArray(ruleDefinitions) ? ruleDefinitions : []) {
+    if (!definition || !definition.overrideKey || !definition.overrideFlagKey || !ARGS[definition.overrideFlagKey]) {
+      continue;
+    }
+
+    const rawTarget = ARGS[definition.overrideKey];
+    const matchedTarget = findPreferredGroupReference(availableTargets, rawTarget);
+    if (!matchedTarget) {
+      warnings.push(`${definition.overrideLabel} 规则目标未匹配到当前可用的策略组/内置策略，已回退默认目标 ${definition.target}: ${rawTarget}`);
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验 GitHub / Steam / SteamCN 规则顺序锚点是否真的能匹配到当前规则入口，避免把规则编排参数写错后悄悄失效。
+function validateRuleOrderMarkers(ruleDefinitions) {
+  const warnings = [];
+
+  for (const definition of Array.isArray(ruleDefinitions) ? ruleDefinitions : []) {
+    if (!definition || !definition.ruleOrderAnchorKey || !ARGS[definition.ruleOrderAnchorKey]) {
+      continue;
+    }
+
+    const rawAnchor = ARGS[definition.ruleOrderAnchorKey];
+    const anchorResult = inspectRuleProviderReference(ruleDefinitions, rawAnchor);
+    if (anchorResult.match === definition.provider) {
+      warnings.push(`${definition.overrideLabel} 规则顺序锚点不能引用自己: ${rawAnchor}`);
+      continue;
+    }
+
+    if (anchorResult.match) {
+      continue;
+    }
+
+    if (anchorResult.reason === "ambiguous") {
+      warnings.push(`${definition.overrideLabel} 规则顺序锚点匹配到多个规则入口，请写得更精确: ${rawAnchor}`);
+      continue;
+    }
+
+    warnings.push(`${definition.overrideLabel} 规则顺序锚点未匹配到当前规则入口: ${rawAnchor}`);
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 把规则顺序参数格式化成单行摘要，便于日志与响应头快速观察实际启用的编排方式。
+function buildRuleOrderSummary(anchor, position) {
+  const marker = normalizeStringArg(anchor);
+
+  if (!marker) {
+    return "default";
+  }
+
+  return `${normalizeRuleOrderPosition(position, "before")}:${marker}`;
+}
+
+// 把单条最终规则压成可读摘要，便于快速观察“谁排在前面、谁会先吃到流量”。
+function describeTrafficRule(rule) {
+  const source = normalizeStringArg(rule);
+
+  if (!source) {
+    return "";
+  }
+
+  if (/^AND,\(\(DST-PORT,443\),\(NETWORK,UDP\)\),REJECT$/i.test(source)) {
+    return "QUIC-REJECT";
+  }
+
+  const parts = source.split(",");
+  const type = normalizeStringArg(parts[0]).toUpperCase();
+  let targetIndex = parts.length - 1;
+
+  while (targetIndex > 0 && ["no-resolve", "src"].includes(normalizeStringArg(parts[targetIndex]).toLowerCase())) {
+    targetIndex -= 1;
+  }
+
+  const target = sanitizeProviderPreviewName(parts[targetIndex] || "");
+
+  if (type === "RULE-SET") {
+    const provider = sanitizeProviderPreviewName(parts[1] || "");
+    const group = sanitizeProviderPreviewName(parts[2] || "");
+    return `${provider}->${group}${/no-resolve/i.test(source) ? ":NR" : ""}`;
+  }
+
+  if (type === "MATCH") {
+    return `MATCH->${target || GROUPS.SELECT}`;
+  }
+
+  return `${type || "RULE"}->${target || "unknown"}`;
+}
+
+// 把最终规则链的优先级压成单行摘要，便于直接看出实际匹配顺序。
+function buildTrafficPrioritySummary(rules) {
+  const currentRules = Array.isArray(rules) ? rules : [];
+  const head = currentRules.slice(0, 6).map((rule) => describeTrafficRule(rule)).filter(Boolean);
+  const tail = currentRules.slice(-4).map((rule) => describeTrafficRule(rule)).filter(Boolean);
+
+  return `match=first,order=script>config>match,head=${formatProviderPreviewNames(head, 6, 24)},tail=${formatProviderPreviewNames(tail, 4, 24)}`;
+}
+
+// 按规则语义给最终 rules 分层，便于把“哪些流量先走”拆成更直观的阶段结构。
+function classifyTrafficRuleLayer(rule) {
+  const source = normalizeStringArg(rule);
+
+  if (!source) {
+    return "unknown";
+  }
+
+  if (/^AND,\(\(DST-PORT,443\),\(NETWORK,UDP\)\),REJECT$/i.test(source)) {
+    return "block";
+  }
+
+  const parts = source.split(",");
+  const type = normalizeStringArg(parts[0]).toUpperCase();
+
+  if (type === "MATCH") {
+    return "match";
+  }
+
+  if (type !== "RULE-SET") {
+    return "custom";
+  }
+
+  const provider = normalizeStringArg(parts[1]);
+
+  if (provider === "ADBlock") {
+    return "block";
+  }
+
+  if (["Private", "Private_IP"].includes(provider)) {
+    return "local";
+  }
+
+  if (["ChatGPT", "OpenAI", "Anthropic", "Gemini", "AI", "Crypto"].includes(provider)) {
+    return "ai-crypto";
+  }
+
+  if (provider === "DirectList") {
+    return "direct";
+  }
+
+  if (provider === "Geo_Not_CN") {
+    return "overseas";
+  }
+
+  if (["CN", "CN_IP"].includes(provider)) {
+    return "cn";
+  }
+
+  if (ruleProviders[provider]) {
+    return "service";
+  }
+
+  return "custom";
+}
+
+// 给规则层级打短标签，便于压进响应调试头与 full 日志。
+function formatTrafficRuleLayerTag(layer) {
+  const aliasMap = {
+    block: "block",
+    local: "local",
+    "ai-crypto": "ai",
+    service: "service",
+    direct: "direct",
+    overseas: "overseas",
+    cn: "cn",
+    custom: "custom",
+    match: "match",
+    unknown: "unknown"
+  };
+
+  return aliasMap[normalizeStringArg(layer)] || "unknown";
+}
+
+// 把最终规则按层级聚合成区间统计，便于快速观察每一层占了多少条、排在第几段。
+function analyzeRuleLayering(rules) {
+  const currentRules = Array.isArray(rules) ? rules : [];
+  const layerEntries = [];
+  const previewEntries = [];
+  let customCount = 0;
+  let matchIndex = -1;
+
+  for (let index = 0; index < currentRules.length; index += 1) {
+    const rule = currentRules[index];
+    const layer = classifyTrafficRuleLayer(rule);
+    const tag = formatTrafficRuleLayerTag(layer);
+    const desc = describeTrafficRule(rule);
+
+    if (layer === "custom") {
+      customCount += 1;
+    }
+
+    if (layer === "match" && matchIndex === -1) {
+      matchIndex = index;
+    }
+
+    let currentLayerEntry = layerEntries[layerEntries.length - 1];
+    if (!currentLayerEntry || currentLayerEntry.layer !== layer) {
+      currentLayerEntry = {
+        layer,
+        tag,
+        count: 0,
+        start: index,
+        end: index,
+        sample: desc || tag
+      };
+      layerEntries.push(currentLayerEntry);
+    }
+
+    currentLayerEntry.count += 1;
+    currentLayerEntry.end = index;
+
+    if (currentLayerEntry.sample && !previewEntries.includes(`${currentLayerEntry.tag}@${currentLayerEntry.start + 1}=${currentLayerEntry.sample}`)) {
+      previewEntries.push(`${currentLayerEntry.tag}@${currentLayerEntry.start + 1}=${currentLayerEntry.sample}`);
+    }
+  }
+
+  return {
+    total: currentRules.length,
+    layers: layerEntries.length,
+    customCount,
+    matchIndex: matchIndex === -1 ? currentRules.length - 1 : matchIndex,
+    orderEntries: layerEntries.map((entry) => `${entry.tag}:${entry.count}@${entry.start + 1}-${entry.end + 1}`),
+    previewEntries
+  };
+}
+
+// 把规则层级统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatRuleLayeringSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},layers=${Number(current.layers) || 0},custom=${Number(current.customCount) || 0},match=${Number(current.matchIndex) + 1 || 0},order=${formatProviderPreviewNames(current.orderEntries, 8, 18)}`;
+}
+
+// 把规则层级样本压成预览字符串，便于直接看出各层第一条规则分别是什么。
+function formatRuleLayeringPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.previewEntries, 8, 24);
+}
+
+// 提取单条规则的类型与目标组，便于统计自定义规则主要是什么类型、最终打到哪里。
+function inspectTrafficRuleShape(rule) {
+  const source = normalizeStringArg(rule);
+
+  if (!source) {
+    return { type: "", target: "" };
+  }
+
+  if (/^AND,\(\(DST-PORT,443\),\(NETWORK,UDP\)\),REJECT$/i.test(source)) {
+    return { type: "AND", target: "REJECT" };
+  }
+
+  const parts = source.split(",");
+  const type = normalizeStringArg(parts[0]).toUpperCase();
+  let targetIndex = parts.length - 1;
+
+  while (targetIndex > 0 && ["no-resolve", "src"].includes(normalizeStringArg(parts[targetIndex]).toLowerCase())) {
+    targetIndex -= 1;
+  }
+
+  return {
+    type,
+    target: normalizeStringArg(parts[targetIndex])
+  };
+}
+
+// 单独分析 config.rules 在最终规则链里的有效插入区间，便于快速判断外部自定义规则到底插进了哪里。
+function analyzeCustomRuleWindow(generatedRules, configuredRules) {
+  const baseRules = Array.isArray(generatedRules) ? uniqueStrings(generatedRules) : [];
+  const generatedBodyRules = baseRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
+  const rawConfiguredRuleList = Array.isArray(configuredRules) ? configuredRules.slice() : [];
+  const uniqueConfiguredRules = uniqueStrings(rawConfiguredRuleList);
+  const rawMatchCount = rawConfiguredRuleList.filter((rule) => /^MATCH,/i.test(normalizeStringArg(rule))).length;
+  const rawExtraRules = uniqueConfiguredRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
+  const effectiveExtraRules = rawExtraRules.filter((rule) => !generatedBodyRules.includes(rule));
+  const typeCounts = Object.create(null);
+  const targetCounts = Object.create(null);
+
+  for (const rule of effectiveExtraRules) {
+    const shape = inspectTrafficRuleShape(rule);
+    if (shape.type) {
+      typeCounts[shape.type] = (typeCounts[shape.type] || 0) + 1;
+    }
+    if (shape.target) {
+      targetCounts[shape.target] = (targetCounts[shape.target] || 0) + 1;
+    }
+  }
+
+  const topTypes = Object.keys(typeCounts)
+    .sort((left, right) => {
+      const diff = typeCounts[right] - typeCounts[left];
+      return diff !== 0 ? diff : left.localeCompare(right);
+    })
+    .map((type) => `${sanitizeProviderPreviewName(type)}:${typeCounts[type]}`);
+  const topTargets = Object.keys(targetCounts)
+    .sort((left, right) => {
+      const diff = targetCounts[right] - targetCounts[left];
+      return diff !== 0 ? diff : left.localeCompare(right);
+    })
+    .map((target) => `${sanitizeProviderPreviewName(target)}:${targetCounts[target]}`);
+  const warnings = [];
+
+  if (rawMatchCount > 0) {
+    warnings.push(`当前 config.rules 中包含 ${rawMatchCount} 条 MATCH；为保证最终规则链只有一个兜底 MATCH，这些自定义 MATCH 在合并时已被移除`);
+  }
+
+  if (rawExtraRules.length > 0 && effectiveExtraRules.length === 0) {
+    warnings.push(`当前 config.rules 去重并剔除 MATCH 后共有 ${rawExtraRules.length} 条自定义规则，但没有新的有效规则插入最终 rules；它们可能都与脚本已有规则重复`);
+  }
+
+  return {
+    rawCount: rawExtraRules.length,
+    effectiveCount: effectiveExtraRules.length,
+    rawMatchCount,
+    startIndex: effectiveExtraRules.length ? generatedBodyRules.length : -1,
+    endIndex: effectiveExtraRules.length ? generatedBodyRules.length + effectiveExtraRules.length - 1 : -1,
+    previewEntries: effectiveExtraRules.map((rule) => describeTrafficRule(rule)),
+    topTypes,
+    topTargets,
+    warnings: uniqueStrings(warnings)
+  };
+}
+
+// 把自定义规则区间统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatCustomRuleWindowSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `raw=${Number(current.rawCount) || 0},effective=${Number(current.effectiveCount) || 0},match-stripped=${Number(current.rawMatchCount) || 0},start=${Number(current.startIndex) >= 0 ? Number(current.startIndex) + 1 : 0},end=${Number(current.endIndex) >= 0 ? Number(current.endIndex) + 1 : 0},types=${formatProviderPreviewNames(current.topTypes, 3, 18)},targets=${formatProviderPreviewNames(current.topTargets, 3, 18)}`;
+}
+
+// 把自定义规则区间样本压成预览字符串，便于快速确认真正插入的规则长什么样。
+function formatCustomRuleWindowPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.previewEntries, 6, 24);
+}
+
+// 汇总规则入口最终会打到哪些目标组，并统计各目标组承接了多少条业务规则。
+function analyzeRuleTargetMapping(ruleDefinitions, rules) {
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const targetCounts = Object.create(null);
+  const previewEntries = [];
+
+  for (const definition of definitions) {
+    if (!isObject(definition) || !normalizeStringArg(definition.provider) || !normalizeStringArg(definition.target)) {
+      continue;
+    }
+
+    const provider = normalizeStringArg(definition.provider);
+    const target = normalizeStringArg(definition.target);
+    previewEntries.push(`${sanitizeProviderPreviewName(provider)}->${sanitizeProviderPreviewName(target)}${definition.noResolve ? ":NR" : ""}`);
+    targetCounts[target] = (targetCounts[target] || 0) + 1;
+  }
+
+  const targetEntries = Object.keys(targetCounts)
+    .sort((left, right) => {
+      const countDiff = targetCounts[right] - targetCounts[left];
+      return countDiff !== 0 ? countDiff : left.localeCompare(right);
+    })
+    .map((target) => `${sanitizeProviderPreviewName(target)}:${targetCounts[target]}`);
+  const currentRules = Array.isArray(rules) ? rules : [];
+  const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
+  const matchTarget = matchRule ? describeTrafficRule(matchRule).replace(/^MATCH->/, "") : GROUPS.SELECT;
+
+  return {
+    total: previewEntries.length,
+    uniqueTargets: Object.keys(targetCounts).length,
+    directCount: Number(targetCounts[GROUPS.DIRECT] || 0) + Number(targetCounts[BUILTIN_DIRECT] || 0),
+    selectCount: Number(targetCounts[GROUPS.SELECT] || 0),
+    matchTarget,
+    previewEntries,
+    targetEntries
+  };
+}
+
+// 把规则入口 -> 目标组的统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatRuleTargetMappingSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},targets=${Number(current.uniqueTargets) || 0},direct=${Number(current.directCount) || 0},select=${Number(current.selectCount) || 0},match=${sanitizeProviderPreviewName(current.matchTarget || GROUPS.SELECT)},top=${formatProviderPreviewNames(current.targetEntries, 3, 22)}`;
+}
+
+// 把规则入口最终映射的样本压成预览字符串，便于快速确认各业务规则被打到了哪里。
+function formatRuleTargetMappingPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.previewEntries, 8, 24);
+}
+
+// 按 provider 名查找当前规则定义中的位置，便于判断“谁排在谁前面”。
+function findRuleDefinitionIndex(ruleDefinitions, provider) {
+  return (Array.isArray(ruleDefinitions) ? ruleDefinitions : []).findIndex((definition) => isObject(definition) && definition.provider === provider);
+}
+
+// 分析宽泛规则是否排在特定业务规则前面，避免目标流量被更早的规则入口提前吃掉。
+function analyzeRulePriorityRisks(ruleDefinitions) {
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const result = {
+    total: 0,
+    geoOverrideCount: 0,
+    cnOverrideCount: 0,
+    directListOverrideCount: 0,
+    previewEntries: [],
+    warnings: []
+  };
+
+  function addRisk(category, blockerProvider, blockedProvider, message) {
+    const blockerIndex = findRuleDefinitionIndex(definitions, blockerProvider);
+    const blockedIndex = findRuleDefinitionIndex(definitions, blockedProvider);
+
+    if (blockerIndex === -1 || blockedIndex === -1 || blockerIndex >= blockedIndex) {
+      return;
+    }
+
+    result.total += 1;
+
+    if (category === "geo") {
+      result.geoOverrideCount += 1;
+    } else if (category === "cn") {
+      result.cnOverrideCount += 1;
+    } else if (category === "directlist") {
+      result.directListOverrideCount += 1;
+    }
+
+    result.previewEntries.push(`${sanitizeProviderPreviewName(blockerProvider)}>${sanitizeProviderPreviewName(blockedProvider)}`);
+    result.warnings.push(message);
+  }
+
+  addRisk(
+    "geo",
+    "Geo_Not_CN",
+    "GitHub",
+    "GitHub 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，GitHub 流量可能会先命中节点选择而不是 GitHub 独立组"
+  );
+  addRisk(
+    "geo",
+    "Geo_Not_CN",
+    "Steam",
+    "Steam 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，Steam 全球流量可能会先命中节点选择而不是 Steam 独立组"
+  );
+  addRisk(
+    "cn",
+    "CN",
+    "SteamCN",
+    "SteamCN 规则当前排在 CN 之后；CN 是更宽泛的中国大陆规则，Steam 中国区流量可能会先命中全球直连而不是 Steam 独立组"
+  );
+  addRisk(
+    "cn",
+    "CN_IP",
+    "SteamCN",
+    "SteamCN 规则当前排在 CN_IP 之后；CN_IP 是更宽泛的中国大陆 IP 规则，Steam 中国区 IP 流量可能会先命中全球直连而不是 Steam 独立组"
+  );
+  addRisk(
+    "directlist",
+    "DirectList",
+    "GitHub",
+    "GitHub 规则当前排在 DirectList 之后；如果自定义直连列表与 GitHub 规则有重叠，相关流量会先命中全球直连而不是 GitHub 独立组"
+  );
+  addRisk(
+    "directlist",
+    "DirectList",
+    "Steam",
+    "Steam 规则当前排在 DirectList 之后；如果自定义直连列表与 Steam 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
+  );
+  addRisk(
+    "directlist",
+    "DirectList",
+    "SteamCN",
+    "SteamCN 规则当前排在 DirectList 之后；如果自定义直连列表与 SteamCN 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
+  );
+
+  result.previewEntries = uniqueStrings(result.previewEntries);
+  result.warnings = uniqueStrings(result.warnings);
+  return result;
+}
+
+// 把规则优先级风险统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatRulePriorityRiskSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},geo-overrides=${Number(current.geoOverrideCount) || 0},cn-overrides=${Number(current.cnOverrideCount) || 0},directlist-overrides=${Number(current.directListOverrideCount) || 0}`;
+}
+
+// 把规则优先级风险样本压成预览字符串，便于快速确认是哪几条宽泛规则抢先了。
+function formatRulePriorityRiskPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.previewEntries, 6, 20);
+}
+
+// 根据是否启用 QUIC 构建完整规则列表。
+function buildRules(quicEnabled, ruleDefinitions) {
+  // 用数组按顺序收集所有规则。
+  const rules = [];
+  // 没有显式传入时回退静态规则定义。
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : RULE_SET_DEFINITIONS;
+
+  // 如果禁用 QUIC，就显式拒绝 UDP 443，避免应用偷偷走 QUIC 绕过预期分流。
+  if (!quicEnabled) {
+    rules.push("AND,((DST-PORT,443),(NETWORK,UDP)),REJECT");
+  }
+
+  // 逐个把 RULE_SET_DEFINITIONS 映射为真正的 RULE-SET 字符串。
+  for (const definition of definitions) {
+    rules.push(buildRule(definition.provider, definition.target, definition.noResolve));
+  }
+
+  // 最后一条必须是 MATCH，把剩余流量全部交给主选择组。
+  rules.push(`MATCH,${GROUPS.SELECT}`);
+  // 最后再做一次字符串去重，防止后续扩展时意外重复。
+  return uniqueStrings(rules);
+}
+
+// 在最终策略组列表里按名称查找单个组，便于构建关键组顺序摘要。
+function findProxyGroupByName(proxyGroups, name) {
+  return (Array.isArray(proxyGroups) ? proxyGroups : []).find((group) => isObject(group) && group.name === name) || null;
+}
+
+// 把单个关键策略组的候选顺序压成可读摘要，便于判断组内“谁排在前面”。
+function formatProxyGroupPriorityEntry(group) {
+  const current = isObject(group) ? group : null;
+
+  if (!current || !normalizeStringArg(current.name)) {
+    return "";
+  }
+
+  const type = normalizeStringArg(current.type) || "select";
+  const proxies = Array.isArray(current.proxies) ? current.proxies : [];
+  const extraFlags = [];
+
+  if (current["include-all"]) {
+    extraFlags.push("all");
+  } else {
+    if (current["include-all-proxies"]) {
+      extraFlags.push("all-proxies");
+    }
+
+    if (current["include-all-providers"]) {
+      extraFlags.push("all-providers");
+    }
+  }
+
+  if (Array.isArray(current.use) && current.use.length) {
+    extraFlags.push(`use:${formatProviderPreviewNames(current.use, 2, 12)}`);
+  }
+
+  return `${sanitizeProviderPreviewName(current.name)}[${type}]=${formatProviderPreviewNames(proxies, 3, 14)}${extraFlags.length ? `/${extraFlags.join("/")}` : ""}`;
+}
+
+// 把最终策略组在配置里的排列顺序压成单行摘要，便于区分“展示顺序”和“规则优先级”。
+function buildProxyGroupOrderSummary(proxyGroups) {
+  const names = (Array.isArray(proxyGroups) ? proxyGroups : []).map((group) => group && group.name).filter(Boolean);
+  return `count=${names.length},order=${formatProviderPreviewNames(names, 10, 16)}`;
+}
+
+// 汇总几个最关键策略组的候选顺序，方便直接看出选择组/独立组/广告组内部谁排在前面。
+function buildProxyGroupPrioritySummary(proxyGroups) {
+  const keyNames = [GROUPS.SELECT, GROUPS.FALLBACK, GROUPS.AI, GROUPS.GITHUB, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS];
+  const entries = keyNames
+    .map((name) => formatProxyGroupPriorityEntry(findProxyGroupByName(proxyGroups, name)))
+    .filter(Boolean);
+
+  return entries.length ? entries.join("; ") : "none";
+}
+
+// 查找某个候选在策略组 proxies 列表中的位置，找不到时返回 -1。
+function findProxyGroupCandidateIndex(group, candidate) {
+  const proxies = Array.isArray(isObject(group) ? group.proxies : null) ? group.proxies : [];
+  return proxies.findIndex((item) => item === candidate);
+}
+
+// 分析关键策略组的候选链顺序是否偏离脚本原本意图，避免 DIRECT / REJECT / FALLBACK / SELECT 排位异常。
+function analyzeProxyGroupPriorityRisks(proxyGroups) {
+  const result = {
+    total: 0,
+    directGroupCount: 0,
+    adsGroupCount: 0,
+    selectChainCount: 0,
+    serviceChainCount: 0,
+    modeCount: 0,
+    previewEntries: [],
+    warnings: []
+  };
+
+  function addRisk(category, groupName, tag, message) {
+    result.total += 1;
+
+    if (category === "direct-group") {
+      result.directGroupCount += 1;
+    } else if (category === "ads-group") {
+      result.adsGroupCount += 1;
+    } else if (category === "select-chain") {
+      result.selectChainCount += 1;
+    } else if (category === "service-chain") {
+      result.serviceChainCount += 1;
+    } else if (category === "mode-chain") {
+      result.modeCount += 1;
+    }
+
+    result.previewEntries.push(`${sanitizeProviderPreviewName(groupName)}>${tag}`);
+    result.warnings.push(message);
+  }
+
+  function inspectDirectFirstServiceGroup(name, label) {
+    const group = findProxyGroupByName(proxyGroups, name);
+    if (!group) {
+      return;
+    }
+
+    const directIndex = findProxyGroupCandidateIndex(group, BUILTIN_DIRECT);
+    const selectIndex = findProxyGroupCandidateIndex(group, GROUPS.SELECT);
+
+    if (directIndex === -1) {
+      addRisk("service-chain", name, "missing-DIRECT", `${label} ${name} 当前候选链里缺少 DIRECT；这类服务原本设计为直连优先，缺少 DIRECT 后可能更早走代理链`);
+      return;
+    }
+
+    if (selectIndex !== -1 && directIndex > selectIndex) {
+      addRisk("service-chain", name, "SELECT-before-DIRECT", `${label} ${name} 当前候选链里 节点选择 排在 DIRECT 前面；这类服务原本设计为直连优先，相关流量可能更早走主选择而不是直连`);
+    }
+  }
+
+  function inspectModeSensitiveGroup(name, label, mode) {
+    const group = findProxyGroupByName(proxyGroups, name);
+    if (!group) {
+      return;
+    }
+
+    const currentMode = normalizeStringArg(mode).toLowerCase();
+    const directIndex = findProxyGroupCandidateIndex(group, BUILTIN_DIRECT);
+    const selectIndex = findProxyGroupCandidateIndex(group, GROUPS.SELECT);
+
+    if (currentMode === "direct") {
+      if (directIndex === -1) {
+        addRisk("mode-chain", name, "missing-DIRECT", `${label} ${name} 当前处于 direct 模式，但候选链里缺少 DIRECT；相关流量无法真正按直连优先执行`);
+      } else if (selectIndex !== -1 && directIndex > selectIndex) {
+        addRisk("mode-chain", name, "SELECT-before-DIRECT", `${label} ${name} 当前处于 direct 模式，但 节点选择 排在 DIRECT 前面；相关流量可能不会先走直连`);
+      }
+      return;
+    }
+
+    if (currentMode === "proxy" && directIndex !== -1 && selectIndex !== -1 && directIndex < selectIndex) {
+      addRisk("mode-chain", name, "DIRECT-before-SELECT", `${label} ${name} 当前处于 proxy 模式，但 DIRECT 仍排在 节点选择 前面；相关流量可能比预期更早走直连`);
+    }
+  }
+
+  const directGroup = findProxyGroupByName(proxyGroups, GROUPS.DIRECT);
+  if (directGroup) {
+    const directIndex = findProxyGroupCandidateIndex(directGroup, BUILTIN_DIRECT);
+    const selectIndex = findProxyGroupCandidateIndex(directGroup, GROUPS.SELECT);
+
+    if (directIndex !== 0) {
+      addRisk("direct-group", GROUPS.DIRECT, "DIRECT-not-first", `${GROUPS.DIRECT} 当前第一个候选不是 DIRECT；这个组本应作为全局直连开关，DIRECT 不在最前会改变预期行为`);
+    }
+
+    if (selectIndex === -1) {
+      addRisk("direct-group", GROUPS.DIRECT, "missing-SELECT", `${GROUPS.DIRECT} 当前候选链里缺少 ${GROUPS.SELECT}；这个组失去回退到主选择的能力`);
+    }
+  }
+
+  const adsGroup = findProxyGroupByName(proxyGroups, GROUPS.ADS);
+  if (adsGroup) {
+    const proxies = Array.isArray(adsGroup.proxies) ? adsGroup.proxies : [];
+    const firstProxy = proxies[0] || "";
+
+    if (!["REJECT", "REJECT-DROP"].includes(firstProxy)) {
+      addRisk("ads-group", GROUPS.ADS, "REJECT-not-first", `${GROUPS.ADS} 当前第一个候选不是 REJECT / REJECT-DROP；广告流量可能不会第一时间被拦截`);
+    }
+
+    if (!proxies.includes("REJECT") && !proxies.includes("REJECT-DROP")) {
+      addRisk("ads-group", GROUPS.ADS, "missing-REJECT", `${GROUPS.ADS} 当前候选链里既没有 REJECT 也没有 REJECT-DROP；广告组可能失去拦截能力`);
+    }
+  }
+
+  const selectGroup = findProxyGroupByName(proxyGroups, GROUPS.SELECT);
+  if (selectGroup) {
+    const fallbackIndex = findProxyGroupCandidateIndex(selectGroup, GROUPS.FALLBACK);
+    const manualIndex = findProxyGroupCandidateIndex(selectGroup, GROUPS.MANUAL);
+    const directIndex = findProxyGroupCandidateIndex(selectGroup, BUILTIN_DIRECT);
+
+    if (fallbackIndex === -1) {
+      addRisk("select-chain", GROUPS.SELECT, "missing-FALLBACK", `${GROUPS.SELECT} 当前候选链里缺少 ${GROUPS.FALLBACK}；主选择将失去自动测速回退链`);
+    }
+
+    if (manualIndex === -1) {
+      addRisk("select-chain", GROUPS.SELECT, "missing-MANUAL", `${GROUPS.SELECT} 当前候选链里缺少 ${GROUPS.MANUAL}；主选择将失去手动全量切换入口`);
+    }
+
+    if (fallbackIndex !== -1 && manualIndex !== -1 && fallbackIndex > manualIndex) {
+      addRisk("select-chain", GROUPS.SELECT, "MANUAL-before-FALLBACK", `${GROUPS.SELECT} 当前候选链里 ${GROUPS.MANUAL} 排在 ${GROUPS.FALLBACK} 前面；主选择可能更偏向手动入口而不是自动优选链`);
+    }
+
+    if (fallbackIndex !== -1 && directIndex !== -1 && directIndex < fallbackIndex) {
+      addRisk("select-chain", GROUPS.SELECT, "DIRECT-before-FALLBACK", `${GROUPS.SELECT} 当前候选链里 DIRECT 排在 ${GROUPS.FALLBACK} 前面；主选择可能比预期更早走直连而不是自动测速链`);
+    }
+  }
+
+  inspectDirectFirstServiceGroup(GROUPS.BING, "Bing 组");
+  inspectDirectFirstServiceGroup(GROUPS.APPLE, "Apple 组");
+  inspectDirectFirstServiceGroup(GROUPS.PT, "PT 组");
+  inspectDirectFirstServiceGroup(GROUPS.SPEEDTEST, "Speedtest 组");
+  inspectModeSensitiveGroup(GROUPS.GITHUB, "GitHub 组", ARGS.githubMode);
+  inspectModeSensitiveGroup(GROUPS.STEAM, "Steam 组", ARGS.steamMode);
+
+  result.previewEntries = uniqueStrings(result.previewEntries);
+  result.warnings = uniqueStrings(result.warnings);
+  return result;
+}
+
+// 把策略组候选链风险统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatProxyGroupPriorityRiskSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},direct-group=${Number(current.directGroupCount) || 0},ads-group=${Number(current.adsGroupCount) || 0},select-chain=${Number(current.selectChainCount) || 0},service-chain=${Number(current.serviceChainCount) || 0},mode=${Number(current.modeCount) || 0}`;
+}
+
+// 把策略组候选链风险样本压成预览字符串，便于快速确认是哪些组、哪种顺序异常。
+function formatProxyGroupPriorityRiskPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.previewEntries, 6, 22);
+}
+
+// 把关键策略组的候选链压成简短片段，便于拼成整条分流链路摘要。
+function buildTrafficChainGroupEntry(proxyGroups, groupName) {
+  const group = findProxyGroupByName(proxyGroups, groupName);
+
+  if (!group) {
+    return "";
+  }
+
+  const proxies = Array.isArray(group.proxies) ? group.proxies : [];
+  return `${sanitizeProviderPreviewName(groupName)}=${formatProviderPreviewNames(proxies, 3, 14)}`;
+}
+
+// 统一按“用户显式优先链 > 脚本默认优先链”解析国家组，避免 AI / Crypto / 诊断逻辑各写一份。
+function buildPreferredCountryGroups(countryConfigs, preferredCountries, defaultMarkersList) {
+  if (Array.isArray(preferredCountries) && preferredCountries.length) {
+    return resolvePreferredCountryGroups(countryConfigs, preferredCountries);
+  }
+
+  return (Array.isArray(defaultMarkersList) ? defaultMarkersList : []).map((markers) => findCountryGroup(countryConfigs, markers));
+}
+
+// 汇总“请求 -> 规则 -> 目标组 -> 组内候选链”的关键链路，便于快速观察整条分流路径。
+function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, proxyGroups) {
+  const context = isObject(runtimeContext) ? runtimeContext : {};
+  const currentRules = Array.isArray(rules) ? rules : [];
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const query = isObject(queryArgs) ? queryArgs : {};
+  const keyProviders = ["ADBlock", "GitHub", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"];
+  const ruleEntries = keyProviders
+    .map((provider) => {
+      const definition = definitions.find((item) => isObject(item) && item.provider === provider);
+      return definition ? `${sanitizeProviderPreviewName(provider)}->${sanitizeProviderPreviewName(definition.target)}${definition.noResolve ? ":NR" : ""}` : "";
+    })
+    .filter(Boolean);
+  const groupEntries = [GROUPS.SELECT, GROUPS.GITHUB, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS]
+    .map((groupName) => buildTrafficChainGroupEntry(proxyGroups, groupName))
+    .filter(Boolean);
+  const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
+  const matchTarget = matchRule ? describeTrafficRule(matchRule).replace(/^MATCH->/, "") : GROUPS.SELECT;
+  const firstRule = currentRules.length ? describeTrafficRule(currentRules[0]) : "none";
+  const routeMarker = `${sanitizeProviderPreviewName(context.routeKind || "unknown")}:${sanitizeProviderPreviewName(context.routeName || "unknown")}`;
+  const routeTarget = sanitizeProviderPreviewName(context.routeTarget || context.queryTarget || context.target || "unknown");
+
+  return {
+    routeMarker,
+    routeTarget,
+    queryArgCount: Object.keys(query).length,
+    rulesCount: currentRules.length,
+    firstRule,
+    matchTarget,
+    ruleEntries,
+    groupEntries
+  };
+}
+
+// 把整条分流链路压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatRoutingChainSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `route=${current.routeMarker || "unknown:unknown"},target=${current.routeTarget || "unknown"},query=${Number(current.queryArgCount) || 0},rules=${Number(current.rulesCount) || 0},first=${sanitizeProviderPreviewName(current.firstRule || "none")},match=${sanitizeProviderPreviewName(current.matchTarget || GROUPS.SELECT)}`;
+}
+
+// 把整条分流链路的关键规则映射与关键组候选链压成预览字符串。
+function formatRoutingChainPreview(source) {
+  const current = isObject(source) ? source : {};
+  return `rules=${formatProviderPreviewNames(current.ruleEntries, 6, 24)},groups=${formatProviderPreviewNames(current.groupEntries, 5, 22)}`;
+}
+
+// 单独聚焦 GitHub / Steam / SteamCN / AI / Crypto 等关键业务的规则入口与候选链，便于直接看“这类流量到底会怎么走”。
+function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConfigs) {
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const countries = Array.isArray(countryConfigs) ? countryConfigs : [];
+  const cryptoPreferredGroupLookup = createLookup(
+    buildPreferredCountryGroups(countries, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS)
+      .map((group) => group && group.name)
+      .filter(Boolean)
+  );
+  const result = {
+    total: 0,
+    expectedTargetCount: 0,
+    directTargetCount: 0,
+    selectTargetCount: 0,
+    latencyGroupCount: 0,
+    directFirstCount: 0,
+    missingGroupCount: 0,
+    previewEntries: [],
+    warnings: []
+  };
+
+  for (const profile of SERVICE_ROUTING_PROFILE_DEFINITIONS) {
+    const definition = definitions.find((item) => isObject(item) && item.provider === profile.provider);
+    const target = normalizeStringArg(definition && definition.target) || profile.expectedTarget;
+    const targetGroup = findProxyGroupByName(proxyGroups, target);
+    const groupType = targetGroup
+      ? (normalizeStringArg(targetGroup.type) || "select")
+      : (BUILTIN_POLICY_NAMES.includes(target) ? "builtin" : "missing");
+    const groupProxies = Array.isArray(targetGroup && targetGroup.proxies) ? targetGroup.proxies : [];
+    const firstProxy = groupProxies[0] || (target === BUILTIN_DIRECT ? BUILTIN_DIRECT : "");
+    const ruleIndex = findRuleDefinitionIndex(definitions, profile.provider);
+
+    result.total += 1;
+    if (target === profile.expectedTarget) {
+      result.expectedTargetCount += 1;
+    }
+    if (target === GROUPS.SELECT) {
+      result.selectTargetCount += 1;
+    }
+    if ([BUILTIN_DIRECT, GROUPS.DIRECT].includes(target)) {
+      result.directTargetCount += 1;
+    }
+    if (["url-test", "fallback", "load-balance"].includes(groupType)) {
+      result.latencyGroupCount += 1;
+    }
+    if (firstProxy === BUILTIN_DIRECT) {
+      result.directFirstCount += 1;
+    }
+    if (!targetGroup && !BUILTIN_POLICY_NAMES.includes(target)) {
+      result.missingGroupCount += 1;
+    }
+
+    result.previewEntries.push(
+      `${profile.label}@${ruleIndex === -1 ? "?" : ruleIndex + 1}->${sanitizeProviderPreviewName(target || "none")}[${sanitizeProviderPreviewName(groupType)}]=${formatProviderPreviewNames(groupProxies.length ? groupProxies : [target], 3, 14)}`
+    );
+
+    if (profile.provider === "GitHub" && [BUILTIN_DIRECT, GROUPS.DIRECT].includes(target)) {
+      result.warnings.push(`GitHub 规则当前直接打到 ${target}；这会绕过 GitHub 独立组，相关流量会更偏向直连而不是 GitHub 专属候选链`);
+    }
+
+    if (profile.provider === "SteamCN" && target === GROUPS.SELECT) {
+      result.warnings.push(`SteamCN 规则当前直接打到 ${GROUPS.SELECT}；中国区流量会绕过 Steam 组内的直连优先链，相关请求可能不会先走 DIRECT`);
+    }
+
+    if (profile.provider === "AI" && firstProxy === BUILTIN_DIRECT) {
+      result.warnings.push("AI 组当前第一个候选是 DIRECT；OpenAI / Anthropic / Gemini 等流量可能会先走直连，而不是 AI 优先国家链");
+    }
+
+    if (profile.provider === "Crypto" && Object.keys(cryptoPreferredGroupLookup).length && firstProxy && !cryptoPreferredGroupLookup[firstProxy]) {
+      result.warnings.push(`Crypto 组当前第一个候选是 ${firstProxy}，而不是预设国家优先链 ${formatProviderPreviewNames(Object.keys(cryptoPreferredGroupLookup), 3, 12)}；相关流量可能不会先走偏好的国家节点`);
+    }
+  }
+
+  result.previewEntries = uniqueStrings(result.previewEntries);
+  result.warnings = uniqueStrings(result.warnings);
+  return result;
+}
+
+// 把关键业务链路压成紧凑摘要，便于响应调试头与 full 日志直接复用。
+function formatServiceRoutingProfilesSummary(source) {
+  const current = isObject(source) ? source : {};
+  return `total=${Number(current.total) || 0},expected=${Number(current.expectedTargetCount) || 0},direct-target=${Number(current.directTargetCount) || 0},select-target=${Number(current.selectTargetCount) || 0},latency-type=${Number(current.latencyGroupCount) || 0},direct-first=${Number(current.directFirstCount) || 0},missing=${Number(current.missingGroupCount) || 0}`;
+}
+
+// 把关键业务链路样本压成预览字符串，便于快速确认 GitHub / Steam / AI / Crypto 的实际走法。
+function formatServiceRoutingProfilesPreview(source) {
+  const current = isObject(source) ? source : {};
+  return formatProviderPreviewNames(current.previewEntries, 5, 40);
+}
+
+// 把生成规则与原配置里的自定义规则合并。
+function mergeRules(generatedRules, existingRules) {
+  // 先把脚本生成的规则去重。
+  const baseRules = uniqueStrings(generatedRules);
+  // 原配置里的规则也去重，但把用户自己的 MATCH 去掉，避免出现多个终结规则。
+  const extraRules = uniqueStrings(existingRules).filter((rule) => !/^MATCH,/i.test(rule));
+  // 取出脚本规则的最后一条。
+  const lastRule = baseRules.length ? baseRules[baseRules.length - 1] : "";
+  // 如果最后一条是 MATCH，就把它单独保存，后面重新放到最后。
+  const matchRule = /^MATCH,/i.test(lastRule) ? lastRule : "";
+  // 除最后 MATCH 之外的规则主体。
+  const bodyRules = matchRule ? baseRules.slice(0, -1) : baseRules.slice();
+
+  // 最终顺序：脚本主体规则 -> 用户自定义规则 -> 单一 MATCH。
+  return uniqueStrings(bodyRules.concat(extraRules, matchRule ? [matchRule] : []));
+}
+
+// 在已生成的国家组里查找某个偏好国家组，例如日本/美国。
+function findCountryGroup(countryConfigs, markers) {
+  // 统一把单个标记转成数组，后面逻辑就能一致处理。
+  const keywords = Array.isArray(markers) ? markers : [markers];
+
+  // 遍历所有国家组配置。
+  for (const config of countryConfigs) {
+    // 一个国家组只要命中任一标记，就视为找到目标组。
+    for (const marker of keywords) {
+      if (config.name.indexOf(marker) !== -1) {
+        return config;
+      }
+    }
+  }
+
+  return null;
+}
+
+// 把多个偏好国家组按顺序插到候选列表前面，用于实现“新加坡 > 日本 > 美国 > 香港”这类优先链。
+function prependPreferredGroups(preferredGroups, proxies) {
+  const preferredNames = [];
+
+  for (const group of Array.isArray(preferredGroups) ? preferredGroups : []) {
+    if (group && typeof group.name === "string" && group.name) {
+      preferredNames.push(group.name);
+    }
+  }
+
+  return uniqueStrings(preferredNames.concat(proxies));
+}
+
+// 把字符串形式的前置引用直接插到候选列表前面；可选保留 DIRECT 永远在最前。
+function prependPreferredNames(preferredNames, proxies, keepDirectFirst) {
+  const preferred = uniqueStrings(preferredNames);
+  const base = uniqueStrings(proxies);
+
+  if (keepDirectFirst) {
+    return uniqueStrings([BUILTIN_DIRECT].concat(
+      preferred.filter((name) => name !== BUILTIN_DIRECT),
+      base.filter((name) => name !== BUILTIN_DIRECT)
+    ));
+  }
+
+  return uniqueStrings(preferred.concat(base));
+}
+
+// 构造 GitHub / Steam 独立组“前置组”别名表，便于直接用 `manual / fallback / direct / lowcost` 这类简写。
+function createPreferredGroupAliasMap() {
+  return {
+    select: GROUPS.SELECT,
+    proxy: GROUPS.SELECT,
+    main: GROUPS.SELECT,
+    manual: GROUPS.MANUAL,
+    manualswitch: GROUPS.MANUAL,
+    fallback: GROUPS.FALLBACK,
+    auto: GROUPS.FALLBACK,
+    autoswitch: GROUPS.FALLBACK,
+    direct: BUILTIN_DIRECT,
+    builtindirect: BUILTIN_DIRECT,
+    globaldirect: GROUPS.DIRECT,
+    scriptdirect: GROUPS.DIRECT,
+    ai: GROUPS.AI,
+    crypto: GROUPS.CRYPTO,
+    apple: GROUPS.APPLE,
+    microsoft: GROUPS.MICROSOFT,
+    ms: GROUPS.MICROSOFT,
+    google: GROUPS.GOOGLE,
+    github: GROUPS.GITHUB,
+    bing: GROUPS.BING,
+    onedrive: GROUPS.ONEDRIVE,
+    telegram: GROUPS.TELEGRAM,
+    youtube: GROUPS.YOUTUBE,
+    netflix: GROUPS.NETFLIX,
+    disney: GROUPS.DISNEY,
+    disneyplus: GROUPS.DISNEY,
+    spotify: GROUPS.SPOTIFY,
+    tiktok: GROUPS.TIKTOK,
+    steam: GROUPS.STEAM,
+    game: GROUPS.GAMES,
+    games: GROUPS.GAMES,
+    pt: GROUPS.PT,
+    speedtest: GROUPS.SPEEDTEST,
+    ads: GROUPS.ADS,
+    ad: GROUPS.ADS,
+    other: GROUPS.OTHER,
+    lowcost: GROUPS.LOW_COST,
+    landing: GROUPS.LANDING,
+    reject: "REJECT",
+    rejectdrop: "REJECT-DROP",
+    pass: "PASS",
+    global: "GLOBAL",
+    compatible: "COMPATIBLE"
+  };
+}
+
+// 构造规则入口顺序编排的别名表，便于直接用 `ai / steamcn / geonotcn / match / top / end` 这类短写。
+function createRuleProviderAliasMap() {
+  return {
+    start: RULE_ORDER_START,
+    top: RULE_ORDER_START,
+    first: RULE_ORDER_START,
+    head: RULE_ORDER_START,
+    begin: RULE_ORDER_START,
+    beginning: RULE_ORDER_START,
+    end: RULE_ORDER_END,
+    last: RULE_ORDER_END,
+    tail: RULE_ORDER_END,
+    bottom: RULE_ORDER_END,
+    final: RULE_ORDER_END,
+    match: RULE_ORDER_END,
+    adblock: "ADBlock",
+    ads: "ADBlock",
+    private: "Private",
+    privateip: "Private_IP",
+    chatgpt: "ChatGPT",
+    openai: "OpenAI",
+    anthropic: "Anthropic",
+    gemini: "Gemini",
+    ai: "AI",
+    crypto: "Crypto",
+    youtube: "YouTube",
+    google: "Google",
+    googleip: "Google_IP",
+    bing: "Bing",
+    onedrive: "OneDrive",
+    microsoft: "Microsoft",
+    ms: "Microsoft",
+    appletv: "AppleTV",
+    apple: "Apple",
+    appleip: "Apple_IP",
+    telegram: "Telegram",
+    telegramip: "Telegram_IP",
+    tiktok: "TikTok",
+    netflix: "Netflix",
+    netflixip: "Netflix_IP",
+    disney: "Disney",
+    disneyplus: "Disney",
+    spotify: "Spotify",
+    steam: "Steam",
+    steamcn: "SteamCN",
+    epic: "Epic",
+    game: "Epic",
+    games: "Epic",
+    pt: "PT",
+    speedtest: "Speedtest",
+    github: "GitHub",
+    directlist: "DirectList",
+    geonotcn: "Geo_Not_CN",
+    geononcn: "Geo_Not_CN",
+    overseas: "Geo_Not_CN",
+    cn: "CN",
+    cnip: "CN_IP"
+  };
+}
+
+// 解析规则入口顺序锚点：优先精确匹配，其次大小写无关精确匹配，再尝试脚本内置别名，最后只接受唯一模糊命中。
+function inspectRuleProviderReference(ruleDefinitions, marker) {
+  const providers = uniqueStrings(
+    (Array.isArray(ruleDefinitions) ? ruleDefinitions : []).map((definition) => definition && definition.provider).filter(Boolean)
+  );
+  const token = normalizeStringArg(marker);
+
+  if (!token) {
+    return { match: "", reason: "empty" };
+  }
+
+  if (providers.includes(token)) {
+    return { match: token, reason: "exact" };
+  }
+
+  const lowerLookup = Object.create(null);
+  for (const provider of providers) {
+    const key = String(provider || "").toLowerCase();
+    if (key && !lowerLookup[key]) {
+      lowerLookup[key] = provider;
+    }
+  }
+
+  const exactIgnoreCase = lowerLookup[token.toLowerCase()];
+  if (exactIgnoreCase) {
+    return { match: exactIgnoreCase, reason: "exactIgnoreCase" };
+  }
+
+  const aliasTarget = createRuleProviderAliasMap()[normalizeGroupMarkerToken(token)];
+  if (aliasTarget === RULE_ORDER_START || aliasTarget === RULE_ORDER_END) {
+    return { match: aliasTarget, reason: "alias" };
+  }
+
+  if (aliasTarget && providers.includes(aliasTarget)) {
+    return { match: aliasTarget, reason: "alias" };
+  }
+
+  const fuzzyMatches = providers.filter((provider) => String(provider || "").toLowerCase().indexOf(token.toLowerCase()) !== -1);
+  if (fuzzyMatches.length === 1) {
+    return { match: fuzzyMatches[0], reason: "fuzzy" };
+  }
+
+  return {
+    match: "",
+    reason: fuzzyMatches.length > 1 ? "ambiguous" : "missing"
+  };
+}
+
+// 把单个规则入口按 before/after 锚点重排到目标位置；start/end 会分别落到规则最前/最后（MATCH 之前）。
+function moveRuleDefinitionByAnchor(ruleDefinitions, provider, anchor, position) {
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions.slice() : [];
+  const currentIndex = definitions.findIndex((definition) => definition && definition.provider === provider);
+
+  if (currentIndex === -1) {
+    return definitions;
+  }
+
+  const [currentDefinition] = definitions.splice(currentIndex, 1);
+  let insertIndex = 0;
+
+  if (anchor === RULE_ORDER_END) {
+    insertIndex = definitions.length;
+  } else if (anchor === RULE_ORDER_START) {
+    insertIndex = 0;
+  } else {
+    const anchorIndex = definitions.findIndex((definition) => definition && definition.provider === anchor);
+    if (anchorIndex === -1) {
+      definitions.splice(Math.min(currentIndex, definitions.length), 0, currentDefinition);
+      return definitions;
+    }
+
+    insertIndex = position === "after" ? anchorIndex + 1 : anchorIndex;
+  }
+
+  definitions.splice(insertIndex, 0, currentDefinition);
+  return definitions;
+}
+
+// 从“当前可用组名 + 内置策略”里解析用户传入的前置组标记。
+function findPreferredGroupReference(availableNames, marker) {
+  const names = uniqueStrings(availableNames);
+  const token = normalizeStringArg(marker);
+
+  if (!token) {
+    return "";
+  }
+
+  // 先尝试完全匹配，保留用户原始大小写/emoji 组名写法。
+  if (names.includes(token)) {
+    return token;
+  }
+
+  const lowerLookup = Object.create(null);
+  for (const name of names) {
+    const key = String(name || "").toLowerCase();
+    if (key && !lowerLookup[key]) {
+      lowerLookup[key] = name;
+    }
+  }
+
+  // 再尝试大小写无关精确匹配。
+  const exactIgnoreCase = lowerLookup[token.toLowerCase()];
+  if (exactIgnoreCase) {
+    return exactIgnoreCase;
+  }
+
+  // 再尝试按脚本内置别名映射。
+  const aliasMap = createPreferredGroupAliasMap();
+  const aliasTarget = aliasMap[normalizeGroupMarkerToken(token)];
+  if (aliasTarget && names.includes(aliasTarget)) {
+    return aliasTarget;
+  }
+
+  // 最后再做一次模糊包含，但仅当唯一命中时才接受，避免歧义。
+  const fuzzyMatches = names.filter((name) => String(name || "").toLowerCase().indexOf(token.toLowerCase()) !== -1);
+  return fuzzyMatches.length === 1 ? fuzzyMatches[0] : "";
+}
+
+// 把用户传入的“前置组标记”解析成真实可引用的策略组/内置策略名称。
+function resolvePreferredGroupReferences(availableNames, markers, excludedNames) {
+  const excludedLookup = createLookup(excludedNames);
+  const resolvedNames = [];
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const matched = findPreferredGroupReference(availableNames, marker);
+    if (matched && !excludedLookup[matched]) {
+      resolvedNames.push(matched);
+    }
+  }
+
+  return uniqueStrings(resolvedNames);
+}
+
+// 解析 proxy-provider 引用：优先精确匹配，其次大小写无关精确匹配，最后只在唯一命中时接受模糊包含匹配。
+function inspectPreferredProxyProviderReference(providerNames, marker) {
+  const names = uniqueStrings(providerNames);
+  const token = normalizeStringArg(marker);
+
+  if (!token) {
+    return { match: "", reason: "empty" };
+  }
+
+  if (names.includes(token)) {
+    return { match: token, reason: "exact" };
+  }
+
+  const lowerLookup = Object.create(null);
+  for (const name of names) {
+    const key = String(name || "").toLowerCase();
+    if (key && !lowerLookup[key]) {
+      lowerLookup[key] = name;
+    }
+  }
+
+  const exactIgnoreCase = lowerLookup[token.toLowerCase()];
+  if (exactIgnoreCase) {
+    return { match: exactIgnoreCase, reason: "exactIgnoreCase" };
+  }
+
+  const fuzzyMatches = names.filter((name) => String(name || "").toLowerCase().indexOf(token.toLowerCase()) !== -1);
+  if (fuzzyMatches.length === 1) {
+    return { match: fuzzyMatches[0], reason: "fuzzy" };
+  }
+
+  return {
+    match: "",
+    reason: fuzzyMatches.length > 1 ? "ambiguous" : "missing"
+  };
+}
+
+// 把用户传入的 proxy-provider 标记解析成真实 provider 名称。
+function resolvePreferredProxyProviderReferences(providerNames, markers) {
+  const resolvedNames = [];
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const result = inspectPreferredProxyProviderReference(providerNames, marker);
+    if (result.match) {
+      resolvedNames.push(result.match);
+    }
+  }
+
+  return uniqueStrings(resolvedNames);
+}
+
+// 校验 GitHub / Steam 独立组 provider 标记是否真的能匹配到当前 proxy-providers。
+function validatePreferredProxyProviderMarkers(providerNames, markers, label, includeAllProviders, includeAll) {
+  const warnings = [];
+
+  if (includeAll && !uniqueStrings(providerNames).length) {
+    warnings.push(`${label} include-all 已开启，但当前配置中不存在可用 proxy-providers；当前只会吸收真实节点`);
+  }
+
+  if (includeAllProviders && !uniqueStrings(providerNames).length) {
+    warnings.push(`${label} include-all-providers 已开启，但当前配置中不存在可用 proxy-providers`);
+  }
+
+  if (includeAll || includeAllProviders) {
+    return uniqueStrings(warnings);
+  }
+
+  for (const token of Array.isArray(markers) ? markers : []) {
+    const result = inspectPreferredProxyProviderReference(providerNames, token);
+    if (result.match) {
+      continue;
+    }
+
+    if (result.reason === "ambiguous") {
+      warnings.push(`${label} provider 标记匹配到多个 proxy-provider，请写得更精确: ${token}`);
+      continue;
+    }
+
+    warnings.push(`${label} provider 标记未匹配到当前 proxy-providers: ${token}`);
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验 latency/load-balance 组若主要通过 proxy-providers 引入节点，Mihomo 健康检查只检查 proxies 字段这一官方语义盲区。
+function validateProxyProviderHealthCheckCaveats(proxyGroups) {
+  const warnings = [];
+
+  for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
+    if (!isObject(group)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(group.type).toLowerCase();
+    if (!["url-test", "fallback", "load-balance"].includes(type)) {
+      continue;
+    }
+
+    const hasProviderPool = !!(group["include-all"] || group["include-all-providers"] || (Array.isArray(group.use) && group.use.length));
+    if (!hasProviderPool) {
+      continue;
+    }
+
+    const name = typeof group.name === "string" && group.name ? group.name : "(未命名测速组)";
+    warnings.push(`${name}: 当前通过 proxy-providers 池引入节点；按 Mihomo 官方语义，健康检查只检查 proxies 字段，不检查 provider 内节点`);
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 解析“点名节点”标记：优先精确匹配，其次大小写无关精确匹配，最后只在唯一命中时接受模糊包含匹配。
+function inspectPreferredProxyReference(proxyNames, marker) {
+  const names = uniqueStrings(proxyNames);
+  const token = normalizeProxyName(marker);
+
+  if (!token) {
+    return { match: "", reason: "empty" };
+  }
+
+  const entries = names.map((name) => ({
+    name,
+    normalized: normalizeProxyName(name),
+    lower: normalizeProxyName(name).toLowerCase()
+  }));
+
+  const exactMatches = entries.filter((item) => item.normalized === token);
+  if (exactMatches.length === 1) {
+    return { match: exactMatches[0].name, reason: "exact" };
+  }
+
+  const ignoreCaseMatches = entries.filter((item) => item.lower === token.toLowerCase());
+  if (ignoreCaseMatches.length === 1) {
+    return { match: ignoreCaseMatches[0].name, reason: "ignore-case" };
+  }
+
+  if (ignoreCaseMatches.length > 1) {
+    return { match: "", reason: "ambiguous" };
+  }
+
+  const fuzzyMatches = entries.filter((item) => item.lower.indexOf(token.toLowerCase()) !== -1);
+  if (fuzzyMatches.length === 1) {
+    return { match: fuzzyMatches[0].name, reason: "fuzzy" };
+  }
+
+  return { match: "", reason: fuzzyMatches.length > 1 ? "ambiguous" : "not-found" };
+}
+
+// 把用户传入的“点名节点标记”解析成真实代理节点名称。
+function resolvePreferredProxyReferences(proxyNames, markers) {
+  const resolvedNames = [];
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const result = inspectPreferredProxyReference(proxyNames, marker);
+    if (result.match) {
+      resolvedNames.push(result.match);
+    }
+  }
+
+  return uniqueStrings(resolvedNames);
+}
+
+// 把用户传入的国家偏好标记解析成真实国家组；支持旗帜、国家名和 COUNTRY_DEFINITIONS.aliases。
+function resolvePreferredCountryGroups(countryConfigs, markers) {
+  const groups = [];
+
+  // 逐个处理偏好标记。
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const token = String(marker || "").trim();
+    if (!token) {
+      continue;
+    }
+
+    let matchedGroup = null;
+
+    // 先尝试按 COUNTRY_DEFINITIONS.aliases / name / flag 解析成标准国家定义。
+    for (const definition of COUNTRY_DEFINITIONS) {
+      const definitionTokens = [definition.flag, definition.name].concat(definition.aliases || []).map((item) => String(item || "").trim().toLowerCase());
+      if (!definitionTokens.includes(token.toLowerCase())) {
+        continue;
+      }
+
+      matchedGroup = findCountryGroup(countryConfigs, [definition.flag, definition.name].concat(definition.aliases || []));
+      if (matchedGroup) {
+        break;
+      }
+    }
+
+    // 如果标准国家定义里没命中，再退回到“直接用字符串包含关系”。
+    if (!matchedGroup) {
+      matchedGroup = findCountryGroup(countryConfigs, [token]);
+    }
+
+    if (matchedGroup) {
+      groups.push(matchedGroup);
+    }
+  }
+
+  // 按组名去重后返回。
+  return uniqueStrings(groups.map((group) => group.name)).map((name) => groups.find((group) => group.name === name));
+}
+
+// 校验用户传入的国家优先链标记是否真的能匹配到“当前已生成”的国家组，避免参数写了却静默失效。
+function validatePreferredCountryMarkers(countryConfigs, markers, label) {
+  const warnings = [];
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const token = String(marker || "").trim();
+    if (!token) {
+      continue;
+    }
+
+    if (resolvePreferredCountryGroups(countryConfigs, [token]).length === 0) {
+      warnings.push(`${label} 优先链标记未匹配到当前已生成的国家组: ${token}`);
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验用户传入的前置组标记是否真的能匹配到当前可用策略组/内置策略，并阻止独立组引用自身。
+function validatePreferredGroupMarkers(availableNames, markers, label, excludedNames) {
+  const warnings = [];
+  const excludedLookup = createLookup(excludedNames);
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const token = String(marker || "").trim();
+    if (!token) {
+      continue;
+    }
+
+    const matched = findPreferredGroupReference(availableNames, token);
+    if (!matched) {
+      warnings.push(`${label} 前置组标记未匹配到当前可用的策略组/内置策略: ${token}`);
+      continue;
+    }
+
+    if (excludedLookup[matched]) {
+      warnings.push(`${label} 前置组标记不能引用自身策略组: ${token}`);
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验用户传入的点名节点标记是否真的能定位到唯一节点，避免模糊匹配产生歧义。
+function validatePreferredProxyMarkers(proxyNames, markers, label) {
+  const warnings = [];
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const token = String(marker || "").trim();
+    if (!token) {
+      continue;
+    }
+
+    const result = inspectPreferredProxyReference(proxyNames, token);
+    if (result.match) {
+      continue;
+    }
+
+    if (result.reason === "ambiguous") {
+      warnings.push(`${label} 点名节点标记匹配到多个节点，请写得更精确: ${token}`);
+      continue;
+    }
+
+    warnings.push(`${label} 点名节点标记未匹配到当前节点: ${token}`);
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 只有在用户显式开启 hidden 参数时，才把指定辅助组标记为隐藏。
+function shouldHideGroup(name) {
+  return ARGS.hidden && typeof name === "string" && HIDEABLE_GROUPS.includes(name);
+}
+
+// 给所有脚本生成的策略组统一挂载全局网络高级项，例如 interface-name / routing-mark。
+function applyGlobalProxyGroupAdvancedOptions(group) {
+  const result = Object.assign({}, isObject(group) ? group : {});
+
+  if (ARGS.hasGroupInterfaceName) {
+    result["interface-name"] = ARGS.groupInterfaceName;
+  }
+
+  if (ARGS.hasGroupRoutingMark) {
+    result["routing-mark"] = ARGS.groupRoutingMark;
+  }
+
+  return result;
+}
+
+// 给所有脚本生成的策略组统一挂载展示层选项，例如 hidden。
+function applyGroupPresentationOptions(group) {
+  const result = applyGlobalProxyGroupAdvancedOptions(group);
+
+  if (shouldHideGroup(result.name)) {
+    result.hidden = true;
+  }
+
+  return result;
+}
+
+// 给 GitHub / Steam 这类独立组继续挂载 Mihomo 官方支持的 hidden / icon / disable-udp / interface-name / routing-mark 等高级项。
+function applyProxyGroupAdvancedOptions(group, options) {
+  const result = Object.assign({}, isObject(group) ? group : {});
+  const custom = isObject(options) ? options : {};
+
+  if (custom.hasHidden) {
+    result.hidden = !!custom.hidden;
+  }
+
+  if (custom.hasIcon && custom.icon) {
+    result.icon = custom.icon;
+  }
+
+  if (custom.hasDisableUdp) {
+    result["disable-udp"] = !!custom.disableUdp;
+  }
+
+  if (custom.hasInterfaceName && custom.interfaceName) {
+    result["interface-name"] = custom.interfaceName;
+  }
+
+  if (custom.hasRoutingMark) {
+    result["routing-mark"] = custom.routingMark;
+  }
+
+  return result;
+}
+
+// 给所有测速类策略组统一挂载 Mihomo 支持的健康检查增强选项，并允许局部覆盖。
+function applyLatencyGroupOptions(group, overrides) {
+  const result = applyGroupPresentationOptions(group);
+  const custom = isObject(overrides) ? overrides : {};
+
+  result.url = custom.hasTestUrl
+    ? custom.testUrl
+    : (ARGS.hasTestUrl ? ARGS.testUrl : (typeof result.url === "string" && result.url ? result.url : TEST_URL));
+  result.interval = custom.hasGroupInterval
+    ? custom.groupInterval
+    : (ARGS.hasGroupInterval ? ARGS.groupInterval : (hasOwn(result, "interval") ? result.interval : GROUP_INTERVAL));
+  result.tolerance = custom.hasGroupTolerance
+    ? custom.groupTolerance
+    : (ARGS.hasGroupTolerance ? ARGS.groupTolerance : (hasOwn(result, "tolerance") ? result.tolerance : GROUP_TOLERANCE));
+  result.lazy = custom.hasGroupLazy
+    ? custom.groupLazy
+    : (ARGS.hasGroupLazy ? ARGS.groupLazy : (hasOwn(result, "lazy") ? result.lazy : true));
+  result.timeout = custom.hasGroupTimeout
+    ? custom.groupTimeout
+    : (ARGS.hasGroupTimeout ? ARGS.groupTimeout : (hasOwn(result, "timeout") ? result.timeout : GROUP_TIMEOUT));
+  result["max-failed-times"] = custom.hasGroupMaxFailedTimes
+    ? custom.groupMaxFailedTimes
+    : (ARGS.hasGroupMaxFailedTimes ? ARGS.groupMaxFailedTimes : (hasOwn(result, "max-failed-times") ? result["max-failed-times"] : GROUP_MAX_FAILED_TIMES));
+  result["expected-status"] = custom.hasGroupExpectedStatus
+    ? custom.groupExpectedStatus
+    : (ARGS.hasGroupExpectedStatus ? ARGS.groupExpectedStatus : (typeof result["expected-status"] === "string" && result["expected-status"] ? result["expected-status"] : GROUP_EXPECTED_STATUS));
+
+  // 只有 load-balance 策略组才挂载 strategy；优先使用局部覆盖，其次用全局参数。
+  if (normalizeStringArg(result.type).toLowerCase() === "load-balance") {
+    const strategy = custom.hasGroupStrategy
+      ? custom.groupStrategy
+      : (ARGS.hasGroupStrategy ? ARGS.groupStrategy : normalizeLoadBalanceStrategy(result.strategy, ""));
+
+    if (strategy) {
+      result.strategy = strategy;
+    }
+  }
+
+  return result;
+}
+
+// 给策略组挂上 Mihomo `include-all-proxies` 自动收集选项，便于在显式候选之外再吸收匹配到的原始节点。
+function applyAutoProxyCollectionOptions(group, options) {
+  const result = Object.assign({}, isObject(group) ? group : {});
+  const custom = isObject(options) ? options : {};
+  const hasAutoCollection = !!(custom.filter || custom.excludeFilter || custom.excludeType || custom.includeAllProxies);
+
+  if (!hasAutoCollection) {
+    return result;
+  }
+
+  result["include-all-proxies"] = true;
+
+  if (custom.filter) {
+    result.filter = custom.filter;
+  }
+
+  if (custom.excludeFilter) {
+    result["exclude-filter"] = custom.excludeFilter;
+  }
+
+  if (custom.excludeType) {
+    result["exclude-type"] = custom.excludeType;
+  }
+
+  return result;
+}
+
+// 给策略组挂上 Mihomo `use / include-all-providers`，便于直接吸收原配置里的 proxy-providers。
+function applyProxyProviderCollectionOptions(group, options) {
+  const result = Object.assign({}, isObject(group) ? group : {});
+  const custom = isObject(options) ? options : {};
+  const useProviders = uniqueStrings(custom.use);
+
+  if (custom.includeAll) {
+    result["include-all"] = true;
+    delete result["include-all-proxies"];
+    delete result["include-all-providers"];
+    delete result.use;
+    return result;
+  }
+
+  if (custom.includeAllProviders) {
+    result["include-all-providers"] = true;
+    return result;
+  }
+
+  if (useProviders.length) {
+    result.use = useProviders;
+  }
+
+  return result;
+}
+
+// 判断某个策略组是否属于 Mihomo 自动收集型分组。
+function isAutoCollectionGroup(group) {
+  return !!(
+    isObject(group) &&
+    (
+      group["include-all"] ||
+      group["include-all-proxies"] ||
+      group["include-all-providers"]
+    )
+  );
+}
+
+// 统计节点整体概况，方便后续日志输出和分组判断。
+function analyzeProxies(proxies) {
+  // 预置统计对象。
+  const stats = {
+    // 原始节点总数。
+    total: Array.isArray(proxies) ? proxies.length : 0,
+    // 有效节点数（有 name 且非空）。
+    valid: 0,
+    // 低倍率节点数。
+    lowCost: 0,
+    // 落地节点数。
+    landing: 0
+  };
+
+  // 遍历所有节点做分类统计。
+  for (const proxy of Array.isArray(proxies) ? proxies : []) {
+    // 无效节点直接跳过。
+    if (!proxy || typeof proxy.name !== "string" || !proxy.name.trim()) {
+      continue;
+    }
+
+    // 统一取出干净的节点名。
+    const name = proxy.name.trim();
+    // 这是一个有效节点。
+    stats.valid += 1;
+
+    // 命中低倍率规则则计数。
+    if (REGEX_LOW_COST.test(name)) {
+      stats.lowCost += 1;
+    }
+
+    // 命中落地规则则计数。
+    if (REGEX_LANDING_ISOLATE.test(name)) {
+      stats.landing += 1;
+    }
+  }
+
+  // 返回统计结果。
+  return stats;
+}
+
+// 分析国家识别覆盖率：有多少节点被识别进国家体系，还有多少仍处于未识别状态。
+function analyzeCountryCoverage(proxies) {
+  // 已被国家规则识别的节点数。
+  let classified = 0;
+  // 未被国家规则识别的节点名称样本。
+  const unclassifiedExamples = [];
+  // 未被国家规则识别的节点总数。
+  let unclassified = 0;
+
+  // 逐个检查节点。
+  for (const proxy of Array.isArray(proxies) ? proxies : []) {
+    // 非法节点直接跳过。
+    if (!isObject(proxy) || typeof proxy.name !== "string") {
+      continue;
+    }
+
+    // 取出名称。
+    const name = proxy.name.trim();
+    // 空名跳过。
+    if (!name) {
+      continue;
+    }
+
+    // 低倍率节点不参与国家覆盖率统计。
+    if (REGEX_LOW_COST.test(name)) {
+      continue;
+    }
+
+    // landing=true 时，落地节点也不参与国家覆盖率统计。
+    if (ARGS.landing && REGEX_LANDING_ISOLATE.test(name)) {
+      continue;
+    }
+
+    // 判断当前节点是否命中任意国家规则。
+    const matched = COMPILED_COUNTRIES.some((country) => country.regex.test(name));
+    if (matched) {
+      classified += 1;
+      continue;
+    }
+
+    // 没命中任何国家规则时，记为未识别节点。
+    unclassified += 1;
+    // 只保留少量样本，避免日志过长。
+    if (unclassifiedExamples.length < 10) {
+      unclassifiedExamples.push(name);
+    }
+  }
+
+  // 返回覆盖率分析结果。
+  return {
+    classified,
+    unclassified,
+    unclassifiedExamples
+  };
+}
+
+// 统一清洗并规范代理节点名称。
+// 重点处理两类问题：首尾空格/多空格，以及重复节点名。
+function normalizeProxies(proxies) {
+  // 记录每个“规范化后基础名称”已经出现了多少次。
+  const nameCounts = Object.create(null);
+  // 收集最终可用的代理节点。
+  const normalizedProxies = [];
+  // 记录本轮被自动改名的节点，便于日志输出。
+  const renamed = [];
+
+  // 遍历原始节点数组。
+  for (const proxy of Array.isArray(proxies) ? proxies : []) {
+    // 非普通对象直接跳过。
+    if (!isObject(proxy) || typeof proxy.name !== "string") {
+      continue;
+    }
+
+    // 先把原始名称规范化。
+    const normalizedName = normalizeProxyName(proxy.name);
+    // 规范化后为空的节点直接丢弃。
+    if (!normalizedName) {
+      continue;
+    }
+
+    // 记录当前基础名称出现次数。
+    nameCounts[normalizedName] = (nameCounts[normalizedName] || 0) + 1;
+    // 第一次出现保留原名，重复出现则自动追加 #序号。
+    const index = nameCounts[normalizedName];
+    const finalName = index === 1 ? normalizedName : `${normalizedName} #${index}`;
+    // 拷贝节点对象并写入最终名称。
+    const normalizedProxy = Object.assign({}, proxy, { name: finalName });
+
+    // 记录任何“名称发生变化”的情况，包含 trim、多空格折叠、重复重命名。
+    if (proxy.name !== finalName) {
+      renamed.push({
+        from: proxy.name,
+        to: finalName
+      });
+    }
+
+    // 收集到最终节点数组。
+    normalizedProxies.push(normalizedProxy);
+  }
+
+  // 返回清洗后的节点和改名信息。
+  return {
+    proxies: normalizedProxies,
+    renamed
+  };
+}
+
+// 解析所有节点，提取能成立的国家分组配置。
+function parseCountries(proxies) {
+  // 保护性判断：没有节点就直接返回空数组。
   if (!Array.isArray(proxies) || proxies.length === 0) {
     console.warn("⚠️ 警告: 代理节点数组为空，无法解析国家信息");
     return [];
   }
 
-  // 遍历所有代理节点
+  // 记录每个国家被识别到的节点数量。
+  const countryCounts = Object.create(null);
+
+  // 遍历所有代理节点，尝试给它们归属国家。
   for (const proxy of proxies) {
-    // [防御] 检查节点对象是否合法
-    if (!proxy || typeof proxy.name !== 'string') {
-      continue; // 跳过无效节点
+    // 无效节点直接跳过。
+    if (!proxy || typeof proxy.name !== "string") {
+      continue;
     }
-    
-    const name = proxy.name;
-    
-    // [关键逻辑] 只有当开启 landing 参数时，才在国家统计中跳过落地节点
-    // 默认 landing=false，所以落地节点会被计入国家分组
-    if (landing && REGEX_LANDING_ISOLATE.test(name)) {
-      continue; // 如果启用落地隔离且该节点是落地节点，则跳过统计
+
+    // 取出去空格后的节点名称。
+    const name = proxy.name.trim();
+    // 空名节点直接跳过。
+    if (!name) {
+      continue;
     }
-    
-    // 遍历所有国家正则，寻找匹配的国家
-    for (const meta of compiledMeta) {
-      if (meta.regex.test(name)) {
-        // 该国家节点数 +1
-        countryCounts[meta.key] = (countryCounts[meta.key] || 0) + 1;
-        break; // 找到匹配国家后停止继续匹配
+
+    // 低倍率节点不参与国家统计，避免污染主国家分组质量。
+    if (REGEX_LOW_COST.test(name)) {
+      continue;
+    }
+
+    // 如果启用了 landing 隔离，则落地节点也不参与国家统计。
+    if (ARGS.landing && REGEX_LANDING_ISOLATE.test(name)) {
+      continue;
+    }
+
+    // 依次尝试匹配每个国家配置。
+    for (const country of COMPILED_COUNTRIES) {
+      // 命中某个国家后就给该国家计数 +1。
+      if (country.regex.test(name)) {
+        countryCounts[country.name] = (countryCounts[country.name] || 0) + 1;
+        // 一个节点只归属第一个命中的国家，避免重复统计。
+        break;
       }
     }
   }
 
-  // 返回符合条件的国家配置
-  return Object.entries(countryCounts)
-    .filter(([, count]) => count > ARGS.threshold)  // 只保留超过阈值的国家
-    .map(([key]) => {
-      // 找到该国家的 meta 配置
-      const meta = compiledMeta.find(m => m.key === key);
-      if (!meta) {
-        return null; // 防御性编程：节点不存在则跳过
+  // 按 COMPILED_COUNTRIES 的顺序生成最终国家分组配置。
+  return COMPILED_COUNTRIES
+    .map((country) => {
+      // 读取当前国家的识别数量。
+      const count = countryCounts[country.name] || 0;
+      // 数量未超过 threshold 就不生成该国家组。
+      if (count <= ARGS.threshold) {
+        return null;
       }
+
       return {
-        name: `${meta.flag} ${key}${NODE_SUFFIX}`,   // 生成策略组名称 (e.g., "🇭🇰 香港节点")
-        filter: meta.outputPattern                    // 用于节点过滤的正则表达式
+        // 保存原始国家键名，便于后续逻辑处理。
+        key: country.name,
+        // 生成最终显示组名。
+        name: `${country.flag} ${country.name}${NODE_SUFFIX}`,
+        // 把国家 filter 暴露出去，给 include-all 策略组使用。
+        filter: country.filter,
+        // 顺带保存节点数量，给 full 日志输出用。
+        count
       };
     })
-    .filter(Boolean); // 过滤掉 null 值
+    // 去掉未达阈值而返回的 null 项。
+    .filter(Boolean);
 }
 
-/**
- * 构建完整的策略组配置
- * 包括基础控制组、业务分流组、国家分组等
- * @param {Array<object>} proxies - 所有代理节点
- * @param {Array<object>} countryConfigs - 国家配置数组
- * @param {boolean} hasLowCost - 是否存在低倍率节点
- * @returns {Array<object>} 返回策略组数组
- */
-function buildProxyGroups(proxies, countryConfigs, hasLowCost) {
-  // 性能监控：统计组构建时间，帮助分析大型订阅时的开销
-  console.time("buildProxyGroups");
-
-  // 获取 lb (负载均衡) 和 landing (落地隔离) 参数
-  const { lb, landing } = ARGS;
-  // 提取所有国家策略组的名称
-  const countryGroupNames = countryConfigs.map(c => c.name);
-
-  // [安全检查] 如果没有国家分组，使用兜底组
-  if (countryGroupNames.length === 0) {
-    console.warn("⚠️ 警告: 未检测到有效的国家分组，将使用兜底节点组");
-  }
-
-  // [兜底组] 当所有国家分组都不可用时的备选
-  const fallbackAllGroup = [{ 
-    name: GROUPS.OTHER,     // 策略组名称
-    type: "select",         // 类型为选择 (手动选择)
-    "include-all": true     // 包含所有节点
-  }];
-  
-  // [基础候选列表] 所有策略组都可以选择的节点列表
-  // 包含：自动切换 → 落地节点 (可选) → 所有国家 → 兜底 → 低倍率 (可选) → 手动 → 直连
-  const baseProxies = [
-    GROUPS.FALLBACK,
-    landing ? GROUPS.LANDING : null,            // 仅 landing=true 时包含
-    ...countryGroupNames,
-    GROUPS.OTHER, 
-    hasLowCost ? GROUPS.LOW_COST : null,        // 仅存在低倍率节点时包含
-    GROUPS.MANUAL,
-    "DIRECT"
-  ].filter(Boolean);  // 过滤掉 null 值
-
-  // [直连优先列表] 用于 Bing、Apple 等需要优先直连的服务
-  // 把 DIRECT 放在最前面，其次是 SELECT，然后是其他
-  const directFirstProxies = [
-    "DIRECT",
-    GROUPS.SELECT,
-    ...baseProxies.filter(p => p !== "DIRECT" && p !== GROUPS.SELECT)
-  ];
-  
-  // [Crypto 日本优先] 加密货币服务优先使用日本节点 (低 ping，快速响应)
-  const japanGroup = countryConfigs.find(c => 
-    c.name.includes("🇯🇵") || c.name.includes("日本") || c.name.includes("霓虹")
-  );
-  const cryptoProxies = japanGroup 
-    ? [japanGroup.name, ...baseProxies.filter(n => n !== japanGroup.name)]  // 日本优先
-    : [...baseProxies];
-
-  // [媒体优先选择] 用于 YouTube、Netflix 等流媒体
-  const mediaProxies = [GROUPS.SELECT, ...countryGroupNames, GROUPS.MANUAL];
-
-  // --- 1. 生成国家分组 ---
-  const countryGroups = countryConfigs.map(config => {
-    // 构建排除过滤器：过滤掉低倍率节点
-    // 如果 landing=true，还需过滤掉落地节点
-    const excludeFilter = landing 
-      ? `(?i)${REGEX_LANDING_ISOLATE.source}|${REGEX_LOW_COST.source}`  // 同时过滤落地和低倍率
-      : `(?i)${REGEX_LOW_COST.source}`;                                  // 仅过滤低倍率
-
-    return {
-      name: config.name,                      // 策略组名称 (e.g., "🇭🇰 香港节点")
-      type: lb ? "load-balance" : "url-test", // 类型：负载均衡 或 URL 测速
-      "include-all": true,                    // 包含所有符合条件的节点
-      filter: config.filter,                  // 匹配该国家的正则表达式
-      "exclude-filter": excludeFilter,        // 排除低倍率 (和落地) 节点
-      interval: 600,                          // 测速间隔 (秒)
-      tolerance: 100,                         // 容错值 (ms)
-      lazy: true,                             // 启用懒加载 (需要时才测速)
-      url: "https://cp.cloudflare.com/generate_204" // 测速地址
-    };
+// 构造一个普通 select 策略组。
+function createSelectGroup(name, proxies) {
+  return applyGroupPresentationOptions({
+    // 策略组名称。
+    name,
+    // 类型固定为 select，用户手动切换用。
+    type: "select",
+    // 候选节点/子组列表做一次清洗去重。
+    proxies: uniqueStrings(proxies)
   });
-
-  // --- 2. 生成功能分组 ---
-  // 为减少重复，先定义一个配置数组，然后通过映射构造对象列表
-  const serviceConfigs = [
-    // 常规业务，使用基础代理池
-    { name: GROUPS.AI,        proxies: baseProxies },
-    { name: GROUPS.TELEGRAM,  proxies: baseProxies },
-    { name: GROUPS.GOOGLE,    proxies: baseProxies },
-    { name: GROUPS.MICROSOFT, proxies: baseProxies },
-    { name: GROUPS.ONEDRIVE,  proxies: baseProxies },
-    { name: GROUPS.GAMES,     proxies: baseProxies },
-
-    // 需要直连优先的服务
-    { name: GROUPS.BING,      proxies: directFirstProxies },
-    { name: GROUPS.APPLE,     proxies: directFirstProxies },
-    { name: GROUPS.PT,        proxies: directFirstProxies },
-    { name: GROUPS.SPEEDTEST, proxies: directFirstProxies },
-
-    // 媒体服务有自己专用的代理顺序
-    { name: GROUPS.YOUTUBE,   proxies: mediaProxies },
-    { name: GROUPS.NETFLIX,   proxies: mediaProxies },
-    { name: GROUPS.DISNEY,    proxies: mediaProxies },
-    { name: GROUPS.SPOTIFY,   proxies: mediaProxies },
-    { name: GROUPS.TIKTOK,    proxies: mediaProxies },
-
-    // 加密货币单独处理
-    { name: GROUPS.CRYPTO,    proxies: cryptoProxies }
-  ];
-
-  // 基础控制与辅助组不在 serviceConfigs 中，单独构建
-  const functionalGroups = [
-    {
-      name: GROUPS.SELECT,    // 🚀 节点选择 (主入口)
-      type: "select",
-      proxies: [
-        GROUPS.FALLBACK,
-        ...countryGroupNames,
-        GROUPS.OTHER,
-        GROUPS.MANUAL,
-        "DIRECT"
-      ]
-    },
-    {
-      name: GROUPS.MANUAL,
-      type: "select",
-      "include-all": true
-    },
-    {
-      name: GROUPS.FALLBACK,
-      type: "url-test",
-      proxies: [
-        landing ? GROUPS.LANDING : null,
-        ...countryGroupNames,
-        GROUPS.OTHER
-      ].filter(Boolean),
-      url: "https://cp.cloudflare.com/generate_204",
-      interval: 600,
-      tolerance: 100,
-      lazy: true
-    }
-  ];
-
-  // 将 serviceConfigs 映射为策略组对象并追加
-  functionalGroups.push(
-    ...serviceConfigs.map(cfg => ({ name: cfg.name, type: "select", proxies: cfg.proxies }))
-  );
-
-  // [拦截与直连组]
-  functionalGroups.push(
-    {
-      name: GROUPS.ADS,
-      type: "select",
-      proxies: ["REJECT", "REJECT-DROP", GROUPS.DIRECT]
-    },
-    {
-      name: GROUPS.DIRECT,
-      type: "select",
-      proxies: ["DIRECT", GROUPS.SELECT]
-    }
-  );
-
-  // [可选] 仅在 landing=true 时生成落地节点隔离组
-  if (landing) {
-    functionalGroups.push({
-      name: GROUPS.LANDING,        // 🏳️‍🌈 落地节点
-      type: "select",              // 手动选择
-      "include-all": true,         // 包含所有落地节点
-      filter: REGEX_LANDING_ISOLATE.source  // 只包含匹配"落地"标记的节点
-    });
-  }
-  
-  // [可选] 仅当存在低倍率节点时生成低倍率组
-  if (hasLowCost) {
-    functionalGroups.push({
-      name: GROUPS.LOW_COST,       // 🐢 低倍率
-      type: "url-test",            // 自动测速
-      "include-all": true,         // 包含所有低倍率节点
-      filter: REGEX_LOW_COST.source,  // 只包含低倍率节点
-      interval: 600, 
-      tolerance: 100, 
-      lazy: true
-    });
-  }
-
-  // 返回完整策略组：功能组 + 国家组 + 兜底组
-  const allGroups = [...functionalGroups, ...countryGroups, ...fallbackAllGroup];
-  console.timeEnd("buildProxyGroups"); // 输出耗时到控制台
-  return allGroups;
 }
 
+// 构造一个 include-all 的 select 策略组，适合“自动收集所有匹配节点”的场景。
+function createIncludeAllSelectGroup(name, filter, excludeFilter) {
+  // 基础结构：select + include-all-proxies，仅自动收集真实节点。
+  const group = {
+    name,
+    type: "select",
+    "include-all-proxies": true
+  };
 
-// ============================================================================
-// 6. DNS 配置 (DNS Configuration) - DNS 和 Fake-IP 设置
-// ============================================================================
+  // 如果传了 filter，就只收集匹配该正则的节点。
+  if (filter) {
+    group.filter = filter;
+  }
 
-/**
- * 构建 DNS 配置对象
- * @returns {object} DNS 配置对象
- */
-function buildDnsConfig() {
-  // 获取 fakeip 和 ipv6 参数
-  const { fakeip, ipv6 } = ARGS;
-  
-  return {
-    enable: true,                            // 启用 DNS 配置
-    ipv6: ipv6,                              // 是否启用 IPv6 解析
-    "prefer-h3": false,                      // 不优先使用 HTTP/3
-    // DNS 模式：Fake-IP (适合游戏) 或重定向主机 (兼容性更好)
-    "enhanced-mode": fakeip ? "fake-ip" : "redir-host",
-    listen: ":1053",                         // DNS 监听端口
-    "use-hosts": true,                       // 使用 hosts 文件
-    "fake-ip-range": "198.18.0.1/16",        // Fake-IP 地址范围 (RFC 6598 标准)
-    
-    // [上游 DNS] 用于解析国内域名 (阿里 / 腾讯，响应快)
-    "default-nameserver": ["223.5.5.5", "119.29.29.29"],
-    // [主 DNS] 支持 DoH (DNS over HTTPS) 协议，更安全
-    nameserver: [
-      "https://dns.alidns.com/dns-query",    // 阿里公共 DNS
-      "https://doh.pub/dns-query"            // 腾讯公共 DNS (DNSPod)
-    ],
-    // [备用 DNS] 用于解析国际域名 (Cloudflare / Google)
-    fallback: [
-      "https://1.1.1.1/dns-query",           // Cloudflare DNS
-      "https://8.8.8.8/dns-query"            // Google DNS
-    ],
-    
-    // [Fake-IP 过滤] 这些域名不使用 Fake-IP，直接真实解析
-    "fake-ip-filter": [
-      // 系统网络检测 (需要真实 IP，否则连接检测会失败)
-      "dns.msftncsi.com",           // 微软网络检测
-      "www.msftncsi.com",
-      "www.msftconnecttest.com",
-      "connectivitycheck.gstatic.com", // Google 网络检测
-      // 游戏主机 (需要真实 IP 进行连接)
-      "*.xboxlive.com",             // Xbox Live
-      "*.nintendo.net",             // Nintendo 网络
-      "*.sonyentertainmentnetwork.com", // PlayStation 网络
-      // 强制直连的服务 (geosite 规则引用)
-      "geosite:cn",                 // 国内域名
-      "geosite:apple",              // 苹果服务
-      "geosite:microsoft",          // 微软服务
-      "geosite:steam@cn"            // Steam 中国区
-    ],
-    
-    // [Fallback 过滤] 防止国内 IP 误匹配为国际流量
-    "fallback-filter": { 
-      geoip: true,                  // 启用 GeoIP 过滤
-      "geoip-code": "CN",           // 过滤掉中国 IP，避免国内域名走备用 DNS
-      ipcidr: ["240.0.0.0/4"]       // 过滤掉保留 IP 段
-    },
-    
-    // [DNS 策略] 根据不同域名使用不同的 DNS
-    "nameserver-policy": {
-      // 国内域名、私有域名、苹果、微软、Steam 中国区 → 使用国内 DNS
-      "geosite:cn,private,apple,steam,microsoft@cn": [
-        "https://dns.alidns.com/dns-query",
-        "https://doh.pub/dns-query"
-      ],
-      // 国际域名、Google、YouTube、Telegram → 使用国际 DNS
-      "geosite:geolocation-!cn,gfw,google,youtube,telegram": [
-        "https://1.1.1.1/dns-query",
-        "https://8.8.8.8/dns-query"
-      ]
+  // 如果传了 exclude-filter，就把命中的节点排除掉。
+  if (excludeFilter) {
+    group["exclude-filter"] = excludeFilter;
+  }
+
+  return applyGroupPresentationOptions(group);
+}
+
+// 构造一个基于显式候选列表的测速类策略组。
+function createProxyListLatencyGroup(name, proxies, type, overrides) {
+  return applyLatencyGroupOptions({
+    // 策略组名称。
+    name,
+    // 默认是 url-test，也可显式传入 fallback / load-balance 等类型。
+    type: type || "url-test",
+    // 候选节点/子组列表做一次去重。
+    proxies: uniqueStrings(proxies)
+  }, overrides);
+}
+
+// 按给定 group type 构造“显式候选列表型”服务组，兼容 select / url-test / fallback / load-balance，并允许继续挂载独立组高级项。
+function createServiceGroup(name, proxies, type, overrides, autoCollectionOptions, advancedOptions, providerCollectionOptions) {
+  const groupType = normalizeServiceGroupType(type, "select");
+  const group = groupType === "select"
+    ? createSelectGroup(name, proxies)
+    : createProxyListLatencyGroup(name, proxies, groupType, overrides);
+  return applyProxyGroupAdvancedOptions(
+    applyProxyProviderCollectionOptions(
+      applyAutoProxyCollectionOptions(group, autoCollectionOptions),
+      providerCollectionOptions
+    ),
+    advancedOptions
+  );
+}
+
+// 构造一个 include-all 自动收集节点的测速类策略组。
+function createIncludeAllLatencyGroup(name, filter, excludeFilter, type) {
+  // 先生成基础结构。
+  const group = {
+    name,
+    // 未显式传 type 时，根据用户参数决定是 load-balance 还是 url-test。
+    type: type || (ARGS.lb ? "load-balance" : "url-test"),
+    // 开启 include-all-proxies，表示自动从所有真实节点中按 filter 吸收成员。
+    "include-all-proxies": true
+  };
+
+  // 传了 filter 就只收集命中的节点。
+  if (filter) {
+    group.filter = filter;
+  }
+
+  // 传了 exclude-filter 就排除命中的节点。
+  if (excludeFilter) {
+    group["exclude-filter"] = excludeFilter;
+  }
+
+  return applyLatencyGroupOptions(group);
+}
+
+// 清洗策略组定义，做名称去重、空组移除、候选列表去重。
+function sanitizeProxyGroups(groups) {
+  // 记录哪些组名已经出现过。
+  const seen = Object.create(null);
+  // 存放最终有效的策略组。
+  const result = [];
+
+  // 逐个检查所有传入组。
+  for (const item of Array.isArray(groups) ? groups : []) {
+    // 非普通对象、没有有效 name 的组直接跳过。
+    if (!isObject(item) || typeof item.name !== "string" || !item.name.trim()) {
+      continue;
     }
+
+    // 同名组只保留第一份，防止冲突。
+    if (seen[item.name]) {
+      continue;
+    }
+
+    // 浅拷贝一份，避免直接修改外部传入对象。
+    const group = Object.assign({}, item);
+
+    // 如果这个组带 proxies 数组，则先做一次候选列表去重。
+    if (Array.isArray(group.proxies)) {
+      group.proxies = uniqueStrings(group.proxies);
+    }
+
+    // 非自动收集组且没有 filter 的组，本质上依赖显式 proxies。
+    if (!isAutoCollectionGroup(group) && !group.filter) {
+      // 如果连 proxies 都没有，就说明这是个空组，直接丢弃。
+      if (!Array.isArray(group.proxies) || group.proxies.length === 0) {
+        console.warn(`⚠️ 警告: 策略组 ${group.name} 无可用候选，已跳过`);
+        continue;
+      }
+    }
+
+    // 标记该组名已经被占用。
+    seen[group.name] = true;
+    // 加入最终结果。
+    result.push(group);
+  }
+
+  // 返回清洗后的策略组数组。
+  return result;
+}
+
+// 合并脚本生成的策略组与原配置中的自定义策略组。
+function mergeProxyGroups(generatedGroups, existingGroups) {
+  // 先清洗脚本生成的组，确保基础结构稳定。
+  const baseGroups = sanitizeProxyGroups(generatedGroups);
+  // 用于记录已经占用的组名。
+  const seen = Object.create(null);
+
+  // 先把脚本生成的组名都登记进去。
+  for (const group of baseGroups) {
+    seen[group.name] = true;
+  }
+
+  // 收集用户原配置中不冲突的额外策略组。
+  const extras = [];
+  // 遍历用户原配置的策略组。
+  for (const group of Array.isArray(existingGroups) ? existingGroups : []) {
+    // 非法组或名称冲突的组直接跳过。
+    if (!isObject(group) || typeof group.name !== "string" || seen[group.name]) {
+      continue;
+    }
+
+    // 追加到额外组列表。
+    extras.push(group);
+    // 同时登记组名，防止 extras 内部也重复。
+    seen[group.name] = true;
+  }
+
+  // 最终结果 = 脚本组 + 用户不冲突组，再统一清洗一遍。
+  return sanitizeProxyGroups(baseGroups.concat(extras));
+}
+
+// 校验规则定义里引用的 provider 是否都真实存在。
+function validateRuleProviders(providerDefinitions, providers) {
+  // 建立 provider 名称查找表。
+  const providerLookup = createLookup(Object.keys(isObject(providers) ? providers : {}));
+  // 收集不存在的 provider 名称。
+  const missingProviders = [];
+
+  // 逐条检查规则定义。
+  for (const definition of Array.isArray(providerDefinitions) ? providerDefinitions : []) {
+    // provider 不存在时记入缺失列表。
+    if (!providerLookup[definition.provider]) {
+      missingProviders.push(definition.provider);
+    }
+  }
+
+  // 返回去重后的缺失列表。
+  return uniqueStrings(missingProviders);
+}
+
+// 校验 rule-provider 的 path 是否发生冲突，帮助定位缓存文件覆盖问题。
+function validateRuleProviderPaths(providers) {
+  const source = isObject(providers) ? providers : {};
+  const seen = Object.create(null);
+  const conflicts = [];
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    const path = isObject(provider) && typeof provider.path === "string" ? provider.path.trim() : "";
+
+    if (!path) {
+      continue;
+    }
+
+    if (seen[path] && seen[path] !== name) {
+      conflicts.push(`${seen[path]} <-> ${name}: ${path}`);
+      continue;
+    }
+
+    seen[path] = name;
+  }
+
+  return uniqueStrings(conflicts);
+}
+
+// 校验 http 类型 rule-provider 的远程地址是否看起来正常，避免参数拼错后静默失效。
+function validateRuleProviderUrls(providers) {
+  const source = isObject(providers) ? providers : {};
+  const warnings = [];
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    const type = isObject(provider) ? normalizeStringArg(provider.type).toLowerCase() : "";
+    const url = isObject(provider) ? normalizeStringArg(provider.url) : "";
+
+    if (type !== "http") {
+      continue;
+    }
+
+    if (!looksLikeHttpUrl(url)) {
+      warnings.push(`${name}: url=${provider.url} 看起来不像合法 http(s) 地址`);
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验 rule-provider 的官方 type/behavior/format/path/payload 语义，避免“能生成但不符合 Mihomo 官方要求”。
+function validateRuleProviderOptions(providers) {
+  const source = isObject(providers) ? providers : {};
+  const warnings = [];
+  const hasPathConfiguredOption = ARGS.hasRuleProviderPathDir;
+  const hasPayloadConfiguredOption = ARGS.hasRuleProviderPayload;
+  const hasDownloadConfiguredOptions = hasRuleProviderDownloadConfiguredOptions();
+  let inlineProviderCount = 0;
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+
+    if (!isObject(provider)) {
+      warnings.push(`${name}: rule-provider 必须为对象`);
+      continue;
+    }
+
+    const type = normalizeStringArg(provider.type).toLowerCase();
+    const behavior = normalizeStringArg(provider.behavior).toLowerCase();
+    const format = normalizeStringArg(provider.format).toLowerCase();
+    const url = normalizeStringArg(provider.url);
+    const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
+
+    if (!isOfficialRuleProviderType(type)) {
+      warnings.push(`${name}: type=${provider.type || "unknown"} 不在 Mihomo 官方 rule-provider 类型范围内，仅支持 http/file/inline`);
+    }
+
+    if (!isOfficialRuleProviderBehavior(behavior)) {
+      warnings.push(`${name}: behavior=${provider.behavior || "unknown"} 不在 Mihomo 官方 rule-provider 行为范围内，仅支持 domain/ipcidr/classical`);
+    }
+
+    if (format && !isOfficialRuleProviderFormat(format)) {
+      warnings.push(`${name}: format=${provider.format} 不在 Mihomo 官方 rule-provider 格式范围内，仅支持 yaml/text/mrs`);
+    }
+
+    if (type === "http") {
+      if (!url) {
+        warnings.push(`${name}: type=http 时必须配置 url`);
+      } else if (!looksLikeHttpUrl(url)) {
+        warnings.push(`${name}: url=${provider.url} 看起来不像合法 http(s) 地址`);
+      }
+
+      if (hasOwn(provider, "interval")) {
+        const interval = Number(provider.interval);
+        if (!isFinite(interval) || interval < 1) {
+          warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
+        }
+      }
+
+      if (hasOwn(provider, "size-limit")) {
+        const sizeLimit = Number(provider["size-limit"]);
+        if (!isFinite(sizeLimit) || sizeLimit < 0) {
+          warnings.push(`${name}: size-limit 必须为大于等于 0 的数字`);
+        }
+      }
+    } else {
+      const skippedHttpOnlyOptions = [];
+
+      if (hasPathConfiguredOption) {
+        skippedHttpOnlyOptions.push("rule-provider-path-dir");
+      }
+
+      if (hasDownloadConfiguredOptions) {
+        skippedHttpOnlyOptions.push("interval/proxy/size-limit/header");
+      }
+
+      if (skippedHttpOnlyOptions.length) {
+        warnings.push(`${name}: type=${provider.type || "unknown"} 不是 http，${skippedHttpOnlyOptions.join("、")} 不会生效`);
+      }
+    }
+
+    if (type === "file" && !path) {
+      warnings.push(`${name}: type=file 时通常需要有效 path 来定位本地 rule-provider 文件`);
+    }
+
+    if (type === "inline") {
+      inlineProviderCount += 1;
+      if (!Array.isArray(provider.payload) || !provider.payload.length) {
+        warnings.push(`${name}: type=inline 时建议提供有效 payload`);
+      }
+      if (url) {
+        warnings.push(`${name}: type=inline 时通常不需要 url`);
+      }
+    }
+
+    if (hasOwn(provider, "payload")) {
+      if (!Array.isArray(provider.payload)) {
+        warnings.push(`${name}: payload 必须为数组`);
+      } else if (!provider.payload.length) {
+        warnings.push(`${name}: payload 不能为空数组`);
+      } else {
+        for (let index = 0; index < provider.payload.length; index += 1) {
+          const item = provider.payload[index];
+          if (typeof item !== "string") {
+            warnings.push(`${name}: payload[${index}] 必须为字符串规则`);
+            continue;
+          }
+
+          if (!normalizeStringArg(item)) {
+            warnings.push(`${name}: payload[${index}] 不能为空字符串`);
+          }
+        }
+      }
+
+      if (type && type !== "inline") {
+        warnings.push(`${name}: 按 Mihomo 官方语义，payload 只对 type=inline 生效；当前 type=${provider.type || "unknown"} 时通常不会生效`);
+      }
+    } else if (type === "inline" && hasPayloadConfiguredOption) {
+      warnings.push(`${name}: 已配置 rule-provider-payload，但当前 payload 仍未生成`);
+    }
+
+    if (format === "mrs" && behavior === "classical") {
+      warnings.push(`${name}: 按 Mihomo 官方语义，format=mrs 仅支持 domain/ipcidr，不支持 classical`);
+    }
+
+    if (hasOwn(provider, "header")) {
+      if (!isObject(provider.header)) {
+        warnings.push(`${name}: header 必须为对象`);
+      } else {
+        for (const headerName of Object.keys(provider.header)) {
+          const rawHeaderValues = Array.isArray(provider.header[headerName]) ? provider.header[headerName] : [provider.header[headerName]];
+          const headerValues = rawHeaderValues.map((item) => normalizeStringArg(item)).filter(Boolean);
+
+          if (!isValidRequestHeaderName(headerName)) {
+            warnings.push(`${name}: header 名称无效: ${headerName}`);
+          }
+
+          if (!headerValues.length) {
+            warnings.push(`${name}: header.${headerName} 不能为空`);
+          }
+        }
+      }
+    }
+
+    if (hasOwn(provider, "path")) {
+      if (!path) {
+        warnings.push(`${name}: path 不能为空字符串`);
+      } else {
+        const pathDirPrefix = ARGS.ruleProviderPathDir === "/" ? "/" : `${ARGS.ruleProviderPathDir}/`;
+        if (type === "http" && hasPathConfiguredOption && !path.startsWith(pathDirPrefix)) {
+          warnings.push(`${name}: path=${path} 未落在 rule-provider-path-dir=${ARGS.ruleProviderPathDir} 下`);
+        }
+        if (mayRequireProviderSafePaths(path)) {
+          warnings.push(`${name}: path=${path} 可能超出 HomeDir；按 Mihomo 官方语义，若不在 HomeDir 下通常需要额外 SAFE_PATHS`);
+        }
+      }
+    } else if (type === "http" && hasPathConfiguredOption) {
+      warnings.push(`${name}: 已配置 rule-provider-path-dir，但当前 path 仍未生成`);
+    }
+  }
+
+  if (hasPayloadConfiguredOption && !inlineProviderCount) {
+    warnings.push("已配置 rule-provider-payload，但当前配置中没有 type=inline 的 rule-providers");
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验 proxy-provider 的官方 type/url/path/payload 语义、缓存路径、下载控制与 health-check 参数是否完整，避免远程集合静默失效。
+function validateProxyProviderOptions(proxyProviders) {
+  const source = isObject(proxyProviders) ? proxyProviders : {};
+  const warnings = [];
+  const seenPaths = Object.create(null);
+  const hasPathConfiguredOption = ARGS.hasProxyProviderPathDir;
+  const hasPayloadConfiguredOption = ARGS.hasProxyProviderPayload;
+  const hasDownloadConfiguredOptions = hasProxyProviderDownloadConfiguredOptions();
+  const hasCollectionConfiguredOptions = hasProxyProviderCollectionConfiguredOptions();
+  const hasOverrideConfiguredOptions = hasProxyProviderOverrideConfiguredOptions();
+  const hasHealthCheckConfiguredOptions = hasProxyProviderHealthCheckConfiguredOptions();
+  const hasConfiguredOptions = !!(
+    hasPathConfiguredOption ||
+    hasPayloadConfiguredOption ||
+    hasDownloadConfiguredOptions ||
+    hasCollectionConfiguredOptions ||
+    hasOverrideConfiguredOptions ||
+    hasHealthCheckConfiguredOptions
+  );
+
+  if (!Object.keys(source).length) {
+    if (hasConfiguredOptions) {
+      warnings.push("已配置 proxy-provider 参数，但当前配置中不存在 proxy-providers");
+    }
+    return warnings;
+  }
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    if (!isObject(provider)) {
+      warnings.push(`${name}: proxy-provider 必须为对象`);
+      continue;
+    }
+
+    const type = normalizeStringArg(provider.type).toLowerCase();
+    const url = normalizeStringArg(provider.url);
+    const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
+
+    if (!isOfficialProxyProviderType(type)) {
+      warnings.push(`${name}: type=${provider.type || "unknown"} 不在 Mihomo 官方 proxy-provider 类型范围内，仅支持 http/file/inline`);
+    }
+
+    if (type === "http") {
+      if (!url) {
+        warnings.push(`${name}: type=http 时必须配置 url`);
+      } else if (!looksLikeHttpUrl(url)) {
+        warnings.push(`${name}: url=${provider.url} 看起来不像合法 http(s) 地址`);
+      }
+
+      if (hasOwn(provider, "interval")) {
+        const interval = Number(provider.interval);
+        if (!isFinite(interval) || interval < 1) {
+          warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
+        }
+      }
+
+      if (hasOwn(provider, "size-limit")) {
+        const sizeLimit = Number(provider["size-limit"]);
+        if (!isFinite(sizeLimit) || sizeLimit < 0) {
+          warnings.push(`${name}: size-limit 必须为大于等于 0 的数字`);
+        }
+      }
+    } else {
+      const skippedHttpOnlyOptions = [];
+
+      if (hasPathConfiguredOption) {
+        skippedHttpOnlyOptions.push("proxy-provider-path-dir");
+      }
+
+      if (hasDownloadConfiguredOptions) {
+        skippedHttpOnlyOptions.push("interval/proxy/size-limit/header");
+      }
+
+      if (skippedHttpOnlyOptions.length) {
+        warnings.push(`${name}: type=${provider.type || "unknown"} 不是 http，${skippedHttpOnlyOptions.join("、")} 不会生效`);
+      }
+    }
+
+    if (type === "file" && !path) {
+      warnings.push(`${name}: type=file 时通常需要有效 path 来定位本地 provider 文件`);
+    }
+
+    if (type === "inline" && (!Array.isArray(provider.payload) || !provider.payload.length)) {
+      warnings.push(`${name}: type=inline 时建议提供有效 payload`);
+    }
+
+    if (hasOwn(provider, "payload")) {
+      if (!Array.isArray(provider.payload)) {
+        warnings.push(`${name}: payload 必须为数组`);
+      } else if (!provider.payload.length) {
+        warnings.push(`${name}: payload 不能为空数组`);
+      } else {
+        for (let index = 0; index < provider.payload.length; index += 1) {
+          const item = provider.payload[index];
+          if (!isObject(item)) {
+            warnings.push(`${name}: payload[${index}] 必须为对象`);
+            continue;
+          }
+
+          if (!normalizeStringArg(item.name) || !normalizeStringArg(item.type)) {
+            warnings.push(`${name}: payload[${index}] 缺少有效的 name/type`);
+          }
+        }
+      }
+    } else if (hasPayloadConfiguredOption) {
+      warnings.push(`${name}: 已配置 proxy-provider-payload，但当前 payload 仍未生成`);
+    }
+
+    if (hasOwn(provider, "header")) {
+      if (!isObject(provider.header)) {
+        warnings.push(`${name}: header 必须为对象`);
+      } else {
+        for (const headerName of Object.keys(provider.header)) {
+          const rawHeaderValues = Array.isArray(provider.header[headerName]) ? provider.header[headerName] : [provider.header[headerName]];
+          const headerValues = rawHeaderValues.map((item) => normalizeStringArg(item)).filter(Boolean);
+
+          if (!isValidRequestHeaderName(headerName)) {
+            warnings.push(`${name}: header 名称无效: ${headerName}`);
+          }
+
+          if (!headerValues.length) {
+            warnings.push(`${name}: header.${headerName} 不能为空`);
+          }
+        }
+      }
+    } else if (type === "http" && ARGS.hasProxyProviderHeader) {
+      warnings.push(`${name}: 已配置 proxy-provider-header，但当前 header 仍未生成`);
+    }
+
+    if (hasOwn(provider, "path")) {
+      if (!path) {
+        warnings.push(`${name}: path 不能为空字符串`);
+      } else {
+        if (mayRequireProviderSafePaths(path)) {
+          warnings.push(`${name}: path=${path} 可能超出 HomeDir；按 Mihomo 官方语义，若不在 HomeDir 下通常需要额外 SAFE_PATHS`);
+        }
+
+        if (seenPaths[path] && seenPaths[path] !== name) {
+          warnings.push(`${seenPaths[path]} <-> ${name}: proxy-provider path 冲突 ${path}`);
+        } else {
+          seenPaths[path] = name;
+        }
+
+        const pathDirPrefix = ARGS.proxyProviderPathDir === "/" ? "/" : `${ARGS.proxyProviderPathDir}/`;
+        if (type === "http" && hasPathConfiguredOption && !path.startsWith(pathDirPrefix)) {
+          warnings.push(`${name}: path=${path} 未落在 proxy-provider-path-dir=${ARGS.proxyProviderPathDir} 下`);
+        }
+      }
+    } else if (type === "http" && hasPathConfiguredOption) {
+      warnings.push(`${name}: 已配置 proxy-provider-path-dir，但当前 path 仍未生成`);
+    }
+
+    if (hasOwn(provider, "filter")) {
+      const filter = normalizeStringArg(provider.filter);
+      if (!filter) {
+        warnings.push(`${name}: filter 不能为空字符串`);
+      } else {
+        try {
+          compilePatternRegExp(filter);
+        } catch (error) {
+          warnings.push(`${name}: filter 正则无效: ${error.message}`);
+        }
+      }
+    }
+
+    if (hasOwn(provider, "exclude-filter")) {
+      const excludeFilter = normalizeStringArg(provider["exclude-filter"]);
+      if (!excludeFilter) {
+        warnings.push(`${name}: exclude-filter 不能为空字符串`);
+      } else {
+        try {
+          compilePatternRegExp(excludeFilter);
+        } catch (error) {
+          warnings.push(`${name}: exclude-filter 正则无效: ${error.message}`);
+        }
+      }
+    }
+
+    if (hasOwn(provider, "exclude-type")) {
+      const excludeTypeSource = normalizeStringArg(provider["exclude-type"]);
+      const excludeTypes = parseTypeList(provider["exclude-type"]);
+      if (/[()[\]{}*+?^$\\]/.test(excludeTypeSource)) {
+        warnings.push(`${name}: exclude-type 不支持正则，请只保留类型名并使用 | 分隔`);
+      }
+      if (excludeTypeSource && !excludeTypes.length) {
+        warnings.push(`${name}: exclude-type 不能为空列表`);
+      }
+    }
+
+    if (hasOwn(provider, "override")) {
+      if (!isObject(provider.override)) {
+        warnings.push(`${name}: override 必须为对象`);
+      } else {
+        const override = provider.override;
+
+        if (hasOwn(override, "additional-prefix") && !normalizeStringArg(override["additional-prefix"])) {
+          warnings.push(`${name}: override.additional-prefix 不能为空字符串`);
+        }
+
+        if (hasOwn(override, "additional-suffix") && !normalizeStringArg(override["additional-suffix"])) {
+          warnings.push(`${name}: override.additional-suffix 不能为空字符串`);
+        }
+
+        if (hasOwn(override, "udp") && !isBooleanLike(override.udp)) {
+          warnings.push(`${name}: override.udp 仅支持布尔值`);
+        }
+
+        if (hasOwn(override, "udp-over-tcp") && !isBooleanLike(override["udp-over-tcp"])) {
+          warnings.push(`${name}: override.udp-over-tcp 仅支持布尔值`);
+        }
+
+        if (hasOwn(override, "down") && !normalizeStringArg(override.down)) {
+          warnings.push(`${name}: override.down 不能为空字符串`);
+        }
+
+        if (hasOwn(override, "up") && !normalizeStringArg(override.up)) {
+          warnings.push(`${name}: override.up 不能为空字符串`);
+        }
+
+        if (hasOwn(override, "tfo") && !isBooleanLike(override.tfo)) {
+          warnings.push(`${name}: override.tfo 仅支持布尔值`);
+        }
+
+        if (hasOwn(override, "mptcp") && !isBooleanLike(override.mptcp)) {
+          warnings.push(`${name}: override.mptcp 仅支持布尔值`);
+        }
+
+        if (hasOwn(override, "skip-cert-verify") && !isBooleanLike(override["skip-cert-verify"])) {
+          warnings.push(`${name}: override.skip-cert-verify 仅支持布尔值`);
+        }
+
+        if (hasOwn(override, "dialer-proxy") && !normalizeStringArg(override["dialer-proxy"])) {
+          warnings.push(`${name}: override.dialer-proxy 不能为空字符串`);
+        }
+
+        if (hasOwn(override, "interface-name") && !normalizeInterfaceNameArg(override["interface-name"])) {
+          warnings.push(`${name}: override.interface-name 必须为非空字符串`);
+        }
+
+        if (hasOwn(override, "routing-mark") && normalizeRoutingMarkArg(override["routing-mark"]) === null) {
+          warnings.push(`${name}: override.routing-mark 仅支持大于等于 0 的整数`);
+        }
+
+        if (hasOwn(override, "ip-version")) {
+          const ipVersion = normalizeIpVersionArg(override["ip-version"], "");
+          if (!ipVersion) {
+            warnings.push(`${name}: override.ip-version 仅支持 dual / ipv4 / ipv6 / ipv4-prefer / ipv6-prefer`);
+          }
+        }
+
+        if (hasOwn(override, "proxy-name")) {
+          if (!Array.isArray(override["proxy-name"])) {
+            warnings.push(`${name}: override.proxy-name 必须为数组`);
+          } else if (!override["proxy-name"].length) {
+            warnings.push(`${name}: override.proxy-name 不能为空数组`);
+          } else {
+            for (const item of override["proxy-name"]) {
+              if (!isObject(item)) {
+                warnings.push(`${name}: override.proxy-name 的每一项都必须为对象`);
+                continue;
+              }
+
+              const pattern = normalizeStringArg(item.pattern);
+              const target = normalizeStringArg(item.target);
+              if (!pattern || !target) {
+                warnings.push(`${name}: override.proxy-name 规则必须同时包含 pattern 与 target`);
+                continue;
+              }
+
+              try {
+                compilePatternRegExp(pattern);
+              } catch (error) {
+                warnings.push(`${name}: override.proxy-name 正则无效 (${pattern}): ${error.message}`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!hasOwn(provider, "health-check")) {
+      continue;
+    }
+
+    if (!isObject(provider["health-check"])) {
+      warnings.push(`${name}: health-check 必须为对象`);
+      continue;
+    }
+
+    const healthCheck = provider["health-check"];
+
+    if (hasOwn(healthCheck, "url") && !looksLikeHttpUrl(healthCheck.url)) {
+      warnings.push(`${name}: health-check.url=${healthCheck.url} 看起来不像合法 http(s) 地址`);
+    }
+
+    if (hasOwn(healthCheck, "interval")) {
+      const interval = Number(healthCheck.interval);
+      if (!isFinite(interval) || interval < 1) {
+        warnings.push(`${name}: health-check.interval 必须为大于等于 1 的数字`);
+      }
+    }
+
+    if (hasOwn(healthCheck, "timeout")) {
+      const timeout = Number(healthCheck.timeout);
+      if (!isFinite(timeout) || timeout < 1) {
+        warnings.push(`${name}: health-check.timeout 必须为大于等于 1 的数字`);
+      }
+    }
+
+    if (hasOwn(healthCheck, "expected-status")) {
+      const expectedStatus = normalizeExpectedStatusArg(healthCheck["expected-status"]);
+      if (!expectedStatus) {
+        warnings.push(`${name}: health-check.expected-status 不能为空字符串`);
+      } else if (!isValidExpectedStatusValue(expectedStatus)) {
+        warnings.push(`${name}: health-check.expected-status 仅支持 *、单个状态码，或 200/302/400-503 这类官方语法`);
+      }
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验配置与生成结果中是否包含 Mihomo 文档已经标记为弃用的字段。
+function validateDeprecatedSettings(config, proxyGroups) {
+  const currentConfig = isObject(config) ? config : {};
+  const deprecatedSettings = [];
+
+  if (hasOwn(currentConfig, "global-client-fingerprint")) {
+    deprecatedSettings.push("global-client-fingerprint 已被 Mihomo General 文档标记为 deprecated");
+  }
+
+  if (Array.isArray(proxyGroups) && proxyGroups.some((group) => isObject(group) && hasOwn(group, "interface-name"))) {
+    deprecatedSettings.push("当前生成的 proxy-groups 使用了 interface-name；Mihomo Proxy Groups 文档已标记为 deprecated");
+  }
+
+  if (Array.isArray(proxyGroups) && proxyGroups.some((group) => isObject(group) && hasOwn(group, "routing-mark"))) {
+    deprecatedSettings.push("当前生成的 proxy-groups 使用了 routing-mark；Mihomo Proxy Groups 文档已标记为 deprecated");
+  }
+
+  return uniqueStrings(deprecatedSettings);
+}
+
+// 校验 DNS 里是否存在 Mihomo 文档明确不推荐的危险组合。
+function validateDnsRiskWarnings(dns) {
+  const currentDns = isObject(dns) ? dns : {};
+  const warnings = [];
+
+  if (parseBool(currentDns["prefer-h3"], false) && parseBool(currentDns["respect-rules"], false)) {
+    warnings.push("dns.prefer-h3 与 dns.respect-rules 同时启用，Mihomo DNS 文档明确不推荐");
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验 DNS 高级项本身是否落在 Mihomo 文档常见允许值内。
+function validateDnsOptionWarnings(dns) {
+  const currentDns = isObject(dns) ? dns : {};
+  const warnings = [];
+  const cacheAlgorithm = typeof currentDns["cache-algorithm"] === "string" ? currentDns["cache-algorithm"].trim().toLowerCase() : "";
+  const fakeIpFilterMode = typeof currentDns["fake-ip-filter-mode"] === "string" ? currentDns["fake-ip-filter-mode"].trim().toLowerCase() : "";
+
+  if (cacheAlgorithm && !["arc", "lru"].includes(cacheAlgorithm)) {
+    warnings.push(`cache-algorithm=${currentDns["cache-algorithm"]} 不在常见取值 arc/lru 内`);
+  }
+
+  if (fakeIpFilterMode && !["blacklist", "whitelist", "rule"].includes(fakeIpFilterMode)) {
+    warnings.push(`fake-ip-filter-mode=${currentDns["fake-ip-filter-mode"]} 不在常见取值 blacklist/whitelist/rule 内`);
+  }
+
+  if (fakeIpFilterMode === "whitelist") {
+    warnings.push("fake-ip-filter-mode=whitelist 会改变内置默认 fake-ip-filter 语义，请谨慎使用");
+  }
+
+  if (hasOwn(currentDns, "fake-ip-ttl")) {
+    const ttl = Number(currentDns["fake-ip-ttl"]);
+    if (!isFinite(ttl) || ttl < 1) {
+      warnings.push("fake-ip-ttl 必须为大于等于 1 的数字");
+    }
+  }
+
+  if (hasOwn(currentDns, "listen") && (typeof currentDns.listen !== "string" || !currentDns.listen.trim())) {
+    warnings.push("dns.listen 必须为非空字符串");
+  }
+
+  if (hasOwn(currentDns, "fake-ip-range") && !looksLikeCidr(currentDns["fake-ip-range"])) {
+    warnings.push(`fake-ip-range=${currentDns["fake-ip-range"]} 看起来不像合法 CIDR 网段`);
+  }
+
+  if (hasOwn(currentDns, "fake-ip-range6") && !looksLikeCidr(currentDns["fake-ip-range6"])) {
+    warnings.push(`fake-ip-range6=${currentDns["fake-ip-range6"]} 看起来不像合法 CIDR 网段`);
+  }
+
+  if (fakeIpFilterMode === "rule") {
+    const filters = toStringArray(currentDns["fake-ip-filter"]);
+    if (!filters.some((item) => /^MATCH,\s*fake-ip$/i.test(item))) {
+      warnings.push("fake-ip-filter-mode=rule 时，fake-ip-filter 建议以 MATCH,fake-ip 收尾");
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验 GEO 相关配置是否完整，尤其是自动更新链路是否具备必要字段。
+function validateGeoConfig(config) {
+  const currentConfig = isObject(config) ? config : {};
+  const warnings = [];
+  const geoxUrl = isObject(currentConfig["geox-url"]) ? currentConfig["geox-url"] : {};
+
+  if (hasOwn(currentConfig, "geo-update-interval")) {
+    const interval = Number(currentConfig["geo-update-interval"]);
+    if (!isFinite(interval) || interval < 1) {
+      warnings.push("geo-update-interval 必须为大于等于 1 的数字");
+    }
+  }
+
+  if (parseBool(currentConfig["geo-auto-update"], false)) {
+    for (const key of ["geoip", "geosite", "mmdb", "asn"]) {
+      if (typeof geoxUrl[key] !== "string" || !geoxUrl[key].trim()) {
+        warnings.push(`geo-auto-update 已启用，但 geox-url.${key} 缺失`);
+      }
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验核心内核选项是否落在 Mihomo 文档允许的常见取值范围内。
+function validateKernelOptionWarnings(config) {
+  const currentConfig = isObject(config) ? config : {};
+  const warnings = [];
+  const processMode = typeof currentConfig["find-process-mode"] === "string" ? currentConfig["find-process-mode"].trim().toLowerCase() : "";
+  const geodataLoader = typeof currentConfig["geodata-loader"] === "string" ? currentConfig["geodata-loader"].trim().toLowerCase() : "";
+
+  if (processMode && !["strict", "always", "off"].includes(processMode)) {
+    warnings.push(`find-process-mode=${currentConfig["find-process-mode"]} 不在常见取值 strict/always/off 内`);
+  }
+
+  if (geodataLoader && !["standard", "memconservative"].includes(geodataLoader)) {
+    warnings.push(`geodata-loader=${currentConfig["geodata-loader"]} 不在常见取值 standard/memconservative 内`);
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验测速类策略组的健康检查参数是否完整，避免参数化后意外生成不可用配置。
+function validateLatencyGroupOptions(proxyGroups) {
+  const warnings = [];
+
+  for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
+    if (!isObject(group)) {
+      continue;
+    }
+
+    const type = normalizeStringArg(group.type).toLowerCase();
+    if (!["url-test", "load-balance", "fallback"].includes(type)) {
+      continue;
+    }
+
+    const name = typeof group.name === "string" && group.name ? group.name : "(未命名测速组)";
+    const interval = Number(group.interval);
+    const tolerance = Number(group.tolerance);
+    const timeout = Number(group.timeout);
+    const maxFailedTimes = Number(group["max-failed-times"]);
+
+    if (typeof group.url !== "string" || !group.url.trim()) {
+      warnings.push(`${name}: url 不能为空`);
+    }
+
+    if (!isFinite(interval) || interval < 1) {
+      warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
+    }
+
+    if (!isFinite(tolerance) || tolerance < 0) {
+      warnings.push(`${name}: tolerance 必须为大于等于 0 的数字`);
+    }
+
+    if (!isFinite(timeout) || timeout < 1) {
+      warnings.push(`${name}: timeout 必须为大于等于 1 的数字`);
+    }
+
+    if (!isFinite(maxFailedTimes) || maxFailedTimes < 1) {
+      warnings.push(`${name}: max-failed-times 必须为大于等于 1 的数字`);
+    }
+
+    if (hasOwn(group, "expected-status")) {
+      const expectedStatus = normalizeExpectedStatusArg(group["expected-status"]);
+      if (!expectedStatus) {
+        warnings.push(`${name}: expected-status 不能为空字符串`);
+      } else if (!isValidExpectedStatusValue(expectedStatus)) {
+        warnings.push(`${name}: expected-status 仅支持 *、单个状态码，或 200/302/400-503 这类官方语法`);
+      }
+    }
+
+    if (type === "load-balance" && hasOwn(group, "strategy")) {
+      const strategy = normalizeLoadBalanceStrategy(group.strategy, "");
+      if (!strategy) {
+        warnings.push(`${name}: strategy 仅支持 round-robin / consistent-hashing / sticky-sessions`);
+      }
+    }
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 校验规则目标组是否都能在生成后的 proxy-groups 中找到。
+function validateRuleTargets(proxyGroups, ruleDefinitions) {
+  // 收集所有真实生成的组名。
+  const groupNames = Array.isArray(proxyGroups) ? proxyGroups.map((group) => group.name) : [];
+  // 建立组名查找表。
+  const groupLookup = createLookup(groupNames);
+  // 收集规则里要求存在的目标组。
+  const expectedTargets = uniqueStrings(
+    (Array.isArray(ruleDefinitions) ? ruleDefinitions : RULE_SET_DEFINITIONS).map((definition) => definition.target).concat(GROUPS.SELECT)
+  );
+  // 返回缺失的目标组。
+  return expectedTargets.filter((target) => !groupLookup[target]);
+}
+
+// 校验策略组里的 proxies 引用是否都能解析到“已有策略组 / 实际节点 / 内置策略”。
+function validateProxyGroupReferences(proxyGroups, proxies) {
+  // 收集所有策略组名称。
+  const groupNames = Array.isArray(proxyGroups) ? proxyGroups.map((group) => group.name) : [];
+  // 收集所有节点名称。
+  const proxyNames = Array.isArray(proxies) ? proxies.map((proxy) => proxy.name) : [];
+  // 建立统一查找表。
+  const validReferenceLookup = createLookup(groupNames.concat(proxyNames, BUILTIN_POLICY_NAMES));
+  // 收集所有无效引用。
+  const unresolvedReferences = [];
+
+  // 遍历所有策略组。
+  for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
+    // 只检查显式 proxies 列表。
+    if (!isObject(group) || !Array.isArray(group.proxies)) {
+      continue;
+    }
+
+    // 检查当前组中的每一项引用。
+    for (const reference of group.proxies) {
+      // 引用不存在时记录下来。
+      if (!validReferenceLookup[reference]) {
+        unresolvedReferences.push(`${group.name} -> ${reference}`);
+      }
+    }
+  }
+
+  // 返回去重后的异常引用。
+  return uniqueStrings(unresolvedReferences);
+}
+
+// 校验策略组里的 use 引用是否都能解析到现有 proxy-providers。
+function validateProxyGroupProviderReferences(proxyGroups, proxyProviders) {
+  const providerNames = Object.keys(isObject(proxyProviders) ? proxyProviders : {});
+  const providerLookup = createLookup(providerNames);
+  const unresolvedReferences = [];
+
+  for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
+    if (!isObject(group) || !Array.isArray(group.use)) {
+      continue;
+    }
+
+    for (const reference of group.use) {
+      if (!providerLookup[reference]) {
+        unresolvedReferences.push(`${group.name} -> use:${reference}`);
+      }
+    }
+  }
+
+  return uniqueStrings(unresolvedReferences);
+}
+
+// 统计某个 include-all 自动分组基于当前节点列表最终能吸收到多少节点。
+function countAutoGroupMatches(group, proxies) {
+  // 尝试编译 include 规则；没有 filter 时表示不过滤、默认全量。
+  const includeRegex = group.filter ? compilePatternRegExp(group.filter) : null;
+  // 尝试编译 exclude 规则；没有 exclude-filter 时表示不排除。
+  const excludeRegex = group["exclude-filter"] ? compilePatternRegExp(group["exclude-filter"]) : null;
+  // 尝试解析 exclude-type 列表；存在时会进一步按代理协议类型排除。
+  const excludeTypes = createLookup(parseTypeList(group["exclude-type"]));
+  // 统计命中的节点数量。
+  let count = 0;
+
+  // 逐个检查节点名。
+  for (const proxy of Array.isArray(proxies) ? proxies : []) {
+    // 只接受带 name 的有效节点。
+    if (!isObject(proxy) || typeof proxy.name !== "string") {
+      continue;
+    }
+
+    // 取出节点名。
+    const name = proxy.name;
+    // 取出当前节点协议类型别名集合，便于兼容 `ss` / `Shadowsocks` 这类不同写法。
+    const typeAliases = getProxyTypeAliases(proxy.type);
+    // include 规则存在且未命中时跳过。
+    if (includeRegex && !includeRegex.test(name)) {
+      continue;
+    }
+
+    // exclude 规则存在且命中时跳过。
+    if (excludeRegex && excludeRegex.test(name)) {
+      continue;
+    }
+
+    // exclude-type 存在且当前代理类型命中时也跳过。
+    if (typeAliases.some((item) => excludeTypes[item])) {
+      continue;
+    }
+
+    // 说明这个节点会被当前自动分组吸收。
+    count += 1;
+  }
+
+  // 返回命中总数。
+  return count;
+}
+
+// 校验自动收集型分组是否真的能匹配到节点，同时检查 filter 正则本身是否可编译。
+function validateAutoGroups(proxyGroups, proxies) {
+  // 收集“正则无法编译”的组。
+  const invalidGroupPatterns = [];
+  // 收集“自动分组最终一个节点也吸不到”的组。
+  const emptyAutoGroups = [];
+
+  // 遍历所有策略组。
+  for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
+    // 这里只检查自动收集型策略组。
+    if (!isAutoCollectionGroup(group)) {
+      continue;
+    }
+
+    try {
+      // include-all-providers 的真实节点数量在脚本运行期不可见，这里只校验正则可编译，不强行判断是否为空。
+      if (group["include-all-providers"]) {
+        if (group.filter) {
+          compilePatternRegExp(group.filter);
+        }
+        if (group["exclude-filter"]) {
+          compilePatternRegExp(group["exclude-filter"]);
+        }
+        continue;
+      }
+
+      // 计算当前自动分组能匹配到多少节点。
+      const matchedCount = countAutoGroupMatches(group, proxies);
+      // 一个节点都匹配不到时，记为告警项。
+      if (matchedCount === 0 && !ALLOW_EMPTY_AUTO_GROUPS.includes(group.name)) {
+        emptyAutoGroups.push(group.name);
+      }
+    } catch (error) {
+      // 如果正则编译或匹配过程中抛错，则记录该组模式异常。
+      invalidGroupPatterns.push(`${group.name}: ${error.message}`);
+    }
+  }
+
+  // 返回两类检查结果。
+  return {
+    invalidGroupPatterns: uniqueStrings(invalidGroupPatterns),
+    emptyAutoGroups: uniqueStrings(emptyAutoGroups)
   };
 }
 
+// 对最终生成结果做一次整体自检，提前发现“能生成但不一定能正常工作”的问题。
+function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns, countryConfigs, ruleDefinitions) {
+  // 先跑自动分组可用性校验。
+  const autoGroupValidation = validateAutoGroups(proxyGroups, proxies);
+  // 提前抽出最终可见节点名称，给 GitHub / Steam 点名节点参数校验复用。
+  const proxyNames = Array.isArray(proxies)
+    ? proxies
+      .filter((proxy) => isObject(proxy) && typeof proxy.name === "string" && proxy.name.trim())
+      .map((proxy) => proxy.name.trim())
+    : [];
+  // 收集最终可用的策略组名称与内置策略，给 GitHub / Steam 前置组参数校验复用。
+  const availableGroupNames = uniqueStrings(
+    (Array.isArray(proxyGroups) ? proxyGroups.map((group) => group && group.name).filter(Boolean) : [])
+      .concat(BUILTIN_POLICY_NAMES)
+  );
+  // 收集当前可用 proxy-provider 名称，给 GitHub / Steam provider 池参数校验复用。
+  const availableProxyProviderNames = Object.keys(isObject(config && config["proxy-providers"]) ? config["proxy-providers"] : {});
+  const ruleProviderApplyStats = analyzeRuleProviderApplyStats(providers);
+  const proxyProviderApplyStats = analyzeProxyProviderApplyStats(config && config["proxy-providers"]);
+  const ruleProviderApplyPreview = analyzeRuleProviderApplyPreview(providers);
+  const proxyProviderApplyPreview = analyzeProxyProviderApplyPreview(config && config["proxy-providers"]);
+  return {
+    missingProviders: validateRuleProviders(ruleDefinitions, providers),
+    duplicateRuleProviderPaths: validateRuleProviderPaths(providers),
+    invalidRuleProviderUrls: validateRuleProviderUrls(providers),
+    ruleProviderWarnings: validateRuleProviderOptions(providers),
+    proxyProviderWarnings: validateProxyProviderOptions(config && config["proxy-providers"]),
+    ruleProviderApplyStats,
+    ruleProviderApplyPreview,
+    proxyProviderApplyStats,
+    proxyProviderApplyPreview,
+    deprecatedSettings: validateDeprecatedSettings(config, proxyGroups),
+    dnsRiskWarnings: validateDnsRiskWarnings(dns),
+    dnsOptionWarnings: validateDnsOptionWarnings(dns),
+    geoConfigWarnings: validateGeoConfig(config),
+    kernelOptionWarnings: validateKernelOptionWarnings(config),
+    latencyGroupWarnings: validateLatencyGroupOptions(proxyGroups),
+    providerHealthWarnings: validateProxyProviderHealthCheckCaveats(proxyGroups),
+    preferredCountryWarnings: uniqueStrings(
+      validatePreferredCountryMarkers(countryConfigs, ARGS.aiPreferCountries, "AI").concat(
+        validatePreferredCountryMarkers(countryConfigs, ARGS.cryptoPreferCountries, "Crypto"),
+        validatePreferredCountryMarkers(countryConfigs, ARGS.githubPreferCountries, "GitHub"),
+        validatePreferredCountryMarkers(countryConfigs, ARGS.steamPreferCountries, "Steam")
+      )
+    ),
+    preferredGroupWarnings: uniqueStrings(
+      validatePreferredGroupMarkers(availableGroupNames, ARGS.githubPreferGroups, "GitHub", [GROUPS.GITHUB]).concat(
+        validatePreferredGroupMarkers(availableGroupNames, ARGS.steamPreferGroups, "Steam", [GROUPS.STEAM])
+      )
+    ),
+    preferredNodeWarnings: uniqueStrings(
+      validatePreferredProxyMarkers(proxyNames, ARGS.githubPreferNodes, "GitHub").concat(
+        validatePreferredProxyMarkers(proxyNames, ARGS.steamPreferNodes, "Steam")
+      )
+    ),
+    preferredProviderWarnings: uniqueStrings(
+      validatePreferredProxyProviderMarkers(availableProxyProviderNames, ARGS.githubUseProviders, "GitHub", ARGS.githubIncludeAllProviders, ARGS.githubIncludeAll).concat(
+        validatePreferredProxyProviderMarkers(availableProxyProviderNames, ARGS.steamUseProviders, "Steam", ARGS.steamIncludeAllProviders, ARGS.steamIncludeAll)
+      )
+    ),
+    ruleOrderWarnings: validateRuleOrderMarkers(ruleDefinitions),
+    ruleTargetWarnings: validateRuleTargetMarkers(availableGroupNames, ruleDefinitions),
+    rulePriorityWarnings: analyzeRulePriorityRisks(ruleDefinitions).warnings,
+    proxyGroupPriorityWarnings: analyzeProxyGroupPriorityRisks(proxyGroups).warnings,
+    targetPlatformWarnings: uniqueStrings([]
+      .concat(
+        RUNTIME_CONTEXT.target && !isClashLikeTarget(RUNTIME_CONTEXT.target)
+          ? [`当前目标平台看起来不是 Clash/Mihomo 体系: ${RUNTIME_CONTEXT.target}；本脚本更适合 Clash/Mihomo/OpenClash 输出`]
+          : []
+      )
+      .concat(
+        RUNTIME_CONTEXT.routeTarget && RUNTIME_CONTEXT.queryTarget && RUNTIME_CONTEXT.routeTarget !== RUNTIME_CONTEXT.queryTarget
+          ? [`路由目标 ${RUNTIME_CONTEXT.routeTarget} 与 query target ${RUNTIME_CONTEXT.queryTarget} 不一致；当前以路由目标为准`]
+          : []
+      )),
+    runtimeArgWarnings: validateUnusedScriptArgs(RUNTIME_UNUSED_ARGS),
+    runtimeResponseWarnings: uniqueStrings(
+      ARGS.hasResponseHeaders && ARGS.responseHeaders && !isObject(RAW_OPTIONS)
+        ? ["当前运行环境中的 $options 不是对象，无法写入 _res.headers 调试响应头"]
+        : []
+    ),
+    runtimeLinkWarnings: validateRuntimeLinkOptionWarnings(RUNTIME_LINK_OPTIONS),
+    missingRuleTargets: validateRuleTargets(proxyGroups, ruleDefinitions),
+    unresolvedGroupReferences: validateProxyGroupReferences(proxyGroups, proxies),
+    unresolvedProviderReferences: validateProxyGroupProviderReferences(proxyGroups, config && config["proxy-providers"]),
+    invalidGroupPatterns: autoGroupValidation.invalidGroupPatterns,
+    emptyAutoGroups: autoGroupValidation.emptyAutoGroups
+  };
+}
 
-// ============================================================================
-// 7. 主程序入口 (Main Entry) - 脚本执行的入口函数
-// ============================================================================
+// 统计诊断项总数，便于写入响应头摘要。
+function countDiagnosticIssues(diagnostics) {
+  const keys = [
+    "renamedProxies",
+    "missingProviders",
+    "duplicateRuleProviderPaths",
+    "invalidRuleProviderUrls",
+    "ruleProviderWarnings",
+    "proxyProviderWarnings",
+    "deprecatedSettings",
+    "dnsRiskWarnings",
+    "dnsOptionWarnings",
+    "geoConfigWarnings",
+    "kernelOptionWarnings",
+    "latencyGroupWarnings",
+    "providerHealthWarnings",
+    "preferredCountryWarnings",
+    "preferredGroupWarnings",
+    "preferredNodeWarnings",
+    "preferredProviderWarnings",
+    "ruleOrderWarnings",
+    "ruleTargetWarnings",
+    "rulePriorityWarnings",
+    "proxyGroupPriorityWarnings",
+    "customRuleWarnings",
+    "serviceRoutingWarnings",
+    "targetPlatformWarnings",
+    "runtimeArgWarnings",
+    "runtimeResponseWarnings",
+    "runtimeLinkWarnings",
+    "missingRuleTargets",
+    "unresolvedGroupReferences",
+    "unresolvedProviderReferences",
+    "invalidGroupPatterns",
+    "emptyAutoGroups"
+  ];
+  let total = 0;
 
-/**
- * 主函数：将生成的配置与原配置合并
- * @param {object} config - Sub-Store 提供的原始配置对象
- * @returns {object} 返回合并后的完整配置
- */
+  for (const key of keys) {
+    if (Array.isArray(diagnostics[key])) {
+      total += diagnostics[key].length;
+    }
+  }
+
+  if (typeof diagnostics.unclassifiedCountryProxies === "number" && diagnostics.unclassifiedCountryProxies > 0) {
+    total += diagnostics.unclassifiedCountryProxies;
+  }
+
+  return total;
+}
+
+// 构建写入 `_res.headers` 的调试头，便于直接在下载响应中查看关键运行信息。
+function buildRuntimeResponseHeaders(diagnostics) {
+  const prefix = ARGS.responseHeaderPrefix;
+
+  return {
+    [`${prefix}Script-Version`]: SCRIPT_VERSION,
+    [`${prefix}Target`]: RUNTIME_CONTEXT.target || "unknown",
+    [`${prefix}Route-Kind`]: RUNTIME_CONTEXT.routeKind || "unknown",
+    [`${prefix}Route-Name`]: RUNTIME_CONTEXT.routeName || "unknown",
+    [`${prefix}Route-Target`]: RUNTIME_CONTEXT.routeTarget || "none",
+    [`${prefix}Query-Target`]: RUNTIME_CONTEXT.queryTarget || "none",
+    [`${prefix}Request-Params-Target`]: RUNTIME_CONTEXT.requestParamsTarget || "none",
+    [`${prefix}Arg-Source-Summary`]: formatRuntimeArgSourceSummary(RUNTIME_ARG_SOURCES),
+    [`${prefix}Arg-Effective-Summary`]: formatRuntimeArgEffectiveSummary(RUNTIME_ARG_EFFECTIVE),
+    [`${prefix}Arg-Effective-Preview`]: formatRuntimeArgEffectivePreview(RUNTIME_ARG_EFFECTIVE),
+    [`${prefix}Unused-Arg-Summary`]: formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS),
+    [`${prefix}Unused-Arg-Preview`]: formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS),
+    [`${prefix}Route-Target-Source`]: RUNTIME_ARG_SOURCES.routeTargetSource || "none",
+    [`${prefix}Route-Info-Source`]: RUNTIME_ARG_SOURCES.routeInfoSource || "none",
+    [`${prefix}Merge-Sources`]: RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default",
+    [`${prefix}No-Cache`]: RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default",
+    [`${prefix}Include-Unsupported`]: RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default",
+    [`${prefix}Link-Url-Kind`]: RUNTIME_LINK_OPTIONS.urlKind || "none",
+    [`${prefix}Link-Semantic-Summary`]: buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS),
+    [`${prefix}Link-Semantic-Check`]: "enabled",
+    [`${prefix}Rule-Provider-Path-Dir`]: ARGS.ruleProviderPathDir,
+    [`${prefix}Rule-Provider-Interval`]: ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL,
+    [`${prefix}Rule-Provider-Proxy`]: ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default",
+    [`${prefix}Rule-Provider-Size-Limit`]: ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default",
+    [`${prefix}Rule-Provider-UA`]: ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default",
+    [`${prefix}Rule-Provider-Authorization`]: ARGS.hasRuleProviderAuthorization ? "configured" : "default",
+    [`${prefix}Rule-Provider-Header`]: ARGS.hasRuleProviderHeader ? `configured:${ARGS.ruleProviderHeaderEntryCount}` : "default",
+    [`${prefix}Rule-Provider-Payload`]: ARGS.hasRuleProviderPayload ? `configured:${ARGS.ruleProviderPayloadCount}` : "default",
+    [`${prefix}Rule-Provider-Apply-Scope`]: (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "default",
+    [`${prefix}Rule-Provider-Apply-Scope-Detail`]: buildRuleProviderApplyScopeSummary(),
+    [`${prefix}Rule-Provider-Apply-Stats`]: formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats),
+    [`${prefix}Rule-Provider-Apply-Preview`]: formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview),
+    [`${prefix}Rule-Provider-Mutation-Stats`]: formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats),
+    [`${prefix}Rule-Provider-Mutation-Preview`]: formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview),
+    [`${prefix}Rule-Provider-Payload-Apply-Scope`]: ARGS.hasRuleProviderPayload ? "inline-only" : "default",
+    [`${prefix}Rule-Provider-Semantic-Check`]: "enabled",
+    [`${prefix}Proxy-Provider-Interval`]: ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default",
+    [`${prefix}Proxy-Provider-Proxy`]: ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default",
+    [`${prefix}Proxy-Provider-Size-Limit`]: ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default",
+    [`${prefix}Proxy-Provider-UA`]: ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default",
+    [`${prefix}Proxy-Provider-Authorization`]: ARGS.hasProxyProviderAuthorization ? "configured" : "default",
+    [`${prefix}Proxy-Provider-Header`]: ARGS.hasProxyProviderHeader ? `configured:${ARGS.proxyProviderHeaderEntryCount}` : "default",
+    [`${prefix}Proxy-Provider-Payload`]: ARGS.hasProxyProviderPayload ? `configured:${ARGS.proxyProviderPayloadCount}` : "default",
+    [`${prefix}Proxy-Provider-Path-Dir`]: ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged",
+    [`${prefix}Proxy-Provider-Apply-Scope`]: buildProxyProviderApplyScopeSummary(),
+    [`${prefix}Proxy-Provider-Apply-Stats`]: formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats),
+    [`${prefix}Proxy-Provider-Apply-Preview`]: formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview),
+    [`${prefix}Proxy-Provider-Mutation-Stats`]: formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats),
+    [`${prefix}Proxy-Provider-Mutation-Preview`]: formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview),
+    [`${prefix}Proxy-Provider-Semantic-Check`]: "enabled",
+    [`${prefix}Proxy-Provider-Filter`]: ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default",
+    [`${prefix}Proxy-Provider-Exclude-Filter`]: ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default",
+    [`${prefix}Proxy-Provider-Exclude-Type`]: ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default",
+    [`${prefix}Proxy-Provider-Override-Prefix`]: ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default",
+    [`${prefix}Proxy-Provider-Override-Suffix`]: ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default",
+    [`${prefix}Proxy-Provider-Override-UDP`]: ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default",
+    [`${prefix}Proxy-Provider-Override-UDP-Over-TCP`]: ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default",
+    [`${prefix}Proxy-Provider-Override-Down`]: ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default",
+    [`${prefix}Proxy-Provider-Override-Up`]: ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default",
+    [`${prefix}Proxy-Provider-Override-TFO`]: ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default",
+    [`${prefix}Proxy-Provider-Override-MPTCP`]: ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default",
+    [`${prefix}Proxy-Provider-Override-Skip-Cert-Verify`]: ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default",
+    [`${prefix}Proxy-Provider-Override-Dialer-Proxy`]: ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default",
+    [`${prefix}Proxy-Provider-Override-Interface-Name`]: ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default",
+    [`${prefix}Proxy-Provider-Override-Routing-Mark`]: ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default",
+    [`${prefix}Proxy-Provider-Override-IP-Version`]: ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default",
+    [`${prefix}Proxy-Provider-Override-Proxy-Name`]: ARGS.hasProxyProviderOverrideProxyNameRules ? `configured:${ARGS.proxyProviderOverrideProxyNameRules.length}` : "default",
+    [`${prefix}Proxy-Provider-HC-Enable`]: ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default",
+    [`${prefix}Proxy-Provider-HC-Url`]: ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default",
+    [`${prefix}Proxy-Provider-HC-Interval`]: ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default",
+    [`${prefix}Proxy-Provider-HC-Timeout`]: ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default",
+    [`${prefix}Proxy-Provider-HC-Lazy`]: ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default",
+    [`${prefix}Proxy-Provider-HC-Expected-Status`]: ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default",
+    [`${prefix}Group-Strategy`]: ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default",
+    [`${prefix}Group-Interface-Name`]: ARGS.hasGroupInterfaceName ? ARGS.groupInterfaceName : "default",
+    [`${prefix}Group-Routing-Mark`]: ARGS.hasGroupRoutingMark ? ARGS.groupRoutingMark : "default",
+    [`${prefix}GitHub-Prefer-Groups`]: ARGS.hasGithubPreferGroups ? "configured" : "default",
+    [`${prefix}Steam-Prefer-Groups`]: ARGS.hasSteamPreferGroups ? "configured" : "default",
+    [`${prefix}GitHub-Prefer-Nodes`]: ARGS.hasGithubPreferNodes ? "configured" : "default",
+    [`${prefix}Steam-Prefer-Nodes`]: ARGS.hasSteamPreferNodes ? "configured" : "default",
+    [`${prefix}GitHub-Use-Providers`]: ARGS.hasGithubUseProviders ? "configured" : "default",
+    [`${prefix}Steam-Use-Providers`]: ARGS.hasSteamUseProviders ? "configured" : "default",
+    [`${prefix}GitHub-Include-All`]: ARGS.hasGithubIncludeAll ? ARGS.githubIncludeAll : "default",
+    [`${prefix}Steam-Include-All`]: ARGS.hasSteamIncludeAll ? ARGS.steamIncludeAll : "default",
+    [`${prefix}GitHub-Include-All-Proxies`]: ARGS.hasGithubIncludeAllProxies ? ARGS.githubIncludeAllProxies : "default",
+    [`${prefix}Steam-Include-All-Proxies`]: ARGS.hasSteamIncludeAllProxies ? ARGS.steamIncludeAllProxies : "default",
+    [`${prefix}GitHub-Include-All-Providers`]: ARGS.hasGithubIncludeAllProviders ? ARGS.githubIncludeAllProviders : "default",
+    [`${prefix}Steam-Include-All-Providers`]: ARGS.hasSteamIncludeAllProviders ? ARGS.steamIncludeAllProviders : "default",
+    [`${prefix}GitHub-Group-Strategy`]: ARGS.hasGithubGroupStrategy ? ARGS.githubGroupStrategy : "default",
+    [`${prefix}Steam-Group-Strategy`]: ARGS.hasSteamGroupStrategy ? ARGS.steamGroupStrategy : "default",
+    [`${prefix}GitHub-Hidden`]: ARGS.hasGithubHidden ? ARGS.githubHidden : "default",
+    [`${prefix}Steam-Hidden`]: ARGS.hasSteamHidden ? ARGS.steamHidden : "default",
+    [`${prefix}GitHub-Disable-UDP`]: ARGS.hasGithubDisableUdp ? ARGS.githubDisableUdp : "default",
+    [`${prefix}Steam-Disable-UDP`]: ARGS.hasSteamDisableUdp ? ARGS.steamDisableUdp : "default",
+    [`${prefix}GitHub-Icon`]: ARGS.hasGithubIcon ? ARGS.githubIcon : "default",
+    [`${prefix}Steam-Icon`]: ARGS.hasSteamIcon ? ARGS.steamIcon : "default",
+    [`${prefix}GitHub-Interface-Name`]: ARGS.hasGithubInterfaceName ? ARGS.githubInterfaceName : "default",
+    [`${prefix}Steam-Interface-Name`]: ARGS.hasSteamInterfaceName ? ARGS.steamInterfaceName : "default",
+    [`${prefix}GitHub-Routing-Mark`]: ARGS.hasGithubRoutingMark ? ARGS.githubRoutingMark : "default",
+    [`${prefix}Steam-Routing-Mark`]: ARGS.hasSteamRoutingMark ? ARGS.steamRoutingMark : "default",
+    [`${prefix}GitHub-Rule-Order`]: buildRuleOrderSummary(ARGS.githubRuleAnchor, ARGS.githubRulePosition),
+    [`${prefix}Steam-Rule-Order`]: buildRuleOrderSummary(ARGS.steamRuleAnchor, ARGS.steamRulePosition),
+    [`${prefix}SteamCN-Rule-Order`]: buildRuleOrderSummary(ARGS.steamCnRuleAnchor, ARGS.steamCnRulePosition),
+    [`${prefix}GitHub-Rule-Target`]: ARGS.hasGithubRuleTarget ? ARGS.githubRuleTarget : "default",
+    [`${prefix}Steam-Rule-Target`]: ARGS.hasSteamRuleTarget ? ARGS.steamRuleTarget : "default",
+    [`${prefix}SteamCN-Rule-Target`]: ARGS.hasSteamCnRuleTarget ? ARGS.steamCnRuleTarget : "default",
+    [`${prefix}Rule-Target-Summary`]: diagnostics.ruleTargetMappingSummary || "none",
+    [`${prefix}Rule-Target-Preview`]: diagnostics.ruleTargetMappingPreview || "none",
+    [`${prefix}Rule-Priority-Risk-Summary`]: diagnostics.rulePriorityRiskSummary || "none",
+    [`${prefix}Rule-Priority-Risk-Preview`]: diagnostics.rulePriorityRiskPreview || "none",
+    [`${prefix}Proxy-Group-Priority-Risk-Summary`]: diagnostics.proxyGroupPriorityRiskSummary || "none",
+    [`${prefix}Proxy-Group-Priority-Risk-Preview`]: diagnostics.proxyGroupPriorityRiskPreview || "none",
+    [`${prefix}Proxy-Group-Order`]: diagnostics.proxyGroupOrderSummary || "none",
+    [`${prefix}Proxy-Group-Priority`]: diagnostics.proxyGroupPrioritySummary || "none",
+    [`${prefix}Traffic-Priority-Summary`]: diagnostics.trafficPrioritySummary || "none",
+    [`${prefix}Rule-Layer-Summary`]: diagnostics.ruleLayerSummary || "none",
+    [`${prefix}Rule-Layer-Preview`]: diagnostics.ruleLayerPreview || "none",
+    [`${prefix}Custom-Rule-Summary`]: diagnostics.customRuleSummary || "none",
+    [`${prefix}Custom-Rule-Preview`]: diagnostics.customRulePreview || "none",
+    [`${prefix}Service-Routing-Summary`]: diagnostics.serviceRoutingSummary || "none",
+    [`${prefix}Service-Routing-Preview`]: diagnostics.serviceRoutingPreview || "none",
+    [`${prefix}Routing-Chain-Summary`]: diagnostics.routingChainSummary || "none",
+    [`${prefix}Routing-Chain-Preview`]: diagnostics.routingChainPreview || "none",
+    [`${prefix}GitHub-Auto-Proxies`]: ARGS.hasGithubNodeFilter || ARGS.hasGithubNodeExcludeFilter || ARGS.hasGithubNodeExcludeType || ARGS.hasGithubIncludeAllProxies ? "configured" : "default",
+    [`${prefix}Steam-Auto-Proxies`]: ARGS.hasSteamNodeFilter || ARGS.hasSteamNodeExcludeFilter || ARGS.hasSteamNodeExcludeType || ARGS.hasSteamIncludeAllProxies ? "configured" : "default",
+    [`${prefix}Query-Args`]: Object.keys(RUNTIME_QUERY_ARGS).length,
+    [`${prefix}Diagnostic-Issues`]: countDiagnosticIssues(diagnostics)
+  };
+}
+
+// 构建完整的策略组列表。
+// 这里会把国家组、功能组、优先级组、兜底组全部拼出来。
+function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, existingProxyProviders) {
+  // full 模式下统计构建耗时，方便后续优化。
+  if (ARGS.full) {
+    console.time("buildProxyGroups");
+  }
+
+  // 只提取国家组名称，便于后面组装候选列表。
+  const countryGroupNames = countryConfigs.map((country) => country.name);
+  // 提前提取用户原配置中已有的策略组名称，供独立组前置组参数解析复用。
+  const existingGroupNames = Array.isArray(existingGroups)
+    ? existingGroups
+      .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
+      .map((group) => group.name.trim())
+    : [];
+  // 提前提取用户原配置中已有的 proxy-provider 名称，供 GitHub / Steam provider 池参数解析复用。
+  const existingProxyProviderNames = Object.keys(isObject(existingProxyProviders) ? existingProxyProviders : {});
+  // 提前提取当前所有可见节点名称，供独立组点名节点参数解析复用。
+  const proxyNames = Array.isArray(proxies)
+    ? proxies
+      .filter((proxy) => isObject(proxy) && typeof proxy.name === "string" && proxy.name.trim())
+      .map((proxy) => proxy.name.trim())
+    : [];
+  // 同时提取国家过滤表达式，给“兜底节点”组排除这些国家用。
+  const countryFilters = countryConfigs.map((country) => country.filter);
+  // 一个国家组都没识别出来时，打个提醒。
+  if (!countryGroupNames.length) {
+    console.warn("⚠️ 警告: 未检测到有效的国家分组，将使用兜底节点组");
+  }
+
+  // 国家组的统一排除条件：至少排除低倍率，landing=true 时再额外排除落地节点。
+  const countryExcludeFilter = composeCaseInsensitivePattern([
+    REGEX_LOW_COST.source,
+    ARGS.landing ? REGEX_LANDING_ISOLATE.source : ""
+  ]);
+
+  // 兜底组的排除条件：排除低倍率、排除落地（可选）、排除所有已识别国家组节点。
+  const otherExcludeFilter = composeCaseInsensitivePattern([
+    hasLowCost ? REGEX_LOW_COST.source : "",
+    ARGS.landing ? REGEX_LANDING_ISOLATE.source : "",
+    ...countryFilters
+  ]);
+
+  // 所有“功能类总池”候选：落地组（可选）+ 国家组 + 兜底组 + 低倍率组（可选）。
+  const functionalPool = uniqueStrings([
+    ARGS.landing ? GROUPS.LANDING : "",
+    ...countryGroupNames,
+    GROUPS.OTHER,
+    hasLowCost ? GROUPS.LOW_COST : ""
+  ]);
+
+  // 主选择 / AI / Google 等大多数策略组共用的基础候选顺序。
+  const baseProxies = uniqueStrings([
+    GROUPS.FALLBACK,
+    ...functionalPool,
+    GROUPS.MANUAL,
+    BUILTIN_DIRECT
+  ]);
+
+  // 自动切换组的候选池，不需要再把自己塞进去，所以只从功能池里选。
+  const fallbackProxies = uniqueStrings(functionalPool.length ? functionalPool : [BUILTIN_DIRECT]);
+  // 直连优先的服务组候选顺序：DIRECT -> 主选择 -> 其他。
+  const directFirstProxies = uniqueStrings([BUILTIN_DIRECT, GROUPS.SELECT, ...baseProxies]);
+  // 主选择优先的服务组候选顺序：主选择 -> 其他。
+  const selectFirstProxies = uniqueStrings([GROUPS.SELECT, ...baseProxies]);
+  // 媒体类服务候选顺序：主选择 -> 国家组 -> 兜底 -> 手动。
+  const mediaProxies = uniqueStrings([GROUPS.SELECT, ...countryGroupNames, GROUPS.OTHER, GROUPS.MANUAL]);
+
+  // AI / Crypto 的国家优先链统一复用同一套解析 helper，避免默认链与诊断链各自漂移。
+  const aiPreferredGroups = buildPreferredCountryGroups(countryConfigs, ARGS.aiPreferCountries, DEFAULT_AI_PREFERRED_COUNTRY_MARKERS);
+  const cryptoPreferredGroups = buildPreferredCountryGroups(countryConfigs, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS);
+  // 若用户传入 GitHub 优先链参数，则按参数解析；否则保持原有固定顺序。
+  const githubPreferredGroups = ARGS.hasGithubPreferCountries
+    ? resolvePreferredCountryGroups(countryConfigs, ARGS.githubPreferCountries)
+    : [];
+  // 若用户传入 Steam 优先链参数，则按参数解析；否则保持原有固定顺序。
+  const steamPreferredGroups = ARGS.hasSteamPreferCountries
+    ? resolvePreferredCountryGroups(countryConfigs, ARGS.steamPreferCountries)
+    : [];
+  // 当前这次构建中“稳定会生成”的内置组名集合。
+  const alwaysGeneratedGroupNames = [
+    GROUPS.SELECT,
+    GROUPS.MANUAL,
+    GROUPS.FALLBACK,
+    GROUPS.DIRECT,
+    GROUPS.OTHER,
+    GROUPS.AI,
+    GROUPS.CRYPTO,
+    GROUPS.APPLE,
+    GROUPS.MICROSOFT,
+    GROUPS.GOOGLE,
+    GROUPS.GITHUB,
+    GROUPS.BING,
+    GROUPS.ONEDRIVE,
+    GROUPS.TELEGRAM,
+    GROUPS.YOUTUBE,
+    GROUPS.NETFLIX,
+    GROUPS.DISNEY,
+    GROUPS.SPOTIFY,
+    GROUPS.TIKTOK,
+    GROUPS.STEAM,
+    GROUPS.GAMES,
+    GROUPS.PT,
+    GROUPS.SPEEDTEST,
+    GROUPS.ADS
+  ];
+  // 汇总当前可引用的组名/内置策略，供 GitHub / Steam 前置组参数解析。
+  const availableGroupNames = uniqueStrings(
+    countryGroupNames
+      .concat(
+        alwaysGeneratedGroupNames,
+        ARGS.landing ? [GROUPS.LANDING] : [],
+        hasLowCost ? [GROUPS.LOW_COST] : [],
+        existingGroupNames,
+        BUILTIN_POLICY_NAMES
+      )
+  );
+  // 若用户传入 GitHub 前置组参数，则把它解析成真实可引用的组名/内置策略。
+  const githubPreferredReferences = ARGS.hasGithubPreferGroups
+    ? resolvePreferredGroupReferences(availableGroupNames, ARGS.githubPreferGroups, [GROUPS.GITHUB])
+    : [];
+  // 若用户传入 Steam 前置组参数，则把它解析成真实可引用的组名/内置策略。
+  const steamPreferredReferences = ARGS.hasSteamPreferGroups
+    ? resolvePreferredGroupReferences(availableGroupNames, ARGS.steamPreferGroups, [GROUPS.STEAM])
+    : [];
+  // 若用户传入 GitHub 点名节点参数，则把它解析成真实节点名。
+  const githubPreferredNodes = ARGS.hasGithubPreferNodes
+    ? resolvePreferredProxyReferences(proxyNames, ARGS.githubPreferNodes)
+    : [];
+  // 若用户传入 Steam 点名节点参数，则把它解析成真实节点名。
+  const steamPreferredNodes = ARGS.hasSteamPreferNodes
+    ? resolvePreferredProxyReferences(proxyNames, ARGS.steamPreferNodes)
+    : [];
+  // 若用户传入 GitHub proxy-provider 参数，则把它解析成真实 provider 名称。
+  const githubProviderReferences = ARGS.hasGithubUseProviders
+    ? resolvePreferredProxyProviderReferences(existingProxyProviderNames, ARGS.githubUseProviders)
+    : [];
+  // 若用户传入 Steam proxy-provider 参数，则把它解析成真实 provider 名称。
+  const steamProviderReferences = ARGS.hasSteamUseProviders
+    ? resolvePreferredProxyProviderReferences(existingProxyProviderNames, ARGS.steamUseProviders)
+    : [];
+  // 根据模式挑选 GitHub 独立组的基础候选顺序。
+  const githubModeBaseProxies = ARGS.githubMode === "direct"
+    ? directFirstProxies
+    : (ARGS.githubMode === "proxy" ? baseProxies : selectFirstProxies);
+  // 根据模式挑选 Steam 独立组的基础候选顺序。
+  const steamModeBaseProxies = ARGS.steamMode === "direct"
+    ? directFirstProxies
+    : (ARGS.steamMode === "proxy" ? baseProxies : selectFirstProxies);
+
+  // 加密货币组：优先日本，其次新加坡，再次香港；也允许用户通过参数自定义优先链。
+  const cryptoProxies = prependPreferredGroups(cryptoPreferredGroups, baseProxies);
+  // AI 组：优先新加坡、日本、美国、香港；也允许用户通过参数自定义优先链。
+  const aiProxies = prependPreferredGroups(aiPreferredGroups, baseProxies);
+  // GitHub 组默认采用主选择优先；也允许用户切换为直连优先或纯代理优先。
+  const githubBaseProxies = ARGS.hasGithubPreferCountries
+    ? (ARGS.githubMode === "direct"
+      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(githubPreferredGroups, selectFirstProxies)))
+      : prependPreferredGroups(githubPreferredGroups, githubModeBaseProxies))
+    : githubModeBaseProxies;
+  // Steam 组默认采用直连优先；也允许用户切换为主选择优先或纯代理优先。
+  const steamBaseProxies = ARGS.hasSteamPreferCountries
+    ? (ARGS.steamMode === "direct"
+      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(steamPreferredGroups, selectFirstProxies)))
+      : prependPreferredGroups(steamPreferredGroups, steamModeBaseProxies))
+    : steamModeBaseProxies;
+  // GitHub 组额外支持用“前置组参数”插入任意已有组/内置策略。
+  const githubStructuredProxies = ARGS.hasGithubPreferGroups
+    ? prependPreferredNames(githubPreferredReferences, githubBaseProxies, ARGS.githubMode === "direct")
+    : githubBaseProxies;
+  const githubProxies = ARGS.hasGithubPreferNodes
+    ? prependPreferredNames(githubPreferredNodes, githubStructuredProxies, ARGS.githubMode === "direct")
+    : githubStructuredProxies;
+  // Steam 组同样支持额外前置组，并在 direct 模式下继续固定 DIRECT 在最前。
+  const steamStructuredProxies = ARGS.hasSteamPreferGroups
+    ? prependPreferredNames(steamPreferredReferences, steamBaseProxies, ARGS.steamMode === "direct")
+    : steamBaseProxies;
+  const steamProxies = ARGS.hasSteamPreferNodes
+    ? prependPreferredNames(steamPreferredNodes, steamStructuredProxies, ARGS.steamMode === "direct")
+    : steamStructuredProxies;
+  // GitHub 独立组专属测速覆盖，只影响 GitHub 组自身。
+  const githubLatencyOverrides = {
+    testUrl: ARGS.githubTestUrl,
+    hasTestUrl: ARGS.hasGithubTestUrl,
+    groupInterval: ARGS.githubGroupInterval,
+    hasGroupInterval: ARGS.hasGithubGroupInterval,
+    groupTolerance: ARGS.githubGroupTolerance,
+    hasGroupTolerance: ARGS.hasGithubGroupTolerance,
+    groupTimeout: ARGS.githubGroupTimeout,
+    hasGroupTimeout: ARGS.hasGithubGroupTimeout,
+    groupLazy: ARGS.githubGroupLazy,
+    hasGroupLazy: ARGS.hasGithubGroupLazy,
+    groupMaxFailedTimes: ARGS.githubGroupMaxFailedTimes,
+    hasGroupMaxFailedTimes: ARGS.hasGithubGroupMaxFailedTimes,
+    groupExpectedStatus: ARGS.githubGroupExpectedStatus,
+    hasGroupExpectedStatus: ARGS.hasGithubGroupExpectedStatus,
+    groupStrategy: ARGS.githubGroupStrategy,
+    hasGroupStrategy: ARGS.hasGithubGroupStrategy
+  };
+  // Steam 独立组专属测速覆盖，只影响 Steam 组自身。
+  const steamLatencyOverrides = {
+    testUrl: ARGS.steamTestUrl,
+    hasTestUrl: ARGS.hasSteamTestUrl,
+    groupInterval: ARGS.steamGroupInterval,
+    hasGroupInterval: ARGS.hasSteamGroupInterval,
+    groupTolerance: ARGS.steamGroupTolerance,
+    hasGroupTolerance: ARGS.hasSteamGroupTolerance,
+    groupTimeout: ARGS.steamGroupTimeout,
+    hasGroupTimeout: ARGS.hasSteamGroupTimeout,
+    groupLazy: ARGS.steamGroupLazy,
+    hasGroupLazy: ARGS.hasSteamGroupLazy,
+    groupMaxFailedTimes: ARGS.steamGroupMaxFailedTimes,
+    hasGroupMaxFailedTimes: ARGS.hasSteamGroupMaxFailedTimes,
+    groupExpectedStatus: ARGS.steamGroupExpectedStatus,
+    hasGroupExpectedStatus: ARGS.hasSteamGroupExpectedStatus,
+    groupStrategy: ARGS.steamGroupStrategy,
+    hasGroupStrategy: ARGS.hasSteamGroupStrategy
+  };
+  // GitHub 独立组可选开启原始节点自动收集，用于按节点名 / 协议类型做更细粒度的专用池。
+  const githubAutoCollectionOptions = {
+    filter: ARGS.githubNodeFilter,
+    excludeFilter: ARGS.githubNodeExcludeFilter,
+    excludeType: ARGS.githubNodeExcludeType,
+    includeAllProxies: ARGS.githubIncludeAllProxies
+  };
+  // Steam 独立组同样支持原始节点自动收集。
+  const steamAutoCollectionOptions = {
+    filter: ARGS.steamNodeFilter,
+    excludeFilter: ARGS.steamNodeExcludeFilter,
+    excludeType: ARGS.steamNodeExcludeType,
+    includeAllProxies: ARGS.steamIncludeAllProxies
+  };
+  // GitHub 独立组支持额外引用 proxy-providers；若开启 include-all-providers，则 use 列表自动失效。
+  const githubProviderCollectionOptions = {
+    includeAll: ARGS.githubIncludeAll,
+    use: githubProviderReferences,
+    includeAllProviders: ARGS.githubIncludeAllProviders
+  };
+  // Steam 独立组同样支持额外引用 proxy-providers。
+  const steamProviderCollectionOptions = {
+    includeAll: ARGS.steamIncludeAll,
+    use: steamProviderReferences,
+    includeAllProviders: ARGS.steamIncludeAllProviders
+  };
+  // GitHub 独立组展示/传输高级项：支持按需隐藏、挂图标、关闭 UDP。
+  const githubAdvancedOptions = {
+    hidden: ARGS.githubHidden,
+    hasHidden: ARGS.hasGithubHidden,
+    disableUdp: ARGS.githubDisableUdp,
+    hasDisableUdp: ARGS.hasGithubDisableUdp,
+    icon: ARGS.githubIcon,
+    hasIcon: ARGS.hasGithubIcon,
+    interfaceName: ARGS.githubInterfaceName,
+    hasInterfaceName: ARGS.hasGithubInterfaceName,
+    routingMark: ARGS.githubRoutingMark,
+    hasRoutingMark: ARGS.hasGithubRoutingMark
+  };
+  // Steam 独立组展示/传输高级项：支持按需隐藏、挂图标、关闭 UDP。
+  const steamAdvancedOptions = {
+    hidden: ARGS.steamHidden,
+    hasHidden: ARGS.hasSteamHidden,
+    disableUdp: ARGS.steamDisableUdp,
+    hasDisableUdp: ARGS.hasSteamDisableUdp,
+    icon: ARGS.steamIcon,
+    hasIcon: ARGS.hasSteamIcon,
+    interfaceName: ARGS.steamInterfaceName,
+    hasInterfaceName: ARGS.hasSteamInterfaceName,
+    routingMark: ARGS.steamRoutingMark,
+    hasRoutingMark: ARGS.hasSteamRoutingMark
+  };
+
+  // 先构造固定功能组。
+  const generatedGroups = [
+    // 主选择组。
+    createSelectGroup(GROUPS.SELECT, baseProxies),
+    // 手动切换组，自动吸收所有节点。
+    createIncludeAllSelectGroup(GROUPS.MANUAL),
+    // 自动切换组，基于候选池做测速优选。
+    createProxyListLatencyGroup(GROUPS.FALLBACK, fallbackProxies),
+
+    // AI 组，优先新加坡 / 日本 / 美国 / 香港。
+    createSelectGroup(GROUPS.AI, aiProxies),
+    // Telegram 组。
+    createSelectGroup(GROUPS.TELEGRAM, baseProxies),
+    // Google 组。
+    createSelectGroup(GROUPS.GOOGLE, baseProxies),
+    // GitHub 组。
+    createServiceGroup(GROUPS.GITHUB, githubProxies, ARGS.githubType, githubLatencyOverrides, githubAutoCollectionOptions, githubAdvancedOptions, githubProviderCollectionOptions),
+    // 微软服务组。
+    createSelectGroup(GROUPS.MICROSOFT, baseProxies),
+    // OneDrive 组。
+    createSelectGroup(GROUPS.ONEDRIVE, baseProxies),
+    // 泛游戏组。
+    createSelectGroup(GROUPS.GAMES, baseProxies),
+
+    // Bing 组，优先直连。
+    createSelectGroup(GROUPS.BING, directFirstProxies),
+    // Apple 组，优先直连。
+    createSelectGroup(GROUPS.APPLE, directFirstProxies),
+    // Steam 组，默认优先直连，也允许切换为测速/故障转移类组。
+    createServiceGroup(GROUPS.STEAM, steamProxies, ARGS.steamType, steamLatencyOverrides, steamAutoCollectionOptions, steamAdvancedOptions, steamProviderCollectionOptions),
+    // PT 组，优先直连。
+    createSelectGroup(GROUPS.PT, directFirstProxies),
+    // Speedtest 组，优先直连。
+    createSelectGroup(GROUPS.SPEEDTEST, directFirstProxies),
+
+    // YouTube 组，走媒体类候选顺序。
+    createSelectGroup(GROUPS.YOUTUBE, mediaProxies),
+    // Netflix 组。
+    createSelectGroup(GROUPS.NETFLIX, mediaProxies),
+    // Disney+ 组。
+    createSelectGroup(GROUPS.DISNEY, mediaProxies),
+    // Spotify 组。
+    createSelectGroup(GROUPS.SPOTIFY, mediaProxies),
+    // TikTok 组。
+    createSelectGroup(GROUPS.TIKTOK, mediaProxies),
+
+    // 加密货币组，优先日本 / 新加坡 / 香港。
+    createSelectGroup(GROUPS.CRYPTO, cryptoProxies),
+    // 广告组，优先 REJECT，其次 REJECT-DROP，再次允许直连。
+    createSelectGroup(GROUPS.ADS, ["REJECT", "REJECT-DROP", GROUPS.DIRECT]),
+    // 全局直连组，本质上是在 DIRECT 和 主选择 之间切换。
+    createSelectGroup(GROUPS.DIRECT, [BUILTIN_DIRECT, GROUPS.SELECT])
+  ];
+
+  // 如果启用了落地隔离，则额外生成落地节点专用组。
+  if (ARGS.landing) {
+    generatedGroups.push(
+      createIncludeAllSelectGroup(GROUPS.LANDING, composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]))
+    );
+  }
+
+  // 如果确实检测到低倍率节点，则额外生成低倍率测速组。
+  if (hasLowCost) {
+    generatedGroups.push(
+      createIncludeAllLatencyGroup(GROUPS.LOW_COST, composeCaseInsensitivePattern([REGEX_LOW_COST.source]), "", "url-test")
+    );
+  }
+
+  // 为每个识别出来的国家生成单独国家组。
+  for (const country of countryConfigs) {
+    generatedGroups.push(
+      createIncludeAllLatencyGroup(country.name, country.filter, countryExcludeFilter, ARGS.lb ? "load-balance" : "url-test")
+    );
+  }
+
+  // 最后生成真正的兜底节点组，吸收所有未被国家组等主分组吃掉的节点。
+  generatedGroups.push(
+    createIncludeAllSelectGroup(GROUPS.OTHER, "", otherExcludeFilter)
+  );
+
+  // 再把生成组和用户原配置里的额外组做合并。
+  const mergedGroups = mergeProxyGroups(generatedGroups, existingGroups);
+
+  // full 模式下输出构建耗时。
+  if (ARGS.full) {
+    console.timeEnd("buildProxyGroups");
+  }
+
+  // 返回最终策略组数组。
+  return mergedGroups;
+}
+
+// 构建 DNS 配置，同时尽量保留用户原配置中的扩展项。
+function buildDnsConfig(existingDns) {
+  // 把传入值规范成普通对象，便于后续安全合并。
+  const currentDns = isObject(existingDns) ? existingDns : {};
+  // 允许脚本参数覆盖 DNS cache-algorithm。
+  const cacheAlgorithm = ARGS.hasDnsCacheAlgorithm ? ARGS.dnsCacheAlgorithm : (typeof currentDns["cache-algorithm"] === "string" && currentDns["cache-algorithm"] ? currentDns["cache-algorithm"] : "arc");
+  // 允许脚本参数覆盖 DNS prefer-h3。
+  const preferH3 = ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : parseBool(currentDns["prefer-h3"], false);
+  // 允许脚本参数覆盖 DNS respect-rules。
+  const respectRules = ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : parseBool(currentDns["respect-rules"], false);
+  // 允许脚本参数覆盖 use-system-hosts。
+  const useSystemHosts = ARGS.hasDnsUseSystemHosts ? ARGS.dnsUseSystemHosts : parseBool(currentDns["use-system-hosts"], true);
+  // 允许脚本参数覆盖 DNS listen。
+  const listen = ARGS.hasDnsListen ? ARGS.dnsListen : (typeof currentDns.listen === "string" && currentDns.listen ? currentDns.listen : ":1053");
+  // 允许脚本参数覆盖 fake-ip-filter-mode。
+  const fakeIpFilterMode = ARGS.hasFakeIpFilterMode ? ARGS.fakeIpFilterMode : (typeof currentDns["fake-ip-filter-mode"] === "string" && currentDns["fake-ip-filter-mode"] ? currentDns["fake-ip-filter-mode"] : "blacklist");
+  // 允许脚本参数覆盖 fake-ip-range。
+  const fakeIpRange = ARGS.hasFakeIpRange ? ARGS.fakeIpRange : (typeof currentDns["fake-ip-range"] === "string" && currentDns["fake-ip-range"] ? currentDns["fake-ip-range"] : "198.18.0.1/16");
+  // 国内主 DNS 列表，优先阿里和腾讯 DoH。
+  const domesticNameservers = [
+    "https://dns.alidns.com/dns-query",
+    "https://doh.pub/dns-query"
+  ];
+  // 国际回退 DNS 列表，优先 Cloudflare 和 Google。
+  const fallbackNameservers = [
+    "https://1.1.1.1/dns-query",
+    "https://8.8.8.8/dns-query"
+  ];
+  // 代理节点域名解析优先走国际 DNS，同时保留国内 DNS 作为兜底。
+  const proxyServerNameservers = uniqueStrings([
+    ...fallbackNameservers,
+    ...domesticNameservers,
+    ...toStringArray(currentDns["proxy-server-nameserver"])
+  ]);
+  // 直连流量域名解析优先走国内 DNS，降低国内直连场景的解析绕路概率。
+  const directNameservers = uniqueStrings([
+    ...domesticNameservers,
+    ...toStringArray(currentDns["direct-nameserver"])
+  ]);
+  // Fake-IP 排除列表，这些域名强制返回真实 IP。
+  const fakeIpFilter = [
+    "dns.msftncsi.com",
+    "www.msftncsi.com",
+    "www.msftconnecttest.com",
+    "connectivitycheck.gstatic.com",
+    "*.xboxlive.com",
+    "*.nintendo.net",
+    "*.sonyentertainmentnetwork.com",
+    "geosite:cn",
+    "geosite:apple",
+    "geosite:microsoft",
+    "geosite:steam@cn"
+  ];
+  // 按域名类别分流 DNS 服务器。
+  const nameserverPolicy = {
+    "geosite:cn,private,apple,steam@cn,microsoft": domesticNameservers,
+    "geosite:geolocation-!cn,gfw,google,youtube,telegram,openai,anthropic,google-gemini": fallbackNameservers
+  };
+  // 专供“节点服务器域名解析”使用的 policy，默认和主 nameserver-policy 保持一致。
+  const proxyServerNameserverPolicy = {
+    "geosite:cn,private,apple,steam@cn,microsoft": domesticNameservers,
+    "geosite:geolocation-!cn,gfw,google,youtube,telegram,openai,anthropic,google-gemini": fallbackNameservers
+  };
+
+  // 先合并基础 DNS 开关和全局行为。
+  const dns = mergeObjects(currentDns, {
+    // 强制启用 DNS 模块。
+    enable: true,
+    // 是否启用 IPv6 跟随脚本参数。
+    ipv6: ARGS.ipv6,
+    // 显式启用更适合长时间运行场景的 ARC 缓存算法。
+    "cache-algorithm": cacheAlgorithm,
+    // prefer-h3 允许用户显式打开，但默认仍保守关闭。
+    "prefer-h3": preferH3,
+    // 按参数决定走 fake-ip 还是 redir-host。
+    "enhanced-mode": ARGS.fakeip ? "fake-ip" : "redir-host",
+    // listen 支持参数化，没传参数时优先保留原配置。
+    listen,
+    // 保留 hosts 支持。
+    "use-hosts": parseBool(currentDns["use-hosts"], true),
+    // 额外启用系统 hosts，方便桌面端/路由端把静态 hosts 一并纳入解析流程。
+    "use-system-hosts": useSystemHosts,
+    // fake-ip-filter-mode 支持 blacklist / whitelist / rule，默认仍为 blacklist。
+    "fake-ip-filter-mode": fakeIpFilterMode,
+    // 若用户自己开启 respect-rules，则这里沿用用户配置；否则默认关闭，减少 DNS 自身依赖规则造成的复杂度。
+    "respect-rules": respectRules,
+    // fake-ip 地址池优先保留用户原值，否则回落到标准保留网段。
+    "fake-ip-range": fakeIpRange
+  });
+
+  // 如果启用了 IPv6，则尽量补齐官方示例风格的 fake-ip IPv6 地址池。
+  if (ARGS.hasFakeIpRange6) {
+    dns["fake-ip-range6"] = ARGS.fakeIpRange6;
+  } else if (typeof currentDns["fake-ip-range6"] === "string" && currentDns["fake-ip-range6"]) {
+    dns["fake-ip-range6"] = currentDns["fake-ip-range6"];
+  } else if (ARGS.ipv6) {
+    dns["fake-ip-range6"] = "fdfe:dcba:9876::1/64";
+  }
+
+  // fake-ip-ttl 只在用户显式配置或参数传入时才写入，避免无意义覆盖宿主默认值。
+  if (ARGS.hasFakeIpTtl || hasOwn(currentDns, "fake-ip-ttl")) {
+    dns["fake-ip-ttl"] = ARGS.hasFakeIpTtl ? ARGS.fakeIpTtl : currentDns["fake-ip-ttl"];
+  }
+
+  // 默认 DNS 服务器：脚本默认值 + 用户原值，最后做去重。
+  dns["default-nameserver"] = uniqueStrings([
+    "223.5.5.5",
+    "119.29.29.29",
+    ...toStringArray(currentDns["default-nameserver"])
+  ]);
+
+  // 主 nameserver 列表：国内 DoH 优先，再补上用户自定义项。
+  dns.nameserver = uniqueStrings([...domesticNameservers, ...toStringArray(currentDns.nameserver)]);
+  // fallback 列表：国际 DNS 优先，再补上用户自定义项。
+  dns.fallback = uniqueStrings([...fallbackNameservers, ...toStringArray(currentDns.fallback)]);
+  // 代理服务器域名解析单独指定解析器，避免“节点域名也被策略路由”时出现环依赖。
+  dns["proxy-server-nameserver"] = proxyServerNameservers;
+  // 直连流量也单独指定解析器，配合 follow-policy 让直连域名尽量就近解析。
+  dns["direct-nameserver"] = directNameservers;
+  // 允许 direct-nameserver 跟随 nameserver-policy，兼顾国内直连与自定义策略。
+  dns["direct-nameserver-follow-policy"] = parseBool(currentDns["direct-nameserver-follow-policy"], true);
+  // fake-ip-filter：按当前 fake-ip-filter-mode 生成；rule 模式下会自动转为规则语法。
+  dns["fake-ip-filter"] = buildFakeIpFilter(fakeIpFilter, currentDns["fake-ip-filter"], fakeIpFilterMode);
+
+  // fallback-filter：先给默认值，再允许用户覆盖/补充。
+  dns["fallback-filter"] = mergeObjects(
+    {
+      geoip: true,
+      "geoip-code": "CN",
+      geosite: ["gfw"],
+      domain: ["+.google.com", "+.facebook.com", "+.youtube.com"],
+      ipcidr: ["240.0.0.0/4"]
+    },
+    currentDns["fallback-filter"]
+  );
+  // geosite 规则也做去重合并，默认至少保留 gfw。
+  dns["fallback-filter"].geosite = uniqueStrings([
+    "gfw",
+    ...toStringArray(dns["fallback-filter"].geosite)
+  ]);
+  // domain 规则也做去重合并，兼容官方示例中的兜底域名。
+  dns["fallback-filter"].domain = uniqueStrings([
+    "+.google.com",
+    "+.facebook.com",
+    "+.youtube.com",
+    ...toStringArray(dns["fallback-filter"].domain)
+  ]);
+  // fallback-filter 里的 ipcidr 也做去重合并。
+  dns["fallback-filter"].ipcidr = uniqueStrings([
+    "240.0.0.0/4",
+    ...toStringArray(dns["fallback-filter"].ipcidr)
+  ]);
+
+  // nameserver-policy 也是默认策略优先，再叠加用户自定义，并合并数组值。
+  dns["nameserver-policy"] = mergeDnsPolicyMaps(nameserverPolicy, currentDns["nameserver-policy"]);
+  // 节点域名解析策略也单独补齐，避免代理服务器域名始终走单一 DNS。
+  dns["proxy-server-nameserver-policy"] = mergeDnsPolicyMaps(
+    proxyServerNameserverPolicy,
+    currentDns["proxy-server-nameserver-policy"]
+  );
+  // 返回最终 DNS 配置。
+  return dns;
+}
+
+// 合并某个协议的 sniff 配置，重点是把端口列表做合并去重。
+function mergeSniffProtocol(baseProtocol, existingProtocol) {
+  // 先把脚本默认字段和用户自定义字段合并，允许用户显式覆盖默认行为。
+  const protocol = mergeObjects(baseProtocol, existingProtocol);
+  // 端口列表按“默认端口 + 用户端口”合并并去重。
+  protocol.ports = uniqueNumbers([].concat(baseProtocol.ports || [], existingProtocol && existingProtocol.ports || []));
+  // 返回合并后的协议配置。
+  return protocol;
+}
+
+// 构建 Mihomo 通用内核默认项，尽量给出稳妥默认值，同时保留用户显式配置。
+function buildKernelDefaults(config) {
+  const currentConfig = isObject(config) ? config : {};
+  const currentGeoxUrl = isObject(currentConfig["geox-url"]) ? currentConfig["geox-url"] : {};
+  const geoxUrl = mergeObjects(GEOX_URLS, currentGeoxUrl);
+  const globalUa = ARGS.hasGlobalUa ? ARGS.globalUa : (typeof currentConfig["global-ua"] === "string" && currentConfig["global-ua"] ? currentConfig["global-ua"] : "clash.meta");
+  const geoAutoUpdate = ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : parseBool(currentConfig["geo-auto-update"], false);
+  const geoUpdateInterval = ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : (hasOwn(currentConfig, "geo-update-interval") ? currentConfig["geo-update-interval"] : 24);
+  const processMode = ARGS.hasProcessMode ? ARGS.processMode : (typeof currentConfig["find-process-mode"] === "string" && currentConfig["find-process-mode"] ? currentConfig["find-process-mode"] : "strict");
+  const geodataMode = ARGS.hasGeodataMode ? ARGS.geodataMode : parseBool(currentConfig["geodata-mode"], true);
+  const geodataLoader = ARGS.hasGeodataLoader ? ARGS.geodataLoader : (typeof currentConfig["geodata-loader"] === "string" && currentConfig["geodata-loader"] ? currentConfig["geodata-loader"] : "memconservative");
+
+  return {
+    // 绝大多数规则配置都以 rule 模式为主，但若用户已指定则完全保留。
+    mode: typeof currentConfig.mode === "string" && currentConfig.mode ? currentConfig.mode : "rule",
+    // 统一设置 Mihomo 远程资源下载使用的 User-Agent，便于命中兼容性更好的服务端分支。
+    "global-ua": globalUa,
+    // 官方推荐的严格进程匹配模式，便于桌面端分应用识别。
+    "find-process-mode": processMode,
+    // geosite / geoip 相关特性依赖 geodata-mode，脚本既然大量使用 geosite，就尽量显式开启。
+    "geodata-mode": geodataMode,
+    // 大规则集场景更省内存的 geodata 加载方式。
+    "geodata-loader": geodataLoader,
+    // 允许 Mihomo 自动更新 GeoX 数据；若用户已有配置则完全保留。
+    "geo-auto-update": geoAutoUpdate,
+    // GeoX 自动更新间隔按小时计，这里采用官方常见示例值 24 小时。
+    "geo-update-interval": geoUpdateInterval,
+    // GeoX 下载地址沿用 Mihomo 官方 General 文档推荐值，但允许用户局部覆盖。
+    "geox-url": geoxUrl,
+    // 启用 ETag 支持，减少规则文件重复下载。
+    "etag-support": parseBool(currentConfig["etag-support"], true),
+    // 按当前 Mihomo General 文档推荐值，保活空闲时间默认 15 秒。
+    "keep-alive-idle": hasOwn(currentConfig, "keep-alive-idle") ? currentConfig["keep-alive-idle"] : 15,
+    // 给保活探测一个较温和的默认间隔。
+    "keep-alive-interval": hasOwn(currentConfig, "keep-alive-interval") ? currentConfig["keep-alive-interval"] : 15,
+    // 默认不关闭 keep-alive，但允许用户手动覆盖。
+    "disable-keep-alive": hasOwn(currentConfig, "disable-keep-alive") ? currentConfig["disable-keep-alive"] : false,
+    // 按官方文档推荐默认开启 TCP 并发建连，加快多路候选链路握手。
+    "tcp-concurrent": hasOwn(currentConfig, "tcp-concurrent") ? currentConfig["tcp-concurrent"] : true
+  };
+}
+
+// 构建 Sniffer 配置，同时保留用户原有的扩展设置。
+function buildSnifferConfig(existingSniffer) {
+  // 规范化原 Sniffer 配置。
+  const currentSniffer = isObject(existingSniffer) ? existingSniffer : {};
+  // 规范化 sniff 子对象。
+  const currentSniff = isObject(currentSniffer.sniff) ? currentSniffer.sniff : {};
+  // force-dns-mapping 支持参数优先，其次保留用户原值，最后回落脚本默认。
+  const forceDnsMapping = ARGS.hasSnifferForceDnsMapping ? ARGS.snifferForceDnsMapping : parseBool(currentSniffer["force-dns-mapping"], true);
+  // parse-pure-ip 支持参数优先，其次保留用户原值，最后回落脚本默认。
+  const parsePureIp = ARGS.hasSnifferParsePureIp ? ARGS.snifferParsePureIp : parseBool(currentSniffer["parse-pure-ip"], true);
+  // 全局 override-destination 支持参数优先，其次保留用户原值，最后回落脚本默认 false。
+  const overrideDestination = ARGS.hasSnifferOverrideDestination ? ARGS.snifferOverrideDestination : parseBool(currentSniffer["override-destination"], false);
+  // 参考 Mihomo 官方示例，给少数容易被 Sniffer 干扰的域名做默认豁免。
+  const defaultSkipDomains = [
+    "Mijia Cloud",
+    "+.push.apple.com"
+  ];
+  // 参考你现有 Nikki 配置，把 OpenAI / Anthropic 加入默认强制嗅探域名，提升 AI 分流命中率。
+  const defaultForceDomains = [
+    "+.openai.com",
+    "+.anthropic.com"
+  ];
+
+  // 先合并全局 Sniffer 开关和默认行为。
+  const sniffer = mergeObjects(currentSniffer, {
+    enable: true,
+    "force-dns-mapping": forceDnsMapping,
+    "parse-pure-ip": parsePureIp,
+    "override-destination": overrideDestination
+  });
+
+  // 复制出 sniff 协议表，后续分别处理 TLS / HTTP / QUIC。
+  const protocols = mergeObjects(currentSniff, {});
+  // 合并 TLS 嗅探端口。
+  protocols.TLS = mergeSniffProtocol({ ports: [443, 8443] }, currentSniff.TLS);
+  // 合并 HTTP 嗅探端口，并默认开启目标覆写，提升基于 Host 的分流命中率。
+  protocols.HTTP = mergeSniffProtocol({ ports: [80, 8080, 8880], "override-destination": true }, currentSniff.HTTP);
+  // 合并 QUIC 嗅探端口。
+  protocols.QUIC = mergeSniffProtocol({ ports: [443, 8443] }, currentSniff.QUIC);
+
+  // 如果用户显式传入 HTTP 覆写参数，则强制覆盖协议级设置。
+  if (ARGS.hasSnifferHttpOverrideDestination) {
+    protocols.HTTP["override-destination"] = ARGS.snifferHttpOverrideDestination;
+  }
+
+  // 把协议表挂回 sniffer。
+  sniffer.sniff = protocols;
+
+  // skip-domain 默认合并官方示例中的保底域名，再叠加用户自定义值。
+  sniffer["skip-domain"] = uniqueStrings(defaultSkipDomains.concat(toStringArray(currentSniffer["skip-domain"]), ARGS.snifferSkipDomains));
+
+  // force-domain 默认补上 AI 服务常见主域名，再叠加用户原值，提升域名嗅探命中率。
+  if (Array.isArray(currentSniffer["force-domain"]) || typeof currentSniffer["force-domain"] === "string" || defaultForceDomains.length) {
+    sniffer["force-domain"] = uniqueStrings(defaultForceDomains.concat(toStringArray(currentSniffer["force-domain"]), ARGS.snifferForceDomains));
+  }
+
+  // 如果用户原配置中已经定义了基于源地址/目标地址的嗅探豁免，也一并保留。
+  if (Array.isArray(currentSniffer["skip-src-address"]) || typeof currentSniffer["skip-src-address"] === "string") {
+    sniffer["skip-src-address"] = uniqueStrings(toStringArray(currentSniffer["skip-src-address"]));
+  }
+
+  if (Array.isArray(currentSniffer["skip-dst-address"]) || typeof currentSniffer["skip-dst-address"] === "string") {
+    sniffer["skip-dst-address"] = uniqueStrings(toStringArray(currentSniffer["skip-dst-address"]));
+  }
+
+  // 返回最终 Sniffer 配置。
+  return sniffer;
+}
+
+// 把国家分组统计格式化成单行文本，便于 full 模式输出日志。
+function buildCountrySummary(countryConfigs) {
+  return countryConfigs.map((country) => `${country.name}(${country.count})`).join(" / ");
+}
+
+// 输出构建过程中的诊断信息，例如自动重命名和一致性校验告警。
+function logDiagnostics(diagnostics) {
+  // 没有诊断对象就直接跳过。
+  if (!isObject(diagnostics)) {
+    return;
+  }
+
+  // 节点名称发生自动规范化/重命名时，输出提醒。
+  if (Array.isArray(diagnostics.renamedProxies) && diagnostics.renamedProxies.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.renamedProxies.length} 个节点名称被自动规范化或重命名`);
+
+    // full 模式下额外输出前几个示例，方便定位。
+    if (ARGS.full) {
+      for (const item of diagnostics.renamedProxies.slice(0, 8)) {
+        console.warn(`   · ${item.from} => ${item.to}`);
+      }
+    }
+  }
+
+  // 如果规则引用了不存在的 provider，输出告警。
+  if (Array.isArray(diagnostics.missingProviders) && diagnostics.missingProviders.length) {
+    console.warn(`⚠️ 规则定义引用了不存在的 rule-provider: ${diagnostics.missingProviders.join(", ")}`);
+  }
+
+  // 如果检测到已弃用的配置项，也输出提醒。
+  if (Array.isArray(diagnostics.deprecatedSettings) && diagnostics.deprecatedSettings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.deprecatedSettings.length} 个已弃用配置项`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.deprecatedSettings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 rule-provider 的远程链接不合法，也输出提醒。
+  if (Array.isArray(diagnostics.invalidRuleProviderUrls) && diagnostics.invalidRuleProviderUrls.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.invalidRuleProviderUrls.length} 个 rule-provider URL 异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.invalidRuleProviderUrls.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 rule-provider 官方结构语义存在异常，也输出提醒。
+  if (Array.isArray(diagnostics.ruleProviderWarnings) && diagnostics.ruleProviderWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.ruleProviderWarnings.length} 个 rule-provider 语义异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.ruleProviderWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 proxy-provider 下载控制或健康检查存在异常，也输出提醒。
+  if (Array.isArray(diagnostics.proxyProviderWarnings) && diagnostics.proxyProviderWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.proxyProviderWarnings.length} 个 proxy-provider 参数异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.proxyProviderWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果命中 DNS 风险组合，也输出提醒。
+  if (Array.isArray(diagnostics.dnsRiskWarnings) && diagnostics.dnsRiskWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.dnsRiskWarnings.length} 个 DNS 风险组合`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.dnsRiskWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 DNS 高级项落在非常规取值，也输出提醒。
+  if (Array.isArray(diagnostics.dnsOptionWarnings) && diagnostics.dnsOptionWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.dnsOptionWarnings.length} 个 DNS 选项风险`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.dnsOptionWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果测速组健康检查参数存在异常，也输出提醒。
+  if (Array.isArray(diagnostics.latencyGroupWarnings) && diagnostics.latencyGroupWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.latencyGroupWarnings.length} 个测速组参数异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.latencyGroupWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果某些 latency/load-balance 组主要通过 provider 池引入节点，也输出官方语义提醒。
+  if (Array.isArray(diagnostics.providerHealthWarnings) && diagnostics.providerHealthWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.providerHealthWarnings.length} 个 provider 型健康检查提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.providerHealthWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 AI / Crypto 国家优先链里有未匹配的国家标记，也输出提醒。
+  if (Array.isArray(diagnostics.preferredCountryWarnings) && diagnostics.preferredCountryWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.preferredCountryWarnings.length} 个国家优先链标记未命中`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.preferredCountryWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 GitHub / Steam 前置组标记未命中或错误引用自身，也输出提醒。
+  if (Array.isArray(diagnostics.preferredGroupWarnings) && diagnostics.preferredGroupWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.preferredGroupWarnings.length} 个独立组前置组标记异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.preferredGroupWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 GitHub / Steam 点名节点标记未命中或存在歧义，也输出提醒。
+  if (Array.isArray(diagnostics.preferredNodeWarnings) && diagnostics.preferredNodeWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.preferredNodeWarnings.length} 个独立组点名节点标记异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.preferredNodeWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 GitHub / Steam provider 池标记未命中，也输出提醒。
+  if (Array.isArray(diagnostics.preferredProviderWarnings) && diagnostics.preferredProviderWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.preferredProviderWarnings.length} 个独立组 provider 池参数异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.preferredProviderWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 GitHub / Steam / SteamCN 规则顺序锚点参数未命中或引用自身，也输出提醒。
+  if (Array.isArray(diagnostics.ruleOrderWarnings) && diagnostics.ruleOrderWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.ruleOrderWarnings.length} 个规则顺序参数异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.ruleOrderWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 GitHub / Steam / SteamCN 规则入口目标参数未命中，也输出提醒。
+  if (Array.isArray(diagnostics.ruleTargetWarnings) && diagnostics.ruleTargetWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.ruleTargetWarnings.length} 个规则入口目标参数异常`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.ruleTargetWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果某些宽泛规则排在特定业务规则前面，也输出风险提醒。
+  if (Array.isArray(diagnostics.rulePriorityWarnings) && diagnostics.rulePriorityWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.rulePriorityWarnings.length} 个规则优先级风险`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.rulePriorityWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果关键策略组的候选链顺序异常，也输出风险提醒。
+  if (Array.isArray(diagnostics.proxyGroupPriorityWarnings) && diagnostics.proxyGroupPriorityWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.proxyGroupPriorityWarnings.length} 个策略组候选链风险`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.proxyGroupPriorityWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果自定义规则区间存在明显异常，也输出提醒。
+  if (Array.isArray(diagnostics.customRuleWarnings) && diagnostics.customRuleWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.customRuleWarnings.length} 个自定义规则提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.customRuleWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果关键业务的专属链路出现明显偏离，也输出提醒。
+  if (Array.isArray(diagnostics.serviceRoutingWarnings) && diagnostics.serviceRoutingWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.serviceRoutingWarnings.length} 个业务链路提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.serviceRoutingWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果当前目标平台看起来不是 Clash / Mihomo，也输出提醒。
+  if (Array.isArray(diagnostics.targetPlatformWarnings) && diagnostics.targetPlatformWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.targetPlatformWarnings.length} 个目标平台兼容性提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.targetPlatformWarnings.slice(0, 5)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果存在未消费脚本参数，也输出提醒，便于尽快发现拼写错误或未支持参数。
+  if (Array.isArray(diagnostics.runtimeArgWarnings) && diagnostics.runtimeArgWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.runtimeArgWarnings.length} 个参数诊断提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.runtimeArgWarnings.slice(0, 5)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果当前环境不支持写入官方 `_res.headers`，也输出提醒。
+  if (Array.isArray(diagnostics.runtimeResponseWarnings) && diagnostics.runtimeResponseWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.runtimeResponseWarnings.length} 个响应调试链路提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.runtimeResponseWarnings.slice(0, 5)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果官方保留下载参数存在潜在歧义，也输出提醒。
+  if (Array.isArray(diagnostics.runtimeLinkWarnings) && diagnostics.runtimeLinkWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.runtimeLinkWarnings.length} 个下载链路参数提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.runtimeLinkWarnings.slice(0, 5)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 GEO 配置不完整，也输出提醒。
+  if (Array.isArray(diagnostics.geoConfigWarnings) && diagnostics.geoConfigWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.geoConfigWarnings.length} 个 GEO 配置风险`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.geoConfigWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果核心内核项落在非常规取值，也输出提醒。
+  if (Array.isArray(diagnostics.kernelOptionWarnings) && diagnostics.kernelOptionWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.kernelOptionWarnings.length} 个核心内核项风险`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.kernelOptionWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果 provider 本地缓存路径发生冲突，也输出告警。
+  if (Array.isArray(diagnostics.duplicateRuleProviderPaths) && diagnostics.duplicateRuleProviderPaths.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.duplicateRuleProviderPaths.length} 个 rule-provider path 冲突`);
+
+    // full 模式下输出部分明细。
+    if (ARGS.full) {
+      for (const item of diagnostics.duplicateRuleProviderPaths.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果规则目标组缺失，输出告警。
+  if (Array.isArray(diagnostics.missingRuleTargets) && diagnostics.missingRuleTargets.length) {
+    console.warn(`⚠️ 规则目标策略组缺失: ${diagnostics.missingRuleTargets.join(", ")}`);
+  }
+
+  // 如果策略组引用了解析不到的组名/节点名，也输出告警。
+  if (Array.isArray(diagnostics.unresolvedGroupReferences) && diagnostics.unresolvedGroupReferences.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.unresolvedGroupReferences.length} 个策略组引用无法解析`);
+
+    // full 模式下输出部分明细。
+    if (ARGS.full) {
+      for (const item of diagnostics.unresolvedGroupReferences.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果某些策略组里的 use 引用无法解析到 proxy-providers，也输出告警。
+  if (Array.isArray(diagnostics.unresolvedProviderReferences) && diagnostics.unresolvedProviderReferences.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.unresolvedProviderReferences.length} 个 proxy-provider 引用无法解析`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.unresolvedProviderReferences.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果某些自动分组的正则无法编译，输出告警。
+  if (Array.isArray(diagnostics.invalidGroupPatterns) && diagnostics.invalidGroupPatterns.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.invalidGroupPatterns.length} 个自动分组的过滤正则无效`);
+
+    // full 模式下输出部分明细。
+    if (ARGS.full) {
+      for (const item of diagnostics.invalidGroupPatterns.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果某些 include-all 自动分组实际上一个节点都匹配不到，也输出告警。
+  if (Array.isArray(diagnostics.emptyAutoGroups) && diagnostics.emptyAutoGroups.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.emptyAutoGroups.length} 个自动分组当前为空`);
+
+    // full 模式下输出部分明细。
+    if (ARGS.full) {
+      for (const item of diagnostics.emptyAutoGroups.slice(0, 12)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
+  // 如果存在未被国家体系识别的节点，也输出提醒，便于后续扩充国家别名。
+  if (typeof diagnostics.unclassifiedCountryProxies === "number" && diagnostics.unclassifiedCountryProxies > 0) {
+    console.warn(`⚠️ 检测到 ${diagnostics.unclassifiedCountryProxies} 个节点未命中任何国家识别规则`);
+
+    // full 模式下输出部分样本。
+    if (ARGS.full && Array.isArray(diagnostics.unclassifiedCountryExamples)) {
+      for (const item of diagnostics.unclassifiedCountryExamples.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+}
+
+// 输出 full 模式下的构建统计信息。
+function logBuildSummary(stats) {
+  // 输出主标题并带上脚本版本。
+  console.log(`📊 配置生成完毕 (Sub-Store.js v${SCRIPT_VERSION})`);
+  // 输出代理节点总数。
+  console.log(`   ✓ 代理节点: ${stats.totalProxies} 个`);
+  // 输出有效节点数。
+  console.log(`   ✓ 有效节点: ${stats.validProxies} 个`);
+  // 输出低倍率节点数。
+  console.log(`   ✓ 低倍率节点: ${stats.lowCostProxies} 个`);
+  // 输出落地节点数。
+  console.log(`   ✓ 落地节点: ${stats.landingProxies} 个`);
+  // 输出国家分组数量。
+  console.log(`   ✓ 国家分组: ${stats.countryGroups} 个`);
+  // 输出策略组总数。
+  console.log(`   ✓ 策略组: ${stats.proxyGroups} 个`);
+  // 输出规则总数。
+  console.log(`   ✓ 规则数: ${stats.rules} 条`);
+  // 输出国家识别覆盖数。
+  console.log(`   ✓ 国家识别节点: ${stats.classifiedCountryProxies} 个`);
+  // 输出国家未识别节点数。
+  console.log(`   ✓ 国家未识别节点: ${stats.unclassifiedCountryProxies} 个`);
+  // 输出自动规范化/重命名节点数量。
+  console.log(`   ✓ 自动改名节点: ${stats.renamedProxies} 个`);
+  // 输出 provider 缺失告警数。
+  console.log(`   ✓ Provider告警: ${stats.missingProviders} 条`);
+  // 输出 provider URL 异常数。
+  console.log(`   ✓ Provider链接告警: ${stats.invalidRuleProviderUrls} 条`);
+  // 输出 rule-provider 官方语义异常数。
+  console.log(`   ✓ 规则源语义告警: ${stats.ruleProviderWarnings} 条`);
+  // 输出 proxy-provider 参数异常数。
+  console.log(`   ✓ 代理集合告警: ${stats.proxyProviderWarnings} 条`);
+  // 输出已弃用配置项告警数。
+  console.log(`   ✓ 弃用项告警: ${stats.deprecatedSettings} 条`);
+  // 输出 DNS 风险组合告警数。
+  console.log(`   ✓ DNS风险告警: ${stats.dnsRiskWarnings} 条`);
+  // 输出 DNS 选项风险告警数。
+  console.log(`   ✓ DNS选项告警: ${stats.dnsOptionWarnings} 条`);
+  // 输出测速组参数告警数。
+  console.log(`   ✓ 测速组告警: ${stats.latencyGroupWarnings} 条`);
+  // 输出 provider 型健康检查提醒数。
+  console.log(`   ✓ Provider健康提醒: ${stats.providerHealthWarnings} 条`);
+  // 输出国家优先链未命中告警数。
+  console.log(`   ✓ 优先链告警: ${stats.preferredCountryWarnings} 条`);
+  // 输出独立组前置组标记告警数。
+  console.log(`   ✓ 前置组告警: ${stats.preferredGroupWarnings} 条`);
+  // 输出独立组点名节点标记告警数。
+  console.log(`   ✓ 点名节点告警: ${stats.preferredNodeWarnings} 条`);
+  // 输出独立组 provider 池参数告警数。
+  console.log(`   ✓ Provider池告警: ${stats.preferredProviderWarnings} 条`);
+  // 输出规则顺序参数告警数。
+  console.log(`   ✓ 规则顺序告警: ${stats.ruleOrderWarnings} 条`);
+  // 输出规则入口目标参数告警数。
+  console.log(`   ✓ 规则入口告警: ${stats.ruleTargetWarnings} 条`);
+  // 输出规则优先级风险告警数。
+  console.log(`   ✓ 规则优先级风险: ${stats.rulePriorityWarnings} 条`);
+  // 输出策略组候选链风险告警数。
+  console.log(`   ✓ 候选链风险: ${stats.proxyGroupPriorityWarnings} 条`);
+  // 输出自定义规则提醒数。
+  console.log(`   ✓ 自定义规则提醒: ${stats.customRuleWarnings} 条`);
+  // 输出关键业务链路提醒数。
+  console.log(`   ✓ 业务链路提醒: ${stats.serviceRoutingWarnings} 条`);
+  // 输出目标平台兼容性提醒数。
+  console.log(`   ✓ 平台提醒: ${stats.targetPlatformWarnings} 条`);
+  // 输出未消费参数诊断提醒数。
+  console.log(`   ✓ 参数诊断提醒: ${stats.runtimeArgWarnings} 条`);
+  // 输出响应调试链路提醒数。
+  console.log(`   ✓ 响应头提醒: ${stats.runtimeResponseWarnings} 条`);
+  // 输出下载链路参数提醒数。
+  console.log(`   ✓ 链路参数提醒: ${stats.runtimeLinkWarnings} 条`);
+  // 输出 GEO 配置风险告警数。
+  console.log(`   ✓ GEO风险告警: ${stats.geoConfigWarnings} 条`);
+  // 输出核心内核项风险告警数。
+  console.log(`   ✓ 核心项告警: ${stats.kernelOptionWarnings} 条`);
+  // 输出 provider path 冲突告警数。
+  console.log(`   ✓ Provider路径告警: ${stats.duplicateRuleProviderPaths} 条`);
+  // 输出规则目标缺失告警数。
+  console.log(`   ✓ 规则目标告警: ${stats.missingRuleTargets} 条`);
+  // 输出策略组引用异常数量。
+  console.log(`   ✓ 引用异常告警: ${stats.unresolvedGroupReferences} 条`);
+  // 输出 proxy-provider 引用异常数量。
+  console.log(`   ✓ Provider引用告警: ${stats.unresolvedProviderReferences} 条`);
+  // 输出自动分组正则异常数量。
+  console.log(`   ✓ 分组正则告警: ${stats.invalidGroupPatterns} 条`);
+  // 输出空自动分组数量。
+  console.log(`   ✓ 空自动分组告警: ${stats.emptyAutoGroups} 条`);
+
+  // 如果有国家统计摘要，则补充输出。
+  if (stats.countrySummary) {
+    console.log(`   ✓ 国家统计: ${stats.countrySummary}`);
+  }
+
+  // 最后输出本次运行采用的参数组合，便于排查。
+  console.log(`   ✓ 参数: ipv6=${ARGS.ipv6}, landing=${ARGS.landing}, hidden=${ARGS.hidden}, load-balance=${ARGS.lb}, fakeip=${ARGS.fakeip}, quic=${ARGS.quic}, unified-delay=${ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : "config"}, tcp-concurrent=${ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : "config"}, dns-respect-rules=${ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : "config"}, dns-prefer-h3=${ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : "config"}, profile-cache=${ARGS.hasProfileCache ? ARGS.profileCache : "auto"}, geo-auto-update=${ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : "config"}, geo-update-interval=${ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : "config"}, threshold=${ARGS.threshold}`);
+  // 额外输出本轮新增的测速组参数覆盖情况。
+  console.log(`   ✓ 测速参数: test-url=${ARGS.hasTestUrl ? ARGS.testUrl : "default"}, group-interval=${ARGS.hasGroupInterval ? ARGS.groupInterval : "default"}, group-tolerance=${ARGS.hasGroupTolerance ? ARGS.groupTolerance : "default"}, group-timeout=${ARGS.hasGroupTimeout ? ARGS.groupTimeout : "default"}, group-max-failed-times=${ARGS.hasGroupMaxFailedTimes ? ARGS.groupMaxFailedTimes : "default"}, group-expected-status=${ARGS.hasGroupExpectedStatus ? ARGS.groupExpectedStatus : "default"}, group-lazy=${ARGS.hasGroupLazy ? ARGS.groupLazy : "default"}, group-strategy=${ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default"}`);
+  // 输出 Sniffer 参数覆盖情况。
+  console.log(`   ✓ Sniffer参数: force-dns-mapping=${ARGS.hasSnifferForceDnsMapping ? ARGS.snifferForceDnsMapping : "default"}, parse-pure-ip=${ARGS.hasSnifferParsePureIp ? ARGS.snifferParsePureIp : "default"}, override-destination=${ARGS.hasSnifferOverrideDestination ? ARGS.snifferOverrideDestination : "default"}, http-override-destination=${ARGS.hasSnifferHttpOverrideDestination ? ARGS.snifferHttpOverrideDestination : "default"}`);
+  // 输出 Sniffer 域名追加参数覆盖情况。
+  console.log(`   ✓ Sniffer域名: force-domain+=${ARGS.hasSnifferForceDomains ? ARGS.snifferForceDomains.join(" | ") : "default"}, skip-domain+=${ARGS.hasSnifferSkipDomains ? ARGS.snifferSkipDomains.join(" | ") : "default"}`);
+  // 输出 DNS listen / fake-ip 地址池覆盖情况。
+  console.log(`   ✓ DNS池参数: listen=${ARGS.hasDnsListen ? ARGS.dnsListen : "config/default"}, fake-ip-range=${ARGS.hasFakeIpRange ? ARGS.fakeIpRange : "config/default"}, fake-ip-range6=${ARGS.hasFakeIpRange6 ? ARGS.fakeIpRange6 : (ARGS.ipv6 ? "auto/default" : "off")}`);
+  // 输出自定义规则源覆盖情况。
+  console.log(`   ✓ 规则源参数: direct-list-url=${ARGS.hasDirectListUrl ? ARGS.directListUrl : "default"}, crypto-list-url=${ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default"}, chatgpt-list-url=${ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default"}, provider-path-dir=${ARGS.ruleProviderPathDir}, provider-interval=${ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL}, provider-proxy=${ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default"}, provider-size-limit=${ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default"}, provider-ua=${ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default"}, provider-auth=${ARGS.hasRuleProviderAuthorization ? "configured" : "default"}, provider-headers=${ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default"}, provider-payload=${ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default"}, scope=${(ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default"}, payload-scope=${ARGS.hasRuleProviderPayload ? "inline-only" : "default"}, apply-scope=${buildRuleProviderApplyScopeSummary()}, apply-stats=${stats.ruleProviderApplyStatsSummary}, apply-preview=${stats.ruleProviderApplyPreviewSummary}, mutation-stats=${stats.ruleProviderMutationStatsSummary}, mutation-preview=${stats.ruleProviderMutationPreviewSummary}`);
+  // 输出 rule-provider 官方语义自检开关，便于确认本轮自检已启用。
+  console.log("   ✓ 规则源语义: official-type/behavior/format/path/payload-check=on, safe-path-hint=on");
+  // 输出 proxy-provider 下载控制、节点池筛选与 health-check 覆盖情况。
+  console.log(`   ✓ 代理集合参数: interval=${ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default"}, proxy=${ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default"}, size-limit=${ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default"}, ua=${ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default"}, auth=${ARGS.hasProxyProviderAuthorization ? "configured" : "default"}, headers=${ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeaderEntryCount : "default"}, payload=${ARGS.hasProxyProviderPayload ? ARGS.proxyProviderPayloadCount : "default"}, path-dir=${ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged"}, filter=${ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default"}, exclude-filter=${ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default"}, exclude-type=${ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default"}, hc-enable=${ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default"}, hc-url=${ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default"}, hc-interval=${ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default"}, hc-timeout=${ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default"}, hc-lazy=${ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default"}, hc-expected-status=${ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default"}, apply-scope=${buildProxyProviderApplyScopeSummary()}, apply-stats=${stats.proxyProviderApplyStatsSummary}, apply-preview=${stats.proxyProviderApplyPreviewSummary}, mutation-stats=${stats.proxyProviderMutationStatsSummary}, mutation-preview=${stats.proxyProviderMutationPreviewSummary}`);
+  // 输出这一轮补强的官方语义自检开关，便于确认是否已走到新逻辑。
+  console.log("   ✓ 代理集合语义: official-type/url/path/payload-check=on, safe-path-hint=on");
+  // 输出 proxy-provider override 批量改写参数覆盖情况。
+  console.log(`   ✓ 代理集合Override: prefix=${ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default"}, suffix=${ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default"}, udp=${ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default"}, udp-over-tcp=${ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default"}, down=${ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default"}, up=${ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default"}, tfo=${ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default"}, mptcp=${ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default"}, skip-cert-verify=${ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default"}, dialer-proxy=${ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default"}, interface-name=${ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default"}, routing-mark=${ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default"}, ip-version=${ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default"}, proxy-name-rules=${ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default"}`);
+  // 输出 AI / Crypto 国家优先链参数覆盖情况。
+  console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType})`);
+  // 输出 GitHub / Steam 独立组额外前置组覆盖情况。
+  console.log(`   ✓ 独立组前置组: github=${ARGS.hasGithubPreferGroups ? ARGS.githubPreferGroups.join(" > ") : "default"}, steam=${ARGS.hasSteamPreferGroups ? ARGS.steamPreferGroups.join(" > ") : "default"}`);
+  // 输出 GitHub / Steam 独立组点名节点覆盖情况。
+  console.log(`   ✓ 独立组点名节点: github=${ARGS.hasGithubPreferNodes ? ARGS.githubPreferNodes.join(" > ") : "default"}, steam=${ARGS.hasSteamPreferNodes ? ARGS.steamPreferNodes.join(" > ") : "default"}`);
+  // 输出 GitHub / Steam 独立组 provider 池覆盖情况。
+  console.log(`   ✓ 独立组Provider池: github=${ARGS.hasGithubIncludeAll ? (ARGS.githubIncludeAll ? "include-all" : "off") : (ARGS.hasGithubIncludeAllProviders ? (ARGS.githubIncludeAllProviders ? "include-all-providers" : "off") : (ARGS.hasGithubUseProviders ? ARGS.githubUseProviders.join(" > ") : "default"))}, steam=${ARGS.hasSteamIncludeAll ? (ARGS.steamIncludeAll ? "include-all" : "off") : (ARGS.hasSteamIncludeAllProviders ? (ARGS.steamIncludeAllProviders ? "include-all-providers" : "off") : (ARGS.hasSteamUseProviders ? ARGS.steamUseProviders.join(" > ") : "default"))}`);
+  // 输出 GitHub / Steam / SteamCN 规则顺序覆盖情况。
+  console.log(`   ✓ 规则顺序编排: github=${buildRuleOrderSummary(ARGS.githubRuleAnchor, ARGS.githubRulePosition)}, steam=${buildRuleOrderSummary(ARGS.steamRuleAnchor, ARGS.steamRulePosition)}, steam-cn=${buildRuleOrderSummary(ARGS.steamCnRuleAnchor, ARGS.steamCnRulePosition)}`);
+  // 输出最终策略组在配置中的排列顺序，便于直接观察面板展示顺序。
+  console.log(`   ✓ 策略组顺序: ${stats.proxyGroupOrderSummary}`);
+  // 输出关键策略组内部的候选优先级，便于查看各业务流量组默认会先尝试谁。
+  console.log(`   ✓ 策略组优先级: ${stats.proxyGroupPrioritySummary}`);
+  // 输出最终规则链的优先级摘要，便于判断哪些流量会先命中、最后由谁兜底。
+  console.log(`   ✓ 流量优先级: ${stats.trafficPrioritySummary}`);
+  // 输出最终 rules 的层级拆分，便于比 head/tail 更直观看出拦截层、业务层、地区层和兜底层的先后。
+  console.log(`   ✓ 规则层级总览: ${stats.ruleLayerSummary}, preview=${stats.ruleLayerPreview}`);
+  // 输出 config.rules 在最终规则链里的实际插入区间，便于直接判断外部自定义规则到底插在什么位置。
+  console.log(`   ✓ 自定义规则区间: ${stats.customRuleSummary}, preview=${stats.customRulePreview}`);
+  // 输出 GitHub / Steam / SteamCN 规则入口目标覆盖情况。
+  console.log(`   ✓ 规则入口目标: github=${ARGS.hasGithubRuleTarget ? ARGS.githubRuleTarget : "default"}, steam=${ARGS.hasSteamRuleTarget ? ARGS.steamRuleTarget : "default"}, steam-cn=${ARGS.hasSteamCnRuleTarget ? ARGS.steamCnRuleTarget : "default"}`);
+  // 输出规则入口最终映射与目标分布，便于直接看出每条业务规则最终被送进了哪个组。
+  console.log(`   ✓ 规则入口映射: ${stats.ruleTargetMappingSummary}, preview=${stats.ruleTargetMappingPreview}`);
+  // 输出宽泛规则抢先命中的风险摘要，便于快速发现 GitHub / Steam / SteamCN 被前置规则吃掉。
+  console.log(`   ✓ 规则优先级风险: ${stats.rulePriorityRiskSummary}, preview=${stats.rulePriorityRiskPreview}`);
+  // 输出关键策略组候选链的顺序风险，便于快速发现 DIRECT / REJECT / FALLBACK / SELECT 排位异常。
+  console.log(`   ✓ 策略组候选链风险: ${stats.proxyGroupPriorityRiskSummary}, preview=${stats.proxyGroupPriorityRiskPreview}`);
+  // 输出关键业务的规则入口、目标组、组类型与头部候选链，便于单独观察 GitHub / Steam / AI / Crypto 的实际走法。
+  console.log(`   ✓ 业务链路总览: ${stats.serviceRoutingSummary}, preview=${stats.serviceRoutingPreview}`);
+  // 输出“请求 -> 规则 -> 目标组 -> 组内候选链”的总览，便于一眼看完整条分流路径。
+  console.log(`   ✓ 分流链路总览: ${stats.routingChainSummary}, preview=${stats.routingChainPreview}`);
+  // 输出 GitHub / Steam 独立组 hidden / icon 覆盖情况。
+  console.log(`   ✓ 独立组展示: github-hidden=${ARGS.hasGithubHidden ? ARGS.githubHidden : "default"}, github-icon=${ARGS.hasGithubIcon ? ARGS.githubIcon : "default"}, steam-hidden=${ARGS.hasSteamHidden ? ARGS.steamHidden : "default"}, steam-icon=${ARGS.hasSteamIcon ? ARGS.steamIcon : "default"}`);
+  // 输出 GitHub / Steam 独立组 disable-udp 覆盖情况。
+  console.log(`   ✓ 独立组UDP: github-disable-udp=${ARGS.hasGithubDisableUdp ? ARGS.githubDisableUdp : "default"}, steam-disable-udp=${ARGS.hasSteamDisableUdp ? ARGS.steamDisableUdp : "default"}`);
+  // 输出全局与 GitHub / Steam 独立组的网络字段覆盖情况。
+  console.log(`   ✓ 独立组网络: group-interface-name=${ARGS.hasGroupInterfaceName ? ARGS.groupInterfaceName : "default"}, group-routing-mark=${ARGS.hasGroupRoutingMark ? ARGS.groupRoutingMark : "default"}, github-interface-name=${ARGS.hasGithubInterfaceName ? ARGS.githubInterfaceName : "default"}, github-routing-mark=${ARGS.hasGithubRoutingMark ? ARGS.githubRoutingMark : "default"}, steam-interface-name=${ARGS.hasSteamInterfaceName ? ARGS.steamInterfaceName : "default"}, steam-routing-mark=${ARGS.hasSteamRoutingMark ? ARGS.steamRoutingMark : "default"}`);
+  // 输出 GitHub / Steam 独立组的专属测速覆盖情况。
+  console.log(`   ✓ 独立组测速: github-test-url=${ARGS.hasGithubTestUrl ? ARGS.githubTestUrl : "default"}, github-group-interval=${ARGS.hasGithubGroupInterval ? ARGS.githubGroupInterval : "default"}, github-group-tolerance=${ARGS.hasGithubGroupTolerance ? ARGS.githubGroupTolerance : "default"}, github-group-timeout=${ARGS.hasGithubGroupTimeout ? ARGS.githubGroupTimeout : "default"}, github-group-lazy=${ARGS.hasGithubGroupLazy ? ARGS.githubGroupLazy : "default"}, github-group-max-failed-times=${ARGS.hasGithubGroupMaxFailedTimes ? ARGS.githubGroupMaxFailedTimes : "default"}, github-group-expected-status=${ARGS.hasGithubGroupExpectedStatus ? ARGS.githubGroupExpectedStatus : "default"}, github-group-strategy=${ARGS.hasGithubGroupStrategy ? ARGS.githubGroupStrategy : "default"}, steam-test-url=${ARGS.hasSteamTestUrl ? ARGS.steamTestUrl : "default"}, steam-group-interval=${ARGS.hasSteamGroupInterval ? ARGS.steamGroupInterval : "default"}, steam-group-tolerance=${ARGS.hasSteamGroupTolerance ? ARGS.steamGroupTolerance : "default"}, steam-group-timeout=${ARGS.hasSteamGroupTimeout ? ARGS.steamGroupTimeout : "default"}, steam-group-lazy=${ARGS.hasSteamGroupLazy ? ARGS.steamGroupLazy : "default"}, steam-group-max-failed-times=${ARGS.hasSteamGroupMaxFailedTimes ? ARGS.steamGroupMaxFailedTimes : "default"}, steam-group-expected-status=${ARGS.hasSteamGroupExpectedStatus ? ARGS.steamGroupExpectedStatus : "default"}, steam-group-strategy=${ARGS.hasSteamGroupStrategy ? ARGS.steamGroupStrategy : "default"}`);
+  // 输出 GitHub / Steam 独立组的原始节点自动收集参数覆盖情况。
+  console.log(`   ✓ 独立组节点池: github-include-all-proxies=${ARGS.hasGithubIncludeAllProxies ? ARGS.githubIncludeAllProxies : "default"}, github-filter=${ARGS.hasGithubNodeFilter ? ARGS.githubNodeFilter : "default"}, github-exclude-filter=${ARGS.hasGithubNodeExcludeFilter ? ARGS.githubNodeExcludeFilter : "default"}, github-exclude-type=${ARGS.hasGithubNodeExcludeType ? ARGS.githubNodeExcludeType : "default"}, steam-include-all-proxies=${ARGS.hasSteamIncludeAllProxies ? ARGS.steamIncludeAllProxies : "default"}, steam-filter=${ARGS.hasSteamNodeFilter ? ARGS.steamNodeFilter : "default"}, steam-exclude-filter=${ARGS.hasSteamNodeExcludeFilter ? ARGS.steamNodeExcludeFilter : "default"}, steam-exclude-type=${ARGS.hasSteamNodeExcludeType ? ARGS.steamNodeExcludeType : "default"}`);
+  // 输出响应头调试参数覆盖情况。
+  console.log(`   ✓ 响应头参数: enabled=${ARGS.hasResponseHeaders ? ARGS.responseHeaders : false}, prefix=${ARGS.responseHeaderPrefix}, applied=${stats.responseHeadersApplied ? "yes" : "no"}`);
+  // 输出官方下载链接保留参数摘要，便于排查分享链接 / 文件链接 / 远程覆盖来源。
+  console.log(`   ✓ 下载链路: route-kind=${RUNTIME_CONTEXT.routeKind || "unknown"}, route-name=${RUNTIME_CONTEXT.routeName || "unknown"}, no-cache=${RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default"}, include-unsupported=${RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default"}, ignore-failed=${RUNTIME_LINK_OPTIONS.hasIgnoreFailedRemoteSub ? RUNTIME_LINK_OPTIONS.ignoreFailedRemoteSub : "default"}, merge-sources=${RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default"}, produce-type=${RUNTIME_LINK_OPTIONS.hasProduceType ? RUNTIME_LINK_OPTIONS.produceType : "default"}, url=${RUNTIME_LINK_OPTIONS.hasUrl ? "yes" : "no"}, url-kind=${RUNTIME_LINK_OPTIONS.urlKind || "none"}, content=${RUNTIME_LINK_OPTIONS.hasContent ? "yes" : "no"}, ua=${RUNTIME_LINK_OPTIONS.hasUa ? "yes" : "no"}, proxy=${RUNTIME_LINK_OPTIONS.hasProxy ? "yes" : "no"}`);
+  // 输出这一轮补强的官方链接参数语义摘要，便于确认保留参数是否按官方规则生效。
+  console.log(`   ✓ 下载链路语义: official-link-params-check=on, summary=${buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS)}`);
+  // 输出脚本参数来源摘要，便于排查真实运行环境里参数是从哪一路传进来的。
+  console.log(`   ✓ 参数来源: ${formatRuntimeArgSourceSummary(RUNTIME_ARG_SOURCES)}`);
+  // 输出最终生效参数的赢家来源摘要，便于定位 query / $options / $arguments 冲突时谁覆盖了谁。
+  console.log(`   ✓ 参数生效来源: ${formatRuntimeArgEffectiveSummary(RUNTIME_ARG_EFFECTIVE)}, preview=${formatRuntimeArgEffectivePreview(RUNTIME_ARG_EFFECTIVE)}`);
+  // 输出未消费脚本参数摘要，便于快速发现拼错、写错别名或当前版本尚未支持的参数。
+  console.log(`   ✓ 未消费参数: ${formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS)}, preview=${formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS)}`);
+  // 输出当前运行环境上下文，便于排查 Sub-Store 官方 target / 请求来源是否正确传入。
+  console.log(`   ✓ 运行环境: target=${RUNTIME_CONTEXT.target || "unknown"}, route-target=${RUNTIME_CONTEXT.routeTarget || "none"}, query-target=${RUNTIME_CONTEXT.queryTarget || "none"}, request-url=${RUNTIME_CONTEXT.requestUrl || "unknown"}, request-path=${RUNTIME_CONTEXT.requestPath || "unknown"}, route-path=${RUNTIME_CONTEXT.routePath || "unknown"}, request-params-target=${RUNTIME_CONTEXT.requestParamsTarget || "none"}, ua=${RUNTIME_CONTEXT.userAgent || "unknown"}, query-args=${Object.keys(RUNTIME_QUERY_ARGS).length}`);
+}
+
+// 主入口函数。
+// Sub-Store 在运行脚本时会把配置对象传进来，我们在这里做二次加工。
 function main(config) {
-  // [安全检查 1] 如果配置文件为空，返回空配置
-  if (!config) {
+  // 非对象输入说明运行环境异常，直接返回空对象。
+  if (!isObject(config)) {
     console.error("❌ 错误: 配置对象不存在");
     return {};
   }
 
-  // [安全检查 2] 如果没有代理节点，返回原配置
-  if (!config.proxies || !Array.isArray(config.proxies)) {
+  // 没有 proxies 字段就说明不是标准 Clash 配置，原样返回。
+  if (!Array.isArray(config.proxies)) {
     console.warn("⚠️ 警告: 配置文件中未找到代理节点数组");
     return config;
   }
 
-  // [安全检查 3] 如果代理数组为空，返回原配置
+  // proxies 是空数组时没法做任何分组，直接返回原配置。
   if (config.proxies.length === 0) {
     console.warn("⚠️ 警告: 代理节点数组为空，无法生成完整配置");
     return config;
   }
 
+  // 用 try/catch 包住主流程，确保脚本出错时不会把整个配置弄坏。
   try {
-    // 获取代理节点列表
-    const proxies = config.proxies;
-    // 检查是否存在低倍率节点（用于生成低倍率组）
-    const hasLowCost = proxies.some(p => 
-      p && typeof p.name === 'string' && REGEX_LOW_COST.test(p.name)
-    );
-    
-    // 解析国家配置
-    const countryConfigs = parseCountries(proxies);
-    // 构建策略组
-    const proxyGroups = buildProxyGroups(proxies, countryConfigs, hasLowCost);
-    // 构建规则
-    const rules = buildRules(ARGS.quic);
-    // 构建 DNS 配置
-    const dns = buildDnsConfig();
-
-    // [日志输出] 生成配置统计信息
-    if (ARGS.full) {
-      console.log(`📊 配置生成完毕:`);
-      console.log(`   ✓ 代理节点: ${proxies.length} 个`);
-      console.log(`   ✓ 国家分组: ${countryConfigs.length} 个`);
-      console.log(`   ✓ 策略组: ${proxyGroups.length} 个`);
-      console.log(`   ✓ 规则数: ${rules.length} 条`);
+    // 先清洗并规范节点名称，处理空格和重复名称问题。
+    const normalizedProxyState = normalizeProxies(config.proxies);
+    // 取出规范化后的有效节点列表。
+    const proxies = normalizedProxyState.proxies;
+    // 如果清洗完一个有效节点都没有，则回退原配置。
+    if (proxies.length === 0) {
+      console.warn("⚠️ 警告: 有效代理节点为空，已返回原配置");
+      return config;
     }
 
-    // 合并所有配置
+    // 统计节点概况。
+    const proxyStats = analyzeProxies(proxies);
+    // 分析国家规则覆盖率。
+    const countryCoverage = analyzeCountryCoverage(proxies);
+    // 解析出所有国家分组配置。
+    const countryConfigs = parseCountries(proxies);
+    // 生成并合并策略组。
+    const proxyGroups = buildProxyGroups(proxies, countryConfigs, proxyStats.lowCost > 0, config["proxy-groups"], config["proxy-providers"]);
+    // 先基于最终可用组名/内置策略解析 GitHub / Steam / SteamCN 的规则入口目标。
+    const resolvedRuleDefinitions = resolveRuleSetDefinitions(
+      uniqueStrings(proxyGroups.map((group) => group.name).concat(BUILTIN_POLICY_NAMES))
+    );
+    // 再按用户提供的锚点把 GitHub / Steam / SteamCN 规则入口重排到指定前后位置。
+    const orderedRuleDefinitions = applyRuleSetDefinitionOrder(resolvedRuleDefinitions);
+    // 这里把最终顺序后的规则定义继续传给规则生成与自检，确保日志/校验和实际产物一致。
+    const finalRuleDefinitions = orderedRuleDefinitions;
+    // 用最终顺序后的规则定义生成 RULE-SET 主体。
+    const generatedRules = buildRules(ARGS.quic, finalRuleDefinitions);
+    const rules = mergeRules(generatedRules, config.rules);
+    // 汇总最终策略组展示顺序、关键组候选顺序与规则匹配优先级，便于日志和响应头直接复用。
+    const routingChain = analyzeRoutingChain(RUNTIME_CONTEXT, RUNTIME_QUERY_ARGS, rules, finalRuleDefinitions, proxyGroups);
+    const routingChainSummary = formatRoutingChainSummary(routingChain);
+    const routingChainPreview = formatRoutingChainPreview(routingChain);
+    const serviceRoutingProfiles = analyzeServiceRoutingProfiles(finalRuleDefinitions, proxyGroups, countryConfigs);
+    const serviceRoutingSummary = formatServiceRoutingProfilesSummary(serviceRoutingProfiles);
+    const serviceRoutingPreview = formatServiceRoutingProfilesPreview(serviceRoutingProfiles);
+    const proxyGroupPriorityRisks = analyzeProxyGroupPriorityRisks(proxyGroups);
+    const proxyGroupPriorityRiskSummary = formatProxyGroupPriorityRiskSummary(proxyGroupPriorityRisks);
+    const proxyGroupPriorityRiskPreview = formatProxyGroupPriorityRiskPreview(proxyGroupPriorityRisks);
+    const rulePriorityRisks = analyzeRulePriorityRisks(finalRuleDefinitions);
+    const rulePriorityRiskSummary = formatRulePriorityRiskSummary(rulePriorityRisks);
+    const rulePriorityRiskPreview = formatRulePriorityRiskPreview(rulePriorityRisks);
+    const ruleTargetMapping = analyzeRuleTargetMapping(finalRuleDefinitions, rules);
+    const ruleTargetMappingSummary = formatRuleTargetMappingSummary(ruleTargetMapping);
+    const ruleTargetMappingPreview = formatRuleTargetMappingPreview(ruleTargetMapping);
+    const proxyGroupOrderSummary = buildProxyGroupOrderSummary(proxyGroups);
+    const proxyGroupPrioritySummary = buildProxyGroupPrioritySummary(proxyGroups);
+    const trafficPrioritySummary = buildTrafficPrioritySummary(rules);
+    const ruleLayering = analyzeRuleLayering(rules);
+    const ruleLayerSummary = formatRuleLayeringSummary(ruleLayering);
+    const ruleLayerPreview = formatRuleLayeringPreview(ruleLayering);
+    const customRuleWindow = analyzeCustomRuleWindow(generatedRules, config.rules);
+    const customRuleSummary = formatCustomRuleWindowSummary(customRuleWindow);
+    const customRulePreview = formatCustomRuleWindowPreview(customRuleWindow);
+    // 生成并合并 DNS。
+    const dns = buildDnsConfig(config.dns);
+    // 生成并合并 Sniffer。
+    const sniffer = buildSnifferConfig(config.sniffer);
+    // 统一增强现有 proxy-providers，便于批量注入缓存路径、下载控制与 health-check 参数。
+    const proxyProviders = finalizeProxyProviders(config["proxy-providers"]);
+    // 规则提供器合并：用户自定义 + 脚本内置，并统一补全/去重本地缓存路径。
+    const finalRuleProviders = mergeRuleProviders(config["rule-providers"], ruleProviders);
+    // 统计 provider 本轮到底是新增写入字段，还是覆盖了原有字段。
+    const ruleProviderMutationStats = analyzeRuleProviderMutationStats(config["rule-providers"], finalRuleProviders);
+    const proxyProviderMutationStats = analyzeProxyProviderMutationStats(config["proxy-providers"], proxyProviders);
+    const ruleProviderMutationPreview = analyzeRuleProviderMutationPreview(config["rule-providers"], finalRuleProviders);
+    const proxyProviderMutationPreview = analyzeProxyProviderMutationPreview(config["proxy-providers"], proxyProviders);
+    // 生成通用内核默认项。
+    const kernelDefaults = buildKernelDefaults(config);
+
+    // 在原配置基础上覆盖/注入脚本生成的新配置项。
     const result = {
-      ...config,                          // 原始配置项（保留所有原有配置）
-      "proxy-groups": proxyGroups,        // 策略组配置
-      "rule-providers": ruleProviders,    // 规则提供商配置
-      rules: rules,                       // 流量规则
-      dns: dns,                           // DNS 配置
-      
-      // [其他全局配置]
-      "mixed-port": 7890,                 // 混合代理端口 (HTTP + Socks5)
-      ipv6: ARGS.ipv6,                    // IPv6 支持
-      "allow-lan": true,                  // 允许局域网访问
-      "unified-delay": true,              // 统一延迟计算
-      "tcp-concurrent": false,            // 禁用 TCP 并发 (防止资源泄露)
-      
-      // [协议嗅探] 识别加密流量类型（不再依赖纯 TLS 指纹）
-      sniffer: {
-        enable: true,                     // 启用 SNI 嗅探
-        "force-dns-mapping": true,        // 强制 DNS 映射（解决部分应用识别问题）
-        "parse-pure-ip": true,            // 解析纯 IP 连接（支持 IP 直连）
-        "override-destination": false,    // 不修改目标地址（保持兼容性）
-        sniff: {
-          TLS: { ports: [443, 8443] },    // TLS 协议端口
-          HTTP: { ports: [80, 8080, 8880] }, // HTTP 协议端口
-          QUIC: { ports: [443, 8443] }    // QUIC 协议端口
-        }
-      }
+      // 先展开原配置，保留用户未冲突的全局键。
+      ...config,
+      // 注入通用内核默认项，但不覆盖用户显式设置。
+      ...kernelDefaults,
+      // 覆盖为清洗后的有效节点列表。
+      proxies,
+      // 注入新生成的策略组。
+      "proxy-groups": proxyGroups,
+      // 保留原有 proxy-providers，并按脚本参数统一补强下载控制与 health-check。
+      ...(hasOwn(config, "proxy-providers") || Object.keys(proxyProviders).length
+        ? { "proxy-providers": proxyProviders }
+        : {}),
+      // 规则提供器合并：用户自定义 + 脚本内置，并统一补全/去重本地缓存路径。
+      "rule-providers": finalRuleProviders,
+      // 覆盖最终规则。
+      rules,
+      // 覆盖最终 DNS。
+      dns,
+      // mixed-port 优先保留用户原配置，否则使用默认端口。
+      "mixed-port": hasOwn(config, "mixed-port") ? config["mixed-port"] : DEFAULT_MIXED_PORT,
+      // IPv6 由脚本参数控制。
+      ipv6: ARGS.ipv6,
+      // allow-lan 优先保留用户原值，否则默认 true。
+      "allow-lan": hasOwn(config, "allow-lan") ? config["allow-lan"] : true,
+      // unified-delay 允许脚本参数优先覆盖，否则保留用户原值，最后回落默认 true。
+      "unified-delay": ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : (hasOwn(config, "unified-delay") ? config["unified-delay"] : true),
+      // tcp-concurrent 允许脚本参数优先覆盖，否则保留用户原值，最后回落默认 true。
+      "tcp-concurrent": ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : (hasOwn(config, "tcp-concurrent") ? config["tcp-concurrent"] : true),
+      // 注入最终 Sniffer。
+      sniffer
     };
 
-    // [可选] 如果启用完整配置模式，添加日志等级和性能参数
-    if (ARGS.full) {
-      result["log-level"] = "info";     // 输出 info 及以上日志
-      result["profile"] = {
-        "store-selected": true,          // 保存策略组选择
-        "store-fake-ip": true            // 保存 Fake-IP 映射
-      };
+    // 对最终产物做一次一致性自检。
+    const diagnostics = validateGeneratedArtifacts(proxies, proxyGroups, result["rule-providers"], result, dns, countryConfigs, finalRuleDefinitions);
+    // 补上本轮节点自动改名信息。
+    diagnostics.renamedProxies = normalizedProxyState.renamed;
+    // 补上 provider 改动类型统计，便于区分新增写入与覆盖旧值。
+    diagnostics.ruleProviderMutationStats = ruleProviderMutationStats;
+    diagnostics.proxyProviderMutationStats = proxyProviderMutationStats;
+    diagnostics.ruleProviderMutationPreview = ruleProviderMutationPreview;
+    diagnostics.proxyProviderMutationPreview = proxyProviderMutationPreview;
+    // 补上国家识别覆盖率信息。
+    diagnostics.unclassifiedCountryProxies = countryCoverage.unclassified;
+    diagnostics.unclassifiedCountryExamples = countryCoverage.unclassifiedExamples;
+    diagnostics.ruleTargetMappingSummary = ruleTargetMappingSummary;
+    diagnostics.ruleTargetMappingPreview = ruleTargetMappingPreview;
+    diagnostics.rulePriorityRiskSummary = rulePriorityRiskSummary;
+    diagnostics.rulePriorityRiskPreview = rulePriorityRiskPreview;
+    diagnostics.proxyGroupPriorityRiskSummary = proxyGroupPriorityRiskSummary;
+    diagnostics.proxyGroupPriorityRiskPreview = proxyGroupPriorityRiskPreview;
+    diagnostics.serviceRoutingWarnings = serviceRoutingProfiles.warnings;
+    diagnostics.serviceRoutingSummary = serviceRoutingSummary;
+    diagnostics.serviceRoutingPreview = serviceRoutingPreview;
+    diagnostics.proxyGroupOrderSummary = proxyGroupOrderSummary;
+    diagnostics.proxyGroupPrioritySummary = proxyGroupPrioritySummary;
+    diagnostics.trafficPrioritySummary = trafficPrioritySummary;
+    diagnostics.ruleLayerSummary = ruleLayerSummary;
+    diagnostics.ruleLayerPreview = ruleLayerPreview;
+    diagnostics.customRuleWarnings = customRuleWindow.warnings;
+    diagnostics.customRuleSummary = customRuleSummary;
+    diagnostics.customRulePreview = customRulePreview;
+    diagnostics.routingChainSummary = routingChainSummary;
+    diagnostics.routingChainPreview = routingChainPreview;
+    // 根据参数决定是否把调试摘要写回下载响应头。
+    const responseHeadersEnabled = ARGS.hasResponseHeaders ? ARGS.responseHeaders : false;
+    const responseHeadersApplied = responseHeadersEnabled
+      ? setRuntimeResponseHeaders(RAW_OPTIONS, buildRuntimeResponseHeaders(diagnostics))
+      : false;
+    // 输出诊断告警。
+    logDiagnostics(diagnostics);
+
+    // 根据参数或 full 模式决定是否注入 profile 缓存配置。
+    if (ARGS.hasProfileCache ? ARGS.profileCache : (ARGS.hasProfileSelected || ARGS.hasProfileFakeIp || ARGS.full)) {
+      // profile 合并默认值和用户原值，保留策略组选择和 fake-ip 映射。
+      result.profile = mergeObjects(
+        {
+          "store-selected": ARGS.hasProfileSelected ? ARGS.profileSelected : true,
+          "store-fake-ip": ARGS.hasProfileFakeIp ? ARGS.profileFakeIp : true
+        },
+        config.profile
+      );
     }
 
-    // 返回最终配置
-    return result;
+    // full 模式下补充日志等级和统计日志。
+    if (ARGS.full) {
+      // log-level 优先保留用户原值，否则使用 info。
+      result["log-level"] = typeof config["log-level"] === "string" && config["log-level"] ? config["log-level"] : "info";
 
+      // 输出本次构建的完整摘要日志。
+      logBuildSummary({
+        totalProxies: proxyStats.total,
+        validProxies: proxyStats.valid,
+        lowCostProxies: proxyStats.lowCost,
+        landingProxies: proxyStats.landing,
+        countryGroups: countryConfigs.length,
+        countrySummary: buildCountrySummary(countryConfigs),
+        proxyGroups: proxyGroups.length,
+        rules: rules.length,
+        routingChainSummary,
+        routingChainPreview,
+        serviceRoutingSummary,
+        serviceRoutingPreview,
+        proxyGroupPriorityRiskSummary,
+        proxyGroupPriorityRiskPreview,
+        rulePriorityRiskSummary,
+        rulePriorityRiskPreview,
+        ruleTargetMappingSummary,
+        ruleTargetMappingPreview,
+        proxyGroupOrderSummary,
+        proxyGroupPrioritySummary,
+        trafficPrioritySummary,
+        ruleLayerSummary,
+        ruleLayerPreview,
+        customRuleSummary,
+        customRulePreview,
+        classifiedCountryProxies: countryCoverage.classified,
+        unclassifiedCountryProxies: countryCoverage.unclassified,
+        renamedProxies: diagnostics.renamedProxies.length,
+        missingProviders: diagnostics.missingProviders.length,
+        invalidRuleProviderUrls: diagnostics.invalidRuleProviderUrls.length,
+        ruleProviderWarnings: diagnostics.ruleProviderWarnings.length,
+        proxyProviderWarnings: diagnostics.proxyProviderWarnings.length,
+        deprecatedSettings: diagnostics.deprecatedSettings.length,
+        dnsRiskWarnings: diagnostics.dnsRiskWarnings.length,
+        dnsOptionWarnings: diagnostics.dnsOptionWarnings.length,
+        latencyGroupWarnings: diagnostics.latencyGroupWarnings.length,
+        providerHealthWarnings: diagnostics.providerHealthWarnings.length,
+        preferredCountryWarnings: diagnostics.preferredCountryWarnings.length,
+        preferredGroupWarnings: diagnostics.preferredGroupWarnings.length,
+        preferredNodeWarnings: diagnostics.preferredNodeWarnings.length,
+        preferredProviderWarnings: diagnostics.preferredProviderWarnings.length,
+        ruleOrderWarnings: diagnostics.ruleOrderWarnings.length,
+        ruleTargetWarnings: diagnostics.ruleTargetWarnings.length,
+        rulePriorityWarnings: diagnostics.rulePriorityWarnings.length,
+        proxyGroupPriorityWarnings: diagnostics.proxyGroupPriorityWarnings.length,
+        customRuleWarnings: diagnostics.customRuleWarnings.length,
+        serviceRoutingWarnings: diagnostics.serviceRoutingWarnings.length,
+        targetPlatformWarnings: diagnostics.targetPlatformWarnings.length,
+        runtimeArgWarnings: diagnostics.runtimeArgWarnings.length,
+        runtimeResponseWarnings: diagnostics.runtimeResponseWarnings.length,
+        runtimeLinkWarnings: diagnostics.runtimeLinkWarnings.length,
+        geoConfigWarnings: diagnostics.geoConfigWarnings.length,
+        kernelOptionWarnings: diagnostics.kernelOptionWarnings.length,
+        duplicateRuleProviderPaths: diagnostics.duplicateRuleProviderPaths.length,
+        missingRuleTargets: diagnostics.missingRuleTargets.length,
+        unresolvedGroupReferences: diagnostics.unresolvedGroupReferences.length,
+        unresolvedProviderReferences: diagnostics.unresolvedProviderReferences.length,
+        invalidGroupPatterns: diagnostics.invalidGroupPatterns.length,
+        emptyAutoGroups: diagnostics.emptyAutoGroups.length,
+        ruleProviderApplyStatsSummary: formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats),
+        ruleProviderApplyPreviewSummary: formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview),
+        proxyProviderApplyStatsSummary: formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats),
+        proxyProviderApplyPreviewSummary: formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview),
+        ruleProviderMutationStatsSummary: formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats),
+        ruleProviderMutationPreviewSummary: formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview),
+        proxyProviderMutationStatsSummary: formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats),
+        proxyProviderMutationPreviewSummary: formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview),
+        responseHeadersApplied
+      });
+    }
+
+    // 一切正常则返回最终生成的完整配置。
+    return result;
   } catch (error) {
-    // [异常处理] 捕获任何执行错误
+    // 打印异常主信息。
     console.error(`❌ 配置生成失败: ${error.message}`);
-    console.error(error.stack);
-    // 返回原配置作为备份
+    // 如果有堆栈也打印出来，方便定位。
+    if (error && error.stack) {
+      console.error(error.stack);
+    }
+    // 出错时回退原配置，保证用户至少还能继续使用原订阅。
     return config;
   }
 }
