@@ -152,8 +152,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.96.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.96.0。
+const SCRIPT_VERSION = "8.97.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.97.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7237,13 +7237,21 @@ function buildPreferredCountryGroups(countryConfigs, preferredCountries, default
 // 同时构造国家优先链的“最终命中组 + 来源追踪 + 摘要”，避免主流程里为每条链重复拼装。
 function buildPreferredCountryResolution(countryConfigs, preferredCountries, defaultMarkersList, defaultSourceKey) {
   if (Array.isArray(preferredCountries) && preferredCountries.length) {
-    const entries = resolvePreferredCountryGroupEntries(countryConfigs, preferredCountries);
+    const markerResolutions = analyzePreferredCountryMarkerResolutions(countryConfigs, preferredCountries);
+    const entries = [];
+    for (const item of markerResolutions) {
+      if (Array.isArray(item.entries) && item.entries.length) {
+        entries.push.apply(entries, item.entries);
+      }
+    }
     const groups = extractPreferredCountryGroupsFromEntries(entries);
     return {
       groups,
       entries,
       summary: formatPreferredCountryGroupSummary(groups),
-      trace: formatPreferredCountryGroupTrace(entries)
+      trace: formatPreferredCountryGroupTrace(entries),
+      explain: formatPreferredCountryMarkerResolutionSummary(markerResolutions),
+      unmatched: formatPreferredCountryUnmatchedSummary(markerResolutions.filter((item) => !item.matched).map((item) => item.token))
     };
   }
 
@@ -7251,11 +7259,24 @@ function buildPreferredCountryResolution(countryConfigs, preferredCountries, def
     .map((markers) => findCountryGroup(countryConfigs, markers))
     .filter(Boolean);
   const entries = createPreferredCountryGroupEntries(groups, "default", defaultSourceKey || "default", "auto");
+  const markerResolutions = entries.length
+    ? [{
+      token: "auto",
+      matched: true,
+      entries,
+      groups,
+      sourceType: "default",
+      sourceKey: defaultSourceKey || "default",
+      sourceToken: "auto"
+    }]
+    : [];
   return {
     groups,
     entries,
     summary: formatPreferredCountryGroupSummary(groups),
-    trace: formatPreferredCountryGroupTrace(entries)
+    trace: formatPreferredCountryGroupTrace(entries),
+    explain: formatPreferredCountryMarkerResolutionSummary(markerResolutions),
+    unmatched: "none"
   };
 }
 
@@ -8349,6 +8370,33 @@ function resolvePreferredCountryGroups(countryConfigs, markers, visitedPresets, 
   return extractPreferredCountryGroupsFromEntries(
     resolvePreferredCountryGroupEntries(countryConfigs, markers, visitedPresets, inheritedSource)
   );
+}
+
+// 逐个检查国家优先链 token 到底怎么解析，便于把“每个输入标记”的结果直接写到日志和响应头。
+function analyzePreferredCountryMarkerResolutions(countryConfigs, markers) {
+  const resolutions = [];
+
+  for (const marker of Array.isArray(markers) ? markers : []) {
+    const token = String(marker || "").trim();
+    if (!token) {
+      continue;
+    }
+
+    const entries = resolvePreferredCountryGroupEntriesByMarker(countryConfigs, token);
+    const groups = extractPreferredCountryGroupsFromEntries(entries);
+    const firstEntry = entries.length ? entries[0] : null;
+    resolutions.push({
+      token,
+      matched: groups.length > 0,
+      entries,
+      groups,
+      sourceType: firstEntry && firstEntry.sourceType ? firstEntry.sourceType : "unmatched",
+      sourceKey: firstEntry && firstEntry.sourceKey ? firstEntry.sourceKey : token,
+      sourceToken: firstEntry && firstEntry.sourceToken ? firstEntry.sourceToken : token
+    });
+  }
+
+  return resolutions;
 }
 
 // 校验用户传入的国家优先链标记是否真的能匹配到“当前已生成”的国家组；区域 token 也按展开后的结果一起校验。
@@ -10238,6 +10286,16 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}GitHub-Prefer-Countries-Trace`]: diagnostics.githubPreferCountryTraceSummary || "none",
     [`${prefix}Steam-Prefer-Countries-Trace`]: diagnostics.steamPreferCountryTraceSummary || "none",
     [`${prefix}Dev-Prefer-Countries-Trace`]: diagnostics.devPreferCountryTraceSummary || "none",
+    [`${prefix}AI-Prefer-Countries-Explain`]: diagnostics.aiPreferCountryExplainSummary || "none",
+    [`${prefix}Crypto-Prefer-Countries-Explain`]: diagnostics.cryptoPreferCountryExplainSummary || "none",
+    [`${prefix}GitHub-Prefer-Countries-Explain`]: diagnostics.githubPreferCountryExplainSummary || "none",
+    [`${prefix}Steam-Prefer-Countries-Explain`]: diagnostics.steamPreferCountryExplainSummary || "none",
+    [`${prefix}Dev-Prefer-Countries-Explain`]: diagnostics.devPreferCountryExplainSummary || "none",
+    [`${prefix}AI-Prefer-Countries-Unmatched`]: diagnostics.aiPreferCountryUnmatchedSummary || "none",
+    [`${prefix}Crypto-Prefer-Countries-Unmatched`]: diagnostics.cryptoPreferCountryUnmatchedSummary || "none",
+    [`${prefix}GitHub-Prefer-Countries-Unmatched`]: diagnostics.githubPreferCountryUnmatchedSummary || "none",
+    [`${prefix}Steam-Prefer-Countries-Unmatched`]: diagnostics.steamPreferCountryUnmatchedSummary || "none",
+    [`${prefix}Dev-Prefer-Countries-Unmatched`]: diagnostics.devPreferCountryUnmatchedSummary || "none",
     [`${prefix}Country-Extra-Aliases`]: ARGS.hasCountryExtraAliases ? "configured" : "default",
     [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
     [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
@@ -11115,6 +11173,31 @@ function formatPreferredCountryGroupTrace(entries) {
   return `${visibleBuckets.join("; ")}${remaining > 0 ? `; +${remaining}` : ""}`;
 }
 
+// 把“每个输入 token 是怎么被解析的”压成短摘要，便于直接确认 classic-4 / eastasia / 日本 这些标记分别落到了哪。
+function formatPreferredCountryMarkerResolutionSummary(items) {
+  const source = Array.isArray(items) ? items : [];
+  if (!source.length) {
+    return "none";
+  }
+
+  const visibleItems = source.slice(0, 6).map((item) => {
+    const token = sanitizeProviderPreviewName(item && item.token ? item.token : "unknown");
+    if (!item || !item.matched) {
+      return `${token}=unmatched`;
+    }
+
+    return `${token}=${formatPreferredCountryTraceSource(item)}->${formatProviderPreviewNames((item.groups || []).map((group) => group && group.name).filter(Boolean), 4, 18)}`;
+  });
+  const remaining = source.length - visibleItems.length;
+  return `${visibleItems.join("; ")}${remaining > 0 ? `; +${remaining}` : ""}`;
+}
+
+// 单独汇总未命中的 token，便于在响应头里快速看见哪几个标记写了但当前没生成出来。
+function formatPreferredCountryUnmatchedSummary(tokens) {
+  const names = uniqueStrings((Array.isArray(tokens) ? tokens : []).map((item) => sanitizeProviderPreviewName(item)).filter(Boolean));
+  return names.length ? `${names.length}:${formatProviderPreviewNames(names, 8, 18)}` : "none";
+}
+
 // 输出构建过程中的诊断信息，例如自动重命名和一致性校验告警。
 function logDiagnostics(diagnostics) {
   // 没有诊断对象就直接跳过。
@@ -11610,6 +11693,16 @@ function logBuildSummary(stats) {
     console.log(`   ✓ 国家优先链来源: AI=${stats.aiPreferCountryTraceSummary || "none"}, Crypto=${stats.cryptoPreferCountryTraceSummary || "none"}, GitHub=${stats.githubPreferCountryTraceSummary || "none"}, Steam=${stats.steamPreferCountryTraceSummary || "none"}, Dev=${stats.devPreferCountryTraceSummary || "none"}`);
   }
 
+  // 如果有逐 token 解析说明，则输出每条链的 explain 摘要，便于直接定位是哪个标记没命中。
+  if (stats.aiPreferCountryExplainSummary || stats.cryptoPreferCountryExplainSummary || stats.githubPreferCountryExplainSummary || stats.steamPreferCountryExplainSummary || stats.devPreferCountryExplainSummary) {
+    console.log(`   ✓ 国家优先链解析: AI=${stats.aiPreferCountryExplainSummary || "none"}, Crypto=${stats.cryptoPreferCountryExplainSummary || "none"}, GitHub=${stats.githubPreferCountryExplainSummary || "none"}, Steam=${stats.steamPreferCountryExplainSummary || "none"}, Dev=${stats.devPreferCountryExplainSummary || "none"}`);
+  }
+
+  // 如果有未命中的 token，则再单独给一行更紧凑的未命中摘要。
+  if (stats.aiPreferCountryUnmatchedSummary || stats.cryptoPreferCountryUnmatchedSummary || stats.githubPreferCountryUnmatchedSummary || stats.steamPreferCountryUnmatchedSummary || stats.devPreferCountryUnmatchedSummary) {
+    console.log(`   ✓ 国家优先链未命中: AI=${stats.aiPreferCountryUnmatchedSummary || "none"}, Crypto=${stats.cryptoPreferCountryUnmatchedSummary || "none"}, GitHub=${stats.githubPreferCountryUnmatchedSummary || "none"}, Steam=${stats.steamPreferCountryUnmatchedSummary || "none"}, Dev=${stats.devPreferCountryUnmatchedSummary || "none"}`);
+  }
+
   // 输出国家组 / 区域组排序模式，便于直接确认当前面板顺序和部分候选链顺序是按什么口径生成。
   console.log(`   ✓ 分组排序: countries=${ARGS.countryGroupSort}${ARGS.hasCountryGroupSort ? "" : " (default)"}, regions=${ARGS.regionGroupSort}${ARGS.hasRegionGroupSort ? "" : " (default)"}`);
 
@@ -11793,6 +11886,16 @@ function main(config) {
     const githubPreferredCountryTraceSummary = githubPreferredCountryResolution.trace;
     const steamPreferredCountryTraceSummary = steamPreferredCountryResolution.trace;
     const devPreferredCountryTraceSummary = devPreferredCountryResolution.trace;
+    const aiPreferredCountryExplainSummary = aiPreferredCountryResolution.explain;
+    const cryptoPreferredCountryExplainSummary = cryptoPreferredCountryResolution.explain;
+    const githubPreferredCountryExplainSummary = githubPreferredCountryResolution.explain;
+    const steamPreferredCountryExplainSummary = steamPreferredCountryResolution.explain;
+    const devPreferredCountryExplainSummary = devPreferredCountryResolution.explain;
+    const aiPreferredCountryUnmatchedSummary = aiPreferredCountryResolution.unmatched;
+    const cryptoPreferredCountryUnmatchedSummary = cryptoPreferredCountryResolution.unmatched;
+    const githubPreferredCountryUnmatchedSummary = githubPreferredCountryResolution.unmatched;
+    const steamPreferredCountryUnmatchedSummary = steamPreferredCountryResolution.unmatched;
+    const devPreferredCountryUnmatchedSummary = devPreferredCountryResolution.unmatched;
     // 按 GitHub 社区常见玩法，把已生成国家组进一步聚合成可选的区域分组。
     const regionConfigs = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys);
     const regionGroupSummary = buildRegionGroupSummary(regionConfigs);
@@ -11916,6 +12019,16 @@ function main(config) {
     diagnostics.githubPreferCountryTraceSummary = githubPreferredCountryTraceSummary;
     diagnostics.steamPreferCountryTraceSummary = steamPreferredCountryTraceSummary;
     diagnostics.devPreferCountryTraceSummary = devPreferredCountryTraceSummary;
+    diagnostics.aiPreferCountryExplainSummary = aiPreferredCountryExplainSummary;
+    diagnostics.cryptoPreferCountryExplainSummary = cryptoPreferredCountryExplainSummary;
+    diagnostics.githubPreferCountryExplainSummary = githubPreferredCountryExplainSummary;
+    diagnostics.steamPreferCountryExplainSummary = steamPreferredCountryExplainSummary;
+    diagnostics.devPreferCountryExplainSummary = devPreferredCountryExplainSummary;
+    diagnostics.aiPreferCountryUnmatchedSummary = aiPreferredCountryUnmatchedSummary;
+    diagnostics.cryptoPreferCountryUnmatchedSummary = cryptoPreferredCountryUnmatchedSummary;
+    diagnostics.githubPreferCountryUnmatchedSummary = githubPreferredCountryUnmatchedSummary;
+    diagnostics.steamPreferCountryUnmatchedSummary = steamPreferredCountryUnmatchedSummary;
+    diagnostics.devPreferCountryUnmatchedSummary = devPreferredCountryUnmatchedSummary;
     diagnostics.ruleTargetMappingSummary = ruleTargetMappingSummary;
     diagnostics.ruleTargetMappingPreview = ruleTargetMappingPreview;
     diagnostics.rulePriorityRiskSummary = rulePriorityRiskSummary;
@@ -11985,6 +12098,16 @@ function main(config) {
         githubPreferCountryTraceSummary,
         steamPreferCountryTraceSummary,
         devPreferCountryTraceSummary,
+        aiPreferCountryExplainSummary,
+        cryptoPreferCountryExplainSummary,
+        githubPreferCountryExplainSummary,
+        steamPreferCountryExplainSummary,
+        devPreferCountryExplainSummary,
+        aiPreferCountryUnmatchedSummary,
+        cryptoPreferCountryUnmatchedSummary,
+        githubPreferCountryUnmatchedSummary,
+        steamPreferCountryUnmatchedSummary,
+        devPreferCountryUnmatchedSummary,
         regionGroups: regionConfigs.length,
         regionGroupSummary,
         proxyGroups: proxyGroups.length,
