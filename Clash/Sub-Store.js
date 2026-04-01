@@ -152,8 +152,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.99.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.99.0。
+const SCRIPT_VERSION = "9.0.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.0.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -381,6 +381,36 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🌎 美洲核心链",
     aliases: ["americascore", "americas-core", "americacore", "america-core", "美洲核心"],
     markers: ["northamerica", "southamerica"]
+  },
+  {
+    key: "middleeast-core",
+    name: "🕌 中东核心链",
+    aliases: ["middleeastcore", "middleeast-core", "mecore", "me-core", "中东核心"],
+    markers: ["middleeast"]
+  },
+  {
+    key: "africa-core",
+    name: "🌍 非洲核心链",
+    aliases: ["africacore", "africa-core", "非洲核心"],
+    markers: ["northafrica", "尼日利亚", "肯尼亚", "南非"]
+  },
+  {
+    key: "mena-core",
+    name: "🏜️ 中东北非核心链",
+    aliases: ["menacore", "mena-core", "middleeastnorthafrica", "middle-east-north-africa", "中东北非核心"],
+    markers: ["middleeast", "northafrica"]
+  },
+  {
+    key: "balkans-core",
+    name: "🧭 巴尔干核心链",
+    aliases: ["balkanscore", "balkans-core", "balkancore", "balkan-core", "巴尔干核心"],
+    markers: ["balkans"]
+  },
+  {
+    key: "eurasia-core",
+    name: "🌐 欧亚核心链",
+    aliases: ["eurasiacore", "eurasia-core", "eurasiacenter", "欧亚核心"],
+    markers: ["eastasia", "southasia", "centralasia", "caucasus"]
   },
   {
     key: "global-core",
