@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.2.0
+ * Sub-Store 终极策略增强脚本 V9.3.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -153,11 +153,14 @@
  * 148. 默认布局优化：参考 GitHub 上常见的 Mihomo/Clash 公共配置，把开发服务组前移到 GitHub 后、Steam 前，并统一把兜底节点后置。
  * 149. 开发规则观测增强：把 DevList 一并纳入业务规则窗口、业务链路总览、规则顺序锚点别名与开发规则块移动范围。
  * 150. 兜底节点说明增强：明确保留兜底节点作为国家识别失败/未命名节点收容池，但默认继续保持面板后置，避免抢占主工作流。
+ * 151. 区域组可见性增强：新增区域组可见性诊断，显式提示“区域组已开启但没生成”或“生成了但排太后”的情况。
+ * 152. 区域布局预设别名增强：group-order-preset 继续兼容 region-first / regions-first / regional-first / geo-first 等更直白写法。
+ * 153. Clash Verge 排查增强：把区域组位置摘要写入 full 日志与响应调试头，便于直接判断面板里为什么看不到区域组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.2.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.2.0。
+const SCRIPT_VERSION = "9.3.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.3.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -1245,6 +1248,11 @@ function normalizeGroupOrderPreset(value, defaultPreset) {
     region: "region",
     regions: "region",
     regionfirst: "region",
+    regionsfirst: "region",
+    regional: "region",
+    regionalfirst: "region",
+    geofirst: "region",
+    geography: "region",
     country: "region",
     countries: "region",
     countryfirst: "region"
@@ -6410,6 +6418,71 @@ function validateGroupOrderTokens(proxyGroups, countryConfigs) {
   return orderState.unresolvedTokens.map((token) => `group-order 条目未匹配到当前策略组/分组桶: ${token}`);
 }
 
+// 检查区域组是否真的生成、以及在最终面板里的可见位置，避免“脚本支持但面板里看不见”的情况只能靠人工猜。
+function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
+  if (!ARGS.hasRegionGroups) {
+    return {
+      warnings: [],
+      summary: "disabled",
+      previewEntries: []
+    };
+  }
+
+  const groups = Array.isArray(proxyGroups) ? proxyGroups : [];
+  const groupNames = groups
+    .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
+    .map((group) => group.name.trim());
+  const regionGroupNames = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys)
+    .map((region) => region && region.name)
+    .filter(Boolean);
+  const countryGroupNames = (Array.isArray(countryConfigs) ? countryConfigs : [])
+    .map((country) => country && country.name)
+    .filter(Boolean);
+  const warnings = [];
+  const previewEntries = [];
+
+  if (!regionGroupNames.length) {
+    warnings.push("region-groups 已开启，但当前没有生成任何区域组；请确认节点是否先命中国家组，或改用 regionGroups=all / asia,europe,americas 这类更宽的区域集合");
+    return {
+      warnings,
+      summary: `configured=${ARGS.regionGroupKeys.length},generated=0,first-region=0,first-country=0,visible=no`,
+      previewEntries
+    };
+  }
+
+  const regionPositions = regionGroupNames
+    .map((name) => ({ name, index: groupNames.indexOf(name) }))
+    .filter((item) => item.index !== -1);
+  const countryPositions = countryGroupNames
+    .map((name) => ({ name, index: groupNames.indexOf(name) }))
+    .filter((item) => item.index !== -1);
+  const firstRegion = regionPositions.length ? regionPositions[0] : null;
+  const firstCountry = countryPositions.length ? countryPositions[0] : null;
+  const lastRegion = regionPositions.length ? regionPositions[regionPositions.length - 1] : null;
+
+  for (const item of regionPositions.slice(0, 4)) {
+    previewEntries.push(`${sanitizeProviderPreviewName(item.name)}@${item.index + 1}`);
+  }
+
+  if (!regionPositions.length) {
+    warnings.push("region-groups 已开启，也解析到了区域标记，但这些区域组没有出现在最终 proxy-groups 中；请检查是否被外部配置覆盖或客户端没有刷新到最新产物");
+  }
+
+  if (firstRegion && firstCountry && firstRegion.index > firstCountry.index) {
+    warnings.push(`区域组已生成，但当前首个区域组 ${firstRegion.name} 排在首个国家组 ${firstCountry.name} 后面；在 Clash Verge 面板里可能不明显，建议加 groupOrderPreset=region-first 或 groupOrder=select,manual,fallback,regions,countries,other,extras`);
+  }
+
+  if (firstRegion && firstRegion.index >= 12) {
+    warnings.push(`区域组已生成，但首个区域组 ${firstRegion.name} 当前排在第 ${firstRegion.index + 1} 位；在 Clash Verge 面板里通常需要下滑才看得到，建议把 regions 提前`);
+  }
+
+  return {
+    warnings: uniqueStrings(warnings),
+    summary: `configured=${ARGS.regionGroupKeys.length},generated=${regionGroupNames.length},first-region=${firstRegion ? firstRegion.index + 1 : 0},first-country=${firstCountry ? firstCountry.index + 1 : 0},visible=${firstRegion ? "yes" : "no"},tail-region=${lastRegion ? lastRegion.index + 1 : 0}`,
+    previewEntries: uniqueStrings(previewEntries)
+  };
+}
+
 // 把规则顺序参数格式化成单行摘要，便于日志与响应头快速观察实际启用的编排方式。
 function buildRuleOrderSummary(anchor, position) {
   const marker = normalizeStringArg(anchor);
@@ -10170,6 +10243,7 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
   const proxyProviderApplyStats = analyzeProxyProviderApplyStats(config && config["proxy-providers"]);
   const ruleProviderApplyPreview = analyzeRuleProviderApplyPreview(providers);
   const proxyProviderApplyPreview = analyzeProxyProviderApplyPreview(config && config["proxy-providers"]);
+  const regionVisibility = analyzeRegionGroupVisibility(proxyGroups, countryConfigs);
   return {
     missingProviders: validateRuleProviders(ruleDefinitions, providers),
     duplicateRuleProviderPaths: validateRuleProviderPaths(providers),
@@ -10213,6 +10287,9 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
         validatePreferredProxyProviderMarkers(availableProxyProviderNames, ARGS.devUseProviders, "Dev", ARGS.devIncludeAllProviders, ARGS.devIncludeAll)
       )
     ),
+    regionVisibilityWarnings: regionVisibility.warnings,
+    regionVisibilitySummary: regionVisibility.summary,
+    regionVisibilityPreview: regionVisibility.previewEntries,
     groupOrderWarnings: validateGroupOrderTokens(proxyGroups, countryConfigs),
     ruleOrderWarnings: uniqueStrings(validateRuleOrderMarkers(ruleDefinitions).concat(
       validateDevRuleOrderMarker(ruleDefinitions)
@@ -10267,6 +10344,7 @@ function countDiagnosticIssues(diagnostics) {
     "preferredGroupWarnings",
     "preferredNodeWarnings",
     "preferredProviderWarnings",
+    "regionVisibilityWarnings",
     "groupOrderWarnings",
     "ruleOrderWarnings",
     "customRuleOrderWarnings",
@@ -10399,6 +10477,8 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Region-Groups`]: ARGS.hasRegionGroups ? `configured:${ARGS.regionGroupKeys.length}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off"),
     [`${prefix}Region-Group-Preview`]: ARGS.hasRegionGroups ? ARGS.regionGroupPreview : (ARGS.hasRegionGroupsArg ? "off" : "none"),
     [`${prefix}Region-Group-Summary`]: diagnostics.regionGroupSummary || "none",
+    [`${prefix}Region-Visibility`]: diagnostics.regionVisibilitySummary || "none",
+    [`${prefix}Region-Visibility-Preview`]: formatProviderPreviewNames(diagnostics.regionVisibilityPreview, 6, 18),
     [`${prefix}Dev-Mode`]: ARGS.hasDevMode ? ARGS.devMode : "default",
     [`${prefix}Dev-Type`]: ARGS.hasDevType ? ARGS.devType : "default",
     [`${prefix}Dev-Test-Url`]: ARGS.hasDevTestUrl ? ARGS.devTestUrl : "default",
@@ -11492,6 +11572,17 @@ function logDiagnostics(diagnostics) {
     }
   }
 
+  // 如果开启了区域分组，但区域组没生成或排得太后，也显式提醒。
+  if (Array.isArray(diagnostics.regionVisibilityWarnings) && diagnostics.regionVisibilityWarnings.length) {
+    console.warn(`⚠️ 检测到 ${diagnostics.regionVisibilityWarnings.length} 个区域组可见性提醒`);
+
+    if (ARGS.full) {
+      for (const item of diagnostics.regionVisibilityWarnings.slice(0, 10)) {
+        console.warn(`   · ${item}`);
+      }
+    }
+  }
+
   // 如果显式 group-order 有未命中的条目，也输出提醒。
   if (Array.isArray(diagnostics.groupOrderWarnings) && diagnostics.groupOrderWarnings.length) {
     console.warn(`⚠️ 检测到 ${diagnostics.groupOrderWarnings.length} 个策略组布局参数异常`);
@@ -11775,6 +11866,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 点名节点告警: ${stats.preferredNodeWarnings} 条`);
   // 输出独立组 provider 池参数告警数。
   console.log(`   ✓ Provider池告警: ${stats.preferredProviderWarnings} 条`);
+  // 输出区域组可见性提醒数。
+  console.log(`   ✓ 区域可见性提醒: ${stats.regionVisibilityWarnings} 条`);
   // 输出策略组布局参数告警数。
   console.log(`   ✓ 策略组布局告警: ${stats.groupOrderWarnings} 条`);
   // 输出规则顺序参数告警数。
@@ -11872,6 +11965,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}` : "default"}`);
   // 输出区域分组参数覆盖情况，便于确认这轮 GitHub 社区常见“区域聚合面板”玩法是否真正生效。
   console.log(`   ✓ 区域分组参数: ${ARGS.hasRegionGroups ? `configured,preview=${ARGS.regionGroupPreview},generated=${stats.regionGroups},summary=${stats.regionGroupSummary || "none"}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off")}`);
+  // 输出区域组可见性摘要，便于直接判断 Clash Verge 里为什么看不见区域组。
+  console.log(`   ✓ 区域可见性: ${stats.regionVisibilitySummary || "disabled"}, preview=${stats.regionVisibilityPreview || "none"}`);
   // 输出国家组 / 区域组排序参数覆盖情况，便于确认本轮“哪些国家/区域排前面”到底按什么规则走。
   console.log(`   ✓ 分组排序参数: country-sort=${ARGS.hasCountryGroupSort ? ARGS.countryGroupSort : "definition/default"}, region-sort=${ARGS.hasRegionGroupSort ? ARGS.regionGroupSort : "definition/default"}`);
   // 输出开发服务组参数覆盖情况。
@@ -12248,6 +12343,8 @@ function main(config) {
         devPreferCountryUnmatchedSummary,
         regionGroups: regionConfigs.length,
         regionGroupSummary,
+        regionVisibilitySummary: diagnostics.regionVisibilitySummary,
+        regionVisibilityPreview: formatProviderPreviewNames(diagnostics.regionVisibilityPreview, 6, 18),
         proxyGroups: proxyGroups.length,
         rules: rules.length,
         routingChainSummary,
@@ -12289,6 +12386,7 @@ function main(config) {
         preferredGroupWarnings: diagnostics.preferredGroupWarnings.length,
         preferredNodeWarnings: diagnostics.preferredNodeWarnings.length,
         preferredProviderWarnings: diagnostics.preferredProviderWarnings.length,
+        regionVisibilityWarnings: diagnostics.regionVisibilityWarnings.length,
         groupOrderWarnings: diagnostics.groupOrderWarnings.length,
         ruleOrderWarnings: diagnostics.ruleOrderWarnings.length,
         customRuleOrderWarnings: diagnostics.customRuleOrderWarnings.length,
