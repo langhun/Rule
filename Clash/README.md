@@ -63,7 +63,16 @@
      - `countries`
    - 提前到主业务组后面，减少“明明生成了但还要滑很久才看到”的情况
 
-6. **这一轮可以直接这样用**
+6. **`Rule.ini` 也做了低风险对齐**
+   - 这一轮顺手补了：
+     - `🧑‍💻 开发服务`
+     - `💰 加密货币`
+   - 并接入当前仓库已经稳定存在的：
+     - `Clash/Ruleset/Dev.list`
+     - `Clash/Ruleset/Crypto.list`
+   - 这样 `Rule.ini` 这条线至少和脚本里已经稳定存在的两个业务组对齐了
+
+7. **这一轮可以直接这样用**
 
 ```text
 ...?target=ClashMeta&full&responseHeaders=true&regionGroups=greaterchina,westasia,dach,anglosphere&groupOrderPreset=balanced&githubPreferCountries=greaterchina-core&steamPreferCountries=asia-5&devPreferCountries=anglosphere-core
@@ -4795,9 +4804,9 @@ $options=#full&hidden&groupInterval=300
 - 内置国家识别库已经继续补到 `巴林 / 阿曼 / 约旦 / 白俄罗斯 / 马耳他 / 老挝 / 巴拿马 / 巴基斯坦 / 孟加拉 / 哈萨克 / 柬埔寨 / 文莱 / 塞尔维亚 / 摩尔多瓦 / 塞浦路斯 / 尼日利亚 / 摩洛哥 / 肯尼亚` 等常见节点命名
 - 如果设置 `regionGroups`，脚本会在国家组之上额外挂一层可选区域组；默认关闭
 - `regionGroups` 支持：
-  - `asia / apac / eastasia / southeastasia / southasia / centralasia / caucasus / westasia`
-  - `europe / westeurope / easteurope / northeurope / centraleurope / balkans / iberia / benelux`
-  - `americas / northamerica / southamerica / latam`
+  - `asia / apac / greaterchina / eastasia / southeastasia / southasia / centralasia / caucasus / westasia`
+  - `europe / westeurope / easteurope / northeurope / centraleurope / dach / balkans / iberia / benelux`
+  - `americas / northamerica / southamerica / latam / anglosphere`
   - `middleeast / gulf / levant / oceania / africa / northafrica / mediterranean`
   - `all / auto / default`
   - `none / off / false`
