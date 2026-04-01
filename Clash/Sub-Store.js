@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.86.0
+ * Sub-Store 终极策略增强脚本 V8.87.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -132,11 +132,13 @@
  * 127. 自定义国家别名预览增强：full 日志与响应调试头会额外输出 country-extra-aliases 的简要预览，便于直接确认绑定关系。
  * 128. 国家识别继续扩充：新增卢森堡、爱沙尼亚、拉脱维亚、立陶宛、保加利亚、克罗地亚、斯洛伐克、斯洛文尼亚、卡塔尔、科威特等常见节点国家。
  * 129. 自定义国家别名冲突检测：country-extra-aliases 若把同一别名绑到多个国家，或撞到别的内置国家标记，会给出显式告警与摘要预览。
+ * 130. 区域分组增强：参考 GitHub 社区常见的 HK/TW/SG/JP/US 等区域聚合玩法，新增可选 region-groups 参数，支持自动生成亚洲/欧洲/美洲/中东/大洋洲/非洲区域组。
+ * 131. 区域布局增强：region-groups 生成的区域组会同步接入 group-order / group-order-preset 的布局桶、响应调试头与 full 日志，便于和国家组一起编排面板顺序。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.86.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.86.0。
+const SCRIPT_VERSION = "8.87.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.87.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -275,11 +277,11 @@ const DEV_RULE_PROVIDERS = Object.freeze(["GitLab", "Docker", "Npmjs", "Jetbrain
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
-  balanced: ["select", "manual", "fallback", "ai", "telegram", "google", "github", "microsoft", "onedrive", "games", "bing", "apple", "steam", "pt", "speedtest", "media", "crypto", "ads", "direct", "landing", "lowcost", "countries", "other", "extras"],
-  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "countries", "other", "extras"],
-  service: ["select", "manual", "fallback", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "countries", "other", "extras"],
-  media: ["select", "manual", "fallback", "media", "telegram", "google", "apple", "github", "steam", "games", "ai", "crypto", "microsoft", "onedrive", "bing", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "countries", "other", "extras"],
-  region: ["select", "manual", "fallback", "countries", "other", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "extras"]
+  balanced: ["select", "manual", "fallback", "ai", "telegram", "google", "github", "microsoft", "onedrive", "games", "bing", "apple", "steam", "pt", "speedtest", "media", "crypto", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  service: ["select", "manual", "fallback", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  media: ["select", "manual", "fallback", "media", "telegram", "google", "apple", "github", "steam", "games", "ai", "crypto", "microsoft", "onedrive", "bing", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  region: ["select", "manual", "fallback", "regions", "countries", "other", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "extras"]
 };
 
 // 某些自动分组天然允许为空，不必为此输出告警。
@@ -420,6 +422,46 @@ const COUNTRY_DEFINITIONS = [
   // 俄罗斯常见命名方式，这里用“毛熊”作为显示名称。
   { name: "毛熊", flag: "🇷🇺", aliases: ["俄罗斯", "毛熊", "RU", "RUS", "Russia", "Moscow", "莫斯科"] }
 ];
+
+// 区域分组定义：参考 GitHub 社区常见的“按亚洲/欧洲/美洲聚合国家组”玩法，但仅在用户显式开启 region-groups 时生成。
+const REGION_GROUP_DEFINITIONS = Object.freeze([
+  {
+    key: "asia",
+    name: "🌏 亚洲节点",
+    aliases: ["asia", "asian", "as", "apac", "亚洲区", "亚洲"],
+    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "大马", "泰国", "越南", "菲律宾", "印尼"]
+  },
+  {
+    key: "europe",
+    name: "🌍 欧洲节点",
+    aliases: ["europe", "eu", "eur", "欧洲"],
+    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "毛熊"]
+  },
+  {
+    key: "americas",
+    name: "🌎 美洲节点",
+    aliases: ["americas", "america", "amer", "northamerica", "southamerica", "na", "sa", "美洲"],
+    countryKeys: ["美国", "枫叶", "墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁"]
+  },
+  {
+    key: "middleeast",
+    name: "🕌 中东节点",
+    aliases: ["middleeast", "middle-east", "me", "gulf", "中东"],
+    countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "土耳其"]
+  },
+  {
+    key: "oceania",
+    name: "🦘 大洋洲节点",
+    aliases: ["oceania", "oceana", "oce", "pacific", "大洋洲"],
+    countryKeys: ["袋鼠", "新西兰"]
+  },
+  {
+    key: "africa",
+    name: "🌍 非洲节点",
+    aliases: ["africa", "af", "非洲"],
+    countryKeys: ["南非", "埃及"]
+  }
+]);
 
 // 判断对象自身是否真的拥有某个键，避免原型链上的同名属性干扰。
 function hasOwn(obj, key) {
@@ -2133,6 +2175,164 @@ function findCountryDefinitionByMarker(marker) {
   return null;
 }
 
+// 统一收集某个区域定义的全部可识别标记：key、显示名与内置别名。
+function getRegionGroupDefinitionMarkers(definition) {
+  if (!isObject(definition)) {
+    return [];
+  }
+
+  return uniqueStrings([definition.key, definition.name].concat(definition.aliases || []));
+}
+
+// 按标记查找某个区域分组定义，兼容 key、显示名与别名。
+function findRegionGroupDefinitionByToken(marker) {
+  const token = normalizeGroupMarkerToken(marker);
+  if (!token) {
+    return null;
+  }
+
+  for (const definition of REGION_GROUP_DEFINITIONS) {
+    const markers = getRegionGroupDefinitionMarkers(definition);
+    if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
+      return definition;
+    }
+  }
+
+  return null;
+}
+
+// 构造区域分组别名表，便于布局参数与独立组前置组都能直接引用 `asia / europe / americas` 这类短写。
+function createRegionGroupAliasMap() {
+  const aliasMap = {};
+
+  for (const definition of REGION_GROUP_DEFINITIONS) {
+    for (const marker of getRegionGroupDefinitionMarkers(definition)) {
+      const token = normalizeGroupMarkerToken(marker);
+      if (!token || hasOwn(aliasMap, token)) {
+        continue;
+      }
+
+      aliasMap[token] = definition.name;
+    }
+  }
+
+  return aliasMap;
+}
+
+// 解析 region-groups / continent-groups 参数，支持布尔、字符串、数组、对象与 JSON 字符串。
+function parseRegionGroupKeys(value) {
+  const allKeys = REGION_GROUP_DEFINITIONS.map((definition) => definition.key);
+  const enabledKeys = [];
+  const invalidTokens = [];
+  const truthyTokens = ["true", "1", "yes", "y", "on", "all", "auto", "default"];
+  const falsyTokens = ["false", "0", "no", "n", "off", "none", "disable", "disabled"];
+  const pushByToken = (token) => {
+    const normalized = normalizeStringArg(token);
+    if (!normalized) {
+      return;
+    }
+
+    const definition = findRegionGroupDefinitionByToken(normalized);
+    if (definition) {
+      enabledKeys.push(definition.key);
+      return;
+    }
+
+    invalidTokens.push(normalized);
+  };
+  const collectFromString = (text) => {
+    const source = normalizeStringArg(text);
+    if (!source) {
+      return;
+    }
+
+    const normalized = normalizeGroupMarkerToken(source);
+    if (truthyTokens.includes(normalized)) {
+      enabledKeys.push.apply(enabledKeys, allKeys);
+      return;
+    }
+
+    if (falsyTokens.includes(normalized)) {
+      return;
+    }
+
+    if (/^[\[{]/.test(source)) {
+      try {
+        const parsed = JSON.parse(source);
+        const nested = parseRegionGroupKeys(parsed);
+        enabledKeys.push.apply(enabledKeys, nested.keys);
+        invalidTokens.push.apply(invalidTokens, nested.invalidTokens);
+        return;
+      } catch (error) {
+        // JSON 解析失败时继续按普通分隔字符串处理。
+      }
+    }
+
+    for (const token of source.split(/[,;|\n]/)) {
+      pushByToken(token);
+    }
+  };
+
+  if (typeof value === "boolean") {
+    return { keys: value ? allKeys.slice() : [], invalidTokens: [] };
+  }
+
+  if (typeof value === "number" && isFinite(value)) {
+    return { keys: value !== 0 ? allKeys.slice() : [], invalidTokens: [] };
+  }
+
+  if (typeof value === "string") {
+    collectFromString(value);
+    return {
+      keys: uniqueStrings(enabledKeys),
+      invalidTokens: uniqueStrings(invalidTokens)
+    };
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === "string") {
+        collectFromString(item);
+        continue;
+      }
+
+      pushByToken(item);
+    }
+
+    return {
+      keys: uniqueStrings(enabledKeys),
+      invalidTokens: uniqueStrings(invalidTokens)
+    };
+  }
+
+  if (isObject(value)) {
+    for (const key of Object.keys(value)) {
+      if (parseBool(value[key], false)) {
+        pushByToken(key);
+      }
+    }
+
+    return {
+      keys: uniqueStrings(enabledKeys),
+      invalidTokens: uniqueStrings(invalidTokens)
+    };
+  }
+
+  return { keys: [], invalidTokens: [] };
+}
+
+// 把启用的区域组 key 列表压成简短预览，便于响应头与 full 日志直接观察。
+function formatRegionGroupPreview(keys) {
+  const names = uniqueStrings((Array.isArray(keys) ? keys : [])
+    .map((key) => {
+      const definition = findRegionGroupDefinitionByToken(key);
+      return definition ? definition.name : "";
+    })
+    .filter(Boolean));
+
+  return names.length ? names.join(" / ") : "none";
+}
+
 // 预编译国家元数据，把别名表变成真正可匹配的 regex。
 function buildCompiledCountries() {
   // 把 COUNTRY_DEFINITIONS 逐条加工成运行时更易用的对象。
@@ -2182,6 +2382,8 @@ function resolveArgs(rawArgs) {
   const rawGroupOrderPreset = pickArg(args, ["groupOrderPreset", "group-order-preset", "proxyGroupOrderPreset", "proxy-group-order-preset", "groupLayoutPreset", "group-layout-preset"]);
   // 读取策略组显式布局顺序参数原始值。
   const rawGroupOrder = pickArg(args, ["groupOrder", "group-order", "proxyGroupOrder", "proxy-group-order", "groupLayout", "group-layout"]);
+  // 读取区域分组参数原始值。
+  const rawRegionGroups = pickArg(args, ["regionGroups", "region-groups", "regionalGroups", "regional-groups", "continentGroups", "continent-groups"]);
   // 读取 Direct.list 规则源地址参数原始值。
   const rawDirectListUrl = pickArg(args, ["directListUrl", "direct-list-url"]);
   // 读取 Crypto.list 规则源地址参数原始值。
@@ -2743,6 +2945,9 @@ function resolveArgs(rawArgs) {
   const devType = normalizeServiceGroupType(rawDevType, "select");
   const groupOrderPreset = normalizeGroupOrderPreset(rawGroupOrderPreset, DEFAULT_GROUP_ORDER_PRESET);
   const groupOrder = toStringList(rawGroupOrder);
+  const parsedRegionGroups = parseRegionGroupKeys(rawRegionGroups);
+  const regionGroupKeys = parsedRegionGroups.keys;
+  const regionGroupPreview = formatRegionGroupPreview(regionGroupKeys);
   const snifferForceDomains = toStringList(rawSnifferForceDomains);
   const snifferSkipDomains = toStringList(rawSnifferSkipDomains);
   const responseHeaderPrefix = normalizeHeaderPrefix(rawResponseHeaderPrefix);
@@ -3338,6 +3543,11 @@ function resolveArgs(rawArgs) {
     console.warn("⚠️ 提醒: 已同时配置 group-order-preset 与 group-order；当前以显式 group-order 为准");
   }
 
+  // 逐条提示 region-groups / continent-groups 里未命中的区域标记，避免区域布局写了却静默失效。
+  for (const item of parsedRegionGroups.invalidTokens) {
+    console.warn(`⚠️ 警告: region-groups 未匹配到内置区域定义，已忽略: ${item}`);
+  }
+
   // 如果规则源预设非法，则回退默认值并提示。
   if (rawRuleSourcePreset !== undefined && !["default", "meta", "metacubex", "official", "builtin", "blackmatrix7", "blackmatrix", "bm7", "iosrulescript"].includes(normalizeGroupMarkerToken(rawRuleSourcePreset))) {
     console.warn(`⚠️ 警告: rule-source-preset 无效，已重置为 ${ruleSourcePreset}`);
@@ -3728,6 +3938,10 @@ function resolveArgs(rawArgs) {
     hasGroupOrderPreset: rawGroupOrderPreset !== undefined,
     groupOrder,
     hasGroupOrder: !!groupOrder.length,
+    regionGroupKeys,
+    hasRegionGroups: !!regionGroupKeys.length,
+    hasRegionGroupsArg: rawRegionGroups !== undefined,
+    regionGroupPreview,
     groupLazy: parseBool(rawGroupLazy, true),
     hasGroupLazy: rawGroupLazy !== undefined,
     // 允许用参数覆盖 DNS 监听地址与 Fake-IP 地址池。
@@ -5800,7 +6014,10 @@ function validateGroupOrderTokens(proxyGroups, countryConfigs) {
   const countryGroupNames = (Array.isArray(countryConfigs) ? countryConfigs : [])
     .map((country) => country && country.name)
     .filter(Boolean);
-  const orderState = resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames);
+  const regionGroupNames = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys)
+    .map((region) => region && region.name)
+    .filter(Boolean);
+  const orderState = resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, regionGroupNames);
 
   return orderState.unresolvedTokens.map((token) => `group-order 条目未匹配到当前策略组/分组桶: ${token}`);
 }
@@ -7033,7 +7250,7 @@ function prependPreferredNames(preferredNames, proxies, keepDirectFirst) {
 
 // 构造策略组布局编排专用别名表；这里的 direct 指向脚本生成的“全球直连”组，而不是内置 DIRECT。
 function createProxyGroupOrderAliasMap() {
-  return {
+  return Object.assign({
     select: GROUPS.SELECT,
     proxy: GROUPS.SELECT,
     main: GROUPS.SELECT,
@@ -7077,7 +7294,7 @@ function createProxyGroupOrderAliasMap() {
     other: GROUPS.OTHER,
     lowcost: GROUPS.LOW_COST,
     landing: GROUPS.LANDING
-  };
+  }, createRegionGroupAliasMap());
 }
 
 // 解析策略组布局参数中的单个组引用：优先精确匹配，其次大小写无关，再尝试脚本别名，最后只接受唯一模糊命中。
@@ -7130,14 +7347,19 @@ function buildGroupOrderPresetTokens(preset) {
 }
 
 // 汇总“理论上属于脚本自动生成”的组名集合，便于把用户自定义组识别成 extras。
-function buildScriptManagedGroupNames(countryGroupNames) {
-  return uniqueStrings(Object.keys(GROUPS).map((key) => GROUPS[key]).concat(Array.isArray(countryGroupNames) ? countryGroupNames : []));
+function buildScriptManagedGroupNames(countryGroupNames, regionGroupNames) {
+  return uniqueStrings(
+    Object.keys(GROUPS)
+      .map((key) => GROUPS[key])
+      .concat(Array.isArray(regionGroupNames) ? regionGroupNames : [])
+      .concat(Array.isArray(countryGroupNames) ? countryGroupNames : [])
+  );
 }
 
 // 根据当前实际存在的组名，展开策略组布局里的 bucket token。
-function buildProxyGroupOrderBuckets(groupNames, countryGroupNames) {
+function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupNames) {
   const availableLookup = createLookup(groupNames);
-  const scriptLookup = createLookup(buildScriptManagedGroupNames(countryGroupNames));
+  const scriptLookup = createLookup(buildScriptManagedGroupNames(countryGroupNames, regionGroupNames));
   const pickAvailable = (names) => uniqueStrings(names).filter((name) => availableLookup[name]);
   const extraGroupNames = groupNames.filter((name) => !scriptLookup[name]);
 
@@ -7145,6 +7367,7 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames) {
     core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.FALLBACK, GROUPS.DIRECT]),
     services: pickAvailable([GROUPS.AI, GROUPS.TELEGRAM, GROUPS.GOOGLE, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GAMES, GROUPS.BING, GROUPS.APPLE, GROUPS.STEAM, GROUPS.PT, GROUPS.SPEEDTEST, GROUPS.CRYPTO]),
     media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK]),
+    regions: pickAvailable(regionGroupNames),
     countries: pickAvailable(countryGroupNames),
     helpers: pickAvailable([GROUPS.ADS, GROUPS.DIRECT, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.OTHER]),
     extras: pickAvailable(extraGroupNames)
@@ -7152,12 +7375,12 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames) {
 }
 
 // 按 group-order / group-order-preset 计算最终策略组展示顺序；未命中的 token 会单独返回给告警层处理。
-function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames) {
+function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, regionGroupNames) {
   const groups = Array.isArray(proxyGroups) ? proxyGroups.slice() : [];
   const groupNames = groups
     .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
     .map((group) => group.name.trim());
-  const buckets = buildProxyGroupOrderBuckets(groupNames, countryGroupNames);
+  const buckets = buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupNames);
   const bucketAliasMap = {
     core: "core",
     coregroup: "core",
@@ -7172,10 +7395,14 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames) {
     media: "media",
     streaming: "media",
     streamings: "media",
+    region: "regions",
+    regions: "regions",
+    regional: "regions",
+    regionals: "regions",
+    continent: "regions",
+    continents: "regions",
     country: "countries",
     countries: "countries",
-    region: "countries",
-    regions: "countries",
     helper: "helpers",
     helpers: "helpers",
     extra: "extras",
@@ -7227,7 +7454,7 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames) {
 
 // 构造 GitHub / Steam 独立组“前置组”别名表，便于直接用 `manual / fallback / direct / lowcost` 这类简写。
 function createPreferredGroupAliasMap() {
-  return {
+  return Object.assign({
     select: GROUPS.SELECT,
     proxy: GROUPS.SELECT,
     main: GROUPS.SELECT,
@@ -7277,7 +7504,7 @@ function createPreferredGroupAliasMap() {
     pass: "PASS",
     global: "GLOBAL",
     compatible: "COMPATIBLE"
-  };
+  }, createRegionGroupAliasMap());
 }
 
 // 构造规则入口顺序编排的别名表，便于直接用 `ai / steamcn / geonotcn / match / top / end` 这类短写。
@@ -8203,6 +8430,53 @@ function parseCountries(proxies) {
     })
     // 去掉未达阈值而返回的 null 项。
     .filter(Boolean);
+}
+
+// 根据已生成的国家组，再聚合出“区域级”策略组配置；只聚合当前真实存在的国家组，避免空壳区域组。
+function buildRegionGroupConfigs(countryConfigs, regionKeys) {
+  const availableCountries = Array.isArray(countryConfigs) ? countryConfigs : [];
+  const availableRegionKeys = uniqueStrings(Array.isArray(regionKeys) ? regionKeys : []);
+  const countryLookup = Object.create(null);
+
+  for (const country of availableCountries) {
+    if (!country || typeof country.key !== "string" || !country.key || typeof country.name !== "string" || !country.name) {
+      continue;
+    }
+
+    countryLookup[country.key] = country;
+  }
+
+  return availableRegionKeys
+    .map((regionKey) => {
+      const definition = REGION_GROUP_DEFINITIONS.find((item) => item.key === regionKey);
+      if (!definition) {
+        return null;
+      }
+
+      const matchedCountries = uniqueStrings(definition.countryKeys || [])
+        .map((countryKey) => countryLookup[countryKey])
+        .filter(Boolean);
+      const proxies = uniqueStrings(matchedCountries.map((country) => country.name));
+      if (!proxies.length) {
+        return null;
+      }
+
+      return {
+        key: definition.key,
+        name: definition.name,
+        proxies,
+        count: matchedCountries.reduce((total, country) => total + (Number(country.count) || 0), 0),
+        countryCount: matchedCountries.length
+      };
+    })
+    .filter(Boolean);
+}
+
+// 把区域分组统计格式化成单行文本，便于 full 模式输出日志与响应头摘要。
+function buildRegionGroupSummary(regionConfigs) {
+  return (Array.isArray(regionConfigs) ? regionConfigs : [])
+    .map((region) => `${region.name}(${region.countryCount}组/${region.count}节点)`)
+    .join(" / ");
 }
 
 // 构造一个普通 select 策略组。
@@ -9494,6 +9768,9 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Group-Routing-Mark`]: ARGS.hasGroupRoutingMark ? ARGS.groupRoutingMark : "default",
     [`${prefix}Group-Order-Preset`]: ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET),
     [`${prefix}Group-Order-Config`]: ARGS.hasGroupOrder ? formatProviderPreviewNames(ARGS.groupOrder, 8, 12) : "preset-only",
+    [`${prefix}Region-Groups`]: ARGS.hasRegionGroups ? `configured:${ARGS.regionGroupKeys.length}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off"),
+    [`${prefix}Region-Group-Preview`]: ARGS.hasRegionGroups ? ARGS.regionGroupPreview : (ARGS.hasRegionGroupsArg ? "off" : "none"),
+    [`${prefix}Region-Group-Summary`]: diagnostics.regionGroupSummary || "none",
     [`${prefix}Dev-Mode`]: ARGS.hasDevMode ? ARGS.devMode : "default",
     [`${prefix}Dev-Type`]: ARGS.hasDevType ? ARGS.devType : "default",
     [`${prefix}Dev-Test-Url`]: ARGS.hasDevTestUrl ? ARGS.devTestUrl : "default",
@@ -9584,7 +9861,7 @@ function buildRuntimeResponseHeaders(diagnostics) {
 
 // 构建完整的策略组列表。
 // 这里会把国家组、功能组、优先级组、兜底组全部拼出来。
-function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, existingProxyProviders) {
+function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, existingGroups, existingProxyProviders) {
   // full 模式下统计构建耗时，方便后续优化。
   if (ARGS.full) {
     console.time("buildProxyGroups");
@@ -9592,6 +9869,9 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, e
 
   // 只提取国家组名称，便于后面组装候选列表。
   const countryGroupNames = countryConfigs.map((country) => country.name);
+  // 区域分组仅作为国家组的聚合层，默认不参与功能组候选链。
+  const resolvedRegionConfigs = Array.isArray(regionConfigs) ? regionConfigs : [];
+  const regionGroupNames = resolvedRegionConfigs.map((region) => region.name);
   // 提前提取用户原配置中已有的策略组名称，供独立组前置组参数解析复用。
   const existingGroupNames = Array.isArray(existingGroups)
     ? existingGroups
@@ -9703,6 +9983,7 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, e
   // 汇总当前可引用的组名/内置策略，供 GitHub / Steam 前置组参数解析。
   const availableGroupNames = uniqueStrings(
     countryGroupNames
+      .concat(regionGroupNames)
       .concat(
         alwaysGeneratedGroupNames,
         ARGS.landing ? [GROUPS.LANDING] : [],
@@ -10012,6 +10293,13 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, e
     );
   }
 
+  // 若启用了区域分组，则基于已生成的国家组再聚合出区域级 select 组，方便做面板布局与快速切换。
+  for (const region of resolvedRegionConfigs) {
+    generatedGroups.push(
+      createSelectGroup(region.name, region.proxies)
+    );
+  }
+
   // 最后生成真正的兜底节点组，吸收所有未被国家组等主分组吃掉的节点。
   generatedGroups.push(
     createIncludeAllSelectGroup(GROUPS.OTHER, "", otherExcludeFilter)
@@ -10020,7 +10308,7 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, e
   // 再把生成组和用户原配置里的额外组做合并。
   const mergedGroups = mergeProxyGroups(generatedGroups, existingGroups);
   // 最后按布局预设或显式 group-order 对最终策略组顺序做一次重排。
-  const orderedGroups = resolveConfiguredProxyGroupOrder(mergedGroups, countryGroupNames).groups;
+  const orderedGroups = resolveConfiguredProxyGroupOrder(mergedGroups, countryGroupNames, regionGroupNames).groups;
 
   // full 模式下输出构建耗时。
   if (ARGS.full) {
@@ -10722,6 +11010,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 落地节点: ${stats.landingProxies} 个`);
   // 输出国家分组数量。
   console.log(`   ✓ 国家分组: ${stats.countryGroups} 个`);
+  // 输出区域分组数量。
+  console.log(`   ✓ 区域分组: ${stats.regionGroups} 个`);
   // 输出策略组总数。
   console.log(`   ✓ 策略组: ${stats.proxyGroups} 个`);
   // 输出规则总数。
@@ -10804,6 +11094,11 @@ function logBuildSummary(stats) {
     console.log(`   ✓ 国家统计: ${stats.countrySummary}`);
   }
 
+  // 如果有区域统计摘要，则补充输出。
+  if (stats.regionGroupSummary) {
+    console.log(`   ✓ 区域统计: ${stats.regionGroupSummary}`);
+  }
+
   // 最后输出本次运行采用的参数组合，便于排查。
   console.log(`   ✓ 参数: ipv6=${ARGS.ipv6}, landing=${ARGS.landing}, hidden=${ARGS.hidden}, load-balance=${ARGS.lb}, fakeip=${ARGS.fakeip}, quic=${ARGS.quic}, unified-delay=${ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : "config"}, tcp-concurrent=${ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : "config"}, dns-respect-rules=${ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : "config"}, dns-prefer-h3=${ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : "config"}, profile-cache=${ARGS.hasProfileCache ? ARGS.profileCache : "auto"}, geo-auto-update=${ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : "config"}, geo-update-interval=${ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : "config"}, threshold=${ARGS.threshold}`);
   // 额外输出本轮新增的测速组参数覆盖情况。
@@ -10828,6 +11123,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
   // 输出 country-extra-aliases 参数覆盖情况，便于确认这轮自定义国家别名是否真正生效。
   console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}` : "default"}`);
+  // 输出区域分组参数覆盖情况，便于确认这轮 GitHub 社区常见“区域聚合面板”玩法是否真正生效。
+  console.log(`   ✓ 区域分组参数: ${ARGS.hasRegionGroups ? `configured,preview=${ARGS.regionGroupPreview},generated=${stats.regionGroups},summary=${stats.regionGroupSummary || "none"}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off")}`);
   // 输出开发服务组参数覆盖情况。
   console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
   // 输出开发服务组高级项覆盖情况。
@@ -10937,8 +11234,11 @@ function main(config) {
     const countryCoverage = analyzeCountryCoverage(proxies);
     // 解析出所有国家分组配置。
     const countryConfigs = parseCountries(proxies);
+    // 按 GitHub 社区常见玩法，把已生成国家组进一步聚合成可选的区域分组。
+    const regionConfigs = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys);
+    const regionGroupSummary = buildRegionGroupSummary(regionConfigs);
     // 生成并合并策略组。
-    const proxyGroups = buildProxyGroups(proxies, countryConfigs, proxyStats.lowCost > 0, config["proxy-groups"], config["proxy-providers"]);
+    const proxyGroups = buildProxyGroups(proxies, countryConfigs, regionConfigs, proxyStats.lowCost > 0, config["proxy-groups"], config["proxy-providers"]);
     // 先基于最终可用组名/内置策略解析 GitHub / Steam / SteamCN 的规则入口目标。
     const resolvedRuleDefinitions = resolveRuleSetDefinitions(
       uniqueStrings(proxyGroups.map((group) => group.name).concat(BUILTIN_POLICY_NAMES))
@@ -11055,6 +11355,7 @@ function main(config) {
     diagnostics.serviceRoutingWarnings = serviceRoutingProfiles.warnings;
     diagnostics.serviceRoutingSummary = serviceRoutingSummary;
     diagnostics.serviceRoutingPreview = serviceRoutingPreview;
+    diagnostics.regionGroupSummary = regionGroupSummary;
     diagnostics.proxyGroupOrderSummary = proxyGroupOrderSummary;
     diagnostics.proxyGroupPrioritySummary = proxyGroupPrioritySummary;
     diagnostics.trafficPrioritySummary = trafficPrioritySummary;
@@ -11104,6 +11405,8 @@ function main(config) {
         landingProxies: proxyStats.landing,
         countryGroups: countryConfigs.length,
         countrySummary: buildCountrySummary(countryConfigs),
+        regionGroups: regionConfigs.length,
+        regionGroupSummary,
         proxyGroups: proxyGroups.length,
         rules: rules.length,
         routingChainSummary,
