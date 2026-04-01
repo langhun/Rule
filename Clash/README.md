@@ -3,11 +3,49 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V8.98.0`
+- 当前版本：`V8.99.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、区域布局增强、区域排序增强、区域映射扩容、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、区域布局增强、区域排序增强、区域映射扩容、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V8.99.0 这一轮新增了什么
+
+这一轮继续按你前面的方向，把 **北非 / 巴尔干** 这两个常见子区域补进来：
+
+1. **新增一批常见国家识别**
+   - 新增：
+     - `阿尔巴尼亚`
+     - `波黑`
+     - `黑山`
+     - `北马其顿`
+     - `利比亚`
+
+2. **新增两个子区域 token**
+   - `balkans`
+     - 希腊 / 保加利亚 / 罗马尼亚 / 塞尔维亚 / 阿尔巴尼亚 / 波黑 / 黑山 / 北马其顿 / 克罗地亚 / 斯洛文尼亚
+   - `northafrica`
+     - 埃及 / 摩洛哥 / 阿尔及利亚 / 利比亚 / 突尼斯
+
+3. **区域映射同步扩容**
+   - `europe`
+     - 现在也会覆盖新增的巴尔干国家
+   - `africa`
+     - 现在会把 `利比亚` 一起纳入
+
+4. **继续保持缩写安全策略**
+   - 这轮依然优先：
+     - 中文名
+     - 英文名
+     - 三位缩写
+     - 首都城市名
+   - 尽量避免把高误判的两位缩写直接放进识别里
+
+5. **直接可抄的示例**
+
+```text
+...?target=ClashMeta&full&regionGroups=balkans,northafrica&githubPreferCountries=balkans&steamPreferCountries=northafrica&devPreferCountries=阿尔巴尼亚,波黑,利比亚
+```
 
 ## V8.98.0 这一轮新增了什么
 
@@ -350,12 +388,14 @@
      - `europe`
      - `northeurope`
      - `centraleurope`
+     - `balkans`
      - `americas`
      - `northamerica`
      - `southamerica`
      - `middleeast`
      - `gulf`
      - `oceania`
+     - `northafrica`
      - `africa`
 
 2. **区域 token 会自动展开成国家组**
@@ -396,9 +436,11 @@
      - `caucasus`
      - `northeurope`
      - `centraleurope`
+     - `balkans`
      - `northamerica`
      - `southamerica`
      - `gulf`
+     - `northafrica`
 
 2. **子区域对应的聚合范围**
    - `eastasia`
@@ -415,12 +457,16 @@
      - 英国 / 爱尔兰 / 冰岛 / 瑞典 / 挪威 / 芬兰 / 丹麦
    - `centraleurope`
      - 德国 / 荷兰 / 比利时 / 卢森堡 / 奥地利 / 瑞士 / 波兰 / 捷克 / 斯洛伐克 / 匈牙利
+   - `balkans`
+     - 希腊 / 保加利亚 / 罗马尼亚 / 塞尔维亚 / 阿尔巴尼亚 / 波黑 / 黑山 / 北马其顿 / 克罗地亚 / 斯洛文尼亚
    - `northamerica`
      - 美国 / 枫叶 / 墨西哥
    - `southamerica`
      - 阿根廷 / 巴西 / 智利 / 哥伦比亚 / 秘鲁
    - `gulf`
      - 阿联酋 / 沙特 / 卡塔尔 / 科威特
+   - `northafrica`
+     - 埃及 / 摩洛哥 / 阿尔及利亚 / 利比亚 / 突尼斯
 
 3. **默认行为继续保持安全**
    - `regionGroups=all`
@@ -4960,6 +5006,12 @@ regionGroups=eastasia,southeastasia,gulf,northamerica
 
 ```ini
 regionGroups=centralasia,caucasus,africa&githubPreferCountries=centralasia&steamPreferCountries=caucasus
+```
+
+### 9E. 巴尔干 / 北非面板
+
+```ini
+regionGroups=balkans,northafrica&githubPreferCountries=balkans&steamPreferCountries=northafrica
 ```
 
 ### 10. GitHub / Steam 独立组点名节点

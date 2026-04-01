@@ -152,8 +152,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.98.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.98.0。
+const SCRIPT_VERSION = "8.99.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.99.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -501,6 +501,14 @@ const COUNTRY_DEFINITIONS = [
   { name: "冰岛", flag: "🇮🇸", aliases: ["冰岛", "ISL", "Iceland", "Reykjavik", "雷克雅未克"] },
   // 塞尔维亚常见命名方式；优先使用中文名、三位缩写与首都，减少 RS 误判。
   { name: "塞尔维亚", flag: "🇷🇸", aliases: ["塞尔维亚", "SRB", "Serbia", "Belgrade", "贝尔格莱德"] },
+  // 阿尔巴尼亚常见命名方式；优先使用中文名、三位缩写与首都，减少 AL 误判。
+  { name: "阿尔巴尼亚", flag: "🇦🇱", aliases: ["阿尔巴尼亚", "ALB", "Albania", "Tirana", "地拉那"] },
+  // 波黑常见命名方式；显示名沿用常见中文简称。
+  { name: "波黑", flag: "🇧🇦", aliases: ["波黑", "波斯尼亚", "波斯尼亚和黑塞哥维那", "BIH", "Bosnia", "Bosnia and Herzegovina", "Sarajevo", "萨拉热窝"] },
+  // 黑山常见命名方式；优先使用中文名、三位缩写与首都，减少 ME 与中东 token 冲突。
+  { name: "黑山", flag: "🇲🇪", aliases: ["黑山", "MNE", "Montenegro", "Podgorica", "波德戈里察"] },
+  // 北马其顿常见命名方式；优先使用完整中文名、三位缩写与首都。
+  { name: "北马其顿", flag: "🇲🇰", aliases: ["北马其顿", "马其顿", "MKD", "North Macedonia", "Skopje", "斯科普里"] },
   // 摩尔多瓦常见命名方式；优先使用三位缩写，避免 MD 与普通文本冲突。
   { name: "摩尔多瓦", flag: "🇲🇩", aliases: ["摩尔多瓦", "MDA", "Moldova", "Chisinau", "Chișinău", "基希讷乌"] },
   // 塞浦路斯常见命名方式；优先使用三位缩写，避免 CY 误判。
@@ -572,6 +580,8 @@ const COUNTRY_DEFINITIONS = [
   { name: "摩洛哥", flag: "🇲🇦", aliases: ["摩洛哥", "MAR", "Morocco", "Casablanca", "Rabat", "卡萨布兰卡", "拉巴特"] },
   // 阿尔及利亚常见命名方式；优先使用中文名、三位缩写与首都，减少 DZ 误判。
   { name: "阿尔及利亚", flag: "🇩🇿", aliases: ["阿尔及利亚", "DZA", "Algeria", "Algiers", "阿尔及尔"] },
+  // 利比亚常见命名方式；优先使用中文名、三位缩写与首都，减少 LY 误判。
+  { name: "利比亚", flag: "🇱🇾", aliases: ["利比亚", "LBY", "Libya", "Tripoli", "的黎波里"] },
   // 突尼斯常见命名方式；优先使用中文名、三位缩写与首都，减少 TN 误判。
   { name: "突尼斯", flag: "🇹🇳", aliases: ["突尼斯", "TUN", "Tunisia", "Tunis", "突尼斯市"] },
   // 肯尼亚常见命名方式。
@@ -633,7 +643,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "europe",
     name: "🌍 欧洲节点",
     aliases: ["europe", "eu", "eur", "欧洲"],
-    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "塞尔维亚", "摩尔多瓦", "塞浦路斯", "毛熊"]
+    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "塞尔维亚", "阿尔巴尼亚", "波黑", "黑山", "北马其顿", "摩尔多瓦", "塞浦路斯", "毛熊"]
   },
   {
     key: "northeurope",
@@ -648,6 +658,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     aliases: ["centraleurope", "central-europe", "mid-europe", "中欧"],
     includeInAuto: false,
     countryKeys: ["德国", "荷兰", "比利时", "卢森堡", "奥地利", "瑞士", "波兰", "捷克", "斯洛伐克", "匈牙利"]
+  },
+  {
+    key: "balkans",
+    name: "🧭 巴尔干节点",
+    aliases: ["balkans", "balkan", "south-eastern-europe", "巴尔干"],
+    includeInAuto: false,
+    countryKeys: ["希腊", "保加利亚", "罗马尼亚", "塞尔维亚", "阿尔巴尼亚", "波黑", "黑山", "北马其顿", "克罗地亚", "斯洛文尼亚"]
   },
   {
     key: "americas",
@@ -692,7 +709,14 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "africa",
     name: "🌍 非洲节点",
     aliases: ["africa", "af", "非洲"],
-    countryKeys: ["南非", "埃及", "尼日利亚", "摩洛哥", "阿尔及利亚", "突尼斯", "肯尼亚"]
+    countryKeys: ["南非", "埃及", "尼日利亚", "摩洛哥", "阿尔及利亚", "利比亚", "突尼斯", "肯尼亚"]
+  },
+  {
+    key: "northafrica",
+    name: "🏜️ 北非节点",
+    aliases: ["northafrica", "north-africa", "maghreb", "北非"],
+    includeInAuto: false,
+    countryKeys: ["埃及", "摩洛哥", "阿尔及利亚", "利比亚", "突尼斯"]
   }
 ]);
 
