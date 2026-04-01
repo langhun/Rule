@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.92.0
+ * Sub-Store 终极策略增强脚本 V8.93.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -144,11 +144,13 @@
  * 139. 优先链区域化兼容：prefer-countries 的区域 token 不依赖是否启用 region-groups 面板，只要对应国家组已生成就会生效。
  * 140. 优先链命中摘要：AI / Crypto / GitHub / Steam / Dev 的 prefer-countries 最终命中结果现在会汇总成单行摘要，便于直接确认区域 token 到底展开成了哪些国家组。
  * 141. 优先链响应头增强：开启 response-headers 后，会额外输出 AI / Crypto / GitHub / Steam / Dev 的 Prefer-Countries-Resolved 头，方便下载链路调试。
+ * 142. 优先链预设增强：prefer-countries 新增 ai-core / crypto-core / gaming-core / dev-core / asia-core / europe-core / americas-core / global-core 等可复用 preset，减少手写长串国家/区域 token。
+ * 143. 优先链预设兼容：preset 可继续展开为国家、区域、子区域 token，并最终复用现有排序、命中摘要与告警体系。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.92.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.92.0。
+const SCRIPT_VERSION = "8.93.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.93.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -333,6 +335,57 @@ const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_C
 const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"], ["🇭🇰", "香港"]];
 // Crypto 默认优先国家链：日本 -> 新加坡 -> 香港。
 const DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS = [["🇯🇵", "日本"], ["🇸🇬", "狮城", "新加坡"], ["🇭🇰", "香港"]];
+// Prefer-Countries 预设包：让 AI / Crypto / GitHub / Steam / Dev 等优先链不用每次手写长串国家/区域标记。
+const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
+  {
+    key: "ai-core",
+    name: "🤖 AI核心链",
+    aliases: ["aicore", "ai-core", "aihot", "ai-hot", "ai核心"],
+    markers: ["狮城", "日本", "美国", "香港"]
+  },
+  {
+    key: "crypto-core",
+    name: "💰 加密核心链",
+    aliases: ["cryptocore", "crypto-core", "cryptohot", "crypto-hot", "加密核心"],
+    markers: ["日本", "狮城", "香港", "gulf"]
+  },
+  {
+    key: "gaming-core",
+    name: "🎮 游戏核心链",
+    aliases: ["gamingcore", "gaming-core", "gamecore", "game-core", "游戏核心"],
+    markers: ["eastasia", "southeastasia", "northamerica"]
+  },
+  {
+    key: "dev-core",
+    name: "🧑‍💻 开发核心链",
+    aliases: ["devcore", "dev-core", "workcore", "work-core", "开发核心"],
+    markers: ["eastasia", "northeurope", "centraleurope", "northamerica"]
+  },
+  {
+    key: "asia-core",
+    name: "🌏 亚洲核心链",
+    aliases: ["asiacore", "asia-core", "亚洲核心"],
+    markers: ["eastasia", "southeastasia", "southasia"]
+  },
+  {
+    key: "europe-core",
+    name: "🌍 欧洲核心链",
+    aliases: ["europecore", "europe-core", "欧洲核心"],
+    markers: ["northeurope", "centraleurope"]
+  },
+  {
+    key: "americas-core",
+    name: "🌎 美洲核心链",
+    aliases: ["americascore", "americas-core", "americacore", "america-core", "美洲核心"],
+    markers: ["northamerica", "southamerica"]
+  },
+  {
+    key: "global-core",
+    name: "🌐 全球核心链",
+    aliases: ["globalcore", "global-core", "worldcore", "world-core", "全球核心"],
+    markers: ["eastasia", "southeastasia", "northeurope", "centraleurope", "northamerica", "gulf"]
+  }
+]);
 
 // 国家/地区识别配置表。
 // 这里不只放国家名，还放旗帜和别名，用于后续自动识别节点归属。
@@ -2323,6 +2376,32 @@ function findRegionGroupDefinitionByToken(marker) {
 
   for (const definition of REGION_GROUP_DEFINITIONS) {
     const markers = getRegionGroupDefinitionMarkers(definition);
+    if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
+      return definition;
+    }
+  }
+
+  return null;
+}
+
+// 读取单个优先链 preset 的所有可匹配标记，兼容 key、显示名和别名。
+function getPreferredCountryPresetDefinitionMarkers(definition) {
+  if (!isObject(definition)) {
+    return [];
+  }
+
+  return uniqueStrings([definition.key, definition.name].concat(definition.aliases || []));
+}
+
+// 按标记查找某个优先链 preset，兼容 key、显示名与别名。
+function findPreferredCountryPresetDefinitionByToken(marker) {
+  const token = normalizeGroupMarkerToken(marker);
+  if (!token) {
+    return null;
+  }
+
+  for (const definition of PREFERRED_COUNTRY_PRESET_DEFINITIONS) {
+    const markers = getPreferredCountryPresetDefinitionMarkers(definition);
     if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
       return definition;
     }
@@ -8111,40 +8190,52 @@ function resolvePreferredRegionCountryGroups(countryConfigs, marker) {
   return (Array.isArray(countryConfigs) ? countryConfigs : []).filter((group) => group && countryKeyLookup[group.key]);
 }
 
-// 把用户传入的国家偏好标记解析成真实国家组；支持旗帜、国家名、COUNTRY_DEFINITIONS.aliases，以及区域/子区域 token。
-function resolvePreferredCountryGroups(countryConfigs, markers) {
+// 递归展开优先链单个标记，支持 preset -> 区域/子区域 -> 国家 逐层展开，并防止 preset 循环引用。
+function resolvePreferredCountryGroupsByMarker(countryConfigs, marker, visitedPresets) {
+  const token = String(marker || "").trim();
+  if (!token) {
+    return [];
+  }
+
+  const presetDefinition = findPreferredCountryPresetDefinitionByToken(token);
+  if (presetDefinition) {
+    const presetKey = normalizeGroupMarkerToken(presetDefinition.key);
+    const currentVisited = isObject(visitedPresets) ? visitedPresets : Object.create(null);
+    if (currentVisited[presetKey]) {
+      return [];
+    }
+
+    const nextVisited = Object.assign(Object.create(null), currentVisited);
+    nextVisited[presetKey] = true;
+    return resolvePreferredCountryGroups(countryConfigs, presetDefinition.markers, nextVisited);
+  }
+
+  let matchedGroup = null;
+  const countryDefinition = findCountryDefinitionByMarker(token);
+  if (countryDefinition) {
+    matchedGroup = findCountryGroup(countryConfigs, getCountryDefinitionMarkers(countryDefinition));
+  }
+
+  if (matchedGroup) {
+    return [matchedGroup];
+  }
+
+  const regionGroups = resolvePreferredRegionCountryGroups(countryConfigs, token);
+  if (regionGroups.length) {
+    return regionGroups;
+  }
+
+  matchedGroup = findCountryGroup(countryConfigs, [token]);
+  return matchedGroup ? [matchedGroup] : [];
+}
+
+// 把用户传入的国家偏好标记解析成真实国家组；支持旗帜、国家名、COUNTRY_DEFINITIONS.aliases、区域/子区域 token，以及可复用 preset。
+function resolvePreferredCountryGroups(countryConfigs, markers, visitedPresets) {
   const groups = [];
 
   // 逐个处理偏好标记。
   for (const marker of Array.isArray(markers) ? markers : []) {
-    const token = String(marker || "").trim();
-    if (!token) {
-      continue;
-    }
-
-    let matchedGroup = null;
-    const definition = findCountryDefinitionByMarker(token);
-    if (definition) {
-      matchedGroup = findCountryGroup(countryConfigs, getCountryDefinitionMarkers(definition));
-    }
-
-    // 如果命中了区域 / 子区域 token，则把该区域下当前已生成的国家组按现有顺序全部展开。
-    if (!matchedGroup) {
-      const regionGroups = resolvePreferredRegionCountryGroups(countryConfigs, token);
-      groups.push.apply(groups, regionGroups);
-      if (regionGroups.length) {
-        continue;
-      }
-    }
-
-    // 如果标准国家定义里没命中，再退回到“直接用字符串包含关系”。
-    if (!matchedGroup) {
-      matchedGroup = findCountryGroup(countryConfigs, [token]);
-    }
-
-    if (matchedGroup) {
-      groups.push(matchedGroup);
-    }
+    groups.push.apply(groups, resolvePreferredCountryGroupsByMarker(countryConfigs, marker, visitedPresets));
   }
 
   // 按组名去重后返回。
