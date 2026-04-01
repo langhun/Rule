@@ -152,8 +152,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.95.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.95.0。
+const SCRIPT_VERSION = "8.96.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.96.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7231,11 +7231,32 @@ function buildTrafficChainGroupEntry(proxyGroups, groupName) {
 
 // 统一按“用户显式优先链 > 脚本默认优先链”解析国家组，避免 AI / Crypto / 诊断逻辑各写一份。
 function buildPreferredCountryGroups(countryConfigs, preferredCountries, defaultMarkersList) {
+  return buildPreferredCountryResolution(countryConfigs, preferredCountries, defaultMarkersList).groups;
+}
+
+// 同时构造国家优先链的“最终命中组 + 来源追踪 + 摘要”，避免主流程里为每条链重复拼装。
+function buildPreferredCountryResolution(countryConfigs, preferredCountries, defaultMarkersList, defaultSourceKey) {
   if (Array.isArray(preferredCountries) && preferredCountries.length) {
-    return resolvePreferredCountryGroups(countryConfigs, preferredCountries);
+    const entries = resolvePreferredCountryGroupEntries(countryConfigs, preferredCountries);
+    const groups = extractPreferredCountryGroupsFromEntries(entries);
+    return {
+      groups,
+      entries,
+      summary: formatPreferredCountryGroupSummary(groups),
+      trace: formatPreferredCountryGroupTrace(entries)
+    };
   }
 
-  return (Array.isArray(defaultMarkersList) ? defaultMarkersList : []).map((markers) => findCountryGroup(countryConfigs, markers));
+  const groups = (Array.isArray(defaultMarkersList) ? defaultMarkersList : [])
+    .map((markers) => findCountryGroup(countryConfigs, markers))
+    .filter(Boolean);
+  const entries = createPreferredCountryGroupEntries(groups, "default", defaultSourceKey || "default", "auto");
+  return {
+    groups,
+    entries,
+    summary: formatPreferredCountryGroupSummary(groups),
+    trace: formatPreferredCountryGroupTrace(entries)
+  };
 }
 
 // 汇总“请求 -> 规则 -> 目标组 -> 组内候选链”的关键链路，便于快速观察整条分流路径。
@@ -8217,13 +8238,39 @@ function resolvePreferredRegionCountryGroups(countryConfigs, marker) {
   return (Array.isArray(countryConfigs) ? countryConfigs : []).filter((group) => group && countryKeyLookup[group.key]);
 }
 
+// 统一构造国家优先链“来源追踪”条目，便于 full 日志和响应头直接复用。
+function createPreferredCountryGroupEntries(groups, sourceType, sourceKey, sourceToken) {
+  const source = normalizeStringArg(sourceKey) || normalizeStringArg(sourceToken) || "unknown";
+  const token = normalizeStringArg(sourceToken) || source;
+
+  return (Array.isArray(groups) ? groups : [])
+    .filter((group) => group && typeof group.name === "string" && group.name)
+    .map((group) => ({
+      group,
+      name: group.name,
+      sourceType: normalizeStringArg(sourceType) || "unknown",
+      sourceKey: source,
+      sourceToken: token
+    }));
+}
+
+// 把追踪条目重新折叠回国家组对象，兼容旧逻辑仍只关心最终命中的国家组。
+function extractPreferredCountryGroupsFromEntries(entries) {
+  const groups = (Array.isArray(entries) ? entries : [])
+    .map((entry) => entry && entry.group)
+    .filter(Boolean);
+
+  return uniqueStrings(groups.map((group) => group.name)).map((name) => groups.find((group) => group.name === name));
+}
+
 // 递归展开优先链单个标记，支持 preset -> 区域/子区域 -> 国家 逐层展开，并防止 preset 循环引用。
-function resolvePreferredCountryGroupsByMarker(countryConfigs, marker, visitedPresets) {
+function resolvePreferredCountryGroupEntriesByMarker(countryConfigs, marker, visitedPresets, inheritedSource) {
   const token = String(marker || "").trim();
   if (!token) {
     return [];
   }
 
+  const sourceInfo = isObject(inheritedSource) ? inheritedSource : null;
   const presetDefinition = findPreferredCountryPresetDefinitionByToken(token);
   if (presetDefinition) {
     const presetKey = normalizeGroupMarkerToken(presetDefinition.key);
@@ -8234,7 +8281,16 @@ function resolvePreferredCountryGroupsByMarker(countryConfigs, marker, visitedPr
 
     const nextVisited = Object.assign(Object.create(null), currentVisited);
     nextVisited[presetKey] = true;
-    return resolvePreferredCountryGroups(countryConfigs, presetDefinition.markers, nextVisited);
+    return resolvePreferredCountryGroupEntries(
+      countryConfigs,
+      presetDefinition.markers,
+      nextVisited,
+      sourceInfo || {
+        sourceType: "preset",
+        sourceKey: presetDefinition.key,
+        sourceToken: token
+      }
+    );
   }
 
   let matchedGroup = null;
@@ -8244,29 +8300,55 @@ function resolvePreferredCountryGroupsByMarker(countryConfigs, marker, visitedPr
   }
 
   if (matchedGroup) {
-    return [matchedGroup];
+    return createPreferredCountryGroupEntries(
+      [matchedGroup],
+      sourceInfo ? sourceInfo.sourceType : "country",
+      sourceInfo ? sourceInfo.sourceKey : countryDefinition.name,
+      sourceInfo ? sourceInfo.sourceToken : token
+    );
   }
 
+  const regionDefinition = findRegionGroupDefinitionByToken(token);
   const regionGroups = resolvePreferredRegionCountryGroups(countryConfigs, token);
   if (regionGroups.length) {
-    return regionGroups;
+    return createPreferredCountryGroupEntries(
+      regionGroups,
+      sourceInfo ? sourceInfo.sourceType : "region",
+      sourceInfo ? sourceInfo.sourceKey : (regionDefinition ? regionDefinition.key : token),
+      sourceInfo ? sourceInfo.sourceToken : token
+    );
   }
 
   matchedGroup = findCountryGroup(countryConfigs, [token]);
-  return matchedGroup ? [matchedGroup] : [];
+  return matchedGroup
+    ? createPreferredCountryGroupEntries(
+      [matchedGroup],
+      sourceInfo ? sourceInfo.sourceType : "fallback",
+      sourceInfo ? sourceInfo.sourceKey : token,
+      sourceInfo ? sourceInfo.sourceToken : token
+    )
+    : [];
 }
 
-// 把用户传入的国家偏好标记解析成真实国家组；支持旗帜、国家名、COUNTRY_DEFINITIONS.aliases、区域/子区域 token，以及可复用 preset。
-function resolvePreferredCountryGroups(countryConfigs, markers, visitedPresets) {
-  const groups = [];
+// 把用户传入的国家偏好标记解析成带来源信息的条目；支持旗帜、国家名、COUNTRY_DEFINITIONS.aliases、区域/子区域 token，以及可复用 preset。
+function resolvePreferredCountryGroupEntries(countryConfigs, markers, visitedPresets, inheritedSource) {
+  const entries = [];
 
   // 逐个处理偏好标记。
   for (const marker of Array.isArray(markers) ? markers : []) {
-    groups.push.apply(groups, resolvePreferredCountryGroupsByMarker(countryConfigs, marker, visitedPresets));
+    entries.push.apply(entries, resolvePreferredCountryGroupEntriesByMarker(countryConfigs, marker, visitedPresets, inheritedSource));
   }
 
-  // 按组名去重后返回。
-  return uniqueStrings(groups.map((group) => group.name)).map((name) => groups.find((group) => group.name === name));
+  // 对“同一来源 -> 同一国家组”的重复命中去重，避免 preset / alias 递归展开时把相同条目写多次。
+  return uniqueStrings(entries.map((entry) => `${entry.sourceType}::${entry.sourceKey}::${entry.sourceToken}::${entry.name}`))
+    .map((uniqueKey) => entries.find((entry) => `${entry.sourceType}::${entry.sourceKey}::${entry.sourceToken}::${entry.name}` === uniqueKey));
+}
+
+// 把用户传入的国家偏好标记解析成真实国家组；在来源追踪基础上保持旧接口兼容。
+function resolvePreferredCountryGroups(countryConfigs, markers, visitedPresets, inheritedSource) {
+  return extractPreferredCountryGroupsFromEntries(
+    resolvePreferredCountryGroupEntries(countryConfigs, markers, visitedPresets, inheritedSource)
+  );
 }
 
 // 校验用户传入的国家优先链标记是否真的能匹配到“当前已生成”的国家组；区域 token 也按展开后的结果一起校验。
@@ -10151,6 +10233,11 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}GitHub-Prefer-Countries-Resolved`]: diagnostics.githubPreferCountryResolvedSummary || "none",
     [`${prefix}Steam-Prefer-Countries-Resolved`]: diagnostics.steamPreferCountryResolvedSummary || "none",
     [`${prefix}Dev-Prefer-Countries-Resolved`]: diagnostics.devPreferCountryResolvedSummary || "none",
+    [`${prefix}AI-Prefer-Countries-Trace`]: diagnostics.aiPreferCountryTraceSummary || "none",
+    [`${prefix}Crypto-Prefer-Countries-Trace`]: diagnostics.cryptoPreferCountryTraceSummary || "none",
+    [`${prefix}GitHub-Prefer-Countries-Trace`]: diagnostics.githubPreferCountryTraceSummary || "none",
+    [`${prefix}Steam-Prefer-Countries-Trace`]: diagnostics.steamPreferCountryTraceSummary || "none",
+    [`${prefix}Dev-Prefer-Countries-Trace`]: diagnostics.devPreferCountryTraceSummary || "none",
     [`${prefix}Country-Extra-Aliases`]: ARGS.hasCountryExtraAliases ? "configured" : "default",
     [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
     [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
@@ -10983,6 +11070,51 @@ function formatPreferredCountryGroupSummary(groups) {
   return names.length ? `${names.length}:${formatProviderPreviewNames(names, 8, 18)}` : "none";
 }
 
+// 把来源类型 + 规范来源键压成短标签，便于直接写进日志与响应头。
+function formatPreferredCountryTraceSource(entry) {
+  const current = isObject(entry) ? entry : {};
+  const sourceType = sanitizeProviderPreviewName(current.sourceType || "unknown");
+  const sourceKey = sanitizeProviderPreviewName(current.sourceKey || current.sourceToken || "unknown");
+  const sourceToken = sanitizeProviderPreviewName(current.sourceToken || "");
+
+  return sourceToken && sourceToken !== sourceKey
+    ? `${sourceType}:${sourceKey}[${sourceToken}]`
+    : `${sourceType}:${sourceKey}`;
+}
+
+// 把国家优先链来源追踪压成紧凑摘要：同一来源聚合同一批最终命中国家组。
+function formatPreferredCountryGroupTrace(entries) {
+  const buckets = [];
+  const bucketLookup = Object.create(null);
+
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (!isObject(entry) || typeof entry.name !== "string" || !entry.name) {
+      continue;
+    }
+
+    const bucketKey = `${entry.sourceType}::${entry.sourceKey}::${entry.sourceToken}`;
+    if (!bucketLookup[bucketKey]) {
+      bucketLookup[bucketKey] = {
+        sourceType: entry.sourceType,
+        sourceKey: entry.sourceKey,
+        sourceToken: entry.sourceToken,
+        names: []
+      };
+      buckets.push(bucketLookup[bucketKey]);
+    }
+
+    bucketLookup[bucketKey].names.push(entry.name);
+  }
+
+  if (!buckets.length) {
+    return "none";
+  }
+
+  const visibleBuckets = buckets.slice(0, 6).map((bucket) => `${formatPreferredCountryTraceSource(bucket)}->${formatProviderPreviewNames(uniqueStrings(bucket.names), 4, 18)}`);
+  const remaining = buckets.length - visibleBuckets.length;
+  return `${visibleBuckets.join("; ")}${remaining > 0 ? `; +${remaining}` : ""}`;
+}
+
 // 输出构建过程中的诊断信息，例如自动重命名和一致性校验告警。
 function logDiagnostics(diagnostics) {
   // 没有诊断对象就直接跳过。
@@ -11473,6 +11605,11 @@ function logBuildSummary(stats) {
     console.log(`   ✓ 区域统计: ${stats.regionGroupSummary}`);
   }
 
+  // 如果有国家优先链来源追踪，则补充输出，便于直接区分 preset / region / country 的展开来源。
+  if (stats.aiPreferCountryTraceSummary || stats.cryptoPreferCountryTraceSummary || stats.githubPreferCountryTraceSummary || stats.steamPreferCountryTraceSummary || stats.devPreferCountryTraceSummary) {
+    console.log(`   ✓ 国家优先链来源: AI=${stats.aiPreferCountryTraceSummary || "none"}, Crypto=${stats.cryptoPreferCountryTraceSummary || "none"}, GitHub=${stats.githubPreferCountryTraceSummary || "none"}, Steam=${stats.steamPreferCountryTraceSummary || "none"}, Dev=${stats.devPreferCountryTraceSummary || "none"}`);
+  }
+
   // 输出国家组 / 区域组排序模式，便于直接确认当前面板顺序和部分候选链顺序是按什么口径生成。
   console.log(`   ✓ 分组排序: countries=${ARGS.countryGroupSort}${ARGS.hasCountryGroupSort ? "" : " (default)"}, regions=${ARGS.regionGroupSort}${ARGS.hasRegionGroupSort ? "" : " (default)"}`);
 
@@ -11616,21 +11753,46 @@ function main(config) {
     // 解析出所有国家分组配置。
     const countryConfigs = parseCountries(proxies);
     const countrySummary = buildCountrySummary(countryConfigs);
-    const aiPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
-      buildPreferredCountryGroups(countryConfigs, ARGS.aiPreferCountries, DEFAULT_AI_PREFERRED_COUNTRY_MARKERS)
+    const aiPreferredCountryResolution = buildPreferredCountryResolution(
+      countryConfigs,
+      ARGS.aiPreferCountries,
+      DEFAULT_AI_PREFERRED_COUNTRY_MARKERS,
+      "ai-default"
     );
-    const cryptoPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
-      buildPreferredCountryGroups(countryConfigs, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS)
+    const cryptoPreferredCountryResolution = buildPreferredCountryResolution(
+      countryConfigs,
+      ARGS.cryptoPreferCountries,
+      DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS,
+      "crypto-default"
     );
-    const githubPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
-      ARGS.hasGithubPreferCountries ? resolvePreferredCountryGroups(countryConfigs, ARGS.githubPreferCountries) : []
+    const githubPreferredCountryResolution = buildPreferredCountryResolution(
+      countryConfigs,
+      ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries : [],
+      [],
+      "github-default"
     );
-    const steamPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
-      ARGS.hasSteamPreferCountries ? resolvePreferredCountryGroups(countryConfigs, ARGS.steamPreferCountries) : []
+    const steamPreferredCountryResolution = buildPreferredCountryResolution(
+      countryConfigs,
+      ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries : [],
+      [],
+      "steam-default"
     );
-    const devPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
-      ARGS.hasDevPreferCountries ? resolvePreferredCountryGroups(countryConfigs, ARGS.devPreferCountries) : []
+    const devPreferredCountryResolution = buildPreferredCountryResolution(
+      countryConfigs,
+      ARGS.hasDevPreferCountries ? ARGS.devPreferCountries : [],
+      [],
+      "dev-default"
     );
+    const aiPreferredCountryResolvedSummary = aiPreferredCountryResolution.summary;
+    const cryptoPreferredCountryResolvedSummary = cryptoPreferredCountryResolution.summary;
+    const githubPreferredCountryResolvedSummary = githubPreferredCountryResolution.summary;
+    const steamPreferredCountryResolvedSummary = steamPreferredCountryResolution.summary;
+    const devPreferredCountryResolvedSummary = devPreferredCountryResolution.summary;
+    const aiPreferredCountryTraceSummary = aiPreferredCountryResolution.trace;
+    const cryptoPreferredCountryTraceSummary = cryptoPreferredCountryResolution.trace;
+    const githubPreferredCountryTraceSummary = githubPreferredCountryResolution.trace;
+    const steamPreferredCountryTraceSummary = steamPreferredCountryResolution.trace;
+    const devPreferredCountryTraceSummary = devPreferredCountryResolution.trace;
     // 按 GitHub 社区常见玩法，把已生成国家组进一步聚合成可选的区域分组。
     const regionConfigs = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys);
     const regionGroupSummary = buildRegionGroupSummary(regionConfigs);
@@ -11749,6 +11911,11 @@ function main(config) {
     diagnostics.githubPreferCountryResolvedSummary = githubPreferredCountryResolvedSummary;
     diagnostics.steamPreferCountryResolvedSummary = steamPreferredCountryResolvedSummary;
     diagnostics.devPreferCountryResolvedSummary = devPreferredCountryResolvedSummary;
+    diagnostics.aiPreferCountryTraceSummary = aiPreferredCountryTraceSummary;
+    diagnostics.cryptoPreferCountryTraceSummary = cryptoPreferredCountryTraceSummary;
+    diagnostics.githubPreferCountryTraceSummary = githubPreferredCountryTraceSummary;
+    diagnostics.steamPreferCountryTraceSummary = steamPreferredCountryTraceSummary;
+    diagnostics.devPreferCountryTraceSummary = devPreferredCountryTraceSummary;
     diagnostics.ruleTargetMappingSummary = ruleTargetMappingSummary;
     diagnostics.ruleTargetMappingPreview = ruleTargetMappingPreview;
     diagnostics.rulePriorityRiskSummary = rulePriorityRiskSummary;
@@ -11813,6 +11980,11 @@ function main(config) {
         githubPreferCountryResolvedSummary,
         steamPreferCountryResolvedSummary,
         devPreferCountryResolvedSummary,
+        aiPreferCountryTraceSummary,
+        cryptoPreferCountryTraceSummary,
+        githubPreferCountryTraceSummary,
+        steamPreferCountryTraceSummary,
+        devPreferCountryTraceSummary,
         regionGroups: regionConfigs.length,
         regionGroupSummary,
         proxyGroups: proxyGroups.length,
