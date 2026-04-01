@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.82.0
+ * Sub-Store 终极策略增强脚本 V8.83.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -124,11 +124,13 @@
  * 119. OneDrive 链路观测增强：把 OneDrive / SharePoint / SkyDrive 继续纳入业务链路总览与规则顺序锚点别名，便于观察协作文件流量如何命中。
  * 120. 国家识别增强：继续按现有命名风格扩充更多常见机场国家/地区别名，补齐澳门、荷兰、意大利、西班牙、印度、大马、泰国、越南、菲律宾、印尼、阿联酋、沙特、墨西哥等节点识别。
  * 121. 国家命名风格增强：继续保持“中文主名 + 常见英文/缩写/城市别名”的写法，并沿用狮城/枫叶/袋鼠/毛熊这类显示风格。
+ * 122. 国家识别继续增强：继续补齐瑞士、瑞典、挪威、芬兰、丹麦、葡萄牙、爱尔兰、比利时、奥地利、波兰、南非、以色列、新西兰等常见节点国家。
+ * 123. 国家别名安全增强：对 India / Malaysia / Italy 等容易和普通英文单词冲突的两位缩写做保守收紧，优先依赖国家名、三位缩写与城市名识别，减少误判。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.82.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.82.0。
+const SCRIPT_VERSION = "8.83.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.83.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -316,17 +318,37 @@ const COUNTRY_DEFINITIONS = [
   { name: "法国", flag: "🇫🇷", aliases: ["法国", "高卢", "FR", "FRA", "France", "Paris", "巴黎"] },
   // 荷兰常见命名方式。
   { name: "荷兰", flag: "🇳🇱", aliases: ["荷兰", "NL", "NLD", "Netherlands", "Amsterdam", "Rotterdam", "阿姆斯特丹", "鹿特丹"] },
-  // 意大利常见命名方式。
-  { name: "意大利", flag: "🇮🇹", aliases: ["意大利", "IT", "ITA", "Italy", "Milan", "Rome", "米兰", "罗马"] },
+  // 意大利常见命名方式；不使用容易误判的 IT 两位缩写。
+  { name: "意大利", flag: "🇮🇹", aliases: ["意大利", "ITA", "Italy", "Milan", "Rome", "米兰", "罗马"] },
   // 西班牙常见命名方式。
   { name: "西班牙", flag: "🇪🇸", aliases: ["西班牙", "ES", "ESP", "Spain", "Madrid", "Barcelona", "马德里", "巴塞罗那"] },
+  // 瑞士常见命名方式；不使用容易误判的 CH 两位缩写。
+  { name: "瑞士", flag: "🇨🇭", aliases: ["瑞士", "CHE", "Switzerland", "Zurich", "Geneva", "苏黎世", "日内瓦"] },
+  // 瑞典常见命名方式。
+  { name: "瑞典", flag: "🇸🇪", aliases: ["瑞典", "SWE", "Sweden", "Stockholm", "斯德哥尔摩"] },
+  // 挪威常见命名方式；不使用容易误判的 NO 两位缩写。
+  { name: "挪威", flag: "🇳🇴", aliases: ["挪威", "NOR", "Norway", "Oslo", "奥斯陆"] },
+  // 芬兰常见命名方式。
+  { name: "芬兰", flag: "🇫🇮", aliases: ["芬兰", "FIN", "Finland", "Helsinki", "赫尔辛基"] },
+  // 丹麦常见命名方式。
+  { name: "丹麦", flag: "🇩🇰", aliases: ["丹麦", "DNK", "Denmark", "Copenhagen", "哥本哈根"] },
+  // 葡萄牙常见命名方式；不使用容易和 PT 业务组混淆的 PT 两位缩写。
+  { name: "葡萄牙", flag: "🇵🇹", aliases: ["葡萄牙", "PRT", "Portugal", "Lisbon", "里斯本"] },
+  // 爱尔兰常见命名方式；不使用容易误判的 IE 两位缩写。
+  { name: "爱尔兰", flag: "🇮🇪", aliases: ["爱尔兰", "IRL", "Ireland", "Dublin", "都柏林"] },
+  // 比利时常见命名方式。
+  { name: "比利时", flag: "🇧🇪", aliases: ["比利时", "BEL", "Belgium", "Brussels", "布鲁塞尔"] },
+  // 奥地利常见命名方式。
+  { name: "奥地利", flag: "🇦🇹", aliases: ["奥地利", "AUT", "Austria", "Vienna", "维也纳"] },
+  // 波兰常见命名方式。
+  { name: "波兰", flag: "🇵🇱", aliases: ["波兰", "POL", "Poland", "Warsaw", "华沙"] },
 
   // 土耳其常见命名方式。
   { name: "土耳其", flag: "🇹🇷", aliases: ["土耳其", "TR", "TUR", "Turkey", "Istanbul", "伊斯坦布尔"] },
-  // 印度常见命名方式。
-  { name: "印度", flag: "🇮🇳", aliases: ["印度", "IN", "IND", "India", "Mumbai", "Bombay", "Delhi", "Chennai", "Bangalore", "孟买", "德里", "金奈", "班加罗尔"] },
-  // 马来西亚常见命名方式，这里沿用“大马”作为显示名称。
-  { name: "大马", flag: "🇲🇾", aliases: ["马来西亚", "大马", "MY", "MYS", "Malaysia", "Kuala Lumpur", "Penang", "Johor", "吉隆坡", "槟城", "柔佛"] },
+  // 印度常见命名方式；不使用容易误判的 IN 两位缩写。
+  { name: "印度", flag: "🇮🇳", aliases: ["印度", "IND", "India", "Mumbai", "Bombay", "Delhi", "Chennai", "Bangalore", "孟买", "德里", "金奈", "班加罗尔"] },
+  // 马来西亚常见命名方式，这里沿用“大马”作为显示名称；不使用容易误判的 MY 两位缩写。
+  { name: "大马", flag: "🇲🇾", aliases: ["马来西亚", "大马", "MYS", "Malaysia", "Kuala Lumpur", "Penang", "Johor", "吉隆坡", "槟城", "柔佛"] },
   // 泰国常见命名方式。
   { name: "泰国", flag: "🇹🇭", aliases: ["泰国", "TH", "THA", "Thailand", "Bangkok", "曼谷"] },
   // 越南常见命名方式。
@@ -341,6 +363,12 @@ const COUNTRY_DEFINITIONS = [
   { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
   // 墨西哥常见命名方式。
   { name: "墨西哥", flag: "🇲🇽", aliases: ["墨西哥", "MX", "MEX", "Mexico", "Mexico City", "墨西哥城"] },
+  // 南非常见命名方式。
+  { name: "南非", flag: "🇿🇦", aliases: ["南非", "ZAF", "South Africa", "Johannesburg", "Cape Town", "约翰内斯堡", "开普敦"] },
+  // 以色列常见命名方式；不使用容易误判的 IL 两位缩写。
+  { name: "以色列", flag: "🇮🇱", aliases: ["以色列", "ISR", "Israel", "Tel Aviv", "Jerusalem", "特拉维夫", "耶路撒冷"] },
+  // 新西兰常见命名方式。
+  { name: "新西兰", flag: "🇳🇿", aliases: ["新西兰", "NZ", "NZL", "New Zealand", "Auckland", "奥克兰"] },
   // 澳大利亚常见命名方式，这里用“袋鼠”作为显示名称。
   { name: "袋鼠", flag: "🇦🇺", aliases: ["澳大利亚", "澳洲", "袋鼠", "AU", "AUS", "Australia", "Sydney", "Melbourne", "悉尼", "墨尔本"] },
   // 俄罗斯常见命名方式，这里用“毛熊”作为显示名称。

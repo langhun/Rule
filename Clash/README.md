@@ -3,11 +3,69 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V8.82.0`
+- 当前版本：`V8.83.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、国家别名扩充、节点命名兼容增强、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家别名扩充、国家缩写安全优化、节点命名兼容增强、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V8.83.0 这一轮新增了什么
+
+这一轮继续往下补 **国家识别**，同时做一层 **别名安全优化**：
+
+1. **继续扩充更多常见机场国家**
+   - 新增：
+     - `瑞士`
+     - `瑞典`
+     - `挪威`
+     - `芬兰`
+     - `丹麦`
+     - `葡萄牙`
+     - `爱尔兰`
+     - `比利时`
+     - `奥地利`
+     - `波兰`
+     - `南非`
+     - `以色列`
+     - `新西兰`
+
+2. **继续补常见城市别名**
+   - 例如：
+     - `Zurich / Geneva`
+     - `Stockholm / Oslo / Helsinki / Copenhagen`
+     - `Lisbon / Dublin / Brussels / Vienna / Warsaw`
+     - `Johannesburg / Cape Town`
+     - `Tel Aviv / Jerusalem`
+     - `Auckland`
+
+3. **缩写误判继续收紧**
+   - 为了避免普通英文单词误伤节点名，这一轮对部分两位缩写做了保守处理：
+     - `IT`
+     - `IN`
+     - `MY`
+     - `CH`
+     - `NO`
+     - `PT`
+     - `IE`
+     - `IL`
+   - 这些国家现在更依赖：
+     - 中文名
+     - 三位缩写
+     - 英文全名
+     - 常见城市名
+
+4. **国家显示名速查**
+   - 当前常见内置显示名包括：
+     - `香港 / 澳门 / 台湾 / 日本 / 狮城 / 韩国 / 美国 / 阿根廷 / 巴西 / 枫叶`
+     - `英国 / 德国 / 法国 / 荷兰 / 意大利 / 西班牙 / 瑞士 / 瑞典 / 挪威 / 芬兰 / 丹麦`
+     - `葡萄牙 / 爱尔兰 / 比利时 / 奥地利 / 波兰 / 土耳其 / 印度 / 大马 / 泰国 / 越南 / 菲律宾 / 印尼`
+     - `阿联酋 / 沙特 / 墨西哥 / 南非 / 以色列 / 新西兰 / 袋鼠 / 毛熊`
+   - 这些名字也都可以直接用于：
+     - `aiPreferCountries`
+     - `cryptoPreferCountries`
+     - `githubPreferCountries`
+     - `steamPreferCountries`
+     - `devPreferCountries`
 
 ## V8.82.0 这一轮新增了什么
 
@@ -4084,6 +4142,8 @@ ruleProviderPayload=DOMAIN-SUFFIX,internal.example,DIRECT||DOMAIN,router.local,D
 - V8.25.0 `githubIncludeAll / steamIncludeAll` 参数化 GitHub / Steam 独立组 `include-all`
 - V8.25.0 `include-all` 优先级高于 `UseProviders / include-all-providers`
 - V8.25.0 provider 池型 latency/load-balance 组会追加官方健康检查提醒
+- V8.83.0 国家识别已继续扩充到 `瑞士 / 瑞典 / 挪威 / 芬兰 / 丹麦 / 葡萄牙 / 爱尔兰 / 比利时 / 奥地利 / 波兰 / 南非 / 以色列 / 新西兰`
+- V8.83.0 对 `IT / IN / MY / CH / NO / PT / IE / IL` 这类更容易误判的两位缩写做了保守收紧
 - V8.82.0 国家识别已继续扩充到 `澳门 / 荷兰 / 意大利 / 西班牙 / 印度 / 大马 / 泰国 / 越南 / 菲律宾 / 印尼 / 阿联酋 / 沙特 / 墨西哥`
 - V8.82.0 国家别名已继续补齐英文名、缩写与常见城市名，便于机场节点命名直接归组
 - V8.81.0 GitHub 检索确认 `blackmatrix7/ios_rule_script` 提供稳定 `OneDrive.yaml`，`ruleSourcePreset=blackmatrix7` 已可接管 `OneDrive`
