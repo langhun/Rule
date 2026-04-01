@@ -3,11 +3,618 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V8.69.0`
+- 当前版本：`V8.82.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、业务分流、AI 专项增强、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家别名扩充、节点命名兼容增强、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V8.82.0 这一轮新增了什么
+
+这一轮继续按你当前脚本的 **国家命名方式** 往下补：
+
+1. **继续扩充国家/地区识别**
+   - 新增常见机场节点识别：
+     - `澳门`
+     - `荷兰`
+     - `意大利`
+     - `西班牙`
+     - `印度`
+     - `大马`
+     - `泰国`
+     - `越南`
+     - `菲律宾`
+     - `印尼`
+     - `阿联酋`
+     - `沙特`
+     - `墨西哥`
+
+2. **继续沿用你现在的显示风格**
+   - 保持：
+     - `狮城`
+     - `枫叶`
+     - `袋鼠`
+     - `毛熊`
+   - 新增里也继续按这个思路处理：
+     - `马来西亚` 显示为 `大马`
+     - `印度尼西亚` 显示为 `印尼`
+
+3. **国家别名继续补足**
+   - 每个国家都继续补了：
+     - 中文名
+     - 常见英文名
+     - 两位/三位缩写
+     - 常见城市名
+   - 这样更适合机场常见节点命名：
+     - `Kuala Lumpur / Penang / Johor`
+     - `Amsterdam / Rotterdam`
+     - `Dubai / Abu Dhabi`
+     - `Mumbai / Delhi / Bangalore`
+     - `Hanoi / Ho Chi Minh`
+
+4. **效果**
+   - 现在这些节点更容易直接归入对应国家组
+   - AI / Crypto / GitHub / Steam / Dev 的国家优先链也能直接复用这些新增国家组
+
+## V8.81.0 这一轮新增了什么
+
+这一轮继续去 **GitHub 检索相关项目**，重点看两件事：
+
+1. 有没有现成、稳定、颗粒度合适的社区规则可直接复用
+2. 社区成熟配置到底是怎么处理“**哪些流量先走**”这件事
+
+1. **OneDrive 社区规则源接管继续补齐**
+   - GitHub 检索确认：
+     - `blackmatrix7/ios_rule_script` 当前提供稳定的 `OneDrive.yaml`
+   - 现在脚本会保持：
+     - 默认仍使用 MetaCubeX `onedrive` geosite
+     - 当设置 `ruleSourcePreset=blackmatrix7` 时：
+       - `OneDrive` 也会自动切到 `blackmatrix7` 的 Clash YAML 规则
+
+2. **OneDrive 纳入业务链路观测**
+   - 已同步补齐的位置：
+     - `业务链路总览`
+     - `规则顺序锚点别名`
+   - 现在排查 OneDrive / SharePoint 文件同步类流量时：
+     - 可以直接看到它最终进了哪个组
+     - 也能直接把它当成规则顺序锚点来调前后位置
+
+3. **OneDrive 规则锚点别名继续扩展**
+   - 现在规则顺序锚点还支持直接写：
+     - `onedrive`
+     - `sharepoint`
+     - `skydrive`
+     - `1drv`
+
+4. **GitHub 项目检索后的顺序结论同步写清**
+   - 这轮额外参考了：
+     - `powerfullz/override-rules`
+     - `mihomo-party-org/override-hub`
+   - 结论仍然非常一致：
+     - 真正决定“哪些流量先走”的第一优先级，还是 `rules` 顺序
+     - 规则命中之后，才会进入目标策略组，再按组内候选链决定最终出口
+
+## V8.80.0 这一轮新增了什么
+
+这一轮继续把 **文件协作规则** 接进现有 `🧑‍💻 开发服务`：
+
+1. **新增开发生态规则入口**
+   - 新增内置规则提供器：
+     - `Dropbox`
+   - 当前实现：
+     - 直接复用 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+
+2. **默认统一进入开发服务组**
+   - 当前行为：
+     - `Dropbox -> 🧑‍💻 开发服务`
+   - 当前覆盖：
+     - `dropbox.com`
+     - `dropboxapi.com`
+     - `dropboxusercontent.com`
+     - `dropboxbusiness.com`
+     - `db.tt`
+
+3. **开发链路观测继续补齐**
+   - 已同步纳入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `分流链路总览`
+     - `规则顺序锚点别名`
+
+4. **现有开发参数继续自动复用**
+   - 不新增新参数
+   - 但以下现有参数现在会继续同时影响新规则：
+     - `devRuleTarget`
+     - `devRuleAnchor`
+     - `devRulePosition`
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     - `devUseProviders`
+     - `devIncludeAll / devIncludeAllProviders / devIncludeAllProxies`
+
+5. **规则锚点别名继续补齐**
+   - 现在还支持直接写：
+     - `dropbox`
+     - `dbtt`
+
+6. **GitHub 检索补充结论**
+   - 这轮继续去 GitHub 检索了：
+     - `Netlify`
+     - `Supabase`
+     - `Railway`
+     - `Render`
+   - 当前在已检索的社区项目里，还**没有找到稳定可直接接入的现成规则**
+   - 所以这一轮先不硬接，继续保持谨慎
+
+## V8.79.0 这一轮新增了什么
+
+这一轮继续把 **研发协作工具规则** 接进现有 `🧑‍💻 开发服务`：
+
+1. **新增开发生态规则入口**
+   - 新增内置规则提供器：
+     - `Notion`
+     - `Figma`
+     - `Slack`
+   - 当前实现：
+     - 三者都直接复用 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+
+2. **默认统一进入开发服务组**
+   - 当前行为：
+     - `Notion -> 🧑‍💻 开发服务`
+     - `Figma -> 🧑‍💻 开发服务`
+     - `Slack -> 🧑‍💻 开发服务`
+   - 也就是说：
+     - `notion / notion.so / notion.site`
+     - `figma.com`
+     - `slack.com / slack-files.com / slack-edge.com`
+     - 都会沿用现有 `devMode / devType / devPreferCountries / devUseProviders` 这一整套开发链路参数体系
+
+3. **开发链路观测继续补齐**
+   - 已同步纳入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `分流链路总览`
+     - `规则顺序锚点别名`
+
+4. **现有开发参数继续自动复用**
+   - 不新增新参数
+   - 但以下现有参数现在会继续同时影响新规则：
+     - `devRuleTarget`
+     - `devRuleAnchor`
+     - `devRulePosition`
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     - `devUseProviders`
+     - `devIncludeAll / devIncludeAllProviders / devIncludeAllProxies`
+
+5. **规则锚点别名继续补齐**
+   - 现在还支持直接写：
+     - `notion`
+     - `figma`
+     - `slack`
+
+6. **这一轮的策略说明**
+   - 在 `V8.79.0` 这一轮里，`Dropbox / Discord` 还只做了 GitHub 规则存在性确认
+   - 当时暂时没直接并进 `🧑‍💻 开发服务`；后续版本里 `Dropbox` 已正式接入，而 `Discord` 仍保持保守观察
+
+## V8.78.0 这一轮新增了什么
+
+这一轮继续把 **协作平台开发规则** 接进现有 `🧑‍💻 开发服务`：
+
+1. **新增开发生态规则入口**
+   - 新增内置规则提供器：
+     - `Atlassian`
+   - 当前实现：
+     - 直接复用 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+
+2. **默认统一进入开发服务组**
+   - 当前行为：
+     - `Atlassian -> 🧑‍💻 开发服务`
+   - 当前覆盖：
+     - `atlassian.com`
+     - `bitbucket.org`
+     - `statuspage.io`
+     - `trello.com`
+     - `trellocdn.com`
+
+3. **开发链路观测继续补齐**
+   - 已同步纳入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `分流链路总览`
+     - `规则顺序锚点别名`
+
+4. **现有开发参数继续自动复用**
+   - 不新增新参数
+   - 但以下现有参数现在会继续同时影响新规则：
+     - `devRuleTarget`
+     - `devRuleAnchor`
+     - `devRulePosition`
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     - `devUseProviders`
+     - `devIncludeAll / devIncludeAllProviders / devIncludeAllProxies`
+
+5. **规则锚点别名继续补齐**
+   - 现在还支持直接写：
+     - `atlassian`
+     - `bitbucket`
+     - `trello`
+     - `statuspage`
+
+6. **这一轮的策略说明**
+   - 这次虽然继续接入了 `Atlassian`，但 README 里也明确写清了它当前覆盖范围
+   - 如果后面你想把 `Bitbucket / Trello / Statuspage` 再拆成更细分的组，我下一轮可以继续拆
+
+## V8.77.0 这一轮新增了什么
+
+这一轮继续把 **开发云平台与数据科学常见规则** 接进现有 `🧑‍💻 开发服务`：
+
+1. **新增开发生态规则入口**
+   - 新增内置规则提供器：
+     - `DigitalOcean`
+     - `Anaconda`
+   - 当前实现：
+     - 两者都直接复用 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+
+2. **默认统一进入开发服务组**
+   - 当前行为：
+     - `DigitalOcean -> 🧑‍💻 开发服务`
+     - `Anaconda -> 🧑‍💻 开发服务`
+   - 也就是说：
+     - `digitalocean / digitaloceanspaces / do.co`
+     - `anaconda / conda.io`
+     - 都会沿用现有 `devMode / devType / devPreferCountries / devUseProviders` 这一整套开发链路参数体系
+
+3. **开发链路观测继续补齐**
+   - 已同步纳入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `分流链路总览`
+     - `规则顺序锚点别名`
+
+4. **现有开发参数继续自动复用**
+   - 不新增新参数
+   - 但以下现有参数现在会继续同时影响新规则：
+     - `devRuleTarget`
+     - `devRuleAnchor`
+     - `devRulePosition`
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     - `devUseProviders`
+     - `devIncludeAll / devIncludeAllProviders / devIncludeAllProxies`
+
+5. **规则锚点别名继续补齐**
+   - 现在还支持直接写：
+     - `digitalocean`
+     - `digitaloceanspaces`
+     - `doco`
+     - `anaconda`
+     - `conda`
+
+## V8.76.0 这一轮新增了什么
+
+这一轮继续把 **GitHub 社区里稳定的开发平台规则** 接进现有 `🧑‍💻 开发服务`：
+
+1. **新增开发生态规则入口**
+   - 新增内置规则提供器：
+     - `Heroku`
+     - `GitBook`
+     - `SourceForge`
+   - 当前实现：
+     - 三者都直接复用 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+
+2. **默认统一进入开发服务组**
+   - 当前行为：
+     - `Heroku -> 🧑‍💻 开发服务`
+     - `GitBook -> 🧑‍💻 开发服务`
+     - `SourceForge -> 🧑‍💻 开发服务`
+   - 也就是说：
+     - `heroku / herokuapp / herokussl`
+     - `gitbook / gitbook.io`
+     - `sourceforge / sf.net / fsdn`
+     - 都会沿用现有 `devMode / devType / devPreferCountries / devUseProviders` 这一整套开发链路参数体系
+
+3. **开发链路观测继续补齐**
+   - 已同步纳入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `分流链路总览`
+     - `规则顺序锚点别名`
+   - 这样排查开发流量时，现在可以继续一起看：
+     - `GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge`
+
+4. **现有开发参数继续自动复用**
+   - 不新增新参数
+   - 但以下现有参数现在会继续同时影响新规则：
+     - `devRuleTarget`
+     - `devRuleAnchor`
+     - `devRulePosition`
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     - `devUseProviders`
+     - `devIncludeAll / devIncludeAllProviders / devIncludeAllProxies`
+
+5. **规则锚点别名继续补齐**
+   - 现在还支持直接写：
+     - `heroku`
+     - `herokuapp`
+     - `gitbook`
+     - `sourceforge`
+     - `sf`
+     - `fsdn`
+
+## V8.75.0 这一轮新增了什么
+
+这一轮继续把 **GitHub 社区里更常见的开发生态规则** 接进现有 `🧑‍💻 开发服务`：
+
+1. **新增开发生态规则入口**
+   - 新增内置规则提供器：
+     - `Vercel`
+     - `Python`
+     - `Jfrog`
+   - 当前实现：
+     - 三者都直接复用 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+
+2. **默认统一进入开发服务组**
+   - 当前行为：
+     - `Vercel -> 🧑‍💻 开发服务`
+     - `Python -> 🧑‍💻 开发服务`
+     - `Jfrog -> 🧑‍💻 开发服务`
+   - 也就是说：
+     - `vercel.com / vercel.app / nextjs.org / turborepo.org`
+     - `python.org / pypi.org / pypi.io / pypa.io`
+     - `jfrog.com / bintray.com`
+     - 都会直接沿用现有 `devMode / devType / devPreferCountries / devUseProviders` 这套开发链路参数体系
+
+3. **开发链路观测继续补齐**
+   - 已同步纳入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `分流链路总览`
+     - `规则顺序锚点别名`
+   - 这样排查开发流量时，不再只看 `GitLab / Docker / Npmjs / JetBrains`，而是能一起看 `Vercel / Python / Jfrog`
+
+4. **现有开发参数自动复用**
+   - 不新增新参数
+   - 但以下现有参数现在会同时影响新规则：
+     - `devRuleTarget`
+     - `devRuleAnchor`
+     - `devRulePosition`
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     - `devUseProviders`
+     - `devIncludeAll / devIncludeAllProviders / devIncludeAllProxies`
+
+5. **规则锚点别名继续补齐**
+   - 现在还支持直接写：
+     - `vercel`
+     - `nextjs`
+     - `turborepo`
+     - `python`
+     - `pypi`
+     - `pypa`
+     - `jfrog`
+     - `bintray`
+     - `artifactory`
+
+## V8.74.0 这一轮新增了什么
+
+这一轮继续把 **GitHub 社区里常见、但主规则库未必完整覆盖的 AI 服务** 接进脚本：
+
+1. **新增 Grok / AppleAI 社区规则**
+   - 新增内置规则提供器：
+     - `Grok`
+     - `AppleAI`
+   - 当前实现：
+     - `Grok` 复用 `Accademia/Additional_Rule_For_Clash` 里的 `Grok.yaml`
+     - `AppleAI` 复用 `Accademia/Additional_Rule_For_Clash` 里的 `AppleAI.yaml`
+
+2. **默认继续并入 AI 链路**
+   - 当前行为：
+     - `Grok -> 🤖 AI`
+     - `AppleAI -> 🤖 AI`
+   - 也就是说：
+     - `x.ai / grok.com` 这类 Grok 相关流量会先进入 AI 组
+     - `Apple Intelligence / PCC / Siri AI` 相关流量也会优先沿用 AI 组的代理优先链，而不是误落到普通 Apple 直连链
+
+3. **AI 观测链路继续补齐**
+   - 这一轮继续把下面这些入口一起纳入：
+     - `AIExtra`
+     - `Grok`
+     - `AppleAI`
+   - 已同步补齐的位置：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `规则顺序锚点别名`
+     - `AI 首位 DIRECT 风险提醒`
+
+4. **规则锚点别名继续扩展**
+   - 现在规则顺序锚点还支持直接写：
+     - `grok`
+     - `xai`
+     - `appleai`
+     - `appleintelligence`
+     - `privatecloudcompute`
+     - `pcc`
+
+5. **来源排查继续补齐**
+   - 响应调试头新增：
+     - `Grok-Rule-Url`
+     - `Apple-AI-Rule-Url`
+   - `full` 日志里的 `规则源参数` 也会继续直接显示：
+     - `grok-rule-url`
+     - `apple-ai-rule-url`
+
+## V8.73.0 这一轮新增了什么
+
+这一轮继续把 **GitHub 社区里常见的 AI 补充规则** 做进脚本：
+
+1. **新增 AIExtra 规则源**
+   - 新增内置规则提供器：
+     - `AIExtra`
+   - 默认规则文件：
+     - `Clash/Ruleset/AIExtra.list`
+   - 当前默认补充的社区常见域名包括：
+     - `Perplexity`
+     - `Cursor`
+     - `HuggingFace`
+
+2. **开放 AIExtra 规则源 URL 参数**
+   - 新增参数：
+     - `aiExtraListUrl`
+   - 作用：
+     - 可以直接把 `AIExtra` 的规则地址切到你自己 GitHub 上维护的 AI 补充列表
+     - 适合继续吸收社区里新的 AI 服务域名，而不必改脚本主体
+
+3. **AIExtra 默认进入 AI 组**
+   - 当前行为：
+     - `AIExtra -> 🤖 AI`
+   - 也就是说：
+     - `Perplexity / Cursor / HuggingFace` 这类补充规则会先进入 AI 链路
+     - 再由 AI 组内部优先链继续决定走向
+
+4. **规则锚点别名继续补齐**
+   - 现在规则顺序锚点也支持直接写：
+     - `AIExtra`
+     - `perplexity`
+     - `pplx`
+     - `cursor`
+     - `huggingface`
+     - `hf`
+
+5. **日志与响应头同步补齐**
+   - `full` 日志里的 `规则源参数` 现已补充：
+     - `ai-extra-list-url`
+   - 响应调试头新增：
+     - `AI-Extra-List-Url`
+
+## V8.72.0 这一轮新增了什么
+
+这一轮继续修正 **GitHub 社区规则源预设** 的一个实际兼容问题：
+
+1. **校正 Anthropic 社区规则源路径**
+   - 当设置 `ruleSourcePreset=blackmatrix7` 时：
+     - 脚本当前会把 `Anthropic` 对应到 `blackmatrix7` 仓库里的 `Claude.yaml`
+   - 原因：
+     - blackmatrix7 社区当前对应 Anthropic / Claude 服务的目录命名是 `Claude`
+     - 不是 `Anthropic`
+
+2. **避免 blackmatrix7 预设取错路径**
+   - 这次修正后：
+     - `ruleSourcePreset=blackmatrix7` 不会再去拼错误的 `Anthropic/Anthropic.yaml`
+     - 会直接走正确的 `Claude/Claude.yaml`
+
+3. **行为与现有分流逻辑保持不变**
+   - 这轮只是修正：
+     - 社区规则源路径
+   - 不会改变：
+     - `Anthropic -> 🤖 AI`
+     - `Copilot -> 🤖 AI`
+     - 现有 GitHub / Steam / Dev 分流结构
+
+4. **README 说明同步补齐**
+   - 文档里关于 `ruleSourcePreset=blackmatrix7` 的描述，现已同步注明：
+     - `Anthropic` 在社区规则源下实际取的是 `Claude.yaml`
+
+## V8.71.0 这一轮新增了什么
+
+这一轮继续把 **GitHub 社区里常见的 Copilot 规则** 接进现有 AI 分流链路：
+
+1. **新增 Copilot 规则入口**
+   - 新增内置规则提供器：
+     - `Copilot`
+   - 当前实现：
+     - 复用 `blackmatrix7/ios_rule_script` 里的 `Copilot.yaml`
+   - 默认行为：
+     - `Copilot -> 🤖 AI`
+
+2. **Copilot 纳入 AI 观测链路**
+   - `业务规则窗口`
+   - `业务链路总览`
+   - `规则顺序锚点别名`
+   - 现在都会继续把 `Copilot` 一起纳入统计与预览
+
+3. **AI 风险提醒同步增强**
+   - 当 `🤖 AI` 组当前第一个候选是 `DIRECT` 时：
+     - 提醒文案现在会把 `Copilot` 一起纳入
+   - 这样在排查 AI / Copilot 请求为什么没先进代理时，会更直观
+
+4. **blackmatrix7 规则源说明同步更新**
+   - 当设置 `ruleSourcePreset=blackmatrix7` 时：
+     - 文档里的“已接管规则源”说明现在也会继续包含 `Copilot`
+   - 同时：
+     - `Copilot` 当前本身就是社区规则源能力，便于直接和现有 AI 链路一起使用
+
+5. **默认行为继续保持兼容**
+   - 不需要传新参数：
+     - 只是在现有 AI 分流里继续补齐一条社区常见服务规则
+   - 也就是说：
+     - 这轮补的是 `Copilot -> AI`
+     - 不会破坏现有 GitHub / Steam / Dev 的分流结构
+
+## V8.70.0 这一轮新增了什么
+
+这一轮继续把 **开发服务组** 往 GitHub / Steam 独立组的“国家优先链 + 候选顺序”补齐：
+
+1. **开放开发服务组国家优先链**
+   - 新增参数：
+     - `devPreferCountries`
+   - 作用：
+     - 可以给 `🧑‍💻 开发服务` 单独指定国家优先链
+     - 让 GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 流量不只沿用 `🐙 GitHub`，也能优先尝试你指定的国家组
+
+2. **开发服务组候选顺序继续细化**
+   - 当前顺序关系为：
+     - `PreferNodes`
+     - `PreferGroups`
+     - `devPreferCountries`
+     - `devMode` 基础链
+   - 也就是说：
+     - 你可以先点名某几个开发专线节点
+     - 再插入自定义开发组
+     - 再补国家优先链
+     - 最后才回落到 GitHub / 节点选择 / DIRECT 的基础顺序
+
+3. **direct 模式继续保持兼容**
+   - 当 `devMode=direct` 时：
+     - `DIRECT` 仍然固定第一位
+     - `devPreferCountries` 会插到 `DIRECT` 后面、`GitHub` 前面
+   - 这样可以兼顾：
+     - 直连优先
+     - 开发国家优先链
+     - GitHub 独立组兜底
+
+4. **业务链路诊断同步修正**
+   - 开发服务组现在开启：
+     - `devPreferCountries`
+     - `devPreferGroups`
+     - `devPreferNodes`
+     时，不再沿用旧版“默认 GitHub 第一位”的误判逻辑
+   - 同时：
+     - 如果你只设置了 `devPreferCountries`，但开发组头部仍然没有进入优先国家链，脚本会显式提醒
+
+5. **full 日志与响应调试头同步补齐**
+   - `full` 日志里的：
+     - `国家优先链`
+     - 现在会继续输出 `dev=...`
+   - 响应调试头新增：
+     - `GitHub-Prefer-Countries`
+     - `Steam-Prefer-Countries`
+     - `Dev-Prefer-Countries`
+
+6. **默认行为继续保持兼容**
+   - 不传 `devPreferCountries` 时：
+     - `🧑‍💻 开发服务` 仍然默认优先沿用 `🐙 GitHub`
+   - 也就是说：
+     - 这轮补的是“开发服务组国家优先链”
+     - 默认不会改变你现有配置的分流结果
 
 ## V8.69.0 这一轮新增了什么
 
@@ -66,7 +673,7 @@
 6. **默认行为继续保持兼容**
    - 不传这些新参数时：
      - `🧑‍💻 开发服务` 仍然默认优先沿用 `🐙 GitHub`
-     - GitLab / Docker / Npmjs / Jetbrains 仍然默认进入开发服务组
+     - GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 仍然默认进入开发服务组
    - 也就是说：
      - 这轮补的是“节点池与 Provider 池深度”
      - 默认不会改变你现有配置的分流结果
@@ -162,7 +769,7 @@
    - 新增参数：
      - `devRuleTarget`
    - 作用：
-     - 一次性同时改写 `GitLab / Docker / Npmjs / Jetbrains` 这四条开发规则的目标组
+     - 一次性同时改写 `GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 这十七条开发规则的目标组
      - 适合把整组开发流量临时切到 `manual / DIRECT / 节点选择 / 你自己的自定义组`
 
 4. **开发规则块支持统一顺序编排**
@@ -192,7 +799,7 @@
 6. **默认行为继续保持兼容**
    - 不传任何 `dev*` 参数时：
      - `🧑‍💻 开发服务` 仍然默认优先走 `🐙 GitHub`
-     - GitLab / Docker / NPM / JetBrains 仍然默认进入 `🧑‍💻 开发服务`
+     - GitLab / Docker / NPM / JetBrains / Vercel / Python / JFrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 仍然默认进入 `🧑‍💻 开发服务`
    - 也就是说：
      - 这轮增强默认不会改你现在已有的分流结果
      - 只有显式传参时才改变开发流量的优先级和入口位置
@@ -244,7 +851,7 @@
      - `blackmatrix7`
    - 作用：
      - 默认 `meta` 继续使用 MetaCubeX 内置 geosite/geoip 规则
-     - 切到 `blackmatrix7` 后，会把内置的 `GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini` 规则切到 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
+      - 切到 `blackmatrix7` 后，会把内置的 `GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini / Copilot / OneDrive` 规则切到 `blackmatrix7/ios_rule_script` 的 Clash YAML 规则
 
 2. **新增 SteamFix 补丁开关**
    - 新增参数：
@@ -328,7 +935,7 @@
 
 ## V8.63.0 这一轮新增了什么
 
-这一轮继续把 **业务规则前后关系** 往下补：现在不只知道关键规则窗口，还能继续把 `AI / Crypto / GitHub / Steam / SteamCN` 这些业务规则各自前后 2 跳一起拉平。
+这一轮继续把 **业务规则前后关系** 往下补：现在不只知道关键规则窗口，还能继续把 `AI / Crypto / GitHub / 开发服务 / Steam` 以及 `AIExtra / Copilot / Grok / AppleAI` 这些业务规则各自前后 2 跳一起拉平。
 
 1. **新增业务规则窗口摘要**
    - 不新增新参数
@@ -350,7 +957,7 @@
 3. **full 日志继续补齐**
    - 新增：
      - `业务规则窗口`
-   - 日志字段形如：`业务规则窗口: tracked=9,found=9,ai=5,dev=1,trade=1,game=2,missing=0,span=5-30,order=ChatGPT@5|OpenAI@6|..., preview=GitHub@29[prev=Geo_Not_CN->🚀 节点选择,curr=GitHub->🐙 GitHub,next=Steam->🚂 Steam|SteamCN->🚂 Steam]`
+   - 日志字段形如：`业务规则窗口: tracked=30,found=30,ai=9,dev=18,trade=1,game=2,missing=0,span=5-51,order=ChatGPT@5|AIExtra@6|OpenAI@7|...|SteamCN@51, preview=Slack@41[prev=Figma->🧑‍💻 开发服务,curr=Slack->🧑‍💻 开发服务,next=Dropbox->🧑‍💻 开发服务|Steam->🚂 Steam]`
 
 ## V8.62.0 这一轮新增了什么
 
@@ -463,7 +1070,7 @@
 
 ## V8.58.0 这一轮新增了什么
 
-这一轮继续把 **局部业务链路观测** 往下补：现在不只知道整条链怎么走，还能继续把 **GitHub / Steam / SteamCN / AI / Crypto** 单独拆出来看规则入口、目标组、组类型和头部候选链。
+这一轮继续把 **局部业务链路观测** 往下补：现在不只知道整条链怎么走，还能继续把 **GitHub / OneDrive / 开发服务 / Steam / AI / Crypto** 以及 **AIExtra / Copilot / Grok / AppleAI** 单独拆出来看规则入口、目标组、组类型和头部候选链。
 
 1. **新增业务链路总览摘要**
    - 不新增新参数
@@ -494,7 +1101,7 @@
 4. **full 日志继续补齐**
    - 新增：
      - `业务链路总览`
-   - 日志字段形如：`业务链路总览: total=5,expected=5,direct-target=0,select-target=0,latency-type=0,direct-first=1,missing=0, preview=GitHub@24->🐙 GitHub[select]=...`
+   - 日志字段形如：`业务链路总览: total=27,expected=27,direct-target=0,select-target=0,latency-type=0,direct-first=1,missing=0, preview=GitHub@45->🐙 GitHub[select]=...|OneDrive@48->☁️ OneDrive[select]=...|Slack@41->🧑‍💻 开发服务[select]=...`
 
 ## V8.57.0 这一轮新增了什么
 
@@ -2096,10 +2703,20 @@
 `🤖 AI服务` 会同时命中：
 
 - `ChatGPT.list`
+- `AIExtra.list`
 - `OpenAI` 官方规则
 - `Anthropic` 官方规则
 - `Gemini` 官方规则
+- `Copilot` 社区规则
+- `Grok` 社区规则
+- `AppleAI` 社区规则
 - `category-ai-!cn`
+
+其中：
+
+- `Grok` 主要承接 `x.ai / grok.com`
+- `AppleAI` 主要承接 `Apple Intelligence / PCC / Siri AI` 相关域名
+- `AppleAI` 默认仍走 `🤖 AI服务`，避免被普通 `🍎 Apple` 直连链提前接住
 
 默认优先链：
 
@@ -2115,6 +2732,43 @@
 - `🇯🇵 日本节点`
 - `🇸🇬 狮城节点`
 - `🇭🇰 香港节点`
+
+### 开发增强
+
+`🧑‍💻 开发服务` 目前会统一承接：
+
+- `GitLab`
+- `Docker`
+- `Npmjs`
+- `JetBrains`
+- `Vercel`
+- `Python`
+- `Jfrog`
+- `Heroku`
+- `GitBook`
+- `SourceForge`
+- `DigitalOcean`
+- `Anaconda`
+- `Atlassian`
+- `Notion`
+- `Figma`
+- `Slack`
+
+其中：
+
+- `Vercel` 主要覆盖 `vercel / nextjs / turborepo` 相关域名
+- `Python` 主要覆盖 `python / pypi / pypa` 相关域名
+- `Jfrog` 主要覆盖 `jfrog / bintray` 制品仓库域名
+- `Heroku` 主要覆盖 `heroku / herokuapp / herokussl` 部署平台域名
+- `GitBook` 主要覆盖 `gitbook / gitbook.io` 文档平台域名
+- `SourceForge` 主要覆盖 `sourceforge / sf.net / fsdn` 开源下载分发域名
+- `DigitalOcean` 主要覆盖 `digitalocean / digitaloceanspaces / do.co` 云平台域名
+- `Anaconda` 主要覆盖 `anaconda / conda.io` 数据科学与 Python 包分发域名
+- `Atlassian` 目前覆盖 `atlassian / bitbucket / trello / statuspage` 协作平台域名
+- `Notion` 主要覆盖 `notion / notion.so / notion.site` 知识库与文档协作域名
+- `Figma` 主要覆盖 `figma.com` 设计协作域名
+- `Slack` 主要覆盖 `slack / slack-files / slack-edge` 团队协作域名
+- 这些规则默认都会直接复用现有 `dev*` 参数体系，不单独新增新的组参数
 
 ---
 
@@ -2385,6 +3039,18 @@ $options=#full&hidden&groupInterval=300
 ...?target=ClashMeta&full&devIncludeAll=true&devNodeFilter=IEPL|IPLC|家宽&devNodeExcludeFilter=中转|落地&devRuleAnchor=GitHub&devRulePosition=after
 ```
 
+### 21H. 自定义开发服务组国家优先链
+
+```text
+...?target=ClashMeta&full&devPreferCountries=新加坡,日本,美国&devMode=proxy&devType=fallback&devUseProviders=airport-dev
+```
+
+### 21I. 自定义 AIExtra 补充规则源
+
+```text
+...?target=ClashMeta&full&aiExtraListUrl=https://raw.githubusercontent.com/example/repo/main/AIExtra.list
+```
+
 ### 22. 自定义 GitHub / Steam 独立组 hidden / icon / disable-udp
 
 ```text
@@ -2484,7 +3150,7 @@ $options=#full&hidden&groupInterval=300
 - `规则层级目标映射` 会继续把 `规则层级` 和 `目标组` 做交叉统计
 - 适合在排查“为什么某一层的规则几乎都送进了某个组”时直接看这份交叉摘要
 - `preview=service->🍎 Apple:2|ai->🤖 AI服务:5` 这类片段表示对应层里有多少条规则最终指向这个目标组
-- `业务规则窗口` 会继续把 `ChatGPT / OpenAI / Anthropic / Gemini / AI / Crypto / GitHub / Steam / SteamCN` 这些业务规则单独抽出来看
+- `业务规则窗口` 会继续把 `ChatGPT / AIExtra / OpenAI / Anthropic / Gemini / Copilot / Grok / AppleAI / AI / Crypto / GitHub / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / Steam / SteamCN` 这些业务规则单独抽出来看
 - 它会给每条业务规则附上前 2 条和后 2 条邻居，适合排查某条业务规则是不是正好被夹在宽泛规则和地区规则之间
 - `prev=... , curr=... , next=...` 会直接展示该业务规则前后的局部链路
 - `规则入口映射` 用来观察 `RULE-SET provider -> target` 的最终映射结果
@@ -2496,7 +3162,7 @@ $options=#full&hidden&groupInterval=300
 - `策略组候选链风险` 用来观察关键策略组内部的候选顺序是否异常
 - 当前脚本重点检查 `DIRECT / REJECT / FALLBACK / SELECT` 这些关键候选是不是被排错位
 - 一旦命中这类风险，即便规则已经把流量送进正确的组，组内实际选路结果也可能和预期不一致
-- `业务链路总览` 会单独聚焦 `GitHub / Steam / SteamCN / AI / Crypto` 这些关键业务
+- `业务链路总览` 会单独聚焦 `GitHub / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / OneDrive / Steam / SteamCN / AIExtra / Copilot / Grok / AppleAI / AI / Crypto` 这些关键业务
 - 它会把 `规则入口 -> 目标组 -> 组类型 -> 头部候选链` 压成单独摘要
 - 适合在排查“某一类业务为什么没有按预期组走”时，直接先看局部业务链，而不是先翻整条大链
 - 如果出现 `GitHub -> 直连组`、`SteamCN -> 节点选择`、`AI 首位 DIRECT`、`Crypto 首位偏离国家优先链`，脚本会额外进入 `业务链路提醒`
@@ -2629,7 +3295,9 @@ $options=#full&hidden&groupInterval=300
 - 如果 `proxyProviderHealthCheckExpectedStatus` 语法非法，脚本会忽略该值并显式告警
 - 如果 `proxyProviderHealthCheckUrl` 看起来不像合法 `http(s)` 地址，也会进入代理集合告警
 - 如果设置 `githubPreferCountries / steamPreferCountries`，对应独立组会优先插入这些国家组
+- 如果设置 `devPreferCountries`，开发服务组也会优先插入这些国家组
 - Steam 组即使设置了优先链，`DIRECT` 仍然保持在最前面
+- 开发服务组在 `devMode=direct` 时同样会保持 `DIRECT` 第一位，再把 `devPreferCountries` 插到 `GitHub` 前面
 - 如果设置 `githubMode / steamMode`，可以切换独立组是 `select / direct / proxy` 哪种候选顺序
 - GitHub 默认 `select`，Steam 默认 `direct`
 - 如果设置 `githubType / steamType`，可以把独立组切成 `select / url-test / fallback / load-balance`
@@ -2648,6 +3316,7 @@ $options=#full&hidden&groupInterval=300
 - `githubPreferGroups / steamPreferGroups` 和 `githubPreferCountries / steamPreferCountries` 可以同时使用：前者管“组编排”，后者管“国家优先”
 - 如果设置 `devPreferGroups`，开发服务组也会在现有候选链最前面额外插入这些策略组/内置策略
 - `devPreferGroups` 适合把 `manual / lowcost / 你自己的开发专线组` 插到开发服务组最前面
+- `devPreferGroups` 和 `devPreferCountries` 可以同时使用：前者管“组编排”，后者管“国家优先”
 - `PreferGroups` 支持直接引用：
   - 已生成组名
   - `DIRECT`
@@ -2658,12 +3327,14 @@ $options=#full&hidden&groupInterval=300
 - 如果设置 `githubPreferNodes / steamPreferNodes`，对应独立组会在前置组之前，直接插入这些真实节点
 - 如果设置 `devPreferNodes`，开发服务组也会在前置组之前，直接插入这些真实节点
 - `PreferNodes` 的优先级高于 `PreferGroups`，也高于国家优先链
+- 开发服务组当前候选顺序可以理解为：`PreferNodes > PreferGroups > devPreferCountries > devMode 基础链`
 - `PreferNodes` 会按“精确匹配 -> 忽略大小写精确匹配 -> 唯一模糊匹配”依次尝试
 - 如果某个 `PreferNodes` 标记同时命中多个节点，脚本会给出歧义告警，不会随便选一个
 - `PreferNodes` 只支持逗号、分号、换行分隔；不会把 `|` 当分隔符，因为很多节点名本身就带 `|`
 - 如果 `PreferNodes` 标记没命中任何节点，会进入独立组点名节点告警
 - 如果设置 `devMode`，可以切换开发服务组是 `select / direct / proxy` 哪种候选顺序
 - 开发服务组默认 `devMode=select`，也就是 `GitHub -> 节点选择 -> 自动切换...`
+- 如果设置 `devPreferCountries`，这些国家组会插到开发服务组基础链前面；在 `devMode=direct` 时则插到 `DIRECT` 后、`GitHub` 前
 - 如果设置 `devType`，开发服务组也可以切到 `select / url-test / fallback / load-balance`
 - 当 `devType` 不是 `select` 时，会复用脚本现有的 `testUrl / groupInterval / groupTolerance / groupTimeout` 等测速参数
 - 如果设置 `devTestUrl / devGroupInterval`，开发服务组会优先使用自己的测速地址与测速间隔
@@ -2683,7 +3354,7 @@ $options=#full&hidden&groupInterval=300
 - 如果同时设置 `devUseProviders` 和 `devIncludeAllProviders=true`，脚本会提示前者被忽略，并以 `include-all-providers` 为准
 - 如果同时设置 `devIncludeAll=true` 与 `devUseProviders / devIncludeAllProviders`，脚本会提示后两者被忽略，并以 `include-all` 为准
 - 开发服务组现在也支持“显式候选链 + 原始节点池 + proxy-providers 池”混合模式
-- 如果设置 `devRuleTarget`，会把 `GitLab / Docker / Npmjs / Jetbrains` 四条开发规则一起改写到同一个目标组/内置策略
+- 如果设置 `devRuleTarget`，会把 `GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 十七条开发规则一起改写到同一个目标组/内置策略
 - 如果设置 `githubRuleTarget / steamRuleTarget / steamCnRuleTarget`，会直接改写对应规则命中的入口目标
 - 规则入口目标支持：
   - 已生成组名
@@ -2693,13 +3364,14 @@ $options=#full&hidden&groupInterval=300
 - 规则入口目标参数和独立组内部顺序参数是两层能力：一个决定“先进哪个组”，一个决定“进组后怎么选”
 - 如果规则入口目标参数没命中任何可用组/内置策略，脚本会显式告警并自动回退默认目标
 - 如果设置 `devRuleAnchor / devRulePosition`，会把整块开发规则一起移动到指定锚点前后
-- 开发规则块移动时会保持 `GitLab -> Docker -> Npmjs -> Jetbrains` 的内部相对顺序
+- 开发规则块移动时会保持 `GitLab -> Docker -> Npmjs -> Jetbrains -> Vercel -> Python -> Jfrog -> Heroku -> GitBook -> SourceForge -> DigitalOcean -> Anaconda -> Atlassian -> Notion -> Figma -> Slack` 的内部相对顺序
 - `devRuleAnchor` 同样支持 provider 名、常用别名，以及 `top / start / end / match`
-- `devRuleAnchor` 不能引用开发规则块自身；例如 `dev / gitlab / docker / npmjs / jetbrains` 会进入显式告警
+- `devRuleAnchor` 不能引用开发规则块自身；例如 `dev / gitlab / docker / npmjs / jetbrains / vercel / python / jfrog / heroku / gitbook / sourceforge / digitalocean / anaconda / atlassian / bitbucket / trello / statuspage / notion / figma / slack` 会进入显式告警
 - 如果设置 `githubRuleAnchor / steamRuleAnchor / steamCnRuleAnchor`，会按锚点重排对应规则入口在整条 `RULE-SET` 链里的位置
 - `RulePosition` 只支持 `before / after`；如果不传，默认按 `before` 处理
 - 规则顺序锚点支持 provider 名、常用别名，以及特殊位置别名 `top / start / first / end / match / final`
-- 常用规则顺序锚点可直接写：`ChatGPT / AI / Steam / SteamCN / Geo_Not_CN / DirectList / CN`
+- 常用规则顺序锚点可直接写：`ChatGPT / AIExtra / Copilot / Grok / AppleAI / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / OneDrive / AI / Steam / SteamCN / Geo_Not_CN / DirectList / CN`
+- `OneDrive` 规则锚点还支持常见别名：`sharepoint / skydrive / 1drv`
 - 如果规则顺序锚点未命中任何规则入口，或错误引用了自己，脚本会显式告警并保持默认顺序
 - 如果设置 `customRuleAnchor / customRulePosition`，会把 `config.rules` 整段插到指定锚点前后，而不再固定只放在 `MATCH` 前
 - `customRuleAnchor` 复用和 `githubRuleAnchor` 一样的锚点体系：既支持 provider 名，也支持 `top / start / end / match`
@@ -2711,13 +3383,16 @@ $options=#full&hidden&groupInterval=300
   - 单个组别名，如 `select / ai / github / steam / direct / ads`
   - 分组桶，如 `core / services / media / countries / extras`
 - 如果 `groupOrder` 里的某个 token 没命中任何策略组或分组桶，脚本会显式告警，不会静默吞掉
-- 如果设置 `ruleSourcePreset=blackmatrix7`，当前会接管内置的 `GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini` 规则源
-- 另外，新增的 `GitLab / Docker / Npmjs / Jetbrains` 开发生态规则当前也统一采用 blackmatrix7 的 Clash YAML 规则
-- `ruleSourcePreset` 不会改动 `DirectList / Crypto / ChatGPT` 这些本地 classical 规则源
+- 如果设置 `aiExtraListUrl`，脚本会把 `AIExtra` 规则源切到你自定义的 GitHub AI 补充列表
+- 如果设置 `ruleSourcePreset=blackmatrix7`，当前会接管内置的 `GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini / Copilot / OneDrive` 规则源
+- `Grok / AppleAI` 当前走的是 `Accademia/Additional_Rule_For_Clash` 社区补充规则，不受 `ruleSourcePreset=blackmatrix7` 影响
+- 另外，新增的 `GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 开发生态规则当前也统一采用 blackmatrix7 的 Clash YAML 规则
+- `OneDrive` 默认仍走 MetaCubeX geosite；当切到 `ruleSourcePreset=blackmatrix7` 时，也会改走 `blackmatrix7/ios_rule_script` 的 `OneDrive.yaml`
+- `ruleSourcePreset` 不会改动 `DirectList / Crypto / ChatGPT / AIExtra` 这些本地 classical 规则源
 - 如果设置 `steamFix=true`，脚本会插入一条 `SteamFix -> DIRECT` 规则到 `Steam / SteamCN` 前面
 - 如果继续设置 `steamFixUrl`，脚本会优先使用自定义 URL；未设置时回退内置默认 SteamFix 规则地址
 - `steamFix` 默认关闭，属于显式启用的补丁能力，不会默认改你的原始分流行为
-- 新增的 `🧑‍💻 开发服务` 组当前默认把 `🐙 GitHub` 放在最前面，因此 GitLab / Docker / NPM / JetBrains 流量会优先沿用 GitHub / 开发链路
+- 新增的 `🧑‍💻 开发服务` 组当前默认把 `🐙 GitHub` 放在最前面，因此 GitLab / Docker / NPM / JetBrains / Vercel / Python / JFrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack 流量会优先沿用 GitHub / 开发链路
 - 如果设置 `githubHidden / steamHidden`，只会隐藏 GitHub / Steam 独立组本身，不影响其他脚本组
 - 如果设置 `githubIcon / steamIcon`，脚本会把对应值原样写入独立组 `icon` 字段
 - 如果设置 `githubDisableUdp / steamDisableUdp`，脚本会把对应值写入独立组 `disable-udp` 字段
@@ -2768,6 +3443,7 @@ $options=#full&hidden&groupInterval=300
 - `directListUrl`
 - `cryptoListUrl`
 - `chatgptListUrl`
+- `aiExtraListUrl`
 - `ruleProviderPathDir`
 - `ruleProviderInterval`
 - `ruleProviderProxy`
@@ -2817,6 +3493,7 @@ $options=#full&hidden&groupInterval=300
 - `cryptoPreferCountries`
 - `githubPreferCountries`
 - `steamPreferCountries`
+- `devPreferCountries`
 - `githubPreferGroups`
 - `steamPreferGroups`
 - `devPreferGroups`
@@ -3225,6 +3902,18 @@ devUseProviders=airport-a,airport-b&devNodeFilter=IEPL|家宽|GitHub&devNodeExcl
 devIncludeAll=true&devNodeFilter=IEPL|IPLC|家宽&devNodeExcludeFilter=中转|落地&devRuleAnchor=GitHub&devRulePosition=after
 ```
 
+### 14E. 开发服务组国家优先链
+
+```ini
+devPreferCountries=新加坡,日本,美国&devMode=proxy&devType=fallback&devUseProviders=airport-dev
+```
+
+### 14F. AIExtra 补充规则源
+
+```ini
+aiExtraListUrl=https://raw.githubusercontent.com/example/repo/main/AIExtra.list
+```
+
 ### 15. GitHub / Steam 独立组 proxy-providers 池
 
 ```ini
@@ -3395,6 +4084,34 @@ ruleProviderPayload=DOMAIN-SUFFIX,internal.example,DIRECT||DOMAIN,router.local,D
 - V8.25.0 `githubIncludeAll / steamIncludeAll` 参数化 GitHub / Steam 独立组 `include-all`
 - V8.25.0 `include-all` 优先级高于 `UseProviders / include-all-providers`
 - V8.25.0 provider 池型 latency/load-balance 组会追加官方健康检查提醒
+- V8.82.0 国家识别已继续扩充到 `澳门 / 荷兰 / 意大利 / 西班牙 / 印度 / 大马 / 泰国 / 越南 / 菲律宾 / 印尼 / 阿联酋 / 沙特 / 墨西哥`
+- V8.82.0 国家别名已继续补齐英文名、缩写与常见城市名，便于机场节点命名直接归组
+- V8.81.0 GitHub 检索确认 `blackmatrix7/ios_rule_script` 提供稳定 `OneDrive.yaml`，`ruleSourcePreset=blackmatrix7` 已可接管 `OneDrive`
+- V8.81.0 `业务链路总览` 与规则锚点别名已同步纳入 `OneDrive / SharePoint / SkyDrive`
+- V8.80.0 新增 `Dropbox` 社区规则，并默认接入 `🧑‍💻 开发服务`
+- V8.80.0 `Dropbox` 已同步纳入业务规则窗口、业务链路总览、分流链路总览与规则锚点别名
+- V8.79.0 新增 `Notion / Figma / Slack` 社区规则，并默认接入 `🧑‍💻 开发服务`
+- V8.79.0 `Notion / Figma / Slack` 已同步纳入业务规则窗口、业务链路总览、分流链路总览与规则锚点别名
+- V8.78.0 新增 `Atlassian` 社区规则，并默认接入 `🧑‍💻 开发服务`
+- V8.78.0 `Atlassian` 已同步纳入业务规则窗口、业务链路总览、分流链路总览与规则锚点别名
+- V8.77.0 新增 `DigitalOcean / Anaconda` 社区规则，并默认接入 `🧑‍💻 开发服务`
+- V8.77.0 `DigitalOcean / Anaconda` 已同步纳入业务规则窗口、业务链路总览、分流链路总览与规则锚点别名
+- V8.76.0 新增 `Heroku / GitBook / SourceForge` 社区规则，并默认接入 `🧑‍💻 开发服务`
+- V8.76.0 `Heroku / GitBook / SourceForge` 已同步纳入业务规则窗口、业务链路总览、分流链路总览与规则锚点别名
+- V8.75.0 新增 `Vercel / Python / Jfrog` 社区规则，并默认接入 `🧑‍💻 开发服务`
+- V8.75.0 `Vercel / Python / Jfrog` 已同步纳入业务规则窗口、业务链路总览、分流链路总览与规则锚点别名
+- V8.74.0 新增 `Grok / AppleAI` 社区规则，并默认接入 `🤖 AI`
+- V8.74.0 `AIExtra / Grok / AppleAI` 已同步纳入业务规则窗口、业务链路总览与 AI 风险提醒
+- V8.74.0 响应调试头与 `规则源参数` full 日志已同步补齐 `Grok-Rule-Url / Apple-AI-Rule-Url`
+- V8.73.0 新增 `AIExtra.list` 与 `aiExtraListUrl`，用于承接 GitHub 社区常见的 AI 补充域名
+- V8.73.0 `AIExtra` 已默认接入 `🤖 AI`，并补齐 `perplexity / cursor / huggingface` 等规则锚点别名
+- V8.73.0 `规则源参数` full 日志与响应调试头已同步补齐 `AI-Extra-List-Url`
+- V8.71.0 新增 `Copilot` 社区规则，并默认接入 `🤖 AI`
+- V8.71.0 `Copilot` 已同步纳入业务规则窗口、业务链路总览与规则锚点别名
+- V8.71.0 `ruleSourcePreset=blackmatrix7` 的接管说明已同步扩展到 `Copilot`
+- V8.70.0 `devPreferCountries` 参数化开发服务组国家优先链
+- V8.70.0 开发服务组候选顺序升级为“点名节点 > 前置组 > 国家优先链 > devMode 基础链”
+- V8.70.0 开发服务组国家优先链诊断、full 日志与响应调试头已同步补齐
 - V8.69.0 `devUseProviders / devIncludeAll / devIncludeAllProviders` 参数化开发服务组 proxy-providers 池
 - V8.69.0 `devNodeFilter / devNodeExcludeFilter / devNodeExcludeType / devIncludeAllProxies` 参数化开发服务组原始节点池
 - V8.69.0 开发服务组现已支持“显式候选链 + 原始节点池 + proxy-providers 池”混合模式
@@ -3404,12 +4121,12 @@ ruleProviderPayload=DOMAIN-SUFFIX,internal.example,DIRECT||DOMAIN,router.local,D
 - V8.68.0 开发服务组高级项已同步写入 full 日志与响应调试头
 - V8.67.0 `devMode / devType / devPreferGroups / devPreferNodes` 参数化开发服务组候选链与组类型
 - V8.67.0 `devRuleTarget / devRuleAnchor / devRulePosition` 统一改写开发规则入口目标与规则块顺序
-- V8.67.0 开发规则块会整体移动并保持 `GitLab / Docker / Npmjs / Jetbrains` 的内部相对顺序
-- V8.66.0 新增 `🧑‍💻 开发服务` 组，并接入 GitLab / Docker / Npmjs / Jetbrains 分流
+- V8.67.0 开发规则块会整体移动并保持开发规则块的内部相对顺序
+- V8.66.0 新增 `🧑‍💻 开发服务` 组，并接入核心开发生态分流
 - V8.66.0 开发生态流量默认优先沿用 GitHub 独立组，再回落到主选择链
 - V8.66.0 开发生态规则已同步纳入业务规则窗口、业务链路总览与分流链路总览
 - V8.65.0 `ruleSourcePreset / steamFix / steamFixUrl` 参数化 GitHub 社区规则源预设与 SteamFix 补丁规则
-- V8.65.0 `ruleSourcePreset=blackmatrix7` 当前可接管 GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini 内置规则源
+- V8.65.0 `ruleSourcePreset=blackmatrix7` 当前可接管 GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini / Copilot 内置规则源
 - V8.65.0 `SteamFix` 命中结果已同步补进关键命中窗口与分流链路总览
 - V8.64.0 `groupOrderPreset / groupOrder / customRuleAnchor / customRulePosition` 参数化策略组布局与 `config.rules` 锚点插入
 - V8.64.0 `groupOrder` 支持单组别名与 `core / services / media / countries / extras` 这类分组桶
@@ -3476,7 +4193,11 @@ ruleProviderPayload=DOMAIN-SUFFIX,internal.example,DIRECT||DOMAIN,router.local,D
 - 官方 `$options` querystring / JSON 兼容
 - GitHub / Steam 独立策略组
 - `ChatGPT.list` 接入 AI 链路
+- `AIExtra.list` 承接社区 AI 补充域名
 - `OpenAI / Anthropic / Gemini` 官方规则
+- `Copilot / Grok / AppleAI` 社区规则接入 AI 链路
+- `Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 社区规则接入开发链路
+- `OneDrive` 在 `ruleSourcePreset=blackmatrix7` 下可切换到社区 YAML 规则，并纳入业务链路观测
 - AI / Crypto 多国家优先链
 - AI DNS policy 增强
 - Sniffer 域名追加参数
@@ -3514,5 +4235,38 @@ ruleProviderPayload=DOMAIN-SUFFIX,internal.example,DIRECT||DOMAIN,router.local,D
 
 - blackmatrix7 / ios_rule_script  
   https://github.com/blackmatrix7/ios_rule_script
+- Accademia / Additional_Rule_For_Clash  
+  https://github.com/Accademia/Additional_Rule_For_Clash
 - powerfullz / override-rules  
   https://github.com/powerfullz/override-rules
+- mihomo-party-org / override-hub  
+  https://github.com/mihomo-party-org/override-hub
+- DustinWin / ruleset_geodata  
+  https://github.com/DustinWin/ruleset_geodata
+
+本轮直接吸收的开发生态规则源还包括：
+
+- blackmatrix7 / ios_rule_script / Vercel  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Vercel/Vercel.yaml
+- blackmatrix7 / ios_rule_script / Python  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Python/Python.yaml
+- blackmatrix7 / ios_rule_script / Jfrog  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Jfrog/Jfrog.yaml
+- blackmatrix7 / ios_rule_script / Heroku  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Heroku/Heroku.yaml
+- blackmatrix7 / ios_rule_script / GitBook  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/GitBook/GitBook.yaml
+- blackmatrix7 / ios_rule_script / SourceForge  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/SourceForge/SourceForge.yaml
+- blackmatrix7 / ios_rule_script / DigitalOcean  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/DigitalOcean/DigitalOcean.yaml
+- blackmatrix7 / ios_rule_script / Anaconda  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Anaconda/Anaconda.yaml
+- blackmatrix7 / ios_rule_script / Atlassian  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Atlassian/Atlassian.yaml
+- blackmatrix7 / ios_rule_script / Notion  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Notion/Notion.yaml
+- blackmatrix7 / ios_rule_script / Figma  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Figma/Figma.yaml
+- blackmatrix7 / ios_rule_script / Slack  
+  https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Slack/Slack.yaml

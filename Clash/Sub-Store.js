@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.69.0
+ * Sub-Store 终极策略增强脚本 V8.82.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -92,21 +92,43 @@
  * 87. 自定义规则顺序增强：开放 custom-rule-anchor / custom-rule-position，可把 config.rules 插到指定 RULE-SET 锚点前后，真正控制“哪些流量先走”。
  * 88. 顺序诊断增强：补充策略组编排参数与自定义规则编排参数告警，避免 group-order / custom-rule-anchor 写错后静默失效。
  * 89. 顺序摘要增强：把策略组布局模式与自定义规则编排方式同步写入 full 日志和响应调试头，便于直接核对本轮顺序配置是否真的生效。
- * 90. GitHub 规则生态增强：接入 GitHub 社区常用的 blackmatrix7 规则源预设，可切换 GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini 内置规则来源。
+ * 90. GitHub 规则生态增强：接入 GitHub 社区常用的 blackmatrix7 规则源预设，可切换 GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini / Copilot 内置规则来源。
  * 91. Steam 修复增强：接入 GitHub 覆写项目常见的 SteamFix 规则补丁，可选在 Steam / SteamCN 前面插入直连修复规则。
  * 92. 规则源诊断增强：补充 rule-source-preset / steam-fix 参数摘要、URL 校验与响应调试头，便于直接确认社区规则源是否已真正接管。
  * 93. 开发生态增强：新增开发服务组，并接入 GitLab / Docker / NPM / JetBrains 等常见开发流量分流。
  * 94. 开发链路观测增强：把开发服务规则纳入业务规则窗口、业务链路总览与关键候选链摘要，便于直接观察开发流量怎么走。
  * 95. 开发服务组参数化增强：开放 dev-mode / dev-type / dev-prefer-groups / dev-prefer-nodes，把开发服务组升级为可独立编排的业务组。
- * 96. 开发规则顺序增强：开放 dev-rule-target / dev-rule-anchor / dev-rule-position，可统一改写 GitLab / Docker / Npmjs / JetBrains 规则入口与优先级。
+ * 96. 开发规则顺序增强：开放 dev-rule-target / dev-rule-anchor / dev-rule-position，可统一改写 GitLab / Docker / Npmjs / JetBrains 等开发规则入口与优先级。
  * 97. 开发服务组高级项增强：继续开放 dev-test-url / dev-group-* / dev-group-strategy / dev-hidden / dev-icon / dev-disable-udp / dev-interface-name / dev-routing-mark。
  * 98. 开发服务组节点池增强：继续开放 dev-node-filter / dev-node-exclude-filter / dev-node-exclude-type / dev-include-all-proxies。
  * 99. 开发服务组 Provider 池增强：继续开放 dev-use-providers / dev-include-all / dev-include-all-providers，对齐 GitHub / Steam 独立组玩法。
+ * 100. 开发服务组国家优先链增强：继续开放 dev-prefer-countries，让开发流量也能按国家组优先，再回落 GitHub / 主选择链。
+ * 101. AI 服务增强：继续接入 Copilot 社区规则，并纳入 AI 链路、业务规则窗口与业务链路观测。
+ * 102. 社区规则源修正：对齐 blackmatrix7 当前目录命名，把 Anthropic 社区源校正为 Claude.yaml，避免 rule-source-preset=blackmatrix7 时取错路径。
+ * 103. AI 补充规则增强：新增 AIExtra 规则源与 ai-extra-list-url，可继续吸收 GitHub 社区常见的 Perplexity / Cursor / HuggingFace 等补充域名。
+ * 104. 社区 AI 规则增强：继续接入 Accademia/Additional_Rule_For_Clash 里的 Grok / AppleAI 规则，并默认纳入 AI 链路。
+ * 105. AI 链路观测增强：把 AIExtra / Grok / AppleAI 继续纳入业务规则窗口、业务链路总览与 AI 风险提醒，方便直接观察新补充规则怎么走。
+ * 106. 开发生态规则增强：继续接入 blackmatrix7 的 Vercel / Python / Jfrog 社区规则，并统一纳入开发服务组。
+ * 107. 开发链路观测增强：把 Vercel / Python / Jfrog 一起纳入业务规则窗口、业务链路总览、规则锚点别名与整条分流链路总览。
+ * 108. 开发生态规则继续增强：继续接入 blackmatrix7 的 Heroku / GitBook / SourceForge 社区规则，并统一纳入开发服务组。
+ * 109. 开发链路观测继续增强：把 Heroku / GitBook / SourceForge 一起纳入业务规则窗口、业务链路总览、规则锚点别名与整条分流链路总览。
+ * 110. 云平台与数据科学开发规则增强：继续接入 blackmatrix7 的 DigitalOcean / Anaconda 社区规则，并统一纳入开发服务组。
+ * 111. 开发链路观测继续增强：把 DigitalOcean / Anaconda 一起纳入业务规则窗口、业务链路总览、规则锚点别名与整条分流链路总览。
+ * 112. 协作平台开发规则增强：继续接入 blackmatrix7 的 Atlassian 社区规则，并统一纳入开发服务组。
+ * 113. 开发链路观测继续增强：把 Atlassian 一起纳入业务规则窗口、业务链路总览、规则锚点别名与整条分流链路总览。
+ * 114. 研发协作工具规则增强：继续接入 blackmatrix7 的 Notion / Figma / Slack 社区规则，并统一纳入开发服务组。
+ * 115. 开发链路观测继续增强：把 Notion / Figma / Slack 一起纳入业务规则窗口、业务链路总览、规则锚点别名与整条分流链路总览。
+ * 116. 协作文件规则增强：继续接入 blackmatrix7 的 Dropbox 社区规则，并统一纳入开发服务组。
+ * 117. GitHub 项目检索增强：补充对额外社区仓库的在线检索结论；当前 Netlify / Supabase / Railway / Render 未发现稳定规则，而 Dropbox 规则已接入。
+ * 118. OneDrive 规则源增强：继续根据 GitHub 检索结果，把 blackmatrix7 的 OneDrive 社区规则接入 rule-source-preset=blackmatrix7 的可切换范围。
+ * 119. OneDrive 链路观测增强：把 OneDrive / SharePoint / SkyDrive 继续纳入业务链路总览与规则顺序锚点别名，便于观察协作文件流量如何命中。
+ * 120. 国家识别增强：继续按现有命名风格扩充更多常见机场国家/地区别名，补齐澳门、荷兰、意大利、西班牙、印度、大马、泰国、越南、菲律宾、印尼、阿联酋、沙特、墨西哥等节点识别。
+ * 121. 国家命名风格增强：继续保持“中文主名 + 常见英文/缩写/城市别名”的写法，并沿用狮城/枫叶/袋鼠/毛熊这类显示风格。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.69.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.69.0。
+const SCRIPT_VERSION = "8.82.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.82.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -143,6 +165,8 @@ const META_GEO_LITE_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rule
 const RULESET_REPO_BASE_URL = "https://raw.githubusercontent.com/langhun/Rule/main/Clash/Ruleset";
 // blackmatrix7 社区规则仓库的 Clash 规则目录。
 const BLACKMATRIX7_CLASH_RULE_BASE_URL = "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash";
+// Accademia 的 Additional_Rule_For_Clash 仓库，补充 Grok / AppleAI 这类 blackmatrix7 尚未完整覆盖的 AI 规则。
+const ACCADEMIA_ADDITIONAL_RULE_BASE_URL = "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/main";
 // powerfullz 覆写项目规则目录，这里主要复用 SteamFix 补丁。
 const POWERFULLZ_RULESET_BASE_URL = "https://raw.githubusercontent.com/powerfullz/override-rules/master/ruleset";
 // 默认直连规则地址。
@@ -151,6 +175,8 @@ const DIRECT_LIST_URL = `${RULESET_REPO_BASE_URL}/Direct.list`;
 const CRYPTO_LIST_URL = `${RULESET_REPO_BASE_URL}/Crypto.list`;
 // 默认 ChatGPT / OpenAI 规则地址。
 const CHATGPT_LIST_URL = `${RULESET_REPO_BASE_URL}/ChatGPT.list`;
+// 默认 AI 补充规则地址，用来承接社区里常见但主规则未必完整覆盖的 AI 服务域名。
+const AI_EXTRA_LIST_URL = `${RULESET_REPO_BASE_URL}/AIExtra.list`;
 // 默认 SteamFix 规则地址。
 const STEAM_FIX_LIST_URL = `${POWERFULLZ_RULESET_BASE_URL}/SteamFix.list`;
 // Mihomo 官方 General 配置文档中的推荐 GeoX 下载地址。
@@ -236,8 +262,8 @@ const GROUPS = {
   ADS: "🛑 广告拦截"
 };
 
-// 开发生态规则入口集合：用于统一改写 GitLab / Docker / Npmjs / JetBrains 这类开发服务规则。
-const DEV_RULE_PROVIDERS = Object.freeze(["GitLab", "Docker", "Npmjs", "Jetbrains"]);
+// 开发生态规则入口集合：用于统一改写 GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
+const DEV_RULE_PROVIDERS = Object.freeze(["GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
@@ -262,6 +288,8 @@ const DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS = [["🇯🇵", "日本"], ["🇸
 const COUNTRY_DEFINITIONS = [
   // 香港常见命名方式。
   { name: "香港", flag: "🇭🇰", aliases: ["香港", "HK", "HKG", "Hong Kong", "HongKong"] },
+  // 澳门常见命名方式。
+  { name: "澳门", flag: "🇲🇴", aliases: ["澳门", "MO", "MAC", "Macao", "Macau"] },
   // 台湾常见命名方式。
   { name: "台湾", flag: "🇹🇼", aliases: ["台湾", "台北", "新北", "TW", "TWN", "Taiwan"] },
   // 日本常见命名方式。
@@ -286,9 +314,33 @@ const COUNTRY_DEFINITIONS = [
   { name: "德国", flag: "🇩🇪", aliases: ["德国", "战车", "DE", "DEU", "Germany", "Frankfurt", "法兰克福"] },
   // 法国常见命名方式。
   { name: "法国", flag: "🇫🇷", aliases: ["法国", "高卢", "FR", "FRA", "France", "Paris", "巴黎"] },
+  // 荷兰常见命名方式。
+  { name: "荷兰", flag: "🇳🇱", aliases: ["荷兰", "NL", "NLD", "Netherlands", "Amsterdam", "Rotterdam", "阿姆斯特丹", "鹿特丹"] },
+  // 意大利常见命名方式。
+  { name: "意大利", flag: "🇮🇹", aliases: ["意大利", "IT", "ITA", "Italy", "Milan", "Rome", "米兰", "罗马"] },
+  // 西班牙常见命名方式。
+  { name: "西班牙", flag: "🇪🇸", aliases: ["西班牙", "ES", "ESP", "Spain", "Madrid", "Barcelona", "马德里", "巴塞罗那"] },
 
   // 土耳其常见命名方式。
   { name: "土耳其", flag: "🇹🇷", aliases: ["土耳其", "TR", "TUR", "Turkey", "Istanbul", "伊斯坦布尔"] },
+  // 印度常见命名方式。
+  { name: "印度", flag: "🇮🇳", aliases: ["印度", "IN", "IND", "India", "Mumbai", "Bombay", "Delhi", "Chennai", "Bangalore", "孟买", "德里", "金奈", "班加罗尔"] },
+  // 马来西亚常见命名方式，这里沿用“大马”作为显示名称。
+  { name: "大马", flag: "🇲🇾", aliases: ["马来西亚", "大马", "MY", "MYS", "Malaysia", "Kuala Lumpur", "Penang", "Johor", "吉隆坡", "槟城", "柔佛"] },
+  // 泰国常见命名方式。
+  { name: "泰国", flag: "🇹🇭", aliases: ["泰国", "TH", "THA", "Thailand", "Bangkok", "曼谷"] },
+  // 越南常见命名方式。
+  { name: "越南", flag: "🇻🇳", aliases: ["越南", "VN", "VNM", "Vietnam", "Hanoi", "Ho Chi Minh", "HCM", "河内", "胡志明"] },
+  // 菲律宾常见命名方式。
+  { name: "菲律宾", flag: "🇵🇭", aliases: ["菲律宾", "PH", "PHL", "Philippines", "Manila", "马尼拉"] },
+  // 印度尼西亚常见命名方式，这里用“印尼”作为显示名称。
+  { name: "印尼", flag: "🇮🇩", aliases: ["印尼", "印度尼西亚", "ID", "IDN", "Indonesia", "Jakarta", "Surabaya", "雅加达", "泗水"] },
+  // 阿联酋常见命名方式。
+  { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "迪拜", "阿布扎比"] },
+  // 沙特常见命名方式。
+  { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
+  // 墨西哥常见命名方式。
+  { name: "墨西哥", flag: "🇲🇽", aliases: ["墨西哥", "MX", "MEX", "Mexico", "Mexico City", "墨西哥城"] },
   // 澳大利亚常见命名方式，这里用“袋鼠”作为显示名称。
   { name: "袋鼠", flag: "🇦🇺", aliases: ["澳大利亚", "澳洲", "袋鼠", "AU", "AUS", "Australia", "Sydney", "Melbourne", "悉尼", "墨尔本"] },
   // 俄罗斯常见命名方式，这里用“毛熊”作为显示名称。
@@ -1850,6 +1902,8 @@ function resolveArgs(rawArgs) {
   const rawCryptoListUrl = pickArg(args, ["cryptoListUrl", "crypto-list-url"]);
   // 读取 ChatGPT.list 规则源地址参数原始值。
   const rawChatGptListUrl = pickArg(args, ["chatgptListUrl", "chatgpt-list-url", "chatGPTListUrl", "chatGPT-list-url"]);
+  // 读取 AIExtra.list 规则源地址参数原始值。
+  const rawAiExtraListUrl = pickArg(args, ["aiExtraListUrl", "ai-extra-list-url", "moreAiListUrl", "more-ai-list-url", "aiSupplementListUrl", "ai-supplement-list-url"]);
   // 读取内置社区规则源预设参数原始值。
   const rawRuleSourcePreset = pickArg(args, ["ruleSourcePreset", "rule-source-preset", "rulesetPreset", "ruleset-preset"]);
   // 读取 SteamFix 开关参数原始值。
@@ -1942,6 +1996,8 @@ function resolveArgs(rawArgs) {
   const rawGithubPreferCountries = pickArg(args, ["githubPreferCountries", "github-prefer-countries", "githubPrefer", "github-prefer"]);
   // 读取 Steam 国家优先链参数原始值。
   const rawSteamPreferCountries = pickArg(args, ["steamPreferCountries", "steam-prefer-countries", "steamPrefer", "steam-prefer"]);
+  // 读取开发服务组国家优先链参数原始值。
+  const rawDevPreferCountries = pickArg(args, ["devPreferCountries", "dev-prefer-countries", "developerPreferCountries", "developer-prefer-countries", "devPreferCountry", "dev-prefer-country"]);
   // 读取 GitHub 独立组额外前置组参数原始值。
   const rawGithubPreferGroups = pickArg(args, ["githubPreferGroups", "github-prefer-groups", "githubPreferredGroups", "github-preferred-groups"]);
   // 读取 Steam 独立组额外前置组参数原始值。
@@ -2283,6 +2339,7 @@ function resolveArgs(rawArgs) {
   const directListUrl = normalizeStringArg(rawDirectListUrl);
   const cryptoListUrl = normalizeStringArg(rawCryptoListUrl);
   const chatGptListUrl = normalizeStringArg(rawChatGptListUrl);
+  const aiExtraListUrl = normalizeStringArg(rawAiExtraListUrl);
   const ruleSourcePreset = normalizeRuleSourcePreset(rawRuleSourcePreset, DEFAULT_RULE_SOURCE_PRESET);
   const steamFixUrl = normalizeStringArg(rawSteamFixUrl);
   const ruleProviderPathDir = normalizeRuleProviderPathDir(rawRuleProviderPathDir);
@@ -2361,6 +2418,7 @@ function resolveArgs(rawArgs) {
   const cryptoPreferCountries = toStringList(rawCryptoPreferCountries);
   const githubPreferCountries = toStringList(rawGithubPreferCountries);
   const steamPreferCountries = toStringList(rawSteamPreferCountries);
+  const devPreferCountries = toStringList(rawDevPreferCountries);
   const githubPreferGroups = toStringList(rawGithubPreferGroups);
   const steamPreferGroups = toStringList(rawSteamPreferGroups);
   const devPreferGroups = toStringList(rawDevPreferGroups);
@@ -2449,6 +2507,10 @@ function resolveArgs(rawArgs) {
 
   if (chatGptListUrl && !looksLikeHttpUrl(chatGptListUrl)) {
     console.warn(`⚠️ 警告: chatgpt-list-url 看起来不像合法 http(s) 地址: ${chatGptListUrl}`);
+  }
+
+  if (aiExtraListUrl && !looksLikeHttpUrl(aiExtraListUrl)) {
+    console.warn(`⚠️ 警告: ai-extra-list-url 看起来不像合法 http(s) 地址: ${aiExtraListUrl}`);
   }
 
   if (githubTestUrl && !looksLikeHttpUrl(githubTestUrl)) {
@@ -2992,6 +3054,8 @@ function resolveArgs(rawArgs) {
     hasCryptoListUrl: !!cryptoListUrl,
     chatGptListUrl,
     hasChatGptListUrl: !!chatGptListUrl,
+    aiExtraListUrl,
+    hasAiExtraListUrl: !!aiExtraListUrl,
     ruleSourcePreset,
     hasRuleSourcePreset: rawRuleSourcePreset !== undefined,
     steamFix: parseBool(rawSteamFix, false),
@@ -3089,6 +3153,8 @@ function resolveArgs(rawArgs) {
     hasGithubPreferCountries: !!githubPreferCountries.length,
     steamPreferCountries,
     hasSteamPreferCountries: !!steamPreferCountries.length,
+    devPreferCountries,
+    hasDevPreferCountries: !!devPreferCountries.length,
     githubPreferGroups,
     hasGithubPreferGroups: !!githubPreferGroups.length,
     steamPreferGroups,
@@ -4862,6 +4928,11 @@ function blackmatrix7ClashRule(name) {
   return `${BLACKMATRIX7_CLASH_RULE_BASE_URL}/${name}/${name}.yaml`;
 }
 
+// 拼接 Accademia Additional_Rule_For_Clash 的补充 YAML 规则地址。
+function accademiaAdditionalRule(name) {
+  return `${ACCADEMIA_ADDITIONAL_RULE_BASE_URL}/${name}/${name}.yaml`;
+}
+
 // 当前脚本内置的社区规则源映射；仅对明确接入的业务规则生效，其余规则继续走 MetaCubeX 默认源。
 function getCommunityRuleSourceSpec(name) {
   if (normalizeRuleSourcePreset(ARGS.ruleSourcePreset, DEFAULT_RULE_SOURCE_PRESET) !== "blackmatrix7") {
@@ -4870,9 +4941,12 @@ function getCommunityRuleSourceSpec(name) {
 
   const specMap = {
     OpenAI: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("OpenAI") },
-    Anthropic: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("Anthropic") },
+    // blackmatrix7 社区规则里对应 Anthropic/Claude 服务的目录名当前仍是 Claude。
+    Anthropic: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("Claude") },
     Gemini: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("Gemini") },
+    Copilot: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("Copilot") },
     GitHub: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("GitHub") },
+    OneDrive: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("OneDrive") },
     Steam: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("Steam") },
     SteamCN: { behavior: "classical", format: "yaml", url: blackmatrix7ClashRule("SteamCN") }
   };
@@ -4942,8 +5016,16 @@ const ruleProviders = finalizeRuleProviders({
   Anthropic: createPresetAwareRuleProvider("Anthropic", "domain", metaGeoSite("anthropic")),
   // Google Gemini 官方规则。
   Gemini: createPresetAwareRuleProvider("Gemini", "domain", metaGeoSite("google-gemini")),
+  // Copilot 规则目前复用 GitHub 社区里维护的 Clash YAML 规则源。
+  Copilot: createPresetAwareRuleProvider("Copilot", "classical", blackmatrix7ClashRule("Copilot"), "yaml"),
+  // Grok 规则复用社区补充规则项目，覆盖 x.ai / grok.com 等域名。
+  Grok: createRuleProvider("classical", accademiaAdditionalRule("Grok"), "yaml"),
+  // Apple Intelligence / PCC / Siri AI 相关规则也走社区补充规则。
+  AppleAI: createRuleProvider("classical", accademiaAdditionalRule("AppleAI"), "yaml"),
   // 自定义 ChatGPT / OpenAI 规则，用来补足本地维护的精细域名。
   ChatGPT: createRuleProvider("classical", ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : CHATGPT_LIST_URL, "text"),
+  // AI 补充规则，用来承接社区里常见的 Perplexity / Cursor / HuggingFace 等额外域名。
+  AIExtra: createRuleProvider("classical", ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : AI_EXTRA_LIST_URL, "text"),
   // 自定义加密货币规则。
   Crypto: createRuleProvider("classical", ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : CRYPTO_LIST_URL, "text"),
 
@@ -4961,6 +5043,32 @@ const ruleProviders = finalizeRuleProviders({
   Npmjs: createDeveloperRuleProvider("Npmjs"),
   // JetBrains 规则。
   Jetbrains: createDeveloperRuleProvider("Jetbrains"),
+  // Vercel / Next.js / TurboRepo 等开发部署生态规则。
+  Vercel: createDeveloperRuleProvider("Vercel"),
+  // Python / PyPI / pypa 生态规则。
+  Python: createDeveloperRuleProvider("Python"),
+  // JFrog / Bintray 制品仓库规则。
+  Jfrog: createDeveloperRuleProvider("Jfrog"),
+  // Heroku 部署平台规则。
+  Heroku: createDeveloperRuleProvider("Heroku"),
+  // GitBook 文档平台规则。
+  GitBook: createDeveloperRuleProvider("GitBook"),
+  // SourceForge 开源下载/分发平台规则。
+  SourceForge: createDeveloperRuleProvider("SourceForge"),
+  // DigitalOcean 云平台/对象存储规则。
+  DigitalOcean: createDeveloperRuleProvider("DigitalOcean"),
+  // Anaconda / conda 数据科学与 Python 包生态规则。
+  Anaconda: createDeveloperRuleProvider("Anaconda"),
+  // Atlassian / Bitbucket / Trello / Statuspage 协作平台规则。
+  Atlassian: createDeveloperRuleProvider("Atlassian"),
+  // Notion 研发文档/协作规则。
+  Notion: createDeveloperRuleProvider("Notion"),
+  // Figma 设计协作规则。
+  Figma: createDeveloperRuleProvider("Figma"),
+  // Slack 团队协作/消息规则。
+  Slack: createDeveloperRuleProvider("Slack"),
+  // Dropbox 文件同步/协作规则。
+  Dropbox: createDeveloperRuleProvider("Dropbox"),
   // Telegram 规则。
   Telegram: createRuleProvider("domain", metaGeoSite("telegram")),
   // Netflix 规则。
@@ -4976,8 +5084,8 @@ const ruleProviders = finalizeRuleProviders({
   Microsoft: createRuleProvider("domain", metaGeoSite("microsoft")),
   // Bing 规则。
   Bing: createRuleProvider("domain", metaGeoSite("bing")),
-  // OneDrive 规则。
-  OneDrive: createRuleProvider("domain", metaGeoSite("onedrive")),
+  // OneDrive 规则：默认走 Meta geosite；当启用 blackmatrix7 预设时自动切到社区 YAML。
+  OneDrive: createPresetAwareRuleProvider("OneDrive", "domain", metaGeoSite("onedrive")),
   // Apple 规则。
   Apple: createRuleProvider("domain", metaGeoSite("apple")),
   // Apple TV+ 规则。
@@ -5027,12 +5135,20 @@ const RULE_SET_DEFINITIONS = (() => {
 
   // 自定义 ChatGPT / OpenAI 规则优先进入 AI 组。
   { provider: "ChatGPT", target: GROUPS.AI },
+  // AI 补充规则进入 AI 组。
+  { provider: "AIExtra", target: GROUPS.AI },
   // OpenAI 官方规则进入 AI 组。
   { provider: "OpenAI", target: GROUPS.AI },
   // Anthropic 官方规则进入 AI 组。
   { provider: "Anthropic", target: GROUPS.AI },
   // Gemini 官方规则进入 AI 组。
   { provider: "Gemini", target: GROUPS.AI },
+  // Copilot 社区规则进入 AI 组。
+  { provider: "Copilot", target: GROUPS.AI },
+  // Grok 社区规则进入 AI 组。
+  { provider: "Grok", target: GROUPS.AI },
+  // Apple Intelligence / PCC 社区规则也进入 AI 组。
+  { provider: "AppleAI", target: GROUPS.AI },
   // AI 域名交给 AI 组。
   { provider: "AI", target: GROUPS.AI },
   // 加密货币域名交给加密货币组。
@@ -5050,6 +5166,32 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Npmjs", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // JetBrains 流量交给开发服务组。
   { provider: "Jetbrains", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Vercel / Next.js / TurboRepo 相关流量交给开发服务组。
+  { provider: "Vercel", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Python / PyPI 相关流量交给开发服务组。
+  { provider: "Python", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // JFrog / Bintray 制品仓库流量交给开发服务组。
+  { provider: "Jfrog", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Heroku 部署平台流量交给开发服务组。
+  { provider: "Heroku", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // GitBook 文档平台流量交给开发服务组。
+  { provider: "GitBook", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // SourceForge 下载/分发平台流量交给开发服务组。
+  { provider: "SourceForge", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // DigitalOcean 云平台流量交给开发服务组。
+  { provider: "DigitalOcean", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Anaconda / conda 数据科学开发流量交给开发服务组。
+  { provider: "Anaconda", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Atlassian / Bitbucket / Trello / Statuspage 协作平台流量交给开发服务组。
+  { provider: "Atlassian", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Notion 文档/知识库流量交给开发服务组。
+  { provider: "Notion", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Figma 设计协作流量交给开发服务组。
+  { provider: "Figma", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Slack 团队协作流量交给开发服务组。
+  { provider: "Slack", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Dropbox 文件同步/协作流量交给开发服务组。
+  { provider: "Dropbox", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Google IP 段交给 Google 组，并关闭解析。
   { provider: "Google_IP", target: GROUPS.GOOGLE, noResolve: true },
 
@@ -5146,8 +5288,26 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Docker", label: "Docker", expectedTarget: GROUPS.DEV },
   { provider: "Npmjs", label: "Npmjs", expectedTarget: GROUPS.DEV },
   { provider: "Jetbrains", label: "JetBrains", expectedTarget: GROUPS.DEV },
+  { provider: "Vercel", label: "Vercel", expectedTarget: GROUPS.DEV },
+  { provider: "Python", label: "Python", expectedTarget: GROUPS.DEV },
+  { provider: "Jfrog", label: "Jfrog", expectedTarget: GROUPS.DEV },
+  { provider: "Heroku", label: "Heroku", expectedTarget: GROUPS.DEV },
+  { provider: "GitBook", label: "GitBook", expectedTarget: GROUPS.DEV },
+  { provider: "SourceForge", label: "SourceForge", expectedTarget: GROUPS.DEV },
+  { provider: "DigitalOcean", label: "DigitalOcean", expectedTarget: GROUPS.DEV },
+  { provider: "Anaconda", label: "Anaconda", expectedTarget: GROUPS.DEV },
+  { provider: "Atlassian", label: "Atlassian", expectedTarget: GROUPS.DEV },
+  { provider: "Notion", label: "Notion", expectedTarget: GROUPS.DEV },
+  { provider: "Figma", label: "Figma", expectedTarget: GROUPS.DEV },
+  { provider: "Slack", label: "Slack", expectedTarget: GROUPS.DEV },
+  { provider: "Dropbox", label: "Dropbox", expectedTarget: GROUPS.DEV },
+  { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
+  { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
+  { provider: "Copilot", label: "Copilot", expectedTarget: GROUPS.AI },
+  { provider: "Grok", label: "Grok", expectedTarget: GROUPS.AI },
+  { provider: "AppleAI", label: "AppleAI", expectedTarget: GROUPS.AI },
   { provider: "AI", label: "AI", expectedTarget: GROUPS.AI },
   { provider: "Crypto", label: "Crypto", expectedTarget: GROUPS.CRYPTO }
 ];
@@ -5760,9 +5920,13 @@ function analyzeServiceRuleWindows(rules) {
   const describedRules = currentRules.map((rule) => describeTrafficRule(rule));
   const definitions = [
     { key: "ChatGPT", label: "ChatGPT", category: "ai" },
+    { key: "AIExtra", label: "AIExtra", category: "ai" },
     { key: "OpenAI", label: "OpenAI", category: "ai" },
     { key: "Anthropic", label: "Anthropic", category: "ai" },
     { key: "Gemini", label: "Gemini", category: "ai" },
+    { key: "Copilot", label: "Copilot", category: "ai" },
+    { key: "Grok", label: "Grok", category: "ai" },
+    { key: "AppleAI", label: "AppleAI", category: "ai" },
     { key: "AI", label: "AI", category: "ai" },
     { key: "Crypto", label: "Crypto", category: "trade" },
     { key: "GitHub", label: "GitHub", category: "dev" },
@@ -5770,6 +5934,19 @@ function analyzeServiceRuleWindows(rules) {
     { key: "Docker", label: "Docker", category: "dev" },
     { key: "Npmjs", label: "Npmjs", category: "dev" },
     { key: "Jetbrains", label: "JetBrains", category: "dev" },
+    { key: "Vercel", label: "Vercel", category: "dev" },
+    { key: "Python", label: "Python", category: "dev" },
+    { key: "Jfrog", label: "Jfrog", category: "dev" },
+    { key: "Heroku", label: "Heroku", category: "dev" },
+    { key: "GitBook", label: "GitBook", category: "dev" },
+    { key: "SourceForge", label: "SourceForge", category: "dev" },
+    { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
+    { key: "Anaconda", label: "Anaconda", category: "dev" },
+    { key: "Atlassian", label: "Atlassian", category: "dev" },
+    { key: "Notion", label: "Notion", category: "dev" },
+    { key: "Figma", label: "Figma", category: "dev" },
+    { key: "Slack", label: "Slack", category: "dev" },
+    { key: "Dropbox", label: "Dropbox", category: "dev" },
     { key: "Steam", label: "Steam", category: "game" },
     { key: "SteamCN", label: "SteamCN", category: "game" }
   ];
@@ -6266,7 +6443,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   const query = isObject(queryArgs) ? queryArgs : {};
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
-    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
+    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     .map((provider) => {
       const definition = definitions.find((item) => isObject(item) && item.provider === provider);
@@ -6315,7 +6492,15 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
       .map((group) => group && group.name)
       .filter(Boolean)
   );
-  const expectedDeveloperFirstProxy = ARGS.devMode === "direct" ? BUILTIN_DIRECT : GROUPS.GITHUB;
+  const devPreferredGroupLookup = createLookup(
+    (ARGS.hasDevPreferCountries ? resolvePreferredCountryGroups(countries, ARGS.devPreferCountries) : [])
+      .map((group) => group && group.name)
+      .filter(Boolean)
+  );
+  const hasDeveloperLeadingOverrides = !!(ARGS.hasDevPreferCountries || ARGS.hasDevPreferGroups || ARGS.hasDevPreferNodes);
+  const expectedDeveloperFirstProxy = ARGS.devMode === "direct"
+    ? BUILTIN_DIRECT
+    : (hasDeveloperLeadingOverrides ? "" : GROUPS.GITHUB);
   const result = {
     total: 0,
     expectedTargetCount: 0,
@@ -6367,8 +6552,22 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
       result.warnings.push(`GitHub 规则当前直接打到 ${target}；这会绕过 GitHub 独立组，相关流量会更偏向直连而不是 GitHub 专属候选链`);
     }
 
-    if (DEV_RULE_PROVIDERS.includes(profile.provider) && target === GROUPS.DEV && firstProxy && firstProxy !== expectedDeveloperFirstProxy) {
+    if (DEV_RULE_PROVIDERS.includes(profile.provider) && target === GROUPS.DEV && expectedDeveloperFirstProxy && firstProxy && firstProxy !== expectedDeveloperFirstProxy) {
       result.warnings.push(`${profile.label} 当前打到 ${GROUPS.DEV}，但 ${GROUPS.DEV} 第一个候选不是 ${expectedDeveloperFirstProxy} 而是 ${firstProxy}；开发生态流量可能不会按当前 dev-mode 预期优先链执行`);
+    }
+
+    if (
+      DEV_RULE_PROVIDERS.includes(profile.provider) &&
+      target === GROUPS.DEV &&
+      ARGS.hasDevPreferCountries &&
+      !ARGS.hasDevPreferGroups &&
+      !ARGS.hasDevPreferNodes &&
+      ARGS.devMode !== "direct" &&
+      Object.keys(devPreferredGroupLookup).length &&
+      firstProxy &&
+      !devPreferredGroupLookup[firstProxy]
+    ) {
+      result.warnings.push(`${profile.label} 当前打到 ${GROUPS.DEV}，但 ${GROUPS.DEV} 第一个候选不是开发优先国家链 ${formatProviderPreviewNames(Object.keys(devPreferredGroupLookup), 3, 12)} 中的组，而是 ${firstProxy}；相关流量可能不会先走偏好的国家节点`);
     }
 
     if (profile.provider === "SteamCN" && target === GROUPS.SELECT) {
@@ -6376,7 +6575,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
     }
 
     if (profile.provider === "AI" && firstProxy === BUILTIN_DIRECT) {
-      result.warnings.push("AI 组当前第一个候选是 DIRECT；OpenAI / Anthropic / Gemini 等流量可能会先走直连，而不是 AI 优先国家链");
+      result.warnings.push("AI 组当前第一个候选是 DIRECT；AIExtra / OpenAI / Anthropic / Gemini / Copilot / Grok / AppleAI 等流量可能会先走直连，而不是 AI 优先国家链");
     }
 
     if (profile.provider === "Crypto" && Object.keys(cryptoPreferredGroupLookup).length && firstProxy && !cryptoPreferredGroupLookup[firstProxy]) {
@@ -6530,6 +6729,9 @@ function createProxyGroupOrderAliasMap() {
     development: GROUPS.DEV,
     bing: GROUPS.BING,
     onedrive: GROUPS.ONEDRIVE,
+    sharepoint: GROUPS.ONEDRIVE,
+    skydrive: GROUPS.ONEDRIVE,
+    "1drv": GROUPS.ONEDRIVE,
     telegram: GROUPS.TELEGRAM,
     youtube: GROUPS.YOUTUBE,
     netflix: GROUPS.NETFLIX,
@@ -6722,6 +6924,9 @@ function createPreferredGroupAliasMap() {
     development: GROUPS.DEV,
     bing: GROUPS.BING,
     onedrive: GROUPS.ONEDRIVE,
+    sharepoint: GROUPS.ONEDRIVE,
+    skydrive: GROUPS.ONEDRIVE,
+    "1drv": GROUPS.ONEDRIVE,
     telegram: GROUPS.TELEGRAM,
     youtube: GROUPS.YOUTUBE,
     netflix: GROUPS.NETFLIX,
@@ -6767,9 +6972,24 @@ function createRuleProviderAliasMap() {
     private: "Private",
     privateip: "Private_IP",
     chatgpt: "ChatGPT",
+    aiextra: "AIExtra",
+    moreai: "AIExtra",
+    aisupplement: "AIExtra",
+    perplexity: "AIExtra",
+    pplx: "AIExtra",
+    cursor: "AIExtra",
+    huggingface: "AIExtra",
+    hf: "AIExtra",
     openai: "OpenAI",
     anthropic: "Anthropic",
     gemini: "Gemini",
+    copilot: "Copilot",
+    grok: "Grok",
+    xai: "Grok",
+    appleai: "AppleAI",
+    appleintelligence: "AppleAI",
+    privatecloudcompute: "AppleAI",
+    pcc: "AppleAI",
     ai: "AI",
     crypto: "Crypto",
     youtube: "YouTube",
@@ -6777,6 +6997,9 @@ function createRuleProviderAliasMap() {
     googleip: "Google_IP",
     bing: "Bing",
     onedrive: "OneDrive",
+    sharepoint: "OneDrive",
+    skydrive: "OneDrive",
+    "1drv": "OneDrive",
     microsoft: "Microsoft",
     ms: "Microsoft",
     appletv: "AppleTV",
@@ -6807,6 +7030,36 @@ function createRuleProviderAliasMap() {
     npm: "Npmjs",
     npmjs: "Npmjs",
     jetbrains: "Jetbrains",
+    vercel: "Vercel",
+    nextjs: "Vercel",
+    turborepo: "Vercel",
+    python: "Python",
+    pypi: "Python",
+    pypa: "Python",
+    pypaio: "Python",
+    jfrog: "Jfrog",
+    bintray: "Jfrog",
+    artifactory: "Jfrog",
+    heroku: "Heroku",
+    herokuapp: "Heroku",
+    gitbook: "GitBook",
+    sourceforge: "SourceForge",
+    sf: "SourceForge",
+    fsdn: "SourceForge",
+    digitalocean: "DigitalOcean",
+    digitaloceanspaces: "DigitalOcean",
+    doco: "DigitalOcean",
+    anaconda: "Anaconda",
+    conda: "Anaconda",
+    atlassian: "Atlassian",
+    bitbucket: "Atlassian",
+    trello: "Atlassian",
+    statuspage: "Atlassian",
+    notion: "Notion",
+    figma: "Figma",
+    slack: "Slack",
+    dropbox: "Dropbox",
+    dbtt: "Dropbox",
     directlist: "DirectList",
     geonotcn: "Geo_Not_CN",
     geononcn: "Geo_Not_CN",
@@ -8721,7 +8974,8 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
       validatePreferredCountryMarkers(countryConfigs, ARGS.aiPreferCountries, "AI").concat(
         validatePreferredCountryMarkers(countryConfigs, ARGS.cryptoPreferCountries, "Crypto"),
         validatePreferredCountryMarkers(countryConfigs, ARGS.githubPreferCountries, "GitHub"),
-        validatePreferredCountryMarkers(countryConfigs, ARGS.steamPreferCountries, "Steam")
+        validatePreferredCountryMarkers(countryConfigs, ARGS.steamPreferCountries, "Steam"),
+        validatePreferredCountryMarkers(countryConfigs, ARGS.devPreferCountries, "Dev")
       )
     ),
     preferredGroupWarnings: uniqueStrings(
@@ -8857,6 +9111,12 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Rule-Source-Preset`]: ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET,
     [`${prefix}Steam-Fix`]: ARGS.hasSteamFix ? ARGS.steamFix : false,
     [`${prefix}Steam-Fix-Url`]: ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled",
+    [`${prefix}Direct-List-Url`]: ARGS.hasDirectListUrl ? ARGS.directListUrl : "default",
+    [`${prefix}Crypto-List-Url`]: ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default",
+    [`${prefix}ChatGPT-List-Url`]: ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default",
+    [`${prefix}AI-Extra-List-Url`]: ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default",
+    [`${prefix}Grok-Rule-Url`]: accademiaAdditionalRule("Grok"),
+    [`${prefix}Apple-AI-Rule-Url`]: accademiaAdditionalRule("AppleAI"),
     [`${prefix}Rule-Provider-Path-Dir`]: ARGS.ruleProviderPathDir,
     [`${prefix}Rule-Provider-Interval`]: ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL,
     [`${prefix}Rule-Provider-Proxy`]: ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default",
@@ -8927,6 +9187,9 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}GitHub-Prefer-Groups`]: ARGS.hasGithubPreferGroups ? "configured" : "default",
     [`${prefix}Steam-Prefer-Groups`]: ARGS.hasSteamPreferGroups ? "configured" : "default",
     [`${prefix}Dev-Prefer-Groups`]: ARGS.hasDevPreferGroups ? "configured" : "default",
+    [`${prefix}GitHub-Prefer-Countries`]: ARGS.hasGithubPreferCountries ? "configured" : "default",
+    [`${prefix}Steam-Prefer-Countries`]: ARGS.hasSteamPreferCountries ? "configured" : "default",
+    [`${prefix}Dev-Prefer-Countries`]: ARGS.hasDevPreferCountries ? "configured" : "default",
     [`${prefix}GitHub-Prefer-Nodes`]: ARGS.hasGithubPreferNodes ? "configured" : "default",
     [`${prefix}Steam-Prefer-Nodes`]: ARGS.hasSteamPreferNodes ? "configured" : "default",
     [`${prefix}Dev-Prefer-Nodes`]: ARGS.hasDevPreferNodes ? "configured" : "default",
@@ -9080,6 +9343,10 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, e
   const steamPreferredGroups = ARGS.hasSteamPreferCountries
     ? resolvePreferredCountryGroups(countryConfigs, ARGS.steamPreferCountries)
     : [];
+  // 若用户传入开发服务组优先国家参数，则按参数解析；否则继续保持 GitHub 优先的基础链。
+  const devPreferredGroups = ARGS.hasDevPreferCountries
+    ? resolvePreferredCountryGroups(countryConfigs, ARGS.devPreferCountries)
+    : [];
   // 当前这次构建中“稳定会生成”的内置组名集合。
   const alwaysGeneratedGroupNames = [
     GROUPS.SELECT,
@@ -9180,6 +9447,12 @@ function buildProxyGroups(proxies, countryConfigs, hasLowCost, existingGroups, e
       ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(steamPreferredGroups, selectFirstProxies)))
       : prependPreferredGroups(steamPreferredGroups, steamModeBaseProxies))
     : steamModeBaseProxies;
+  // 开发服务组默认优先沿用 GitHub；若显式设置国家优先链，则把对应国家组插到 GitHub 前面，并在 direct 模式下继续固定 DIRECT 第一位。
+  const developerBaseProxies = ARGS.hasDevPreferCountries
+    ? (ARGS.devMode === "direct"
+      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(devPreferredGroups, uniqueStrings([GROUPS.GITHUB, ...selectFirstProxies]))))
+      : prependPreferredGroups(devPreferredGroups, developerModeBaseProxies))
+    : developerModeBaseProxies;
   // GitHub 组额外支持用“前置组参数”插入任意已有组/内置策略。
   const githubStructuredProxies = ARGS.hasGithubPreferGroups
     ? prependPreferredNames(githubPreferredReferences, githubBaseProxies, ARGS.githubMode === "direct")
@@ -10217,7 +10490,7 @@ function logBuildSummary(stats) {
   // 输出 DNS listen / fake-ip 地址池覆盖情况。
   console.log(`   ✓ DNS池参数: listen=${ARGS.hasDnsListen ? ARGS.dnsListen : "config/default"}, fake-ip-range=${ARGS.hasFakeIpRange ? ARGS.fakeIpRange : "config/default"}, fake-ip-range6=${ARGS.hasFakeIpRange6 ? ARGS.fakeIpRange6 : (ARGS.ipv6 ? "auto/default" : "off")}`);
   // 输出自定义规则源覆盖情况。
-  console.log(`   ✓ 规则源参数: preset=${ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET}, steam-fix=${ARGS.hasSteamFix ? ARGS.steamFix : false}, steam-fix-url=${ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled"}, direct-list-url=${ARGS.hasDirectListUrl ? ARGS.directListUrl : "default"}, crypto-list-url=${ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default"}, chatgpt-list-url=${ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default"}, provider-path-dir=${ARGS.ruleProviderPathDir}, provider-interval=${ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL}, provider-proxy=${ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default"}, provider-size-limit=${ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default"}, provider-ua=${ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default"}, provider-auth=${ARGS.hasRuleProviderAuthorization ? "configured" : "default"}, provider-headers=${ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default"}, provider-payload=${ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default"}, scope=${(ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default"}, payload-scope=${ARGS.hasRuleProviderPayload ? "inline-only" : "default"}, apply-scope=${buildRuleProviderApplyScopeSummary()}, apply-stats=${stats.ruleProviderApplyStatsSummary}, apply-preview=${stats.ruleProviderApplyPreviewSummary}, mutation-stats=${stats.ruleProviderMutationStatsSummary}, mutation-preview=${stats.ruleProviderMutationPreviewSummary}`);
+  console.log(`   ✓ 规则源参数: preset=${ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET}, steam-fix=${ARGS.hasSteamFix ? ARGS.steamFix : false}, steam-fix-url=${ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled"}, direct-list-url=${ARGS.hasDirectListUrl ? ARGS.directListUrl : "default"}, crypto-list-url=${ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default"}, chatgpt-list-url=${ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default"}, ai-extra-list-url=${ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default"}, grok-rule-url=${accademiaAdditionalRule("Grok")}, apple-ai-rule-url=${accademiaAdditionalRule("AppleAI")}, provider-path-dir=${ARGS.ruleProviderPathDir}, provider-interval=${ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL}, provider-proxy=${ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default"}, provider-size-limit=${ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default"}, provider-ua=${ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default"}, provider-auth=${ARGS.hasRuleProviderAuthorization ? "configured" : "default"}, provider-headers=${ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default"}, provider-payload=${ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default"}, scope=${(ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default"}, payload-scope=${ARGS.hasRuleProviderPayload ? "inline-only" : "default"}, apply-scope=${buildRuleProviderApplyScopeSummary()}, apply-stats=${stats.ruleProviderApplyStatsSummary}, apply-preview=${stats.ruleProviderApplyPreviewSummary}, mutation-stats=${stats.ruleProviderMutationStatsSummary}, mutation-preview=${stats.ruleProviderMutationPreviewSummary}`);
   // 输出 rule-provider 官方语义自检开关，便于确认本轮自检已启用。
   console.log("   ✓ 规则源语义: official-type/behavior/format/path/payload-check=on, safe-path-hint=on");
   // 输出 proxy-provider 下载控制、节点池筛选与 health-check 覆盖情况。
@@ -10226,8 +10499,8 @@ function logBuildSummary(stats) {
   console.log("   ✓ 代理集合语义: official-type/url/path/payload-check=on, safe-path-hint=on");
   // 输出 proxy-provider override 批量改写参数覆盖情况。
   console.log(`   ✓ 代理集合Override: prefix=${ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default"}, suffix=${ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default"}, udp=${ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default"}, udp-over-tcp=${ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default"}, down=${ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default"}, up=${ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default"}, tfo=${ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default"}, mptcp=${ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default"}, skip-cert-verify=${ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default"}, dialer-proxy=${ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default"}, interface-name=${ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default"}, routing-mark=${ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default"}, ip-version=${ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default"}, proxy-name-rules=${ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default"}`);
-  // 输出 AI / Crypto 国家优先链参数覆盖情况。
-  console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType})`);
+  // 输出 AI / Crypto / GitHub / Steam / Dev 国家优先链参数覆盖情况。
+  console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
   // 输出开发服务组参数覆盖情况。
   console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
   // 输出开发服务组高级项覆盖情况。
