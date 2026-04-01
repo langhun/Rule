@@ -3,11 +3,84 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V8.87.0`
+- 当前版本：`V8.88.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、区域分组增强、区域布局增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家排序增强、区域分组增强、区域布局增强、区域排序增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V8.88.0 这一轮新增了什么
+
+这一轮继续沿着你前面反复提到的 **“策略组顺序 / 哪些流量先走”** 往下收，不再只控制大组布局，而是把 **国家组 / 区域组内部的排序口径** 也开放成参数：
+
+1. **新增国家组排序参数**
+   - 新增参数：
+     - `countryGroupSort`
+     - `country-group-sort`
+     - `countrySort`
+     - `country-sort`
+     - `countryOrder`
+     - `country-order`
+
+2. **新增区域组排序参数**
+   - 新增参数：
+     - `regionGroupSort`
+     - `region-group-sort`
+     - `regionSort`
+     - `region-sort`
+     - `regionOrder`
+     - `region-order`
+
+3. **支持的排序模式**
+   - 规范化后的实际模式是：
+     - `definition`
+     - `count-desc`
+     - `count-asc`
+     - `name`
+     - `name-desc`
+   - 兼容写法还支持：
+     - `default / script / original / builtin / order / manual` → `definition`
+     - `count / popular / hot / size / desc / descending` → `count-desc`
+     - `asc / ascending` → `count-asc`
+     - `alpha / alphabetical` → `name`
+     - `namedesc / alphadesc / reversealpha / reversename` → `name-desc`
+
+4. **默认行为不变**
+   - 如果你不传：
+     - `countryGroupSort`
+     - `regionGroupSort`
+   - 仍然保持脚本原本的**定义顺序**
+   - 也就是说这轮是可选增强，不会突然改乱你现有分流
+
+5. **为什么这轮排序不只是“面板展示”**
+   - 因为国家组顺序除了影响面板，还会影响脚本里部分候选链的拼接顺序
+   - 所以这轮本质上是在继续把：
+     - **面板顺序**
+     - **国家组优先出现顺序**
+     - **某些业务组引用国家组时的顺序**
+   - 一起做成可控参数
+
+6. **和上一轮区域分组联动**
+   - 现在你可以组合用：
+     - `regionGroups=asia,europe,americas`
+     - `regionGroupSort=count`
+     - `countryGroupSort=count`
+   - 这样区域面板和国家面板都能优先把“节点最多”的组排前面
+
+7. **日志 / 响应头同步补齐**
+   - `full` 日志现在会新增：
+     - `分组排序`
+     - `分组排序参数`
+   - 打开 `responseHeaders=true` 时会新增：
+     - `Country-Group-Sort`
+     - `Country-Group-Summary`
+     - `Region-Group-Sort`
+
+8. **直接可抄的示例**
+
+```text
+...?target=ClashMeta&full&regionGroups=asia,europe,americas&countryGroupSort=count&regionGroupSort=count&groupOrder=select,regions,countries,other,extras
+```
 
 ## V8.87.0 这一轮新增了什么
 
@@ -3355,6 +3428,12 @@ $options=#full&hidden&groupInterval=300
 ...?target=ClashMeta&full&regionGroups=asia,europe,americas&groupOrder=select,github,steam,regions,countries,other,extras
 ```
 
+### 21AB. 按节点数量重排国家组和区域组
+
+```text
+...?target=ClashMeta&full&regionGroups=asia,europe,americas&countryGroupSort=count&regionGroupSort=count&groupOrder=select,regions,countries,other,extras
+```
+
 ### 21B. 切换 blackmatrix7 规则源并启用 SteamFix
 
 ```text
@@ -3733,6 +3812,22 @@ $options=#full&hidden&groupInterval=300
 - 如果设置 `groupOrderPreset`，脚本会按预设重排最终 `proxy-groups` 展示顺序
 - `groupOrderPreset` 支持 `balanced / core / service / media / region`
 - 如果设置 `groupOrder`，脚本会优先使用显式 token 顺序；此时 `groupOrderPreset` 只作为 fallback / 说明项
+- 如果设置 `countryGroupSort`，脚本会按对应模式重排国家组顺序
+- 如果设置 `regionGroupSort`，脚本会按对应模式重排区域组顺序
+- `countryGroupSort / regionGroupSort` 规范化后的实际模式是：
+  - `definition`
+  - `count-desc`
+  - `count-asc`
+  - `name`
+  - `name-desc`
+- 兼容别名还支持：
+  - `default / script / original / builtin / order / manual` → `definition`
+  - `count / popular / hot / size / desc / descending` → `count-desc`
+  - `asc / ascending` → `count-asc`
+  - `alpha / alphabetical` → `name`
+  - `namedesc / alphadesc / reversealpha / reversename` → `name-desc`
+- 默认仍然是 `definition`，也就是脚本内置定义顺序
+- 如果你传的是 `count`，日志和响应头里会显示规范化后的 `count-desc`
 - 如果设置 `regionGroups`，脚本会在国家组之上额外挂一层可选区域组；默认关闭
 - `regionGroups` 支持：
   - `asia / europe / americas / middleeast / oceania / africa`
@@ -3750,7 +3845,12 @@ $options=#full&hidden&groupInterval=300
   - `区域分组`
   - `区域统计`
   - `区域分组参数`
+  - `分组排序`
+  - `分组排序参数`
 - 如果开启 `responseHeaders=true`，响应调试头会额外输出：
+  - `Country-Group-Sort`
+  - `Country-Group-Summary`
+  - `Region-Group-Sort`
   - `Region-Groups`
   - `Region-Group-Preview`
   - `Region-Group-Summary`
@@ -3887,6 +3987,8 @@ $options=#full&hidden&groupInterval=300
 - `customRulePosition`
 - `groupOrderPreset`
 - `groupOrder`
+- `countryGroupSort`
+- `regionGroupSort`
 - `regionGroups`
 - `ruleSourcePreset`
 - `steamFix`
@@ -4224,6 +4326,12 @@ githubPreferGroups=manual,lowcost,direct&steamPreferGroups=select,my-game-group
 
 ```ini
 regionGroups=asia,europe,americas&groupOrder=select,github,steam,regions,countries,other,extras
+```
+
+### 9B. 国家组 / 区域组按节点数量优先
+
+```ini
+regionGroups=asia,europe,americas&countryGroupSort=count&regionGroupSort=count
 ```
 
 ### 10. GitHub / Steam 独立组点名节点

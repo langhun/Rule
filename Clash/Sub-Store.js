@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.87.0
+ * Sub-Store 终极策略增强脚本 V8.88.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -134,15 +134,48 @@
  * 129. 自定义国家别名冲突检测：country-extra-aliases 若把同一别名绑到多个国家，或撞到别的内置国家标记，会给出显式告警与摘要预览。
  * 130. 区域分组增强：参考 GitHub 社区常见的 HK/TW/SG/JP/US 等区域聚合玩法，新增可选 region-groups 参数，支持自动生成亚洲/欧洲/美洲/中东/大洋洲/非洲区域组。
  * 131. 区域布局增强：region-groups 生成的区域组会同步接入 group-order / group-order-preset 的布局桶、响应调试头与 full 日志，便于和国家组一起编排面板顺序。
+ * 132. 国家排序增强：新增 country-group-sort / country-sort 参数，可按定义顺序、节点数量或名称重排国家组，便于同时调整面板顺序与候选链顺序。
+ * 133. 区域排序增强：新增 region-group-sort / region-sort 参数，可按定义顺序、聚合节点数或名称重排区域组，便于继续微调区域面板与前置组引用顺序。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.87.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.87.0。
+const SCRIPT_VERSION = "8.88.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.88.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
 const NODE_SUFFIX = "节点";
+// 统一维护国家组 / 区域组排序模式别名，避免规范化逻辑和参数校验各写一份后逐步漂移。
+const GEO_GROUP_SORT_MODE_ALIAS_MAP = Object.freeze({
+  default: "definition",
+  script: "definition",
+  builtin: "definition",
+  original: "definition",
+  order: "definition",
+  definition: "definition",
+  definitions: "definition",
+  manual: "definition",
+  count: "count-desc",
+  hot: "count-desc",
+  popular: "count-desc",
+  size: "count-desc",
+  countdesc: "count-desc",
+  desc: "count-desc",
+  descending: "count-desc",
+  countasc: "count-asc",
+  asc: "count-asc",
+  ascending: "count-asc",
+  name: "name",
+  names: "name",
+  alpha: "name",
+  alphabetical: "name",
+  namedesc: "name-desc",
+  alphadesc: "name-desc",
+  reversealpha: "name-desc",
+  reversename: "name-desc"
+});
+// 单独缓存允许的原始 token，后面校验参数时直接复用。
+const GEO_GROUP_SORT_MODE_TOKENS = Object.freeze(Object.keys(GEO_GROUP_SORT_MODE_ALIAS_MAP));
 // 所有测速类策略组共用的探测地址。
 const TEST_URL = "https://cp.cloudflare.com/generate_204";
 // 规则提供器的刷新间隔，单位秒，这里按 24 小时更新一次。
@@ -932,6 +965,17 @@ function normalizeGroupOrderPreset(value, defaultPreset) {
   };
 
   return aliasMap[normalized] || defaultPreset;
+}
+
+// 规范化国家组 / 区域组排序模式，便于把定义顺序、数量优先、名称优先这些玩法收敛成固定枚举。
+function normalizeGeoGroupSortMode(value, defaultMode) {
+  const normalized = normalizeGroupMarkerToken(value);
+  return GEO_GROUP_SORT_MODE_ALIAS_MAP[normalized] || defaultMode;
+}
+
+// 判断国家组 / 区域组排序参数是否为允许值，避免 country / region 两套校验列表长期分叉。
+function isValidGeoGroupSortMode(value) {
+  return GEO_GROUP_SORT_MODE_TOKENS.includes(normalizeGroupMarkerToken(value));
 }
 
 // 规范化社区规则源预设名称；默认继续使用 MetaCubeX 内置 geosite/geoip 规则。
@@ -2382,6 +2426,10 @@ function resolveArgs(rawArgs) {
   const rawGroupOrderPreset = pickArg(args, ["groupOrderPreset", "group-order-preset", "proxyGroupOrderPreset", "proxy-group-order-preset", "groupLayoutPreset", "group-layout-preset"]);
   // 读取策略组显式布局顺序参数原始值。
   const rawGroupOrder = pickArg(args, ["groupOrder", "group-order", "proxyGroupOrder", "proxy-group-order", "groupLayout", "group-layout"]);
+  // 读取国家组排序参数原始值。
+  const rawCountryGroupSort = pickArg(args, ["countryGroupSort", "country-group-sort", "countrySort", "country-sort", "countryOrder", "country-order"]);
+  // 读取区域组排序参数原始值。
+  const rawRegionGroupSort = pickArg(args, ["regionGroupSort", "region-group-sort", "regionSort", "region-sort", "regionOrder", "region-order"]);
   // 读取区域分组参数原始值。
   const rawRegionGroups = pickArg(args, ["regionGroups", "region-groups", "regionalGroups", "regional-groups", "continentGroups", "continent-groups"]);
   // 读取 Direct.list 规则源地址参数原始值。
@@ -2945,6 +2993,8 @@ function resolveArgs(rawArgs) {
   const devType = normalizeServiceGroupType(rawDevType, "select");
   const groupOrderPreset = normalizeGroupOrderPreset(rawGroupOrderPreset, DEFAULT_GROUP_ORDER_PRESET);
   const groupOrder = toStringList(rawGroupOrder);
+  const countryGroupSort = normalizeGeoGroupSortMode(rawCountryGroupSort, "definition");
+  const regionGroupSort = normalizeGeoGroupSortMode(rawRegionGroupSort, "definition");
   const parsedRegionGroups = parseRegionGroupKeys(rawRegionGroups);
   const regionGroupKeys = parsedRegionGroups.keys;
   const regionGroupPreview = formatRegionGroupPreview(regionGroupKeys);
@@ -3543,6 +3593,16 @@ function resolveArgs(rawArgs) {
     console.warn("⚠️ 提醒: 已同时配置 group-order-preset 与 group-order；当前以显式 group-order 为准");
   }
 
+  // 如果国家组排序模式非法，则回退默认值并提示。
+  if (rawCountryGroupSort !== undefined && !isValidGeoGroupSortMode(rawCountryGroupSort)) {
+    console.warn(`⚠️ 警告: country-group-sort 无效，已重置为 ${countryGroupSort}`);
+  }
+
+  // 如果区域组排序模式非法，则回退默认值并提示。
+  if (rawRegionGroupSort !== undefined && !isValidGeoGroupSortMode(rawRegionGroupSort)) {
+    console.warn(`⚠️ 警告: region-group-sort 无效，已重置为 ${regionGroupSort}`);
+  }
+
   // 逐条提示 region-groups / continent-groups 里未命中的区域标记，避免区域布局写了却静默失效。
   for (const item of parsedRegionGroups.invalidTokens) {
     console.warn(`⚠️ 警告: region-groups 未匹配到内置区域定义，已忽略: ${item}`);
@@ -3938,6 +3998,10 @@ function resolveArgs(rawArgs) {
     hasGroupOrderPreset: rawGroupOrderPreset !== undefined,
     groupOrder,
     hasGroupOrder: !!groupOrder.length,
+    countryGroupSort,
+    hasCountryGroupSort: rawCountryGroupSort !== undefined,
+    regionGroupSort,
+    hasRegionGroupSort: rawRegionGroupSort !== undefined,
     regionGroupKeys,
     hasRegionGroups: !!regionGroupKeys.length,
     hasRegionGroupsArg: rawRegionGroups !== undefined,
@@ -8408,7 +8472,7 @@ function parseCountries(proxies) {
   }
 
   // 按 COMPILED_COUNTRIES 的顺序生成最终国家分组配置。
-  return COMPILED_COUNTRIES
+  const matchedCountries = COMPILED_COUNTRIES
     .map((country) => {
       // 读取当前国家的识别数量。
       const count = countryCounts[country.name] || 0;
@@ -8430,6 +8494,71 @@ function parseCountries(proxies) {
     })
     // 去掉未达阈值而返回的 null 项。
     .filter(Boolean);
+
+  return sortGeoGroupConfigs(matchedCountries, ARGS.countryGroupSort);
+}
+
+// 清洗国家组 / 区域组用于名称排序的显示名，避免把开头 emoji 一起拿去做字典序比较。
+function normalizeGeoGroupSortName(value) {
+  return normalizeStringArg(value).replace(/^[^A-Za-z\u4e00-\u9fa5]+/, "");
+}
+
+// 按用户选择的模式重排国家组 / 区域组；默认保持脚本定义顺序，其余模式才显式改动展示与候选链顺序。
+function sortGeoGroupConfigs(configs, mode) {
+  const current = Array.isArray(configs) ? configs.slice() : [];
+  const normalizedMode = normalizeGeoGroupSortMode(mode, "definition");
+
+  if (normalizedMode === "definition") {
+    return current;
+  }
+
+  return current
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftCount = Number(left.item && left.item.count) || 0;
+      const rightCount = Number(right.item && right.item.count) || 0;
+      const leftName = normalizeGeoGroupSortName(left.item && left.item.name);
+      const rightName = normalizeGeoGroupSortName(right.item && right.item.name);
+
+      if (normalizedMode === "count-desc") {
+        if (rightCount !== leftCount) {
+          return rightCount - leftCount;
+        }
+
+        const nameDiff = leftName.localeCompare(rightName);
+        return nameDiff || (left.index - right.index);
+      }
+
+      if (normalizedMode === "count-asc") {
+        if (leftCount !== rightCount) {
+          return leftCount - rightCount;
+        }
+
+        const nameDiff = leftName.localeCompare(rightName);
+        return nameDiff || (left.index - right.index);
+      }
+
+      if (normalizedMode === "name") {
+        const nameDiff = leftName.localeCompare(rightName);
+        if (nameDiff) {
+          return nameDiff;
+        }
+
+        return (rightCount - leftCount) || (left.index - right.index);
+      }
+
+      if (normalizedMode === "name-desc") {
+        const nameDiff = rightName.localeCompare(leftName);
+        if (nameDiff) {
+          return nameDiff;
+        }
+
+        return (rightCount - leftCount) || (left.index - right.index);
+      }
+
+      return left.index - right.index;
+    })
+    .map((entry) => entry.item);
 }
 
 // 根据已生成的国家组，再聚合出“区域级”策略组配置；只聚合当前真实存在的国家组，避免空壳区域组。
@@ -8446,7 +8575,7 @@ function buildRegionGroupConfigs(countryConfigs, regionKeys) {
     countryLookup[country.key] = country;
   }
 
-  return availableRegionKeys
+  const matchedRegions = availableRegionKeys
     .map((regionKey) => {
       const definition = REGION_GROUP_DEFINITIONS.find((item) => item.key === regionKey);
       if (!definition) {
@@ -8470,6 +8599,8 @@ function buildRegionGroupConfigs(countryConfigs, regionKeys) {
       };
     })
     .filter(Boolean);
+
+  return sortGeoGroupConfigs(matchedRegions, ARGS.regionGroupSort);
 }
 
 // 把区域分组统计格式化成单行文本，便于 full 模式输出日志与响应头摘要。
@@ -9768,6 +9899,9 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Group-Routing-Mark`]: ARGS.hasGroupRoutingMark ? ARGS.groupRoutingMark : "default",
     [`${prefix}Group-Order-Preset`]: ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET),
     [`${prefix}Group-Order-Config`]: ARGS.hasGroupOrder ? formatProviderPreviewNames(ARGS.groupOrder, 8, 12) : "preset-only",
+    [`${prefix}Country-Group-Sort`]: ARGS.hasCountryGroupSort ? ARGS.countryGroupSort : "definition/default",
+    [`${prefix}Country-Group-Summary`]: diagnostics.countrySummary || "none",
+    [`${prefix}Region-Group-Sort`]: ARGS.hasRegionGroupSort ? ARGS.regionGroupSort : "definition/default",
     [`${prefix}Region-Groups`]: ARGS.hasRegionGroups ? `configured:${ARGS.regionGroupKeys.length}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off"),
     [`${prefix}Region-Group-Preview`]: ARGS.hasRegionGroups ? ARGS.regionGroupPreview : (ARGS.hasRegionGroupsArg ? "off" : "none"),
     [`${prefix}Region-Group-Summary`]: diagnostics.regionGroupSummary || "none",
@@ -11099,6 +11233,9 @@ function logBuildSummary(stats) {
     console.log(`   ✓ 区域统计: ${stats.regionGroupSummary}`);
   }
 
+  // 输出国家组 / 区域组排序模式，便于直接确认当前面板顺序和部分候选链顺序是按什么口径生成。
+  console.log(`   ✓ 分组排序: countries=${ARGS.countryGroupSort}${ARGS.hasCountryGroupSort ? "" : " (default)"}, regions=${ARGS.regionGroupSort}${ARGS.hasRegionGroupSort ? "" : " (default)"}`);
+
   // 最后输出本次运行采用的参数组合，便于排查。
   console.log(`   ✓ 参数: ipv6=${ARGS.ipv6}, landing=${ARGS.landing}, hidden=${ARGS.hidden}, load-balance=${ARGS.lb}, fakeip=${ARGS.fakeip}, quic=${ARGS.quic}, unified-delay=${ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : "config"}, tcp-concurrent=${ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : "config"}, dns-respect-rules=${ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : "config"}, dns-prefer-h3=${ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : "config"}, profile-cache=${ARGS.hasProfileCache ? ARGS.profileCache : "auto"}, geo-auto-update=${ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : "config"}, geo-update-interval=${ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : "config"}, threshold=${ARGS.threshold}`);
   // 额外输出本轮新增的测速组参数覆盖情况。
@@ -11125,6 +11262,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}` : "default"}`);
   // 输出区域分组参数覆盖情况，便于确认这轮 GitHub 社区常见“区域聚合面板”玩法是否真正生效。
   console.log(`   ✓ 区域分组参数: ${ARGS.hasRegionGroups ? `configured,preview=${ARGS.regionGroupPreview},generated=${stats.regionGroups},summary=${stats.regionGroupSummary || "none"}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off")}`);
+  // 输出国家组 / 区域组排序参数覆盖情况，便于确认本轮“哪些国家/区域排前面”到底按什么规则走。
+  console.log(`   ✓ 分组排序参数: country-sort=${ARGS.hasCountryGroupSort ? ARGS.countryGroupSort : "definition/default"}, region-sort=${ARGS.hasRegionGroupSort ? ARGS.regionGroupSort : "definition/default"}`);
   // 输出开发服务组参数覆盖情况。
   console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
   // 输出开发服务组高级项覆盖情况。
@@ -11234,6 +11373,7 @@ function main(config) {
     const countryCoverage = analyzeCountryCoverage(proxies);
     // 解析出所有国家分组配置。
     const countryConfigs = parseCountries(proxies);
+    const countrySummary = buildCountrySummary(countryConfigs);
     // 按 GitHub 社区常见玩法，把已生成国家组进一步聚合成可选的区域分组。
     const regionConfigs = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys);
     const regionGroupSummary = buildRegionGroupSummary(regionConfigs);
@@ -11346,6 +11486,7 @@ function main(config) {
     // 补上国家识别覆盖率信息。
     diagnostics.unclassifiedCountryProxies = countryCoverage.unclassified;
     diagnostics.unclassifiedCountryExamples = countryCoverage.unclassifiedExamples;
+    diagnostics.countrySummary = countrySummary;
     diagnostics.ruleTargetMappingSummary = ruleTargetMappingSummary;
     diagnostics.ruleTargetMappingPreview = ruleTargetMappingPreview;
     diagnostics.rulePriorityRiskSummary = rulePriorityRiskSummary;
@@ -11404,7 +11545,7 @@ function main(config) {
         lowCostProxies: proxyStats.lowCost,
         landingProxies: proxyStats.landing,
         countryGroups: countryConfigs.length,
-        countrySummary: buildCountrySummary(countryConfigs),
+        countrySummary,
         regionGroups: regionConfigs.length,
         regionGroupSummary,
         proxyGroups: proxyGroups.length,
