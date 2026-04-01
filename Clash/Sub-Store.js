@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.91.0
+ * Sub-Store 终极策略增强脚本 V8.92.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -142,11 +142,13 @@
  * 137. 区域默认集兼容：region-groups=all/auto/default 仍只启用原有大区；新子区域仅在显式点名时生成，避免旧链接面板突然膨胀。
  * 138. 国家优先链区域化：ai/github/steam/dev/crypto 的 prefer-countries 现在也支持 asia/eastasia/gulf/northamerica 这类区域 token，会自动展开成当前已生成的国家组。
  * 139. 优先链区域化兼容：prefer-countries 的区域 token 不依赖是否启用 region-groups 面板，只要对应国家组已生成就会生效。
+ * 140. 优先链命中摘要：AI / Crypto / GitHub / Steam / Dev 的 prefer-countries 最终命中结果现在会汇总成单行摘要，便于直接确认区域 token 到底展开成了哪些国家组。
+ * 141. 优先链响应头增强：开启 response-headers 后，会额外输出 AI / Crypto / GitHub / Steam / Dev 的 Prefer-Countries-Resolved 头，方便下载链路调试。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.91.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.91.0。
+const SCRIPT_VERSION = "8.92.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.92.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -10026,6 +10028,11 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}GitHub-Prefer-Countries`]: ARGS.hasGithubPreferCountries ? "configured" : "default",
     [`${prefix}Steam-Prefer-Countries`]: ARGS.hasSteamPreferCountries ? "configured" : "default",
     [`${prefix}Dev-Prefer-Countries`]: ARGS.hasDevPreferCountries ? "configured" : "default",
+    [`${prefix}AI-Prefer-Countries-Resolved`]: diagnostics.aiPreferCountryResolvedSummary || "none",
+    [`${prefix}Crypto-Prefer-Countries-Resolved`]: diagnostics.cryptoPreferCountryResolvedSummary || "none",
+    [`${prefix}GitHub-Prefer-Countries-Resolved`]: diagnostics.githubPreferCountryResolvedSummary || "none",
+    [`${prefix}Steam-Prefer-Countries-Resolved`]: diagnostics.steamPreferCountryResolvedSummary || "none",
+    [`${prefix}Dev-Prefer-Countries-Resolved`]: diagnostics.devPreferCountryResolvedSummary || "none",
     [`${prefix}Country-Extra-Aliases`]: ARGS.hasCountryExtraAliases ? "configured" : "default",
     [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
     [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
@@ -10849,6 +10856,15 @@ function buildCountrySummary(countryConfigs) {
   return countryConfigs.map((country) => `${country.name}(${country.count})`).join(" / ");
 }
 
+// 把某条国家优先链最终命中的国家组压成紧凑摘要，便于写入 full 日志与响应调试头。
+function formatPreferredCountryGroupSummary(groups) {
+  const names = uniqueStrings((Array.isArray(groups) ? groups : [])
+    .map((group) => group && group.name)
+    .filter(Boolean));
+
+  return names.length ? `${names.length}:${formatProviderPreviewNames(names, 8, 18)}` : "none";
+}
+
 // 输出构建过程中的诊断信息，例如自动重命名和一致性校验告警。
 function logDiagnostics(diagnostics) {
   // 没有诊断对象就直接跳过。
@@ -11364,6 +11380,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 代理集合Override: prefix=${ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default"}, suffix=${ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default"}, udp=${ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default"}, udp-over-tcp=${ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default"}, down=${ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default"}, up=${ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default"}, tfo=${ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default"}, mptcp=${ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default"}, skip-cert-verify=${ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default"}, dialer-proxy=${ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default"}, interface-name=${ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default"}, routing-mark=${ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default"}, ip-version=${ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default"}, proxy-name-rules=${ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default"}`);
   // 输出 AI / Crypto / GitHub / Steam / Dev 国家优先链参数覆盖情况。
   console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
+  // 输出国家优先链最终命中的国家组摘要，便于直接确认区域 token / 国家 token / 自定义别名最终到底展开成了什么。
+  console.log(`   ✓ 国家优先链命中: ai=${stats.aiPreferCountryResolvedSummary || "none"}, crypto=${stats.cryptoPreferCountryResolvedSummary || "none"}, github=${stats.githubPreferCountryResolvedSummary || "none"}, steam=${stats.steamPreferCountryResolvedSummary || "none"}, dev=${stats.devPreferCountryResolvedSummary || "none"}`);
   // 输出 country-extra-aliases 参数覆盖情况，便于确认这轮自定义国家别名是否真正生效。
   console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}` : "default"}`);
   // 输出区域分组参数覆盖情况，便于确认这轮 GitHub 社区常见“区域聚合面板”玩法是否真正生效。
@@ -11480,6 +11498,21 @@ function main(config) {
     // 解析出所有国家分组配置。
     const countryConfigs = parseCountries(proxies);
     const countrySummary = buildCountrySummary(countryConfigs);
+    const aiPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
+      buildPreferredCountryGroups(countryConfigs, ARGS.aiPreferCountries, DEFAULT_AI_PREFERRED_COUNTRY_MARKERS)
+    );
+    const cryptoPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
+      buildPreferredCountryGroups(countryConfigs, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS)
+    );
+    const githubPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
+      ARGS.hasGithubPreferCountries ? resolvePreferredCountryGroups(countryConfigs, ARGS.githubPreferCountries) : []
+    );
+    const steamPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
+      ARGS.hasSteamPreferCountries ? resolvePreferredCountryGroups(countryConfigs, ARGS.steamPreferCountries) : []
+    );
+    const devPreferredCountryResolvedSummary = formatPreferredCountryGroupSummary(
+      ARGS.hasDevPreferCountries ? resolvePreferredCountryGroups(countryConfigs, ARGS.devPreferCountries) : []
+    );
     // 按 GitHub 社区常见玩法，把已生成国家组进一步聚合成可选的区域分组。
     const regionConfigs = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys);
     const regionGroupSummary = buildRegionGroupSummary(regionConfigs);
@@ -11593,6 +11626,11 @@ function main(config) {
     diagnostics.unclassifiedCountryProxies = countryCoverage.unclassified;
     diagnostics.unclassifiedCountryExamples = countryCoverage.unclassifiedExamples;
     diagnostics.countrySummary = countrySummary;
+    diagnostics.aiPreferCountryResolvedSummary = aiPreferredCountryResolvedSummary;
+    diagnostics.cryptoPreferCountryResolvedSummary = cryptoPreferredCountryResolvedSummary;
+    diagnostics.githubPreferCountryResolvedSummary = githubPreferredCountryResolvedSummary;
+    diagnostics.steamPreferCountryResolvedSummary = steamPreferredCountryResolvedSummary;
+    diagnostics.devPreferCountryResolvedSummary = devPreferredCountryResolvedSummary;
     diagnostics.ruleTargetMappingSummary = ruleTargetMappingSummary;
     diagnostics.ruleTargetMappingPreview = ruleTargetMappingPreview;
     diagnostics.rulePriorityRiskSummary = rulePriorityRiskSummary;
@@ -11652,6 +11690,11 @@ function main(config) {
         landingProxies: proxyStats.landing,
         countryGroups: countryConfigs.length,
         countrySummary,
+        aiPreferCountryResolvedSummary,
+        cryptoPreferCountryResolvedSummary,
+        githubPreferCountryResolvedSummary,
+        steamPreferCountryResolvedSummary,
+        devPreferCountryResolvedSummary,
         regionGroups: regionConfigs.length,
         regionGroupSummary,
         proxyGroups: proxyGroups.length,

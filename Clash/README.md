@@ -3,11 +3,53 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V8.91.0`
+- 当前版本：`V8.92.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、区域布局增强、区域排序增强、区域映射扩容、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、区域布局增强、区域排序增强、区域映射扩容、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V8.92.0 这一轮新增了什么
+
+这一轮继续往你前面一直在要的 **“别只支持，最好还能看见实际怎么生效”** 收：`PreferCountries` 现在不只是能写国家 / 区域 / 子区域，还能直接看到它最终命中了哪些国家组。
+
+1. **新增国家优先链命中摘要**
+   - 现在会对这 5 条优先链分别输出最终命中结果：
+     - `AI`
+     - `Crypto`
+     - `GitHub`
+     - `Steam`
+     - `Dev`
+
+2. **`full` 日志新增可观测项**
+   - 现在会额外输出：
+     - `国家优先链命中`
+   - 你能直接看到：
+     - 传入的是国家 token 还是区域 token
+     - 最终展开成了哪些国家组
+     - 是否跟着 `countryGroupSort` 一起变了顺序
+
+3. **响应头同步补齐**
+   - 打开 `responseHeaders=true` 时会新增：
+     - `AI-Prefer-Countries-Resolved`
+     - `Crypto-Prefer-Countries-Resolved`
+     - `GitHub-Prefer-Countries-Resolved`
+     - `Steam-Prefer-Countries-Resolved`
+     - `Dev-Prefer-Countries-Resolved`
+
+4. **这轮特别适合排查区域 token**
+   - 例如你写了：
+     - `githubPreferCountries=eastasia`
+     - `steamPreferCountries=northamerica,gulf`
+   - 现在不需要再靠猜，日志和响应头会直接告诉你：
+     - 最后到底展开成了哪些国家组
+     - 其中哪些当前 actually 生成出来了
+
+5. **直接可抄的示例**
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&countryGroupSort=count&githubPreferCountries=eastasia&steamPreferCountries=northamerica,gulf&devPreferCountries=southeastasia,centraleurope
+```
 
 ## V8.91.0 这一轮新增了什么
 
@@ -3898,6 +3940,7 @@ $options=#full&hidden&groupInterval=300
 - `aiPreferCountries / cryptoPreferCountries / githubPreferCountries / steamPreferCountries / devPreferCountries` 现在都支持直接写区域 / 子区域 token
 - `PreferCountries` 的区域 token 不依赖 `regionGroups` 是否开启；只要对应国家组已经生成，就会自动展开并插入优先链
 - `PreferCountries` 的区域 token 展开顺序会跟随当前国家组顺序，因此也会自动继承 `countryGroupSort`
+- `full=true` 时，现在还会额外输出 `国家优先链命中`，直接显示 AI / Crypto / GitHub / Steam / Dev 五条优先链最终命中了哪些国家组
 - Steam 组即使设置了优先链，`DIRECT` 仍然保持在最前面
 - 开发服务组在 `devMode=direct` 时同样会保持 `DIRECT` 第一位，再把 `devPreferCountries` 插到 `GitHub` 前面
 - 如果设置 `githubMode / steamMode`，可以切换独立组是 `select / direct / proxy` 哪种候选顺序
@@ -4033,6 +4076,11 @@ $options=#full&hidden&groupInterval=300
   - `Country-Group-Sort`
   - `Country-Group-Summary`
   - `Region-Group-Sort`
+  - `AI-Prefer-Countries-Resolved`
+  - `Crypto-Prefer-Countries-Resolved`
+  - `GitHub-Prefer-Countries-Resolved`
+  - `Steam-Prefer-Countries-Resolved`
+  - `Dev-Prefer-Countries-Resolved`
   - `Region-Groups`
   - `Region-Group-Preview`
   - `Region-Group-Summary`
