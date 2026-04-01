@@ -3,11 +3,64 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V9.4.0`
+- 当前版本：`V9.5.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
 - 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、区域组可见性诊断、区域布局预设直白别名、Clash Verge 区域排查增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V9.5.0 这一轮新增了什么
+
+这一轮继续沿着你现在这套玩法往前推，重点补的是 **更多区域/国家玩法** 和 **更实用的默认面板布局预设**：
+
+1. **国家识别继续扩容**
+   - 这次继续补了几类常见但之前还没收进去的节点国家：
+     - `巴林`
+     - `阿曼`
+     - `约旦`
+     - `白俄罗斯`
+     - `马耳他`
+   - 目的很直接：
+     - 让中东 / 海湾 / 东欧 / 地中海一带的机场命名更容易落进国家组
+     - 让后面的 `regionGroups` 和 `preferCountries` 也能吃到这些新增国家
+
+2. **区域玩法继续细分**
+   - `regionGroups` 这次继续补了几个更适合面板编排和优先链复用的子区域：
+     - `westeurope`
+     - `easteurope`
+     - `iberia`
+     - `benelux`
+     - `levant`
+   - 这样你现在既可以继续用大区：
+     - `asia / europe / americas / middleeast`
+   - 也可以往下细切成更贴近机场选线的子区域
+
+3. **Prefer-Countries 预设继续增强**
+   - 新增这些 preset：
+     - `workspace-core`
+     - `westeurope-core`
+     - `easteurope-core`
+     - `gulf-core`
+   - 比较适合：
+     - 开发服务优先
+     - 欧洲分区优先
+     - 中东 / 海湾优先
+
+4. **默认面板布局预设继续增强**
+   - `groupOrderPreset` 这次新增：
+     - `workspace`
+     - `compact`
+     - `national`
+   - 含义分别是：
+     - `workspace`：工作流优先，先把 AI / GitHub / 开发服务 / 微软 / OneDrive / Google 拉前
+     - `compact`：紧凑面板，只保留最常切的业务组 + 国家/区域 + helpers
+     - `national`：国家组优先，适合你更常直接按国家手选线路的场景
+
+5. **这一轮可以直接这样用**
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&regionGroups=westeurope,easteurope,benelux,levant&groupOrderPreset=workspace&githubPreferCountries=workspace-core&steamPreferCountries=gulf-core
+```
 
 ## V9.4.0 这一轮新增了什么
 
@@ -4533,7 +4586,7 @@ $options=#full&hidden&groupInterval=300
 - `aiPreferCountries / cryptoPreferCountries / githubPreferCountries / steamPreferCountries / devPreferCountries` 现在都支持直接写区域 / 子区域 token
 - `aiPreferCountries / cryptoPreferCountries / githubPreferCountries / steamPreferCountries / devPreferCountries` 现在也支持直接写 preset：
   - `ai-core / crypto-core / gaming-core / dev-core`
-  - `asia-core / europe-core / americas-core / global-core`
+  - `asia-core / europe-core / americas-core / global-core / workspace-core / westeurope-core / easteurope-core / gulf-core`
   - `classic-4 / asia-4 / classic-5 / classic-6`
 - 也兼容 GitHub 社区常见缩写：
   - `hksgjpus`
@@ -4630,8 +4683,10 @@ $options=#full&hidden&groupInterval=300
 - `customRuleAnchor` 复用和 `githubRuleAnchor` 一样的锚点体系：既支持 provider 名，也支持 `top / start / end / match`
 - 如果 `customRuleAnchor` 没命中任何规则入口，脚本会显式告警并回退到默认“脚本规则后、MATCH 前”
 - 如果设置 `groupOrderPreset`，脚本会按预设重排最终 `proxy-groups` 展示顺序
-- `groupOrderPreset` 支持 `balanced / core / service / media / region`
+- `groupOrderPreset` 支持 `balanced / core / service / media / region / national / workspace / compact`
 - 其中区域优先布局还兼容更直白的别名：`region-first / regions-first / regional-first / geo-first`
+- 国家组优先布局支持：`national / national-first / country-first / countries-first`
+- 工作流和紧凑布局支持：`workspace / work / office / compact / minimal / lite`
 - 内置预设现在都会把 `🧑‍💻 开发服务` 放到 `🐙 GitHub` 后、`🚂 Steam` 前，并把 `🐟 兜底节点` 保持在后段
 - 如果设置 `groupOrder`，脚本会优先使用显式 token 顺序；此时 `groupOrderPreset` 只作为 fallback / 说明项
 - 如果设置 `countryGroupSort`，脚本会按对应模式重排国家组顺序
@@ -4650,13 +4705,13 @@ $options=#full&hidden&groupInterval=300
   - `namedesc / alphadesc / reversealpha / reversename` → `name-desc`
 - 默认仍然是 `definition`，也就是脚本内置定义顺序
 - 如果你传的是 `count`，日志和响应头里会显示规范化后的 `count-desc`
-- 内置国家识别库已经继续补到 `巴基斯坦 / 孟加拉 / 哈萨克 / 柬埔寨 / 文莱 / 塞尔维亚 / 摩尔多瓦 / 塞浦路斯 / 尼日利亚 / 摩洛哥 / 肯尼亚` 等常见节点命名
+- 内置国家识别库已经继续补到 `巴林 / 阿曼 / 约旦 / 白俄罗斯 / 马耳他 / 巴基斯坦 / 孟加拉 / 哈萨克 / 柬埔寨 / 文莱 / 塞尔维亚 / 摩尔多瓦 / 塞浦路斯 / 尼日利亚 / 摩洛哥 / 肯尼亚` 等常见节点命名
 - 如果设置 `regionGroups`，脚本会在国家组之上额外挂一层可选区域组；默认关闭
 - `regionGroups` 支持：
-  - `asia / eastasia / southeastasia / southasia`
-  - `europe / northeurope / centraleurope`
-  - `americas / northamerica / southamerica`
-  - `middleeast / gulf / oceania / africa`
+  - `asia / eastasia / southeastasia / southasia / centralasia / caucasus`
+  - `europe / westeurope / easteurope / northeurope / centraleurope / balkans / iberia / benelux`
+  - `americas / northamerica / southamerica / latam`
+  - `middleeast / gulf / levant / oceania / africa / northafrica / mediterranean`
   - `all / auto / default`
   - `none / off / false`
 - `all / auto / default` 仍只启用原来的 6 个大区，不会自动把新增子区域也一并打开

@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.4.0
+ * Sub-Store 终极策略增强脚本 V9.5.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -160,11 +160,15 @@
  * 155. 诊断复用优化：把区域可见性、规则优先级风险与策略组优先级风险分析改成主流程统一复用，减少重复扫描。
  * 156. 开发锚点修正：修复规则顺序别名表里 `dev` 被 `GitLab` 别名覆盖的问题，保证开发规则块锚点稳定指向 DevList。
  * 157. 注释增强：继续给关键规范化、可见性诊断与缓存别名逻辑补充更细粒度的逐行中文注释。
+ * 158. 国家识别继续扩容：新增巴林、阿曼、约旦、白俄罗斯、马耳他、巴拿马等常见节点国家，补齐更多机场命名。
+ * 159. 子区域继续增强：新增西欧、东欧、伊比利亚、比荷卢、DACH、华语区、英语区、黎凡特等区域 token，便于 region-groups 与 prefer-countries 精细编排。
+ * 160. 优先链预设继续增强：新增 workspace-core / westeurope-core / easteurope-core / greaterchina-core / anglosphere-core / gulf-core / asia-5 等 preset，减少手写长串 token。
+ * 161. 默认面板布局增强：新增 workspace / compact / national 布局预设，并把默认 balanced 布局中的区域组/国家组前移，兼顾工作流优先、紧凑面板与国家组优先三种常见玩法。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.4.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.4.0。
+const SCRIPT_VERSION = "9.5.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.5.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -295,7 +299,20 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   geography: "region",
   country: "region",
   countries: "region",
-  countryfirst: "region"
+  countryfirst: "national",
+  national: "national",
+  nationalfirst: "national",
+  nationfirst: "national",
+  countrygroupsfirst: "national",
+  countriesfirst: "national",
+  workspace: "workspace",
+  work: "workspace",
+  office: "workspace",
+  workbench: "workspace",
+  compact: "compact",
+  minimal: "compact",
+  mini: "compact",
+  lite: "compact"
 });
 
 // 统一维护所有策略组的展示名称，后面所有规则和分组都从这里取值。
@@ -368,7 +385,10 @@ const GROUP_ORDER_PRESET_TOKENS = {
   core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
   service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]
+  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "countries", "regions", "steam", "bing", "apple", "games", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  compact: ["select", "manual", "fallback", "ai", "github", "dev", "steam", "media", "countries", "regions", "helpers", "extras"]
 };
 
 // 某些自动分组天然允许为空，不必为此输出告警。
@@ -470,6 +490,30 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🌐 全球核心链",
     aliases: ["globalcore", "global-core", "worldcore", "world-core", "全球核心"],
     markers: ["eastasia", "southeastasia", "northeurope", "centraleurope", "northamerica", "gulf"]
+  },
+  {
+    key: "workspace-core",
+    name: "🧑‍💻 工作流核心链",
+    aliases: ["workspacecore", "workspace-core", "workbenchcore", "workbench-core", "办公核心", "工作流核心"],
+    markers: ["eastasia", "southeastasia", "northeurope", "centraleurope", "northamerica"]
+  },
+  {
+    key: "westeurope-core",
+    name: "🌤️ 西欧核心链",
+    aliases: ["westeuropecore", "west-europe-core", "wecore", "we-core", "西欧核心"],
+    markers: ["westeurope", "benelux", "iberia"]
+  },
+  {
+    key: "easteurope-core",
+    name: "🧊 东欧核心链",
+    aliases: ["easteuropecore", "east-europe-core", "eecore", "ee-core", "东欧核心"],
+    markers: ["easteurope", "balkans"]
+  },
+  {
+    key: "gulf-core",
+    name: "🛢️ 海湾核心链",
+    aliases: ["gulfcore", "gulf-core", "gcccore", "gcc-core", "海湾核心"],
+    markers: ["gulf", "levant"]
   },
   {
     key: "classic-4",
@@ -580,6 +624,8 @@ const COUNTRY_DEFINITIONS = [
   { name: "希腊", flag: "🇬🇷", aliases: ["希腊", "GR", "GRC", "Greece", "Athens", "雅典"] },
   // 乌克兰常见命名方式。
   { name: "乌克兰", flag: "🇺🇦", aliases: ["乌克兰", "UA", "UKR", "Ukraine", "Kyiv", "Kiev", "基辅"] },
+  // 白俄罗斯常见命名方式；优先使用中文名、三位缩写与首都，减少 BY 误判。
+  { name: "白俄罗斯", flag: "🇧🇾", aliases: ["白俄罗斯", "BLR", "Belarus", "Minsk", "明斯克"] },
   // 冰岛常见命名方式；不使用容易误判的 IS 两位缩写。
   { name: "冰岛", flag: "🇮🇸", aliases: ["冰岛", "ISL", "Iceland", "Reykjavik", "雷克雅未克"] },
   // 塞尔维亚常见命名方式；优先使用中文名、三位缩写与首都，减少 RS 误判。
@@ -596,6 +642,8 @@ const COUNTRY_DEFINITIONS = [
   { name: "摩尔多瓦", flag: "🇲🇩", aliases: ["摩尔多瓦", "MDA", "Moldova", "Chisinau", "Chișinău", "基希讷乌"] },
   // 塞浦路斯常见命名方式；优先使用三位缩写，避免 CY 误判。
   { name: "塞浦路斯", flag: "🇨🇾", aliases: ["塞浦路斯", "CYP", "Cyprus", "Nicosia", "尼科西亚"] },
+  // 马耳他常见命名方式；优先使用中文名、三位缩写与首都，减少 MT 误判。
+  { name: "马耳他", flag: "🇲🇹", aliases: ["马耳他", "MLT", "Malta", "Valletta", "瓦莱塔"] },
 
   // 土耳其常见命名方式。
   { name: "土耳其", flag: "🇹🇷", aliases: ["土耳其", "TR", "TUR", "Turkey", "Istanbul", "伊斯坦布尔"] },
@@ -635,6 +683,12 @@ const COUNTRY_DEFINITIONS = [
   { name: "卡塔尔", flag: "🇶🇦", aliases: ["卡塔尔", "QAT", "Qatar", "Doha", "多哈"] },
   // 科威特常见命名方式。
   { name: "科威特", flag: "🇰🇼", aliases: ["科威特", "KWT", "Kuwait", "Kuwait City", "科威特城"] },
+  // 巴林常见命名方式；优先使用中文名、三位缩写与首都，减少 BH 误判。
+  { name: "巴林", flag: "🇧🇭", aliases: ["巴林", "BHR", "Bahrain", "Manama", "麦纳麦"] },
+  // 阿曼常见命名方式；优先使用中文名、三位缩写与首都，减少 OM 误判。
+  { name: "阿曼", flag: "🇴🇲", aliases: ["阿曼", "OMN", "Oman", "Muscat", "马斯喀特"] },
+  // 约旦常见命名方式；优先使用中文名、三位缩写与首都，减少 JO 误判。
+  { name: "约旦", flag: "🇯🇴", aliases: ["约旦", "JOR", "Jordan", "Amman", "安曼"] },
   // 沙特常见命名方式。
   { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
   // 亚美尼亚常见命名方式；优先使用中文名、三位缩写与首都，减少 AM 误判。
@@ -726,7 +780,35 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "europe",
     name: "🌍 欧洲节点",
     aliases: ["europe", "eu", "eur", "欧洲"],
-    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "塞尔维亚", "阿尔巴尼亚", "波黑", "黑山", "北马其顿", "摩尔多瓦", "塞浦路斯", "毛熊"]
+    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "白俄罗斯", "冰岛", "塞尔维亚", "阿尔巴尼亚", "波黑", "黑山", "北马其顿", "摩尔多瓦", "塞浦路斯", "马耳他", "毛熊"]
+  },
+  {
+    key: "westeurope",
+    name: "🌤️ 西欧节点",
+    aliases: ["westeurope", "west-europe", "weurope", "西欧"],
+    includeInAuto: false,
+    countryKeys: ["英国", "爱尔兰", "法国", "德国", "荷兰", "比利时", "卢森堡", "瑞士"]
+  },
+  {
+    key: "easteurope",
+    name: "🧊 东欧节点",
+    aliases: ["easteurope", "east-europe", "eeurope", "东欧"],
+    includeInAuto: false,
+    countryKeys: ["波兰", "爱沙尼亚", "拉脱维亚", "立陶宛", "捷克", "斯洛伐克", "匈牙利", "罗马尼亚", "乌克兰", "白俄罗斯", "摩尔多瓦", "毛熊"]
+  },
+  {
+    key: "iberia",
+    name: "🍷 伊比利亚节点",
+    aliases: ["iberia", "iberian", "iberianpeninsula", "伊比利亚"],
+    includeInAuto: false,
+    countryKeys: ["西班牙", "葡萄牙"]
+  },
+  {
+    key: "benelux",
+    name: "💎 比荷卢节点",
+    aliases: ["benelux", "lowcountries", "比荷卢"],
+    includeInAuto: false,
+    countryKeys: ["荷兰", "比利时", "卢森堡"]
   },
   {
     key: "northeurope",
@@ -780,14 +862,21 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "middleeast",
     name: "🕌 中东节点",
     aliases: ["middleeast", "middle-east", "me", "中东"],
-    countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "土耳其"]
+    countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "巴林", "阿曼", "约旦", "土耳其"]
+  },
+  {
+    key: "levant",
+    name: "🧭 黎凡特节点",
+    aliases: ["levant", "levantine", "eastmed", "东地中海", "黎凡特"],
+    includeInAuto: false,
+    countryKeys: ["以色列", "约旦", "塞浦路斯", "土耳其"]
   },
   {
     key: "gulf",
     name: "🛢️ 海湾节点",
     aliases: ["gulf", "gcc", "gulfstates", "gulf-states", "海湾"],
     includeInAuto: false,
-    countryKeys: ["阿联酋", "沙特", "卡塔尔", "科威特"]
+    countryKeys: ["阿联酋", "沙特", "卡塔尔", "科威特", "巴林", "阿曼"]
   },
   {
     key: "oceania",
@@ -813,7 +902,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "🌊 地中海节点",
     aliases: ["mediterranean", "mediterraneansea", "med-sea", "med", "地中海"],
     includeInAuto: false,
-    countryKeys: ["西班牙", "意大利", "希腊", "塞浦路斯", "土耳其", "以色列", "埃及", "摩洛哥", "阿尔及利亚", "突尼斯"]
+    countryKeys: ["西班牙", "葡萄牙", "意大利", "希腊", "塞浦路斯", "马耳他", "土耳其", "以色列", "埃及", "摩洛哥", "阿尔及利亚", "突尼斯"]
   }
 ]);
 
