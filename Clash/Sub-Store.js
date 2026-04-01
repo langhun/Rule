@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.88.0
+ * Sub-Store 终极策略增强脚本 V8.89.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -136,11 +136,13 @@
  * 131. 区域布局增强：region-groups 生成的区域组会同步接入 group-order / group-order-preset 的布局桶、响应调试头与 full 日志，便于和国家组一起编排面板顺序。
  * 132. 国家排序增强：新增 country-group-sort / country-sort 参数，可按定义顺序、节点数量或名称重排国家组，便于同时调整面板顺序与候选链顺序。
  * 133. 区域排序增强：新增 region-group-sort / region-sort 参数，可按定义顺序、聚合节点数或名称重排区域组，便于继续微调区域面板与前置组引用顺序。
+ * 134. 国家识别扩容：继续按当前中文显示名风格补充巴基斯坦、孟加拉、哈萨克斯坦、塞尔维亚、摩尔多瓦、塞浦路斯、尼日利亚、摩洛哥、肯尼亚、柬埔寨、文莱等常见国家/地区别名。
+ * 135. 区域映射补强：新增国家会同步接入亚洲 / 欧洲 / 非洲等区域组，减少 region-groups 已开启但国家组未覆盖时的空洞感。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.88.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.88.0。
+const SCRIPT_VERSION = "8.89.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.89.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -411,11 +413,23 @@ const COUNTRY_DEFINITIONS = [
   { name: "乌克兰", flag: "🇺🇦", aliases: ["乌克兰", "UA", "UKR", "Ukraine", "Kyiv", "Kiev", "基辅"] },
   // 冰岛常见命名方式；不使用容易误判的 IS 两位缩写。
   { name: "冰岛", flag: "🇮🇸", aliases: ["冰岛", "ISL", "Iceland", "Reykjavik", "雷克雅未克"] },
+  // 塞尔维亚常见命名方式；优先使用中文名、三位缩写与首都，减少 RS 误判。
+  { name: "塞尔维亚", flag: "🇷🇸", aliases: ["塞尔维亚", "SRB", "Serbia", "Belgrade", "贝尔格莱德"] },
+  // 摩尔多瓦常见命名方式；优先使用三位缩写，避免 MD 与普通文本冲突。
+  { name: "摩尔多瓦", flag: "🇲🇩", aliases: ["摩尔多瓦", "MDA", "Moldova", "Chisinau", "Chișinău", "基希讷乌"] },
+  // 塞浦路斯常见命名方式；优先使用三位缩写，避免 CY 误判。
+  { name: "塞浦路斯", flag: "🇨🇾", aliases: ["塞浦路斯", "CYP", "Cyprus", "Nicosia", "尼科西亚"] },
 
   // 土耳其常见命名方式。
   { name: "土耳其", flag: "🇹🇷", aliases: ["土耳其", "TR", "TUR", "Turkey", "Istanbul", "伊斯坦布尔"] },
   // 印度常见命名方式；不使用容易误判的 IN 两位缩写。
   { name: "印度", flag: "🇮🇳", aliases: ["印度", "IND", "India", "Mumbai", "Bombay", "Delhi", "Chennai", "Bangalore", "孟买", "德里", "金奈", "班加罗尔"] },
+  // 巴基斯坦常见命名方式；优先使用中文名、三位缩写与主要城市，减少 PK 误判。
+  { name: "巴基斯坦", flag: "🇵🇰", aliases: ["巴基斯坦", "PAK", "Pakistan", "Karachi", "Islamabad", "Lahore", "卡拉奇", "伊斯兰堡", "拉合尔"] },
+  // 孟加拉常见命名方式；显示名沿用简短中文风格。
+  { name: "孟加拉", flag: "🇧🇩", aliases: ["孟加拉", "孟加拉国", "BGD", "Bangladesh", "Dhaka", "达卡"] },
+  // 哈萨克斯坦常见命名方式；KZ 在节点命名里较常见，这里保留两位缩写兼容。
+  { name: "哈萨克", flag: "🇰🇿", aliases: ["哈萨克", "哈萨克斯坦", "KZ", "KAZ", "Kazakhstan", "Almaty", "Astana", "阿拉木图", "阿斯塔纳"] },
   // 马来西亚常见命名方式，这里沿用“大马”作为显示名称；不使用容易误判的 MY 两位缩写。
   { name: "大马", flag: "🇲🇾", aliases: ["马来西亚", "大马", "MYS", "Malaysia", "Kuala Lumpur", "Penang", "Johor", "吉隆坡", "槟城", "柔佛"] },
   // 泰国常见命名方式。
@@ -426,6 +440,10 @@ const COUNTRY_DEFINITIONS = [
   { name: "菲律宾", flag: "🇵🇭", aliases: ["菲律宾", "PH", "PHL", "Philippines", "Manila", "马尼拉"] },
   // 印度尼西亚常见命名方式，这里用“印尼”作为显示名称。
   { name: "印尼", flag: "🇮🇩", aliases: ["印尼", "印度尼西亚", "ID", "IDN", "Indonesia", "Jakarta", "Surabaya", "雅加达", "泗水"] },
+  // 柬埔寨常见命名方式；优先使用中文名、三位缩写与首都别名。
+  { name: "柬埔寨", flag: "🇰🇭", aliases: ["柬埔寨", "KHM", "Cambodia", "Phnom Penh", "金边"] },
+  // 文莱常见命名方式；在东南亚节点里偶尔出现，这里补上。
+  { name: "文莱", flag: "🇧🇳", aliases: ["文莱", "BRN", "Brunei", "Bandar Seri Begawan", "斯里巴加湾"] },
   // 阿联酋常见命名方式。
   { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "迪拜", "阿布扎比"] },
   // 卡塔尔常见命名方式。
@@ -446,6 +464,12 @@ const COUNTRY_DEFINITIONS = [
   { name: "秘鲁", flag: "🇵🇪", aliases: ["秘鲁", "PER", "Peru", "Lima", "利马"] },
   // 南非常见命名方式。
   { name: "南非", flag: "🇿🇦", aliases: ["南非", "ZAF", "South Africa", "Johannesburg", "Cape Town", "约翰内斯堡", "开普敦"] },
+  // 尼日利亚常见命名方式；补充拉各斯 / 阿布贾这类常见机房城市。
+  { name: "尼日利亚", flag: "🇳🇬", aliases: ["尼日利亚", "NGA", "Nigeria", "Lagos", "Abuja", "拉各斯", "阿布贾"] },
+  // 摩洛哥常见命名方式。
+  { name: "摩洛哥", flag: "🇲🇦", aliases: ["摩洛哥", "MAR", "Morocco", "Casablanca", "Rabat", "卡萨布兰卡", "拉巴特"] },
+  // 肯尼亚常见命名方式。
+  { name: "肯尼亚", flag: "🇰🇪", aliases: ["肯尼亚", "KEN", "Kenya", "Nairobi", "内罗毕"] },
   // 以色列常见命名方式；不使用容易误判的 IL 两位缩写。
   { name: "以色列", flag: "🇮🇱", aliases: ["以色列", "ISR", "Israel", "Tel Aviv", "Jerusalem", "特拉维夫", "耶路撒冷"] },
   // 新西兰常见命名方式。
@@ -462,13 +486,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "asia",
     name: "🌏 亚洲节点",
     aliases: ["asia", "asian", "as", "apac", "亚洲区", "亚洲"],
-    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "大马", "泰国", "越南", "菲律宾", "印尼"]
+    countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "哈萨克", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱"]
   },
   {
     key: "europe",
     name: "🌍 欧洲节点",
     aliases: ["europe", "eu", "eur", "欧洲"],
-    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "毛熊"]
+    countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "塞尔维亚", "摩尔多瓦", "塞浦路斯", "毛熊"]
   },
   {
     key: "americas",
@@ -492,7 +516,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "africa",
     name: "🌍 非洲节点",
     aliases: ["africa", "af", "非洲"],
-    countryKeys: ["南非", "埃及"]
+    countryKeys: ["南非", "埃及", "尼日利亚", "摩洛哥", "肯尼亚"]
   }
 ]);
 
