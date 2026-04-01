@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.89.0
+ * Sub-Store 终极策略增强脚本 V8.90.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -138,11 +138,13 @@
  * 133. 区域排序增强：新增 region-group-sort / region-sort 参数，可按定义顺序、聚合节点数或名称重排区域组，便于继续微调区域面板与前置组引用顺序。
  * 134. 国家识别扩容：继续按当前中文显示名风格补充巴基斯坦、孟加拉、哈萨克斯坦、塞尔维亚、摩尔多瓦、塞浦路斯、尼日利亚、摩洛哥、肯尼亚、柬埔寨、文莱等常见国家/地区别名。
  * 135. 区域映射补强：新增国家会同步接入亚洲 / 欧洲 / 非洲等区域组，减少 region-groups 已开启但国家组未覆盖时的空洞感。
+ * 136. 子区域增强：在现有 asia / europe / americas 之外，继续补充 eastasia / southeastasia / southasia / northamerica / southamerica / northeurope / centraleurope / gulf 等细分区域 token。
+ * 137. 区域默认集兼容：region-groups=all/auto/default 仍只启用原有大区；新子区域仅在显式点名时生成，避免旧链接面板突然膨胀。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.89.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.89.0。
+const SCRIPT_VERSION = "8.90.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.90.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -489,22 +491,78 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     countryKeys: ["香港", "澳门", "台湾", "日本", "狮城", "韩国", "印度", "巴基斯坦", "孟加拉", "哈萨克", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱"]
   },
   {
+    key: "eastasia",
+    name: "🌸 东亚节点",
+    aliases: ["eastasia", "east-asia", "northeastasia", "northeast-asia", "ea", "东亚"],
+    includeInAuto: false,
+    countryKeys: ["香港", "澳门", "台湾", "日本", "韩国"]
+  },
+  {
+    key: "southeastasia",
+    name: "🌴 东南亚节点",
+    aliases: ["southeastasia", "south-east-asia", "sea", "seasia", "东南亚"],
+    includeInAuto: false,
+    countryKeys: ["狮城", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱"]
+  },
+  {
+    key: "southasia",
+    name: "🕌 南亚节点",
+    aliases: ["southasia", "south-asia", "saasia", "南亚"],
+    includeInAuto: false,
+    countryKeys: ["印度", "巴基斯坦", "孟加拉"]
+  },
+  {
     key: "europe",
     name: "🌍 欧洲节点",
     aliases: ["europe", "eu", "eur", "欧洲"],
     countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "冰岛", "塞尔维亚", "摩尔多瓦", "塞浦路斯", "毛熊"]
   },
   {
+    key: "northeurope",
+    name: "❄️ 北欧节点",
+    aliases: ["northeurope", "north-europe", "nordic", "nordics", "北欧"],
+    includeInAuto: false,
+    countryKeys: ["英国", "爱尔兰", "冰岛", "瑞典", "挪威", "芬兰", "丹麦"]
+  },
+  {
+    key: "centraleurope",
+    name: "🏰 中欧节点",
+    aliases: ["centraleurope", "central-europe", "mid-europe", "中欧"],
+    includeInAuto: false,
+    countryKeys: ["德国", "荷兰", "比利时", "卢森堡", "奥地利", "瑞士", "波兰", "捷克", "斯洛伐克", "匈牙利"]
+  },
+  {
     key: "americas",
     name: "🌎 美洲节点",
-    aliases: ["americas", "america", "amer", "northamerica", "southamerica", "na", "sa", "美洲"],
+    aliases: ["americas", "america", "amer", "美洲"],
     countryKeys: ["美国", "枫叶", "墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁"]
+  },
+  {
+    key: "northamerica",
+    name: "🗽 北美节点",
+    aliases: ["northamerica", "north-america", "naonly", "北美"],
+    includeInAuto: false,
+    countryKeys: ["美国", "枫叶", "墨西哥"]
+  },
+  {
+    key: "southamerica",
+    name: "💃 南美节点",
+    aliases: ["southamerica", "south-america", "saonly", "南美"],
+    includeInAuto: false,
+    countryKeys: ["阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁"]
   },
   {
     key: "middleeast",
     name: "🕌 中东节点",
-    aliases: ["middleeast", "middle-east", "me", "gulf", "中东"],
+    aliases: ["middleeast", "middle-east", "me", "中东"],
     countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "土耳其"]
+  },
+  {
+    key: "gulf",
+    name: "🛢️ 海湾节点",
+    aliases: ["gulf", "gcc", "gulfstates", "gulf-states", "海湾"],
+    includeInAuto: false,
+    countryKeys: ["阿联酋", "沙特", "卡塔尔", "科威特"]
   },
   {
     key: "oceania",
@@ -2289,7 +2347,9 @@ function createRegionGroupAliasMap() {
 
 // 解析 region-groups / continent-groups 参数，支持布尔、字符串、数组、对象与 JSON 字符串。
 function parseRegionGroupKeys(value) {
-  const allKeys = REGION_GROUP_DEFINITIONS.map((definition) => definition.key);
+  const allKeys = REGION_GROUP_DEFINITIONS
+    .filter((definition) => definition && definition.includeInAuto !== false)
+    .map((definition) => definition.key);
   const enabledKeys = [];
   const invalidTokens = [];
   const truthyTokens = ["true", "1", "yes", "y", "on", "all", "auto", "default"];
