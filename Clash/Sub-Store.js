@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.90.0
+ * Sub-Store 终极策略增强脚本 V8.91.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -140,11 +140,13 @@
  * 135. 区域映射补强：新增国家会同步接入亚洲 / 欧洲 / 非洲等区域组，减少 region-groups 已开启但国家组未覆盖时的空洞感。
  * 136. 子区域增强：在现有 asia / europe / americas 之外，继续补充 eastasia / southeastasia / southasia / northamerica / southamerica / northeurope / centraleurope / gulf 等细分区域 token。
  * 137. 区域默认集兼容：region-groups=all/auto/default 仍只启用原有大区；新子区域仅在显式点名时生成，避免旧链接面板突然膨胀。
+ * 138. 国家优先链区域化：ai/github/steam/dev/crypto 的 prefer-countries 现在也支持 asia/eastasia/gulf/northamerica 这类区域 token，会自动展开成当前已生成的国家组。
+ * 139. 优先链区域化兼容：prefer-countries 的区域 token 不依赖是否启用 region-groups 面板，只要对应国家组已生成就会生效。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.90.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.90.0。
+const SCRIPT_VERSION = "8.91.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.91.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -8096,7 +8098,18 @@ function resolvePreferredProxyReferences(proxyNames, markers) {
   return uniqueStrings(resolvedNames);
 }
 
-// 把用户传入的国家偏好标记解析成真实国家组；支持旗帜、国家名和 COUNTRY_DEFINITIONS.aliases。
+// 把单个区域标记展开成当前已生成的国家组；顺序跟随当前 countryConfigs，便于自动继承国家排序参数的效果。
+function resolvePreferredRegionCountryGroups(countryConfigs, marker) {
+  const definition = findRegionGroupDefinitionByToken(marker);
+  if (!definition) {
+    return [];
+  }
+
+  const countryKeyLookup = createLookup(uniqueStrings(definition.countryKeys || []));
+  return (Array.isArray(countryConfigs) ? countryConfigs : []).filter((group) => group && countryKeyLookup[group.key]);
+}
+
+// 把用户传入的国家偏好标记解析成真实国家组；支持旗帜、国家名、COUNTRY_DEFINITIONS.aliases，以及区域/子区域 token。
 function resolvePreferredCountryGroups(countryConfigs, markers) {
   const groups = [];
 
@@ -8113,6 +8126,15 @@ function resolvePreferredCountryGroups(countryConfigs, markers) {
       matchedGroup = findCountryGroup(countryConfigs, getCountryDefinitionMarkers(definition));
     }
 
+    // 如果命中了区域 / 子区域 token，则把该区域下当前已生成的国家组按现有顺序全部展开。
+    if (!matchedGroup) {
+      const regionGroups = resolvePreferredRegionCountryGroups(countryConfigs, token);
+      groups.push.apply(groups, regionGroups);
+      if (regionGroups.length) {
+        continue;
+      }
+    }
+
     // 如果标准国家定义里没命中，再退回到“直接用字符串包含关系”。
     if (!matchedGroup) {
       matchedGroup = findCountryGroup(countryConfigs, [token]);
@@ -8127,7 +8149,7 @@ function resolvePreferredCountryGroups(countryConfigs, markers) {
   return uniqueStrings(groups.map((group) => group.name)).map((name) => groups.find((group) => group.name === name));
 }
 
-// 校验用户传入的国家优先链标记是否真的能匹配到“当前已生成”的国家组，避免参数写了却静默失效。
+// 校验用户传入的国家优先链标记是否真的能匹配到“当前已生成”的国家组；区域 token 也按展开后的结果一起校验。
 function validatePreferredCountryMarkers(countryConfigs, markers, label) {
   const warnings = [];
 
