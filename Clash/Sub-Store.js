@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.3.0
+ * Sub-Store 终极策略增强脚本 V9.4.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -156,11 +156,15 @@
  * 151. 区域组可见性增强：新增区域组可见性诊断，显式提示“区域组已开启但没生成”或“生成了但排太后”的情况。
  * 152. 区域布局预设别名增强：group-order-preset 继续兼容 region-first / regions-first / regional-first / geo-first 等更直白写法。
  * 153. Clash Verge 排查增强：把区域组位置摘要写入 full 日志与响应调试头，便于直接判断面板里为什么看不到区域组。
+ * 154. 内部缓存优化：把区域组别名、策略组布局别名、前置组别名与规则锚点别名提到顶层缓存，减少重复构造对象。
+ * 155. 诊断复用优化：把区域可见性、规则优先级风险与策略组优先级风险分析改成主流程统一复用，减少重复扫描。
+ * 156. 开发锚点修正：修复规则顺序别名表里 `dev` 被 `GitLab` 别名覆盖的问题，保证开发规则块锚点稳定指向 DevList。
+ * 157. 注释增强：继续给关键规范化、可见性诊断与缓存别名逻辑补充更细粒度的逐行中文注释。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.3.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.3.0。
+const SCRIPT_VERSION = "9.4.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.4.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -265,6 +269,34 @@ const RULE_ORDER_END = "__RULE_ORDER_END__";
 const DEFAULT_GROUP_ORDER_PRESET = "balanced";
 // 内置规则源预设的默认模式。
 const DEFAULT_RULE_SOURCE_PRESET = "meta";
+// 统一把 group-order-preset 的社区别名折叠到固定枚举，避免每次规范化都临时造一份 alias map。
+const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
+  balanced: "balanced",
+  core: "core",
+  corefirst: "core",
+  main: "core",
+  mainfirst: "core",
+  service: "service",
+  services: "service",
+  servicefirst: "service",
+  business: "service",
+  businessfirst: "service",
+  media: "media",
+  mediafirst: "media",
+  streaming: "media",
+  streamingfirst: "media",
+  region: "region",
+  regions: "region",
+  regionfirst: "region",
+  regionsfirst: "region",
+  regional: "region",
+  regionalfirst: "region",
+  geofirst: "region",
+  geography: "region",
+  country: "region",
+  countries: "region",
+  countryfirst: "region"
+});
 
 // 统一维护所有策略组的展示名称，后面所有规则和分组都从这里取值。
 const GROUPS = {
@@ -1227,38 +1259,16 @@ function normalizeRuleOrderPosition(value, defaultPosition) {
 
 // 规范化策略组布局预设名称，兼容常见 first / preset / layout 写法。
 function normalizeGroupOrderPreset(value, defaultPreset) {
+  // 先把用户输入统一裁剪、去连接符并折叠成内部比较用 token。
   const normalized = normalizeGroupMarkerToken(value);
-  const aliasMap = {
-    default: defaultPreset,
-    script: defaultPreset,
-    balanced: "balanced",
-    core: "core",
-    corefirst: "core",
-    main: "core",
-    mainfirst: "core",
-    service: "service",
-    services: "service",
-    servicefirst: "service",
-    business: "service",
-    businessfirst: "service",
-    media: "media",
-    mediafirst: "media",
-    streaming: "media",
-    streamingfirst: "media",
-    region: "region",
-    regions: "region",
-    regionfirst: "region",
-    regionsfirst: "region",
-    regional: "region",
-    regionalfirst: "region",
-    geofirst: "region",
-    geography: "region",
-    country: "region",
-    countries: "region",
-    countryfirst: "region"
-  };
 
-  return aliasMap[normalized] || defaultPreset;
+  // 空值、default、script 都表示“继续沿用脚本默认布局预设”。
+  if (!normalized || ["default", "script"].includes(normalized)) {
+    return defaultPreset;
+  }
+
+  // 其余情况只接受缓存好的社区别名；未命中时安全回退默认预设。
+  return GROUP_ORDER_PRESET_ALIAS_MAP[normalized] || defaultPreset;
 }
 
 // 规范化国家组 / 区域组排序模式，便于把定义顺序、数量优先、名称优先这些玩法收敛成固定枚举。
@@ -2565,13 +2575,16 @@ function findPreferredCountryPresetDefinitionByToken(marker) {
   return null;
 }
 
-// 构造区域分组别名表，便于布局参数与独立组前置组都能直接引用 `asia / europe / americas` 这类短写。
-function createRegionGroupAliasMap() {
+// 实际构造区域分组别名表的底层 helper；单独拆出来是为了把结果缓存到顶层常量里。
+function buildRegionGroupAliasMap() {
   const aliasMap = {};
 
+  // 逐个遍历区域定义，把 asia / eastasia / europe / gulf 这类 token 全部映射到最终展示组名。
   for (const definition of REGION_GROUP_DEFINITIONS) {
+    // 一个区域定义可能带多种别名写法，这里统一全部吸收进 alias map。
     for (const marker of getRegionGroupDefinitionMarkers(definition)) {
       const token = normalizeGroupMarkerToken(marker);
+      // 空 token 或已被更早定义占用的 token 都跳过，避免脏数据与重复覆盖。
       if (!token || hasOwn(aliasMap, token)) {
         continue;
       }
@@ -2581,6 +2594,14 @@ function createRegionGroupAliasMap() {
   }
 
   return aliasMap;
+}
+
+// 顶层缓存区域分组别名，避免 group-order / prefer-groups 每次解析都重跑整份区域定义。
+const REGION_GROUP_ALIAS_MAP = Object.freeze(buildRegionGroupAliasMap());
+
+// 对外继续保留旧 helper 名称，调用点不用改；内部实际直接返回缓存对象。
+function createRegionGroupAliasMap() {
+  return REGION_GROUP_ALIAS_MAP;
 }
 
 // 解析 region-groups / continent-groups 参数，支持布尔、字符串、数组、对象与 JSON 字符串。
@@ -6420,6 +6441,7 @@ function validateGroupOrderTokens(proxyGroups, countryConfigs) {
 
 // 检查区域组是否真的生成、以及在最终面板里的可见位置，避免“脚本支持但面板里看不见”的情况只能靠人工猜。
 function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
+  // 用户没有开启 region-groups 时，直接返回 disabled，避免输出一堆和当前订阅无关的提示。
   if (!ARGS.hasRegionGroups) {
     return {
       warnings: [],
@@ -6428,19 +6450,25 @@ function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
     };
   }
 
+  // proxy-groups 可能混入外部 merge 进来的异常项，这里先只保留真正带名字的组。
   const groups = Array.isArray(proxyGroups) ? proxyGroups : [];
+  // 把最终面板顺序压平成组名数组，后续就能直接用 indexOf 比较前后位置。
   const groupNames = groups
     .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
     .map((group) => group.name.trim());
+  // 区域组名称仍按“最终国家组结果 + 当前 regionGroupKeys”重新推导，确保诊断口径和真实产物一致。
   const regionGroupNames = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys)
     .map((region) => region && region.name)
     .filter(Boolean);
+  // 国家组位置也一并拉平，便于判断区域组是不是被国家组压到后面去了。
   const countryGroupNames = (Array.isArray(countryConfigs) ? countryConfigs : [])
     .map((country) => country && country.name)
     .filter(Boolean);
+  // warnings 给 full 日志 / 响应头，previewEntries 专门用于显示“前几个区域组排在第几位”。
   const warnings = [];
   const previewEntries = [];
 
+  // 一个区域组都没生成，通常说明国家组没命中、region token 太窄，或节点命名还没覆盖到对应区域。
   if (!regionGroupNames.length) {
     warnings.push("region-groups 已开启，但当前没有生成任何区域组；请确认节点是否先命中国家组，或改用 regionGroups=all / asia,europe,americas 这类更宽的区域集合");
     return {
@@ -6450,9 +6478,11 @@ function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
     };
   }
 
+  // 记录每个区域组在最终 proxy-groups 里的真实索引，后面才能判断“有没有生成”和“排在第几位”。
   const regionPositions = regionGroupNames
     .map((name) => ({ name, index: groupNames.indexOf(name) }))
     .filter((item) => item.index !== -1);
+  // 同时记录国家组索引，用来比较区域组是不是排到了国家组后面。
   const countryPositions = countryGroupNames
     .map((name) => ({ name, index: groupNames.indexOf(name) }))
     .filter((item) => item.index !== -1);
@@ -6460,22 +6490,27 @@ function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
   const firstCountry = countryPositions.length ? countryPositions[0] : null;
   const lastRegion = regionPositions.length ? regionPositions[regionPositions.length - 1] : null;
 
+  // 预览里只取前 4 个区域组，既足够看出排序，也不会把响应头挤得太长。
   for (const item of regionPositions.slice(0, 4)) {
     previewEntries.push(`${sanitizeProviderPreviewName(item.name)}@${item.index + 1}`);
   }
 
+  // 配了 region-groups，但最终面板里完全没出现区域组，通常是外部配置覆盖或客户端缓存没刷新。
   if (!regionPositions.length) {
     warnings.push("region-groups 已开启，也解析到了区域标记，但这些区域组没有出现在最终 proxy-groups 中；请检查是否被外部配置覆盖或客户端没有刷新到最新产物");
   }
 
+  // 第一个区域组反而排在第一个国家组后面时，Clash Verge 面板里看起来就很像“区域组没生成”。
   if (firstRegion && firstCountry && firstRegion.index > firstCountry.index) {
     warnings.push(`区域组已生成，但当前首个区域组 ${firstRegion.name} 排在首个国家组 ${firstCountry.name} 后面；在 Clash Verge 面板里可能不明显，建议加 groupOrderPreset=region-first 或 groupOrder=select,manual,fallback,regions,countries,other,extras`);
   }
 
+  // 即使没落到国家组后面，只要位置太靠后，实际面板里依然需要下滑很久才能看到。
   if (firstRegion && firstRegion.index >= 12) {
     warnings.push(`区域组已生成，但首个区域组 ${firstRegion.name} 当前排在第 ${firstRegion.index + 1} 位；在 Clash Verge 面板里通常需要下滑才看得到，建议把 regions 提前`);
   }
 
+  // 最后把核心指标压缩成单行摘要，方便 full 日志和响应调试头直接复用。
   return {
     warnings: uniqueStrings(warnings),
     summary: `configured=${ARGS.regionGroupKeys.length},generated=${regionGroupNames.length},first-region=${firstRegion ? firstRegion.index + 1 : 0},first-country=${firstCountry ? firstCountry.index + 1 : 0},visible=${firstRegion ? "yes" : "no"},tail-region=${lastRegion ? lastRegion.index + 1 : 0}`,
@@ -7752,53 +7787,56 @@ function prependPreferredNames(preferredNames, proxies, keepDirectFirst) {
   return uniqueStrings(preferred.concat(base));
 }
 
-// 构造策略组布局编排专用别名表；这里的 direct 指向脚本生成的“全球直连”组，而不是内置 DIRECT。
+// 顶层缓存策略组布局别名表；direct 这里特指脚本生成的“全球直连”组，而不是内置 DIRECT。
+const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
+  select: GROUPS.SELECT,
+  proxy: GROUPS.SELECT,
+  main: GROUPS.SELECT,
+  manual: GROUPS.MANUAL,
+  manualswitch: GROUPS.MANUAL,
+  fallback: GROUPS.FALLBACK,
+  auto: GROUPS.FALLBACK,
+  autoswitch: GROUPS.FALLBACK,
+  direct: GROUPS.DIRECT,
+  globaldirect: GROUPS.DIRECT,
+  scriptdirect: GROUPS.DIRECT,
+  ai: GROUPS.AI,
+  crypto: GROUPS.CRYPTO,
+  apple: GROUPS.APPLE,
+  microsoft: GROUPS.MICROSOFT,
+  ms: GROUPS.MICROSOFT,
+  google: GROUPS.GOOGLE,
+  github: GROUPS.GITHUB,
+  dev: GROUPS.DEV,
+  developer: GROUPS.DEV,
+  development: GROUPS.DEV,
+  bing: GROUPS.BING,
+  onedrive: GROUPS.ONEDRIVE,
+  sharepoint: GROUPS.ONEDRIVE,
+  skydrive: GROUPS.ONEDRIVE,
+  "1drv": GROUPS.ONEDRIVE,
+  telegram: GROUPS.TELEGRAM,
+  youtube: GROUPS.YOUTUBE,
+  netflix: GROUPS.NETFLIX,
+  disney: GROUPS.DISNEY,
+  disneyplus: GROUPS.DISNEY,
+  spotify: GROUPS.SPOTIFY,
+  tiktok: GROUPS.TIKTOK,
+  steam: GROUPS.STEAM,
+  game: GROUPS.GAMES,
+  games: GROUPS.GAMES,
+  pt: GROUPS.PT,
+  speedtest: GROUPS.SPEEDTEST,
+  ads: GROUPS.ADS,
+  ad: GROUPS.ADS,
+  other: GROUPS.OTHER,
+  lowcost: GROUPS.LOW_COST,
+  landing: GROUPS.LANDING
+}, REGION_GROUP_ALIAS_MAP));
+
+// 对外保留函数式入口，调用点继续按旧接口取值；内部实际直接复用缓存常量。
 function createProxyGroupOrderAliasMap() {
-  return Object.assign({
-    select: GROUPS.SELECT,
-    proxy: GROUPS.SELECT,
-    main: GROUPS.SELECT,
-    manual: GROUPS.MANUAL,
-    manualswitch: GROUPS.MANUAL,
-    fallback: GROUPS.FALLBACK,
-    auto: GROUPS.FALLBACK,
-    autoswitch: GROUPS.FALLBACK,
-    direct: GROUPS.DIRECT,
-    globaldirect: GROUPS.DIRECT,
-    scriptdirect: GROUPS.DIRECT,
-    ai: GROUPS.AI,
-    crypto: GROUPS.CRYPTO,
-    apple: GROUPS.APPLE,
-    microsoft: GROUPS.MICROSOFT,
-    ms: GROUPS.MICROSOFT,
-    google: GROUPS.GOOGLE,
-    github: GROUPS.GITHUB,
-    dev: GROUPS.DEV,
-    developer: GROUPS.DEV,
-    development: GROUPS.DEV,
-    bing: GROUPS.BING,
-    onedrive: GROUPS.ONEDRIVE,
-    sharepoint: GROUPS.ONEDRIVE,
-    skydrive: GROUPS.ONEDRIVE,
-    "1drv": GROUPS.ONEDRIVE,
-    telegram: GROUPS.TELEGRAM,
-    youtube: GROUPS.YOUTUBE,
-    netflix: GROUPS.NETFLIX,
-    disney: GROUPS.DISNEY,
-    disneyplus: GROUPS.DISNEY,
-    spotify: GROUPS.SPOTIFY,
-    tiktok: GROUPS.TIKTOK,
-    steam: GROUPS.STEAM,
-    game: GROUPS.GAMES,
-    games: GROUPS.GAMES,
-    pt: GROUPS.PT,
-    speedtest: GROUPS.SPEEDTEST,
-    ads: GROUPS.ADS,
-    ad: GROUPS.ADS,
-    other: GROUPS.OTHER,
-    lowcost: GROUPS.LOW_COST,
-    landing: GROUPS.LANDING
-  }, createRegionGroupAliasMap());
+  return PROXY_GROUP_ORDER_ALIAS_MAP;
 }
 
 // 解析策略组布局参数中的单个组引用：优先精确匹配，其次大小写无关，再尝试脚本别名，最后只接受唯一模糊命中。
@@ -7956,182 +7994,186 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
   };
 }
 
-// 构造 GitHub / Steam 独立组“前置组”别名表，便于直接用 `manual / fallback / direct / lowcost` 这类简写。
+// 顶层缓存 GitHub / Steam / Dev 等独立组“前置组”别名表，避免每次解析 prefer-groups 都临时造对象。
+const PREFERRED_GROUP_ALIAS_MAP = Object.freeze(Object.assign({
+  select: GROUPS.SELECT,
+  proxy: GROUPS.SELECT,
+  main: GROUPS.SELECT,
+  manual: GROUPS.MANUAL,
+  manualswitch: GROUPS.MANUAL,
+  fallback: GROUPS.FALLBACK,
+  auto: GROUPS.FALLBACK,
+  autoswitch: GROUPS.FALLBACK,
+  direct: BUILTIN_DIRECT,
+  builtindirect: BUILTIN_DIRECT,
+  globaldirect: GROUPS.DIRECT,
+  scriptdirect: GROUPS.DIRECT,
+  ai: GROUPS.AI,
+  crypto: GROUPS.CRYPTO,
+  apple: GROUPS.APPLE,
+  microsoft: GROUPS.MICROSOFT,
+  ms: GROUPS.MICROSOFT,
+  google: GROUPS.GOOGLE,
+  github: GROUPS.GITHUB,
+  dev: GROUPS.DEV,
+  developer: GROUPS.DEV,
+  development: GROUPS.DEV,
+  bing: GROUPS.BING,
+  onedrive: GROUPS.ONEDRIVE,
+  sharepoint: GROUPS.ONEDRIVE,
+  skydrive: GROUPS.ONEDRIVE,
+  "1drv": GROUPS.ONEDRIVE,
+  telegram: GROUPS.TELEGRAM,
+  youtube: GROUPS.YOUTUBE,
+  netflix: GROUPS.NETFLIX,
+  disney: GROUPS.DISNEY,
+  disneyplus: GROUPS.DISNEY,
+  spotify: GROUPS.SPOTIFY,
+  tiktok: GROUPS.TIKTOK,
+  steam: GROUPS.STEAM,
+  game: GROUPS.GAMES,
+  games: GROUPS.GAMES,
+  pt: GROUPS.PT,
+  speedtest: GROUPS.SPEEDTEST,
+  ads: GROUPS.ADS,
+  ad: GROUPS.ADS,
+  other: GROUPS.OTHER,
+  lowcost: GROUPS.LOW_COST,
+  landing: GROUPS.LANDING,
+  reject: "REJECT",
+  rejectdrop: "REJECT-DROP",
+  pass: "PASS",
+  global: "GLOBAL",
+  compatible: "COMPATIBLE"
+}, REGION_GROUP_ALIAS_MAP));
+
+// 对外保留旧 helper 名称，确保已有解析逻辑不需要改结构。
 function createPreferredGroupAliasMap() {
-  return Object.assign({
-    select: GROUPS.SELECT,
-    proxy: GROUPS.SELECT,
-    main: GROUPS.SELECT,
-    manual: GROUPS.MANUAL,
-    manualswitch: GROUPS.MANUAL,
-    fallback: GROUPS.FALLBACK,
-    auto: GROUPS.FALLBACK,
-    autoswitch: GROUPS.FALLBACK,
-    direct: BUILTIN_DIRECT,
-    builtindirect: BUILTIN_DIRECT,
-    globaldirect: GROUPS.DIRECT,
-    scriptdirect: GROUPS.DIRECT,
-    ai: GROUPS.AI,
-    crypto: GROUPS.CRYPTO,
-    apple: GROUPS.APPLE,
-    microsoft: GROUPS.MICROSOFT,
-    ms: GROUPS.MICROSOFT,
-    google: GROUPS.GOOGLE,
-    github: GROUPS.GITHUB,
-    dev: GROUPS.DEV,
-    developer: GROUPS.DEV,
-    development: GROUPS.DEV,
-    bing: GROUPS.BING,
-    onedrive: GROUPS.ONEDRIVE,
-    sharepoint: GROUPS.ONEDRIVE,
-    skydrive: GROUPS.ONEDRIVE,
-    "1drv": GROUPS.ONEDRIVE,
-    telegram: GROUPS.TELEGRAM,
-    youtube: GROUPS.YOUTUBE,
-    netflix: GROUPS.NETFLIX,
-    disney: GROUPS.DISNEY,
-    disneyplus: GROUPS.DISNEY,
-    spotify: GROUPS.SPOTIFY,
-    tiktok: GROUPS.TIKTOK,
-    steam: GROUPS.STEAM,
-    game: GROUPS.GAMES,
-    games: GROUPS.GAMES,
-    pt: GROUPS.PT,
-    speedtest: GROUPS.SPEEDTEST,
-    ads: GROUPS.ADS,
-    ad: GROUPS.ADS,
-    other: GROUPS.OTHER,
-    lowcost: GROUPS.LOW_COST,
-    landing: GROUPS.LANDING,
-    reject: "REJECT",
-    rejectdrop: "REJECT-DROP",
-    pass: "PASS",
-    global: "GLOBAL",
-    compatible: "COMPATIBLE"
-  }, createRegionGroupAliasMap());
+  return PREFERRED_GROUP_ALIAS_MAP;
 }
 
-// 构造规则入口顺序编排的别名表，便于直接用 `ai / steamcn / geonotcn / match / top / end` 这类短写。
+// 顶层缓存规则入口锚点别名表，避免每次 resolveRuleOrderMarker 都重新创建整份映射。
+const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
+  start: RULE_ORDER_START,
+  top: RULE_ORDER_START,
+  first: RULE_ORDER_START,
+  head: RULE_ORDER_START,
+  begin: RULE_ORDER_START,
+  beginning: RULE_ORDER_START,
+  end: RULE_ORDER_END,
+  last: RULE_ORDER_END,
+  tail: RULE_ORDER_END,
+  bottom: RULE_ORDER_END,
+  final: RULE_ORDER_END,
+  match: RULE_ORDER_END,
+  adblock: "ADBlock",
+  ads: "ADBlock",
+  private: "Private",
+  privateip: "Private_IP",
+  chatgpt: "ChatGPT",
+  aiextra: "AIExtra",
+  moreai: "AIExtra",
+  aisupplement: "AIExtra",
+  // dev / developer / development 明确保留给整块开发规则补丁，不再被 GitLab 单项别名覆盖。
+  dev: "DevList",
+  developer: "DevList",
+  development: "DevList",
+  devlist: "DevList",
+  devextra: "DevList",
+  developers: "DevList",
+  perplexity: "AIExtra",
+  pplx: "AIExtra",
+  cursor: "AIExtra",
+  huggingface: "AIExtra",
+  hf: "AIExtra",
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  gemini: "Gemini",
+  copilot: "Copilot",
+  grok: "Grok",
+  xai: "Grok",
+  appleai: "AppleAI",
+  appleintelligence: "AppleAI",
+  privatecloudcompute: "AppleAI",
+  pcc: "AppleAI",
+  ai: "AI",
+  crypto: "Crypto",
+  youtube: "YouTube",
+  google: "Google",
+  googleip: "Google_IP",
+  bing: "Bing",
+  onedrive: "OneDrive",
+  sharepoint: "OneDrive",
+  skydrive: "OneDrive",
+  "1drv": "OneDrive",
+  microsoft: "Microsoft",
+  ms: "Microsoft",
+  appletv: "AppleTV",
+  apple: "Apple",
+  appleip: "Apple_IP",
+  telegram: "Telegram",
+  telegramip: "Telegram_IP",
+  tiktok: "TikTok",
+  netflix: "Netflix",
+  netflixip: "Netflix_IP",
+  disney: "Disney",
+  disneyplus: "Disney",
+  spotify: "Spotify",
+  steamfix: "SteamFix",
+  steam: "Steam",
+  steamcn: "SteamCN",
+  epic: "Epic",
+  game: "Epic",
+  games: "Epic",
+  pt: "PT",
+  speedtest: "Speedtest",
+  github: "GitHub",
+  gitlab: "GitLab",
+  docker: "Docker",
+  npm: "Npmjs",
+  npmjs: "Npmjs",
+  jetbrains: "Jetbrains",
+  vercel: "Vercel",
+  nextjs: "Vercel",
+  turborepo: "Vercel",
+  python: "Python",
+  pypi: "Python",
+  pypa: "Python",
+  pypaio: "Python",
+  jfrog: "Jfrog",
+  bintray: "Jfrog",
+  artifactory: "Jfrog",
+  heroku: "Heroku",
+  herokuapp: "Heroku",
+  gitbook: "GitBook",
+  sourceforge: "SourceForge",
+  sf: "SourceForge",
+  fsdn: "SourceForge",
+  digitalocean: "DigitalOcean",
+  digitaloceanspaces: "DigitalOcean",
+  doco: "DigitalOcean",
+  anaconda: "Anaconda",
+  conda: "Anaconda",
+  atlassian: "Atlassian",
+  bitbucket: "Atlassian",
+  trello: "Atlassian",
+  statuspage: "Atlassian",
+  notion: "Notion",
+  figma: "Figma",
+  slack: "Slack",
+  dropbox: "Dropbox",
+  dbtt: "Dropbox",
+  directlist: "DirectList",
+  geonotcn: "Geo_Not_CN",
+  geononcn: "Geo_Not_CN",
+  overseas: "Geo_Not_CN",
+  cn: "CN",
+  cnip: "CN_IP"
+});
+
+// 对外保留旧 helper 名称，调用点继续按函数拿映射；内部改为复用缓存常量。
 function createRuleProviderAliasMap() {
-  return {
-    start: RULE_ORDER_START,
-    top: RULE_ORDER_START,
-    first: RULE_ORDER_START,
-    head: RULE_ORDER_START,
-    begin: RULE_ORDER_START,
-    beginning: RULE_ORDER_START,
-    end: RULE_ORDER_END,
-    last: RULE_ORDER_END,
-    tail: RULE_ORDER_END,
-    bottom: RULE_ORDER_END,
-    final: RULE_ORDER_END,
-    match: RULE_ORDER_END,
-    adblock: "ADBlock",
-    ads: "ADBlock",
-    private: "Private",
-    privateip: "Private_IP",
-    chatgpt: "ChatGPT",
-    aiextra: "AIExtra",
-    moreai: "AIExtra",
-    aisupplement: "AIExtra",
-    dev: "DevList",
-    developer: "DevList",
-    development: "DevList",
-    devlist: "DevList",
-    devextra: "DevList",
-    developers: "DevList",
-    perplexity: "AIExtra",
-    pplx: "AIExtra",
-    cursor: "AIExtra",
-    huggingface: "AIExtra",
-    hf: "AIExtra",
-    openai: "OpenAI",
-    anthropic: "Anthropic",
-    gemini: "Gemini",
-    copilot: "Copilot",
-    grok: "Grok",
-    xai: "Grok",
-    appleai: "AppleAI",
-    appleintelligence: "AppleAI",
-    privatecloudcompute: "AppleAI",
-    pcc: "AppleAI",
-    ai: "AI",
-    crypto: "Crypto",
-    youtube: "YouTube",
-    google: "Google",
-    googleip: "Google_IP",
-    bing: "Bing",
-    onedrive: "OneDrive",
-    sharepoint: "OneDrive",
-    skydrive: "OneDrive",
-    "1drv": "OneDrive",
-    microsoft: "Microsoft",
-    ms: "Microsoft",
-    appletv: "AppleTV",
-    apple: "Apple",
-    appleip: "Apple_IP",
-    telegram: "Telegram",
-    telegramip: "Telegram_IP",
-    tiktok: "TikTok",
-    netflix: "Netflix",
-    netflixip: "Netflix_IP",
-    disney: "Disney",
-    disneyplus: "Disney",
-    spotify: "Spotify",
-    steamfix: "SteamFix",
-    steam: "Steam",
-    steamcn: "SteamCN",
-    epic: "Epic",
-    game: "Epic",
-    games: "Epic",
-    pt: "PT",
-    speedtest: "Speedtest",
-    github: "GitHub",
-    dev: "GitLab",
-    developer: "GitLab",
-    development: "GitLab",
-    gitlab: "GitLab",
-    docker: "Docker",
-    npm: "Npmjs",
-    npmjs: "Npmjs",
-    jetbrains: "Jetbrains",
-    vercel: "Vercel",
-    nextjs: "Vercel",
-    turborepo: "Vercel",
-    python: "Python",
-    pypi: "Python",
-    pypa: "Python",
-    pypaio: "Python",
-    jfrog: "Jfrog",
-    bintray: "Jfrog",
-    artifactory: "Jfrog",
-    heroku: "Heroku",
-    herokuapp: "Heroku",
-    gitbook: "GitBook",
-    sourceforge: "SourceForge",
-    sf: "SourceForge",
-    fsdn: "SourceForge",
-    digitalocean: "DigitalOcean",
-    digitaloceanspaces: "DigitalOcean",
-    doco: "DigitalOcean",
-    anaconda: "Anaconda",
-    conda: "Anaconda",
-    atlassian: "Atlassian",
-    bitbucket: "Atlassian",
-    trello: "Atlassian",
-    statuspage: "Atlassian",
-    notion: "Notion",
-    figma: "Figma",
-    slack: "Slack",
-    dropbox: "Dropbox",
-    dbtt: "Dropbox",
-    directlist: "DirectList",
-    geonotcn: "Geo_Not_CN",
-    geononcn: "Geo_Not_CN",
-    overseas: "Geo_Not_CN",
-    cn: "CN",
-    cnip: "CN_IP"
-  };
+  return RULE_PROVIDER_ALIAS_MAP;
 }
 
 // 解析规则入口顺序锚点：优先精确匹配，其次大小写无关精确匹配，再尝试脚本内置别名，最后只接受唯一模糊命中。
@@ -10223,7 +10265,9 @@ function validateAutoGroups(proxyGroups, proxies) {
 }
 
 // 对最终生成结果做一次整体自检，提前发现“能生成但不一定能正常工作”的问题。
-function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns, countryConfigs, ruleDefinitions, configuredRules) {
+function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns, countryConfigs, ruleDefinitions, configuredRules, analysisCache) {
+  // 允许主流程把已经算过一次的诊断结果传进来，避免同一轮构建里反复遍历相同数据。
+  const precomputedAnalysis = isObject(analysisCache) ? analysisCache : {};
   // 先跑自动分组可用性校验。
   const autoGroupValidation = validateAutoGroups(proxyGroups, proxies);
   // 提前抽出最终可见节点名称，给 GitHub / Steam 点名节点参数校验复用。
@@ -10243,7 +10287,16 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
   const proxyProviderApplyStats = analyzeProxyProviderApplyStats(config && config["proxy-providers"]);
   const ruleProviderApplyPreview = analyzeRuleProviderApplyPreview(providers);
   const proxyProviderApplyPreview = analyzeProxyProviderApplyPreview(config && config["proxy-providers"]);
-  const regionVisibility = analyzeRegionGroupVisibility(proxyGroups, countryConfigs);
+  // 区域可见性、规则优先级风险、策略组优先级风险都会同时写进日志/响应头，优先复用主流程预计算结果。
+  const regionVisibility = isObject(precomputedAnalysis.regionVisibility)
+    ? precomputedAnalysis.regionVisibility
+    : analyzeRegionGroupVisibility(proxyGroups, countryConfigs);
+  const rulePriorityRiskAnalysis = isObject(precomputedAnalysis.rulePriorityRisks)
+    ? precomputedAnalysis.rulePriorityRisks
+    : analyzeRulePriorityRisks(ruleDefinitions);
+  const proxyGroupPriorityRiskAnalysis = isObject(precomputedAnalysis.proxyGroupPriorityRisks)
+    ? precomputedAnalysis.proxyGroupPriorityRisks
+    : analyzeProxyGroupPriorityRisks(proxyGroups);
   return {
     missingProviders: validateRuleProviders(ruleDefinitions, providers),
     duplicateRuleProviderPaths: validateRuleProviderPaths(providers),
@@ -10296,8 +10349,8 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
     )),
     customRuleOrderWarnings: validateCustomRuleOrderMarker(ruleDefinitions, configuredRules),
     ruleTargetWarnings: validateRuleTargetMarkers(availableGroupNames, ruleDefinitions),
-    rulePriorityWarnings: analyzeRulePriorityRisks(ruleDefinitions).warnings,
-    proxyGroupPriorityWarnings: analyzeProxyGroupPriorityRisks(proxyGroups).warnings,
+    rulePriorityWarnings: rulePriorityRiskAnalysis.warnings,
+    proxyGroupPriorityWarnings: proxyGroupPriorityRiskAnalysis.warnings,
     targetPlatformWarnings: uniqueStrings([]
       .concat(
         RUNTIME_CONTEXT.target && !isClashLikeTarget(RUNTIME_CONTEXT.target)
@@ -12152,6 +12205,8 @@ function main(config) {
     const serviceRoutingProfiles = analyzeServiceRoutingProfiles(finalRuleDefinitions, proxyGroups, countryConfigs);
     const serviceRoutingSummary = formatServiceRoutingProfilesSummary(serviceRoutingProfiles);
     const serviceRoutingPreview = formatServiceRoutingProfilesPreview(serviceRoutingProfiles);
+    // 这些顺序/可见性分析既要写日志，也要喂给 validate 复用；在主流程先统一算一次，避免重复扫描。
+    const regionVisibility = analyzeRegionGroupVisibility(proxyGroups, countryConfigs);
     const proxyGroupPriorityRisks = analyzeProxyGroupPriorityRisks(proxyGroups);
     const proxyGroupPriorityRiskSummary = formatProxyGroupPriorityRiskSummary(proxyGroupPriorityRisks);
     const proxyGroupPriorityRiskPreview = formatProxyGroupPriorityRiskPreview(proxyGroupPriorityRisks);
@@ -12230,7 +12285,21 @@ function main(config) {
     };
 
     // 对最终产物做一次一致性自检。
-    const diagnostics = validateGeneratedArtifacts(proxies, proxyGroups, result["rule-providers"], result, dns, countryConfigs, finalRuleDefinitions, config.rules);
+    const diagnostics = validateGeneratedArtifacts(
+      proxies,
+      proxyGroups,
+      result["rule-providers"],
+      result,
+      dns,
+      countryConfigs,
+      finalRuleDefinitions,
+      config.rules,
+      {
+        regionVisibility,
+        rulePriorityRisks,
+        proxyGroupPriorityRisks
+      }
+    );
     // 补上本轮节点自动改名信息。
     diagnostics.renamedProxies = normalizedProxyState.renamed;
     // 补上 provider 改动类型统计，便于区分新增写入与覆盖旧值。
