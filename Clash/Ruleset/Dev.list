@@ -14,6 +14,7 @@ DOMAIN-SUFFIX,dockerusercontent.com
 // --- NPM / Yarn ---
 DOMAIN-SUFFIX,npmjs.com
 DOMAIN-SUFFIX,npmjs.org
+DOMAIN-SUFFIX,registry.npmjs.org
 DOMAIN-SUFFIX,yarnpkg.com
 
 // --- JetBrains ---
@@ -93,3 +94,31 @@ DOMAIN-SUFFIX,dropboxapi.com
 DOMAIN-SUFFIX,dropboxstatic.com
 DOMAIN-SUFFIX,dropboxusercontent.com
 DOMAIN-SUFFIX,getdropbox.com
+
+// --- Node.js / pnpm / Deno ---
+DOMAIN-SUFFIX,nodejs.org
+DOMAIN-SUFFIX,pnpm.io
+DOMAIN-SUFFIX,deno.land
+
+// --- Go ---
+DOMAIN-SUFFIX,go.dev
+DOMAIN-SUFFIX,golang.org
+DOMAIN-SUFFIX,pkg.go.dev
+
+// --- Rust / Cargo ---
+DOMAIN-SUFFIX,crates.io
+DOMAIN-SUFFIX,static.crates.io
+DOMAIN-SUFFIX,rust-lang.org
+
+// --- Ruby / Gems ---
+DOMAIN-SUFFIX,ruby-lang.org
+DOMAIN-SUFFIX,rubygems.org
+
+// --- Java / Maven / Gradle ---
+DOMAIN-SUFFIX,maven.apache.org
+DOMAIN-SUFFIX,repo.maven.apache.org
+DOMAIN-SUFFIX,repo1.maven.org
+DOMAIN-SUFFIX,gradle.org
+DOMAIN-SUFFIX,plugins.gradle.org
+DOMAIN-SUFFIX,repo.gradle.org
+DOMAIN-SUFFIX,services.gradle.org

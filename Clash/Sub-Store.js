@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.6.0
+ * Sub-Store 终极策略增强脚本 V9.7.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -168,11 +168,20 @@
  * 163. 优先链预设继续补厚：继续补上 apac-core / westasia-core / greaterchina-core / anglosphere-core / asia-5 等组合 preset。
  * 164. 国家覆盖继续补洞：继续补巴拿马并接入美洲 / 北美 / 拉美聚合，减少中美洲节点掉进兜底节点。
  * 165. 布局语义修正：`groupOrderPreset=country/countries` 现在会真正落到国家优先布局，而不再错误映射到区域优先布局。
+ * 166. 紧凑布局继续优化：`compact` 现在会把区域组放到国家组前面，更适合在 Clash Verge 里先看聚合分区再看单国家。
+ * 167. 地理紧凑布局增强：新增 `geo-compact` / `subregion-first` 这类更短、更偏地理选线的面板预设。
+ * 168. 优先链预设继续补强：新增 `southeastasia-core / northamerica-core / nordic-core / dach-core` 等短小高频 preset。
+ * 169. 区域别名继续补强：`eastasia` 兼容 `cjk / 中日韩 / 东北亚`，`southeastasia` 兼容 `asean / 东盟`，`anglosphere` 兼容 `five-eyes / 五眼`。
+ * 170. 国家识别继续扩容：新增 `黎巴嫩 / 哥斯达黎加 / 厄瓜多尔`，并补充澳洲 / 葡萄牙 / 阿联酋 / 菲律宾等常见城市别名。
+ * 171. 区域映射继续补洞：新增国家会同步接进 `middleeast / levant / westasia / mediterranean / americas / northamerica / southamerica / latam`。
+ * 172. Rule.ini 对齐继续补强：固定模板新增本地 `Direct.list / ChatGPT.list`，与脚本主线的补充 ruleset 继续靠拢。
+ * 173. 开发生态补丁继续补厚：`Dev.list` 新增 Node.js / pnpm / Deno / Go / Rust / RubyGems / Maven / Gradle 常见域名。
+ * 174. 注释增强：继续给国家优先链解析、策略组排序、区域组聚合这几段核心流程补细粒度中文注释。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.6.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.6.0。
+const SCRIPT_VERSION = "9.7.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.7.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -313,10 +322,19 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   work: "workspace",
   office: "workspace",
   workbench: "workspace",
+  workspacefirst: "workspace",
+  workflow: "workspace",
+  workflowfirst: "workspace",
   compact: "compact",
   minimal: "compact",
   mini: "compact",
-  lite: "compact"
+  lite: "compact",
+  compactfirst: "compact",
+  geocompact: "geo-compact",
+  compactgeo: "geo-compact",
+  subregionfirst: "geo-compact",
+  subregionsfirst: "geo-compact",
+  geofocus: "geo-compact"
 });
 
 // group-order-preset 的合法值统一收口到顶层常量，避免新增布局后漏改校验名单。
@@ -395,7 +413,8 @@ const GROUP_ORDER_PRESET_TOKENS = {
   region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "countries", "regions", "steam", "bing", "apple", "games", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  compact: ["select", "manual", "fallback", "ai", "github", "dev", "steam", "media", "countries", "regions", "helpers", "extras"]
+  compact: ["select", "manual", "fallback", "ai", "github", "dev", "steam", "media", "regions", "countries", "helpers", "extras"],
+  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "steam", "media", "helpers", "extras"]
 };
 
 // 某些自动分组天然允许为空，不必为此输出告警。
@@ -547,6 +566,30 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     markers: ["anglosphere"]
   },
   {
+    key: "southeastasia-core",
+    name: "🌴 东南亚核心链",
+    aliases: ["southeastasiacore", "south-east-asia-core", "seasiacore", "aseancore", "asean-core", "东南亚核心", "东盟核心"],
+    markers: ["asean", "southeastasia"]
+  },
+  {
+    key: "northamerica-core",
+    name: "🗽 北美核心链",
+    aliases: ["northamericacore", "north-america-core", "nacore", "na-core", "北美核心"],
+    markers: ["northamerica"]
+  },
+  {
+    key: "nordic-core",
+    name: "❄️ 北欧核心链",
+    aliases: ["nordiccore", "nordic-core", "northeuropecore", "north-europe-core", "北欧核心"],
+    markers: ["northeurope"]
+  },
+  {
+    key: "dach-core",
+    name: "🏔️ DACH核心链",
+    aliases: ["dachcore", "dach-core", "deatchcore", "de-at-ch-core", "德语区核心"],
+    markers: ["dach"]
+  },
+  {
     key: "classic-4",
     name: "✨ 经典四地",
     aliases: ["classic4", "classic-4", "popular4", "popular-4", "common4", "common-4", "hksgjpus", "hk-sg-jp-us", "经典四地"],
@@ -588,7 +631,7 @@ const COUNTRY_DEFINITIONS = [
   // 台湾常见命名方式。
   { name: "台湾", flag: "🇹🇼", aliases: ["台湾", "台北", "新北", "TW", "TWN", "Taiwan"] },
   // 日本常见命名方式。
-  { name: "日本", flag: "🇯🇵", aliases: ["日本", "东京", "大阪", "埼玉", "JP", "JPN", "Japan", "Tokyo", "Osaka"] },
+  { name: "日本", flag: "🇯🇵", aliases: ["日本", "东京", "大阪", "埼玉", "名古屋", "福冈", "JP", "JPN", "Japan", "Tokyo", "Osaka", "Nagoya", "Fukuoka"] },
   // 新加坡/狮城常见命名方式。
   { name: "狮城", flag: "🇸🇬", aliases: ["新加坡", "狮城", "SG", "SGP", "Singapore"] },
   // 韩国常见命名方式。
@@ -626,7 +669,7 @@ const COUNTRY_DEFINITIONS = [
   // 丹麦常见命名方式。
   { name: "丹麦", flag: "🇩🇰", aliases: ["丹麦", "DNK", "Denmark", "Copenhagen", "哥本哈根"] },
   // 葡萄牙常见命名方式；不使用容易和 PT 业务组混淆的 PT 两位缩写。
-  { name: "葡萄牙", flag: "🇵🇹", aliases: ["葡萄牙", "PRT", "Portugal", "Lisbon", "里斯本"] },
+  { name: "葡萄牙", flag: "🇵🇹", aliases: ["葡萄牙", "PRT", "Portugal", "Lisbon", "Porto", "里斯本", "波尔图"] },
   // 爱尔兰常见命名方式；不使用容易误判的 IE 两位缩写。
   { name: "爱尔兰", flag: "🇮🇪", aliases: ["爱尔兰", "IRL", "Ireland", "Dublin", "都柏林"] },
   // 比利时常见命名方式。
@@ -707,7 +750,7 @@ const COUNTRY_DEFINITIONS = [
   // 越南常见命名方式。
   { name: "越南", flag: "🇻🇳", aliases: ["越南", "VN", "VNM", "Vietnam", "Hanoi", "Ho Chi Minh", "HCM", "河内", "胡志明"] },
   // 菲律宾常见命名方式。
-  { name: "菲律宾", flag: "🇵🇭", aliases: ["菲律宾", "PH", "PHL", "Philippines", "Manila", "马尼拉"] },
+  { name: "菲律宾", flag: "🇵🇭", aliases: ["菲律宾", "PH", "PHL", "Philippines", "Manila", "Cebu", "Davao", "马尼拉", "宿务", "达沃"] },
   // 印度尼西亚常见命名方式，这里用“印尼”作为显示名称。
   { name: "印尼", flag: "🇮🇩", aliases: ["印尼", "印度尼西亚", "ID", "IDN", "Indonesia", "Jakarta", "Surabaya", "雅加达", "泗水"] },
   // 柬埔寨常见命名方式；优先使用中文名、三位缩写与首都别名。
@@ -717,7 +760,7 @@ const COUNTRY_DEFINITIONS = [
   // 老挝常见命名方式；在东南亚/中南半岛节点里偶有出现。
   { name: "老挝", flag: "🇱🇦", aliases: ["老挝", "LAO", "Laos", "Lao", "Vientiane", "万象"] },
   // 阿联酋常见命名方式。
-  { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "迪拜", "阿布扎比"] },
+  { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "Sharjah", "迪拜", "阿布扎比", "沙迦"] },
   // 卡塔尔常见命名方式。
   { name: "卡塔尔", flag: "🇶🇦", aliases: ["卡塔尔", "QAT", "Qatar", "Doha", "多哈"] },
   // 科威特常见命名方式。
@@ -728,6 +771,8 @@ const COUNTRY_DEFINITIONS = [
   { name: "阿曼", flag: "🇴🇲", aliases: ["阿曼", "OMN", "Oman", "Muscat", "马斯喀特"] },
   // 约旦常见命名方式；优先使用中文名、三位缩写与首都，减少 JO 误判。
   { name: "约旦", flag: "🇯🇴", aliases: ["约旦", "JOR", "Jordan", "Amman", "安曼"] },
+  // 黎巴嫩常见命名方式；优先使用中文名、三位缩写与首都，减少 LB 误判。
+  { name: "黎巴嫩", flag: "🇱🇧", aliases: ["黎巴嫩", "LBN", "Lebanon", "Beirut", "贝鲁特"] },
   // 沙特常见命名方式。
   { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
   // 亚美尼亚常见命名方式；优先使用中文名、三位缩写与首都，减少 AM 误判。
@@ -742,6 +787,10 @@ const COUNTRY_DEFINITIONS = [
   { name: "墨西哥", flag: "🇲🇽", aliases: ["墨西哥", "MX", "MEX", "Mexico", "Mexico City", "墨西哥城"] },
   // 巴拿马常见命名方式；中美洲/中转节点里偶尔会直接写 Panama City。
   { name: "巴拿马", flag: "🇵🇦", aliases: ["巴拿马", "PAN", "Panama", "Panama City", "巴拿马城"] },
+  // 哥斯达黎加常见命名方式；中美洲机场偶尔会直接写 San Jose。
+  { name: "哥斯达黎加", flag: "🇨🇷", aliases: ["哥斯达黎加", "CRI", "Costa Rica", "San Jose", "San José", "圣何塞"] },
+  // 厄瓜多尔常见命名方式；南美节点里偶尔会直接写 Quito。
+  { name: "厄瓜多尔", flag: "🇪🇨", aliases: ["厄瓜多尔", "ECU", "Ecuador", "Quito", "基多"] },
   // 智利常见命名方式；不使用容易误判的 CL 两位缩写。
   { name: "智利", flag: "🇨🇱", aliases: ["智利", "CHL", "Chile", "Santiago", "圣地亚哥"] },
   // 哥伦比亚常见命名方式；优先使用中文名、三位缩写与城市名，减少 CO 误判。
@@ -769,7 +818,7 @@ const COUNTRY_DEFINITIONS = [
   // 新西兰常见命名方式。
   { name: "新西兰", flag: "🇳🇿", aliases: ["新西兰", "NZ", "NZL", "New Zealand", "Auckland", "奥克兰"] },
   // 澳大利亚常见命名方式，这里用“袋鼠”作为显示名称。
-  { name: "袋鼠", flag: "🇦🇺", aliases: ["澳大利亚", "澳洲", "袋鼠", "AU", "AUS", "Australia", "Sydney", "Melbourne", "悉尼", "墨尔本"] },
+  { name: "袋鼠", flag: "🇦🇺", aliases: ["澳大利亚", "澳洲", "袋鼠", "AU", "AUS", "Australia", "Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "悉尼", "墨尔本", "布里斯班", "珀斯", "阿德莱德"] },
   // 俄罗斯常见命名方式，这里用“毛熊”作为显示名称。
   { name: "毛熊", flag: "🇷🇺", aliases: ["俄罗斯", "毛熊", "RU", "RUS", "Russia", "Moscow", "莫斯科"] }
 ];
@@ -792,14 +841,14 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
   {
     key: "eastasia",
     name: "🌸 东亚节点",
-    aliases: ["eastasia", "east-asia", "northeastasia", "northeast-asia", "ea", "东亚"],
+    aliases: ["eastasia", "east-asia", "northeastasia", "northeast-asia", "cjk", "zh-jp-kr", "中日韩", "东北亚", "ea", "东亚"],
     includeInAuto: false,
     countryKeys: ["香港", "澳门", "台湾", "日本", "韩国"]
   },
   {
     key: "southeastasia",
     name: "🌴 东南亚节点",
-    aliases: ["southeastasia", "south-east-asia", "sea", "seasia", "东南亚"],
+    aliases: ["southeastasia", "south-east-asia", "sea", "seasia", "asean", "asean10", "asean-10", "东盟", "东南亚"],
     includeInAuto: false,
     countryKeys: ["狮城", "大马", "泰国", "越南", "菲律宾", "印尼", "柬埔寨", "文莱", "老挝"]
   },
@@ -890,41 +939,41 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "americas",
     name: "🌎 美洲节点",
     aliases: ["americas", "america", "amer", "美洲"],
-    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "哥斯达黎加", "阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "northamerica",
     name: "🗽 北美节点",
     aliases: ["northamerica", "north-america", "naonly", "北美"],
     includeInAuto: false,
-    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马"]
+    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "哥斯达黎加"]
   },
   {
     key: "southamerica",
     name: "💃 南美节点",
     aliases: ["southamerica", "south-america", "saonly", "南美"],
     includeInAuto: false,
-    countryKeys: ["阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "latam",
     name: "🌮 拉美节点",
     aliases: ["latam", "latinamerica", "latin-america", "latinamericas", "拉美", "拉丁美洲"],
     includeInAuto: false,
-    countryKeys: ["墨西哥", "巴拿马", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["墨西哥", "巴拿马", "哥斯达黎加", "阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
     key: "middleeast",
     name: "🕌 中东节点",
     aliases: ["middleeast", "middle-east", "me", "中东"],
-    countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "巴林", "阿曼", "约旦", "土耳其"]
+    countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "巴林", "阿曼", "约旦", "黎巴嫩", "土耳其"]
   },
   {
     key: "levant",
     name: "🧭 黎凡特节点",
     aliases: ["levant", "levantine", "eastmed", "东地中海", "黎凡特"],
     includeInAuto: false,
-    countryKeys: ["以色列", "约旦", "塞浦路斯", "土耳其"]
+    countryKeys: ["以色列", "约旦", "黎巴嫩", "塞浦路斯", "土耳其"]
   },
   {
     key: "gulf",
@@ -938,7 +987,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "🧿 西亚节点",
     aliases: ["westasia", "west-asia", "西亚"],
     includeInAuto: false,
-    countryKeys: ["土耳其", "塞浦路斯", "约旦", "以色列", "阿联酋", "巴林", "阿曼", "沙特", "卡塔尔", "科威特", "亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
+    countryKeys: ["土耳其", "塞浦路斯", "约旦", "黎巴嫩", "以色列", "阿联酋", "巴林", "阿曼", "沙特", "卡塔尔", "科威特", "亚美尼亚", "格鲁吉亚", "阿塞拜疆"]
   },
   {
     key: "oceania",
@@ -956,7 +1005,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
   {
     key: "anglosphere",
     name: "🌐 英语区节点",
-    aliases: ["anglosphere", "englishworld", "english-world", "英语区"],
+    aliases: ["anglosphere", "englishworld", "english-world", "fiveeyes", "five-eyes", "五眼", "英语区"],
     includeInAuto: false,
     countryKeys: ["美国", "枫叶", "英国", "袋鼠", "新西兰"]
   },
@@ -978,7 +1027,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     name: "🌊 地中海节点",
     aliases: ["mediterranean", "mediterraneansea", "med-sea", "med", "地中海"],
     includeInAuto: false,
-    countryKeys: ["西班牙", "葡萄牙", "意大利", "希腊", "塞浦路斯", "马耳他", "土耳其", "以色列", "埃及", "摩洛哥", "阿尔及利亚", "突尼斯"]
+    countryKeys: ["西班牙", "葡萄牙", "意大利", "希腊", "塞浦路斯", "马耳他", "土耳其", "黎巴嫩", "以色列", "埃及", "摩洛哥", "阿尔及利亚", "突尼斯"]
   }
 ]);
 
@@ -7617,29 +7666,43 @@ function buildPreferredCountryGroups(countryConfigs, preferredCountries, default
 
 // 同时构造国家优先链的“最终命中组 + 来源追踪 + 摘要”，避免主流程里为每条链重复拼装。
 function buildPreferredCountryResolution(countryConfigs, preferredCountries, defaultMarkersList, defaultSourceKey) {
+  // 只要用户显式传了 prefer-countries，就优先走“逐 token 解析 + 来源追踪”这条详细链路。
   if (Array.isArray(preferredCountries) && preferredCountries.length) {
+    // 先把每个 token 展开成“命中的国家组条目 + 未命中信息”，供后面的摘要和追踪统一复用。
     const markerResolutions = analyzePreferredCountryMarkerResolutions(countryConfigs, preferredCountries);
+    // entries 保存展开后的线性候选链；同一个 token 展开成多个国家组时，也会按顺序摊平到这里。
     const entries = [];
     for (const item of markerResolutions) {
+      // 只收集真正命中的条目，未命中的 token 会在 unmatched 里单独汇总。
       if (Array.isArray(item.entries) && item.entries.length) {
         entries.push.apply(entries, item.entries);
       }
     }
+    // 再把条目压回“最终国家组候选链”；这里会顺带去重，避免 preset / region token 展开后重复插组。
     const groups = extractPreferredCountryGroupsFromEntries(entries);
     return {
       groups,
       entries,
+      // summary 用来给 full 日志和响应头看一眼最终顺序。
       summary: formatPreferredCountryGroupSummary(groups),
+      // trace 用来看每个组到底来自 preset / region / country 哪一路。
       trace: formatPreferredCountryGroupTrace(entries),
+      // explain 会保留“原 token -> 展开结果”的解释文本，便于排查为什么某个 token 命中了这些国家组。
       explain: formatPreferredCountryMarkerResolutionSummary(markerResolutions),
+      // unmatched 单独列出没命中的 token，避免 silently ignore。
       unmatched: formatPreferredCountryUnmatchedSummary(markerResolutions.filter((item) => !item.matched).map((item) => item.token))
     };
   }
 
+  // 如果用户没传 prefer-countries，就退回脚本内置默认链。
   const groups = (Array.isArray(defaultMarkersList) ? defaultMarkersList : [])
+    // 默认链是按一组组 marker 去找国家组，比如 AI 默认就是 新加坡 -> 日本 -> 美国 -> 香港。
     .map((markers) => findCountryGroup(countryConfigs, markers))
+    // 没找到的默认项直接跳过，避免把空值混进候选链。
     .filter(Boolean);
+  // 默认链也统一包装成 entries，后面 trace / explain / summary 就不需要写两套逻辑。
   const entries = createPreferredCountryGroupEntries(groups, "default", defaultSourceKey || "default", "auto");
+  // explain 仍然维持和显式参数同样的结构，只是 token 固定写成 auto。
   const markerResolutions = entries.length
     ? [{
       token: "auto",
@@ -8060,11 +8123,15 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupN
 
 // 按 group-order / group-order-preset 计算最终策略组展示顺序；未命中的 token 会单独返回给告警层处理。
 function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, regionGroupNames) {
+  // 先浅拷贝一份策略组，避免后续排序直接改写传入数组。
   const groups = Array.isArray(proxyGroups) ? proxyGroups.slice() : [];
+  // 抽出所有实际存在的组名；后面无论是 bucket 展开还是 direct match 都基于这份清单。
   const groupNames = groups
     .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
     .map((group) => group.name.trim());
+  // 先把“主业务组 / 区域组 / 国家组 / helpers / extras”这些桶都算好，便于 preset 里的 bucket token 直接展开。
   const buckets = buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupNames);
+  // bucketAliasMap 负责把 region / country / services / helpers 这类 token 归一化到固定桶名。
   const bucketAliasMap = {
     core: "core",
     coregroup: "core",
@@ -8096,31 +8163,39 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
     user: "extras",
     users: "extras"
   };
+  // 显式 group-order 永远优先于 preset；只有没传 group-order 时才回退到预设布局。
   const tokens = ARGS.hasGroupOrder ? ARGS.groupOrder : buildGroupOrderPresetTokens(ARGS.groupOrderPreset);
+  // orderedNames 是布局展开后的“最终组名序列”；unresolvedTokens 则给告警层看哪些 token 根本没命中。
   const orderedNames = [];
   const unresolvedTokens = [];
 
   for (const token of tokens) {
+    // 先尝试把 token 当成“具体组名 / 组名别名”来解析。
     const directMatch = inspectProxyGroupOrderReference(groupNames, token);
     if (directMatch.match) {
       orderedNames.push(directMatch.match);
       continue;
     }
 
+    // 如果 token 已被识别成某个已知组，但当前并没有实际命中组名，就直接跳过，不再重复计入 unresolved。
     if (directMatch.recognized) {
       continue;
     }
 
+    // 再尝试把 token 当成 bucket 名，例如 regions / countries / helpers。
     const bucketKey = bucketAliasMap[normalizeGroupMarkerToken(token)];
     if (bucketKey) {
       orderedNames.push(...(Array.isArray(buckets[bucketKey]) ? buckets[bucketKey] : []));
       continue;
     }
 
+    // 走到这里说明 token 既不是实际组，也不是 bucket，留给后面的告警逻辑。
     unresolvedTokens.push(normalizeStringArg(token));
   }
 
+  // 把用户显式命中的顺序放前面，剩余组按原顺序补尾；这样既能重排，也不会意外丢组。
   const finalNames = uniqueStrings(orderedNames.concat(groupNames));
+  // 组名 -> 组对象查找表，最后再从名字映射回完整策略组对象。
   const groupLookup = Object.create(null);
 
   for (const group of groups) {
@@ -9255,22 +9330,28 @@ function normalizeGeoGroupSortName(value) {
 
 // 按用户选择的模式重排国家组 / 区域组；默认保持脚本定义顺序，其余模式才显式改动展示与候选链顺序。
 function sortGeoGroupConfigs(configs, mode) {
+  // 拷贝一份，确保排序不会污染调用方原数组。
   const current = Array.isArray(configs) ? configs.slice() : [];
+  // 统一把 count / asc / alpha 这类别名折叠成固定模式。
   const normalizedMode = normalizeGeoGroupSortMode(mode, "definition");
 
+  // definition 代表完全按脚本声明顺序走，不做任何重排。
   if (normalizedMode === "definition") {
     return current;
   }
 
   return current
+    // 先把原始索引带上，便于在同分时稳定回退到原顺序。
     .map((item, index) => ({ item, index }))
     .sort((left, right) => {
+      // count 用于“按节点数排序”，name 用于“按显示名排序”。
       const leftCount = Number(left.item && left.item.count) || 0;
       const rightCount = Number(right.item && right.item.count) || 0;
       const leftName = normalizeGeoGroupSortName(left.item && left.item.name);
       const rightName = normalizeGeoGroupSortName(right.item && right.item.name);
 
       if (normalizedMode === "count-desc") {
+        // 节点数多的排前；同节点数时再按名称和原顺序稳定排序。
         if (rightCount !== leftCount) {
           return rightCount - leftCount;
         }
@@ -9280,6 +9361,7 @@ function sortGeoGroupConfigs(configs, mode) {
       }
 
       if (normalizedMode === "count-asc") {
+        // 节点数少的排前；适合把冷门小国家/小区域提到前面手动挑选。
         if (leftCount !== rightCount) {
           return leftCount - rightCount;
         }
@@ -9289,6 +9371,7 @@ function sortGeoGroupConfigs(configs, mode) {
       }
 
       if (normalizedMode === "name") {
+        // 按去掉 emoji 后的显示名正序排；同名时再看节点数和原顺序。
         const nameDiff = leftName.localeCompare(rightName);
         if (nameDiff) {
           return nameDiff;
@@ -9298,6 +9381,7 @@ function sortGeoGroupConfigs(configs, mode) {
       }
 
       if (normalizedMode === "name-desc") {
+        // 反向名称排序；同名时依旧优先节点数多的组。
         const nameDiff = rightName.localeCompare(leftName);
         if (nameDiff) {
           return nameDiff;
@@ -9313,8 +9397,11 @@ function sortGeoGroupConfigs(configs, mode) {
 
 // 根据已生成的国家组，再聚合出“区域级”策略组配置；只聚合当前真实存在的国家组，避免空壳区域组。
 function buildRegionGroupConfigs(countryConfigs, regionKeys) {
+  // 只接收本轮实际生成出来的国家组；没生成的国家就算在区域定义里，也不会硬造空区域。
   const availableCountries = Array.isArray(countryConfigs) ? countryConfigs : [];
+  // regionKeys 是用户最终开启的区域 key 列表；这里先去重，避免重复生成同名区域组。
   const availableRegionKeys = uniqueStrings(Array.isArray(regionKeys) ? regionKeys : []);
+  // 先建国家 key -> 国家组配置的查找表，后面区域聚合时就能 O(1) 拿到国家组对象。
   const countryLookup = Object.create(null);
 
   for (const country of availableCountries) {
@@ -9327,14 +9414,17 @@ function buildRegionGroupConfigs(countryConfigs, regionKeys) {
 
   const matchedRegions = availableRegionKeys
     .map((regionKey) => {
+      // 先从静态区域定义表里找到这条 key 的声明。
       const definition = REGION_GROUP_DEFINITIONS.find((item) => item.key === regionKey);
       if (!definition) {
         return null;
       }
 
+      // 只保留“当前确实生成了国家组”的国家，避免用户开了区域但机场里一个对应国家都没有时生成空壳组。
       const matchedCountries = uniqueStrings(definition.countryKeys || [])
         .map((countryKey) => countryLookup[countryKey])
         .filter(Boolean);
+      // 区域组最终引用的是国家组名，而不是原始节点名。
       const proxies = uniqueStrings(matchedCountries.map((country) => country.name));
       if (!proxies.length) {
         return null;
@@ -9344,7 +9434,9 @@ function buildRegionGroupConfigs(countryConfigs, regionKeys) {
         key: definition.key,
         name: definition.name,
         proxies,
+        // count 是这片区域累计吸收的节点数，供区域排序和日志摘要使用。
         count: matchedCountries.reduce((total, country) => total + (Number(country.count) || 0), 0),
+        // countryCount 则是“本轮实际命中的国家组数量”，便于看某个区域是不是只吸到 1-2 个国家。
         countryCount: matchedCountries.length
       };
     })
