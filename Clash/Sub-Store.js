@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.85.0
+ * Sub-Store 终极策略增强脚本 V8.86.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -130,11 +130,13 @@
  * 125. 国家优先链兼容增强：country-extra-aliases 追加的别名会同时参与节点国家识别与 prefer-countries 参数匹配，便于直接复用到 AI / GitHub / Steam / Dev 优先链。
  * 126. 国家识别继续扩充：新增捷克、匈牙利、罗马尼亚、希腊、乌克兰、冰岛、埃及、智利、哥伦比亚、秘鲁等常见机场国家识别。
  * 127. 自定义国家别名预览增强：full 日志与响应调试头会额外输出 country-extra-aliases 的简要预览，便于直接确认绑定关系。
+ * 128. 国家识别继续扩充：新增卢森堡、爱沙尼亚、拉脱维亚、立陶宛、保加利亚、克罗地亚、斯洛伐克、斯洛文尼亚、卡塔尔、科威特等常见节点国家。
+ * 129. 自定义国家别名冲突检测：country-extra-aliases 若把同一别名绑到多个国家，或撞到别的内置国家标记，会给出显式告警与摘要预览。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.85.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.85.0。
+const SCRIPT_VERSION = "8.86.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.86.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -346,6 +348,22 @@ const COUNTRY_DEFINITIONS = [
   { name: "奥地利", flag: "🇦🇹", aliases: ["奥地利", "AUT", "Austria", "Vienna", "维也纳"] },
   // 波兰常见命名方式。
   { name: "波兰", flag: "🇵🇱", aliases: ["波兰", "POL", "Poland", "Warsaw", "华沙"] },
+  // 卢森堡常见命名方式。
+  { name: "卢森堡", flag: "🇱🇺", aliases: ["卢森堡", "LUX", "Luxembourg", "Luxemburg", "卢森堡市"] },
+  // 爱沙尼亚常见命名方式。
+  { name: "爱沙尼亚", flag: "🇪🇪", aliases: ["爱沙尼亚", "EST", "Estonia", "Tallinn", "塔林"] },
+  // 拉脱维亚常见命名方式。
+  { name: "拉脱维亚", flag: "🇱🇻", aliases: ["拉脱维亚", "LVA", "Latvia", "Riga", "里加"] },
+  // 立陶宛常见命名方式；不使用容易误判的 LT 两位缩写。
+  { name: "立陶宛", flag: "🇱🇹", aliases: ["立陶宛", "LTU", "Lithuania", "Vilnius", "维尔纽斯"] },
+  // 保加利亚常见命名方式；不使用容易误判的 BG 两位缩写。
+  { name: "保加利亚", flag: "🇧🇬", aliases: ["保加利亚", "BGR", "Bulgaria", "Sofia", "索菲亚"] },
+  // 克罗地亚常见命名方式。
+  { name: "克罗地亚", flag: "🇭🇷", aliases: ["克罗地亚", "HRV", "Croatia", "Zagreb", "萨格勒布"] },
+  // 斯洛伐克常见命名方式。
+  { name: "斯洛伐克", flag: "🇸🇰", aliases: ["斯洛伐克", "SVK", "Slovakia", "Bratislava", "布拉迪斯拉发"] },
+  // 斯洛文尼亚常见命名方式。
+  { name: "斯洛文尼亚", flag: "🇸🇮", aliases: ["斯洛文尼亚", "SVN", "Slovenia", "Ljubljana", "卢布尔雅那"] },
   // 捷克常见命名方式。
   { name: "捷克", flag: "🇨🇿", aliases: ["捷克", "CZ", "CZE", "Czech", "Czech Republic", "Czechia", "Prague", "布拉格"] },
   // 匈牙利常见命名方式。
@@ -375,6 +393,10 @@ const COUNTRY_DEFINITIONS = [
   { name: "印尼", flag: "🇮🇩", aliases: ["印尼", "印度尼西亚", "ID", "IDN", "Indonesia", "Jakarta", "Surabaya", "雅加达", "泗水"] },
   // 阿联酋常见命名方式。
   { name: "阿联酋", flag: "🇦🇪", aliases: ["阿联酋", "UAE", "AE", "ARE", "United Arab Emirates", "Dubai", "Abu Dhabi", "迪拜", "阿布扎比"] },
+  // 卡塔尔常见命名方式。
+  { name: "卡塔尔", flag: "🇶🇦", aliases: ["卡塔尔", "QAT", "Qatar", "Doha", "多哈"] },
+  // 科威特常见命名方式。
+  { name: "科威特", flag: "🇰🇼", aliases: ["科威特", "KWT", "Kuwait", "Kuwait City", "科威特城"] },
   // 沙特常见命名方式。
   { name: "沙特", flag: "🇸🇦", aliases: ["沙特", "沙特阿拉伯", "SA", "SAU", "Saudi Arabia", "Riyadh", "Jeddah", "利雅得", "吉达"] },
   // 埃及常见命名方式；优先使用中文名、三位缩写与城市名，减少 EG 误判。
@@ -1089,6 +1111,28 @@ function formatCountryExtraAliasPreview(aliasMap, maxCountries, maxAliasesPerCou
   const remainingCountries = countryNames.length - visibleCountries.length;
 
   return `${visibleCountries.join(";")}${remainingCountries > 0 ? `(+${remainingCountries}国)` : ""}`;
+}
+
+// 把 country-extra-aliases 的冲突样本压成短摘要，避免日志里一长串刷屏。
+function formatCountryExtraAliasConflictPreview(conflicts, maxItems, maxLength) {
+  const source = uniqueStrings(
+    (Array.isArray(conflicts) ? conflicts : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  );
+
+  if (!source.length) {
+    return "none";
+  }
+
+  const itemLimit = Number.isFinite(maxItems) && maxItems > 0 ? Math.floor(maxItems) : 4;
+  const textLimit = Number.isFinite(maxLength) && maxLength > 6 ? Math.floor(maxLength) : 28;
+  const visibleItems = source
+    .slice(0, itemLimit)
+    .map((item) => (item.length > textLimit ? `${item.slice(0, textLimit - 3)}...` : item));
+  const remaining = source.length - visibleItems.length;
+
+  return `${visibleItems.join(";")}${remaining > 0 ? `(+${remaining})` : ""}`;
 }
 
 // 把 Mihomo `exclude-type` 这类“类型列表”参数统一规范成 `A|B|C` 形式，兼容逗号 / 竖线 / 换行输入。
@@ -1990,13 +2034,86 @@ function getCountryExtraAliases(countryName) {
   return uniqueStrings(ARGS.countryExtraAliasesMap[countryName]);
 }
 
+// 统一收集某个国家定义里“脚本内置”的可识别标记：旗帜、显示名、内置别名。
+function getBuiltInCountryDefinitionMarkers(country) {
+  if (!isObject(country)) {
+    return [];
+  }
+
+  return uniqueStrings([country.flag, country.name].concat(country.aliases || []));
+}
+
 // 统一收集某个国家定义的全部可识别标记：旗帜、显示名、内置别名、运行参数追加别名。
 function getCountryDefinitionMarkers(country) {
   if (!isObject(country)) {
     return [];
   }
 
-  return uniqueStrings([country.flag, country.name].concat(country.aliases || [], getCountryExtraAliases(country.name)));
+  return uniqueStrings(getBuiltInCountryDefinitionMarkers(country).concat(getCountryExtraAliases(country.name)));
+}
+
+// 分析 country-extra-aliases 是否存在“一个别名指向多个国家”或“撞到别的内置国家标记”的冲突。
+function analyzeCountryExtraAliasMap(aliasMap) {
+  const source = isObject(aliasMap) ? aliasMap : {};
+  const customTokenOwners = Object.create(null);
+  const customDuplicateConflicts = [];
+  const builtInMarkerConflicts = [];
+
+  for (const countryName of Object.keys(source)) {
+    const aliases = Array.isArray(source[countryName]) ? source[countryName] : [];
+
+    for (const alias of aliases) {
+      const normalizedAlias = String(alias || "").trim();
+      const token = normalizeGroupMarkerToken(normalizedAlias);
+      if (!token) {
+        continue;
+      }
+
+      customTokenOwners[token] = customTokenOwners[token] || {
+        alias: normalizedAlias,
+        countries: []
+      };
+      customTokenOwners[token].countries.push(countryName);
+    }
+  }
+
+  for (const token of Object.keys(customTokenOwners)) {
+    const owner = customTokenOwners[token];
+    const countries = uniqueStrings(owner.countries);
+    if (countries.length > 1) {
+      customDuplicateConflicts.push(`${owner.alias}=>${countries.join("/")}`);
+    }
+  }
+
+  for (const countryName of Object.keys(source)) {
+    const aliases = Array.isArray(source[countryName]) ? source[countryName] : [];
+
+    for (const alias of aliases) {
+      const normalizedAlias = String(alias || "").trim();
+      const token = normalizeGroupMarkerToken(normalizedAlias);
+      if (!token) {
+        continue;
+      }
+
+      for (const definition of COUNTRY_DEFINITIONS) {
+        if (definition.name === countryName) {
+          continue;
+        }
+
+        const markers = getBuiltInCountryDefinitionMarkers(definition);
+        if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
+          builtInMarkerConflicts.push(`${normalizedAlias}=>${countryName}~${definition.name}`);
+        }
+      }
+    }
+  }
+
+  const conflicts = uniqueStrings(customDuplicateConflicts.concat(builtInMarkerConflicts));
+  return {
+    customDuplicateConflicts: uniqueStrings(customDuplicateConflicts),
+    builtInMarkerConflicts: uniqueStrings(builtInMarkerConflicts),
+    conflicts
+  };
 }
 
 // 按标记查找某个国家定义，兼容显示名、旗帜、内置别名与运行参数追加别名。
@@ -2592,9 +2709,12 @@ function resolveArgs(rawArgs) {
   const devPreferCountries = toStringList(rawDevPreferCountries);
   const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
   const countryExtraAliasesMap = parsedCountryExtraAliases.map;
+  const countryExtraAliasAnalysis = analyzeCountryExtraAliasMap(countryExtraAliasesMap);
   const countryExtraAliasCountryCount = Object.keys(countryExtraAliasesMap).length;
   const countryExtraAliasEntryCount = Object.keys(countryExtraAliasesMap).reduce((total, key) => total + countryExtraAliasesMap[key].length, 0);
   const countryExtraAliasPreview = formatCountryExtraAliasPreview(countryExtraAliasesMap, 4, 2, 18);
+  const countryExtraAliasConflictCount = countryExtraAliasAnalysis.conflicts.length;
+  const countryExtraAliasConflictPreview = formatCountryExtraAliasConflictPreview(countryExtraAliasAnalysis.conflicts, 4, 32);
   const githubPreferGroups = toStringList(rawGithubPreferGroups);
   const steamPreferGroups = toStringList(rawSteamPreferGroups);
   const devPreferGroups = toStringList(rawDevPreferGroups);
@@ -2702,6 +2822,16 @@ function resolveArgs(rawArgs) {
   // 逐条提示没有命中内置国家定义的国家标记，避免自定义别名 silently fail。
   for (const item of parsedCountryExtraAliases.unknownCountryMarkers) {
     console.warn(`⚠️ 警告: country-extra-aliases 未匹配到内置国家定义，已忽略: ${item}`);
+  }
+
+  // 逐条提示 country-extra-aliases 自身的冲突条目，避免一个别名被多个国家复用导致识别歧义。
+  for (const item of countryExtraAliasAnalysis.customDuplicateConflicts) {
+    console.warn(`⚠️ 警告: country-extra-aliases 同一别名指向多个国家，可能导致识别歧义: ${item}`);
+  }
+
+  // 逐条提示自定义别名撞到其他国家内置标记的情况，便于及时收敛配置。
+  for (const item of countryExtraAliasAnalysis.builtInMarkerConflicts) {
+    console.warn(`⚠️ 警告: country-extra-aliases 别名与其他内置国家标记冲突，可能导致优先链歧义: ${item}`);
   }
 
   if (githubTestUrl && !looksLikeHttpUrl(githubTestUrl)) {
@@ -3351,6 +3481,8 @@ function resolveArgs(rawArgs) {
     countryExtraAliasCountryCount,
     countryExtraAliasEntryCount,
     countryExtraAliasPreview,
+    countryExtraAliasConflictCount,
+    countryExtraAliasConflictPreview,
     githubPreferGroups,
     hasGithubPreferGroups: !!githubPreferGroups.length,
     steamPreferGroups,
@@ -9381,6 +9513,8 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
     [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
     [`${prefix}Country-Extra-Alias-Preview`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasPreview : "none",
+    [`${prefix}Country-Extra-Alias-Conflicts`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasConflictCount : 0,
+    [`${prefix}Country-Extra-Alias-Conflict-Preview`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasConflictPreview : "none",
     [`${prefix}GitHub-Prefer-Nodes`]: ARGS.hasGithubPreferNodes ? "configured" : "default",
     [`${prefix}Steam-Prefer-Nodes`]: ARGS.hasSteamPreferNodes ? "configured" : "default",
     [`${prefix}Dev-Prefer-Nodes`]: ARGS.hasDevPreferNodes ? "configured" : "default",
@@ -10693,7 +10827,7 @@ function logBuildSummary(stats) {
   // 输出 AI / Crypto / GitHub / Steam / Dev 国家优先链参数覆盖情况。
   console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
   // 输出 country-extra-aliases 参数覆盖情况，便于确认这轮自定义国家别名是否真正生效。
-  console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},preview=${ARGS.countryExtraAliasPreview}` : "default"}`);
+  console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}` : "default"}`);
   // 输出开发服务组参数覆盖情况。
   console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
   // 输出开发服务组高级项覆盖情况。
