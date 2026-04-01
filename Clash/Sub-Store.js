@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.93.0
+ * Sub-Store 终极策略增强脚本 V8.94.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -146,11 +146,13 @@
  * 141. 优先链响应头增强：开启 response-headers 后，会额外输出 AI / Crypto / GitHub / Steam / Dev 的 Prefer-Countries-Resolved 头，方便下载链路调试。
  * 142. 优先链预设增强：prefer-countries 新增 ai-core / crypto-core / gaming-core / dev-core / asia-core / europe-core / americas-core / global-core 等可复用 preset，减少手写长串国家/区域 token。
  * 143. 优先链预设兼容：preset 可继续展开为国家、区域、子区域 token，并最终复用现有排序、命中摘要与告警体系。
+ * 144. GitHub 社区预设吸收：参考 GitHub 上常见的 HK/TW/SG/JP/US 与 HK/TW/SG/JP/KR/US 面板组合，补充 classic-5 / classic-6 这类社区化 Prefer-Countries preset。
+ * 145. 社区缩写兼容：classic-5 / classic-6 同步兼容 hktwsgjpus / hktwsgjpkrus 等连写缩写，便于直接复用常见社区命名习惯。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.93.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.93.0。
+const SCRIPT_VERSION = "8.94.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.94.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -384,6 +386,18 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🌐 全球核心链",
     aliases: ["globalcore", "global-core", "worldcore", "world-core", "全球核心"],
     markers: ["eastasia", "southeastasia", "northeurope", "centraleurope", "northamerica", "gulf"]
+  },
+  {
+    key: "classic-5",
+    name: "⭐ 经典五地",
+    aliases: ["classic5", "classic-5", "popular5", "popular-5", "common5", "common-5", "hktwsgjpus", "hk-tw-sg-jp-us", "经典五地"],
+    markers: ["香港", "台湾", "狮城", "日本", "美国"]
+  },
+  {
+    key: "classic-6",
+    name: "🌟 经典六地",
+    aliases: ["classic6", "classic-6", "popular6", "popular-6", "common6", "common-6", "hktwsgjpkrus", "hk-tw-sg-jp-kr-us", "经典六地"],
+    markers: ["香港", "台湾", "狮城", "日本", "韩国", "美国"]
   }
 ]);
 
