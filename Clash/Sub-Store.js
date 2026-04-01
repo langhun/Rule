@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.83.0
+ * Sub-Store 终极策略增强脚本 V8.84.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -126,11 +126,13 @@
  * 121. 国家命名风格增强：继续保持“中文主名 + 常见英文/缩写/城市别名”的写法，并沿用狮城/枫叶/袋鼠/毛熊这类显示风格。
  * 122. 国家识别继续增强：继续补齐瑞士、瑞典、挪威、芬兰、丹麦、葡萄牙、爱尔兰、比利时、奥地利、波兰、南非、以色列、新西兰等常见节点国家。
  * 123. 国家别名安全增强：对 India / Malaysia / Italy 等容易和普通英文单词冲突的两位缩写做保守收紧，优先依赖国家名、三位缩写与城市名识别，减少误判。
+ * 124. 自定义国家别名增强：新增 country-extra-aliases 参数，支持不改脚本源码直接追加你自己的节点命名别名。
+ * 125. 国家优先链兼容增强：country-extra-aliases 追加的别名会同时参与节点国家识别与 prefer-countries 参数匹配，便于直接复用到 AI / GitHub / Steam / Dev 优先链。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "8.83.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.83.0。
+const SCRIPT_VERSION = "8.84.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V8.84.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -983,6 +985,59 @@ function toExplicitNameList(value) {
   }
 
   return [];
+}
+
+// 解析“国家: 别名1|别名2”的自定义国家别名参数，便于在不改脚本源码时继续扩展节点命名兼容。
+function parseCountryExtraAliasEntries(value) {
+  const result = {
+    map: Object.create(null),
+    invalidEntries: [],
+    unknownCountryMarkers: []
+  };
+  const rawEntries = [];
+
+  if (typeof value === "string") {
+    rawEntries.push(...value.split(/(?:\r?\n|;|；|\|\|)+/));
+  } else if (Array.isArray(value)) {
+    rawEntries.push(...value.map((item) => String(item || "")));
+  } else if (isObject(value)) {
+    for (const key of Object.keys(value)) {
+      const aliases = Array.isArray(value[key]) ? value[key].join("|") : String(value[key] || "");
+      rawEntries.push(`${key}:${aliases}`);
+    }
+  }
+
+  for (const entry of rawEntries) {
+    const text = normalizeStringArg(entry);
+    if (!text) {
+      continue;
+    }
+
+    const match = text.match(/^([^:：=]+)\s*[:：=]\s*(.+)$/);
+    if (!match) {
+      result.invalidEntries.push(text);
+      continue;
+    }
+
+    const countryMarker = normalizeStringArg(match[1]);
+    const aliases = toStringList(match[2]);
+    if (!countryMarker || !aliases.length) {
+      result.invalidEntries.push(text);
+      continue;
+    }
+
+    const definition = findCountryDefinitionByMarker(countryMarker);
+    if (!definition) {
+      result.unknownCountryMarkers.push(countryMarker);
+      continue;
+    }
+
+    result.map[definition.name] = uniqueStrings((result.map[definition.name] || []).concat(aliases));
+  }
+
+  result.invalidEntries = uniqueStrings(result.invalidEntries);
+  result.unknownCountryMarkers = uniqueStrings(result.unknownCountryMarkers);
+  return result;
 }
 
 // 把 Mihomo `exclude-type` 这类“类型列表”参数统一规范成 `A|B|C` 形式，兼容逗号 / 竖线 / 换行输入。
@@ -1875,12 +1930,47 @@ function buildCountryPattern(aliases) {
   return composeCaseInsensitivePattern(uniqueStrings(aliases).map(aliasToRegex));
 }
 
+// 读取某个国家定义对应的“用户自定义额外别名”，便于把运行参数也纳入国家识别。
+function getCountryExtraAliases(countryName) {
+  if (typeof ARGS === "undefined" || !ARGS || !ARGS.hasCountryExtraAliases || !isObject(ARGS.countryExtraAliasesMap)) {
+    return [];
+  }
+
+  return uniqueStrings(ARGS.countryExtraAliasesMap[countryName]);
+}
+
+// 统一收集某个国家定义的全部可识别标记：旗帜、显示名、内置别名、运行参数追加别名。
+function getCountryDefinitionMarkers(country) {
+  if (!isObject(country)) {
+    return [];
+  }
+
+  return uniqueStrings([country.flag, country.name].concat(country.aliases || [], getCountryExtraAliases(country.name)));
+}
+
+// 按标记查找某个国家定义，兼容显示名、旗帜、内置别名与运行参数追加别名。
+function findCountryDefinitionByMarker(marker) {
+  const token = normalizeGroupMarkerToken(marker);
+  if (!token) {
+    return null;
+  }
+
+  for (const definition of COUNTRY_DEFINITIONS) {
+    const markers = getCountryDefinitionMarkers(definition);
+    if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
+      return definition;
+    }
+  }
+
+  return null;
+}
+
 // 预编译国家元数据，把别名表变成真正可匹配的 regex。
 function buildCompiledCountries() {
   // 把 COUNTRY_DEFINITIONS 逐条加工成运行时更易用的对象。
   return COUNTRY_DEFINITIONS.map((country) => {
     // 先把旗帜和别名全部合并成策略组可复用的 filter 表达式。
-    const filter = buildCountryPattern([country.flag].concat(country.aliases));
+    const filter = buildCountryPattern(getCountryDefinitionMarkers(country));
     return {
       // 国家显示名。
       name: country.name,
@@ -2026,6 +2116,8 @@ function resolveArgs(rawArgs) {
   const rawSteamPreferCountries = pickArg(args, ["steamPreferCountries", "steam-prefer-countries", "steamPrefer", "steam-prefer"]);
   // 读取开发服务组国家优先链参数原始值。
   const rawDevPreferCountries = pickArg(args, ["devPreferCountries", "dev-prefer-countries", "developerPreferCountries", "developer-prefer-countries", "devPreferCountry", "dev-prefer-country"]);
+  // 读取自定义国家别名追加参数原始值。
+  const rawCountryExtraAliases = pickArg(args, ["countryExtraAliases", "country-extra-aliases", "countryAliases", "country-aliases", "countryAliasMap", "country-alias-map"]);
   // 读取 GitHub 独立组额外前置组参数原始值。
   const rawGithubPreferGroups = pickArg(args, ["githubPreferGroups", "github-prefer-groups", "githubPreferredGroups", "github-preferred-groups"]);
   // 读取 Steam 独立组额外前置组参数原始值。
@@ -2447,6 +2539,10 @@ function resolveArgs(rawArgs) {
   const githubPreferCountries = toStringList(rawGithubPreferCountries);
   const steamPreferCountries = toStringList(rawSteamPreferCountries);
   const devPreferCountries = toStringList(rawDevPreferCountries);
+  const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
+  const countryExtraAliasesMap = parsedCountryExtraAliases.map;
+  const countryExtraAliasCountryCount = Object.keys(countryExtraAliasesMap).length;
+  const countryExtraAliasEntryCount = Object.keys(countryExtraAliasesMap).reduce((total, key) => total + countryExtraAliasesMap[key].length, 0);
   const githubPreferGroups = toStringList(rawGithubPreferGroups);
   const steamPreferGroups = toStringList(rawSteamPreferGroups);
   const devPreferGroups = toStringList(rawDevPreferGroups);
@@ -2539,6 +2635,21 @@ function resolveArgs(rawArgs) {
 
   if (aiExtraListUrl && !looksLikeHttpUrl(aiExtraListUrl)) {
     console.warn(`⚠️ 警告: ai-extra-list-url 看起来不像合法 http(s) 地址: ${aiExtraListUrl}`);
+  }
+
+  // 如果自定义国家别名参数传了值，但最终一个有效条目都没解析出来，则显式提示正确写法。
+  if (rawCountryExtraAliases !== undefined && hasUsableArgValue(rawCountryExtraAliases) && !countryExtraAliasCountryCount) {
+    console.warn("⚠️ 警告: country-extra-aliases 未解析出任何有效条目，已忽略；请使用 国家:别名1|别名2;国家2:别名3 这种写法");
+  }
+
+  // 逐条提示 country-extra-aliases 里格式不合法的项，帮助定位拼写问题。
+  for (const item of parsedCountryExtraAliases.invalidEntries) {
+    console.warn(`⚠️ 警告: country-extra-aliases 条目无效，已忽略: ${item}`);
+  }
+
+  // 逐条提示没有命中内置国家定义的国家标记，避免自定义别名 silently fail。
+  for (const item of parsedCountryExtraAliases.unknownCountryMarkers) {
+    console.warn(`⚠️ 警告: country-extra-aliases 未匹配到内置国家定义，已忽略: ${item}`);
   }
 
   if (githubTestUrl && !looksLikeHttpUrl(githubTestUrl)) {
@@ -3183,6 +3294,10 @@ function resolveArgs(rawArgs) {
     hasSteamPreferCountries: !!steamPreferCountries.length,
     devPreferCountries,
     hasDevPreferCountries: !!devPreferCountries.length,
+    countryExtraAliasesMap,
+    hasCountryExtraAliases: !!countryExtraAliasCountryCount,
+    countryExtraAliasCountryCount,
+    countryExtraAliasEntryCount,
     githubPreferGroups,
     hasGithubPreferGroups: !!githubPreferGroups.length,
     steamPreferGroups,
@@ -7433,18 +7548,9 @@ function resolvePreferredCountryGroups(countryConfigs, markers) {
     }
 
     let matchedGroup = null;
-
-    // 先尝试按 COUNTRY_DEFINITIONS.aliases / name / flag 解析成标准国家定义。
-    for (const definition of COUNTRY_DEFINITIONS) {
-      const definitionTokens = [definition.flag, definition.name].concat(definition.aliases || []).map((item) => String(item || "").trim().toLowerCase());
-      if (!definitionTokens.includes(token.toLowerCase())) {
-        continue;
-      }
-
-      matchedGroup = findCountryGroup(countryConfigs, [definition.flag, definition.name].concat(definition.aliases || []));
-      if (matchedGroup) {
-        break;
-      }
+    const definition = findCountryDefinitionByMarker(token);
+    if (definition) {
+      matchedGroup = findCountryGroup(countryConfigs, getCountryDefinitionMarkers(definition));
     }
 
     // 如果标准国家定义里没命中，再退回到“直接用字符串包含关系”。
@@ -9218,6 +9324,9 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}GitHub-Prefer-Countries`]: ARGS.hasGithubPreferCountries ? "configured" : "default",
     [`${prefix}Steam-Prefer-Countries`]: ARGS.hasSteamPreferCountries ? "configured" : "default",
     [`${prefix}Dev-Prefer-Countries`]: ARGS.hasDevPreferCountries ? "configured" : "default",
+    [`${prefix}Country-Extra-Aliases`]: ARGS.hasCountryExtraAliases ? "configured" : "default",
+    [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
+    [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
     [`${prefix}GitHub-Prefer-Nodes`]: ARGS.hasGithubPreferNodes ? "configured" : "default",
     [`${prefix}Steam-Prefer-Nodes`]: ARGS.hasSteamPreferNodes ? "configured" : "default",
     [`${prefix}Dev-Prefer-Nodes`]: ARGS.hasDevPreferNodes ? "configured" : "default",
@@ -10529,6 +10638,8 @@ function logBuildSummary(stats) {
   console.log(`   ✓ 代理集合Override: prefix=${ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default"}, suffix=${ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default"}, udp=${ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default"}, udp-over-tcp=${ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default"}, down=${ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default"}, up=${ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default"}, tfo=${ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default"}, mptcp=${ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default"}, skip-cert-verify=${ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default"}, dialer-proxy=${ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default"}, interface-name=${ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default"}, routing-mark=${ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default"}, ip-version=${ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default"}, proxy-name-rules=${ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default"}`);
   // 输出 AI / Crypto / GitHub / Steam / Dev 国家优先链参数覆盖情况。
   console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
+  // 输出 country-extra-aliases 参数覆盖情况，便于确认这轮自定义国家别名是否真正生效。
+  console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount}` : "default"}`);
   // 输出开发服务组参数覆盖情况。
   console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
   // 输出开发服务组高级项覆盖情况。
