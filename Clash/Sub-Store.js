@@ -152,8 +152,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.0.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.0.0。
+const SCRIPT_VERSION = "9.1.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.1.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -383,6 +383,12 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     markers: ["northamerica", "southamerica"]
   },
   {
+    key: "latam-core",
+    name: "🌮 拉美核心链",
+    aliases: ["latamcore", "latam-core", "latinamericacore", "latin-america-core", "拉美核心"],
+    markers: ["latam"]
+  },
+  {
     key: "middleeast-core",
     name: "🕌 中东核心链",
     aliases: ["middleeastcore", "middleeast-core", "mecore", "me-core", "中东核心"],
@@ -405,6 +411,12 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🧭 巴尔干核心链",
     aliases: ["balkanscore", "balkans-core", "balkancore", "balkan-core", "巴尔干核心"],
     markers: ["balkans"]
+  },
+  {
+    key: "mediterranean-core",
+    name: "🌊 地中海核心链",
+    aliases: ["mediterraneancore", "mediterranean-core", "medcore", "med-core", "地中海核心"],
+    markers: ["mediterranean"]
   },
   {
     key: "eurasia-core",
@@ -717,6 +729,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     countryKeys: ["阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
   },
   {
+    key: "latam",
+    name: "🌮 拉美节点",
+    aliases: ["latam", "latinamerica", "latin-america", "latinamericas", "拉美", "拉丁美洲"],
+    includeInAuto: false,
+    countryKeys: ["墨西哥", "阿根廷", "巴西", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+  },
+  {
     key: "middleeast",
     name: "🕌 中东节点",
     aliases: ["middleeast", "middle-east", "me", "中东"],
@@ -747,6 +766,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     aliases: ["northafrica", "north-africa", "maghreb", "北非"],
     includeInAuto: false,
     countryKeys: ["埃及", "摩洛哥", "阿尔及利亚", "利比亚", "突尼斯"]
+  },
+  {
+    key: "mediterranean",
+    name: "🌊 地中海节点",
+    aliases: ["mediterranean", "mediterraneansea", "med-sea", "med", "地中海"],
+    includeInAuto: false,
+    countryKeys: ["西班牙", "意大利", "希腊", "塞浦路斯", "土耳其", "以色列", "埃及", "摩洛哥", "阿尔及利亚", "突尼斯"]
   }
 ]);
 
