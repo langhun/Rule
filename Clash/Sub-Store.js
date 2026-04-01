@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V8.95.0
+ * Sub-Store 终极策略增强脚本 V9.2.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -149,11 +149,15 @@
  * 144. GitHub 社区预设吸收：参考 GitHub 上常见的 HK/TW/SG/JP/US 与 HK/TW/SG/JP/KR/US 面板组合，补充 classic-5 / classic-6 这类社区化 Prefer-Countries preset。
  * 145. 社区缩写兼容：classic-5 / classic-6 同步兼容 hktwsgjpus / hktwsgjpkrus 等连写缩写，便于直接复用常见社区命名习惯。
  * 146. 社区四地预设：继续补充 HK/SG/JP/US 与 HK/TW/SG/JP 这两组更轻量的经典四地 preset，适合低延迟和纯亚洲优先场景。
+ * 147. 开发补充规则增强：新增 Dev.list 与 dev-list-url，本地承接社区规则未完全覆盖的开发域名补丁。
+ * 148. 默认布局优化：参考 GitHub 上常见的 Mihomo/Clash 公共配置，把开发服务组前移到 GitHub 后、Steam 前，并统一把兜底节点后置。
+ * 149. 开发规则观测增强：把 DevList 一并纳入业务规则窗口、业务链路总览、规则顺序锚点别名与开发规则块移动范围。
+ * 150. 兜底节点说明增强：明确保留兜底节点作为国家识别失败/未命名节点收容池，但默认继续保持面板后置，避免抢占主工作流。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.1.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.1.0。
+const SCRIPT_VERSION = "9.2.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.2.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -233,6 +237,8 @@ const CRYPTO_LIST_URL = `${RULESET_REPO_BASE_URL}/Crypto.list`;
 const CHATGPT_LIST_URL = `${RULESET_REPO_BASE_URL}/ChatGPT.list`;
 // 默认 AI 补充规则地址，用来承接社区里常见但主规则未必完整覆盖的 AI 服务域名。
 const AI_EXTRA_LIST_URL = `${RULESET_REPO_BASE_URL}/AIExtra.list`;
+// 默认开发补充规则地址，用来承接社区规则没完全覆盖的开发域名。
+const DEV_LIST_URL = `${RULESET_REPO_BASE_URL}/Dev.list`;
 // 默认 SteamFix 规则地址。
 const STEAM_FIX_LIST_URL = `${POWERFULLZ_RULESET_BASE_URL}/SteamFix.list`;
 // Mihomo 官方 General 配置文档中的推荐 GeoX 下载地址。
@@ -318,16 +324,16 @@ const GROUPS = {
   ADS: "🛑 广告拦截"
 };
 
-// 开发生态规则入口集合：用于统一改写 GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
-const DEV_RULE_PROVIDERS = Object.freeze(["GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
+// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
+const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
-  balanced: ["select", "manual", "fallback", "ai", "telegram", "google", "github", "microsoft", "onedrive", "games", "bing", "apple", "steam", "pt", "speedtest", "media", "crypto", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  service: ["select", "manual", "fallback", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  media: ["select", "manual", "fallback", "media", "telegram", "google", "apple", "github", "steam", "games", "ai", "crypto", "microsoft", "onedrive", "bing", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  region: ["select", "manual", "fallback", "regions", "countries", "other", "ai", "github", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "extras"]
+  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]
 };
 
 // 某些自动分组天然允许为空，不必为此输出告警。
@@ -2748,6 +2754,8 @@ function resolveArgs(rawArgs) {
   const rawChatGptListUrl = pickArg(args, ["chatgptListUrl", "chatgpt-list-url", "chatGPTListUrl", "chatGPT-list-url"]);
   // 读取 AIExtra.list 规则源地址参数原始值。
   const rawAiExtraListUrl = pickArg(args, ["aiExtraListUrl", "ai-extra-list-url", "moreAiListUrl", "more-ai-list-url", "aiSupplementListUrl", "ai-supplement-list-url"]);
+  // 读取 Dev.list 规则源地址参数原始值。
+  const rawDevListUrl = pickArg(args, ["devListUrl", "dev-list-url", "devExtraListUrl", "dev-extra-list-url", "developerListUrl", "developer-list-url"]);
   // 读取内置社区规则源预设参数原始值。
   const rawRuleSourcePreset = pickArg(args, ["ruleSourcePreset", "rule-source-preset", "rulesetPreset", "ruleset-preset"]);
   // 读取 SteamFix 开关参数原始值。
@@ -3186,6 +3194,7 @@ function resolveArgs(rawArgs) {
   const cryptoListUrl = normalizeStringArg(rawCryptoListUrl);
   const chatGptListUrl = normalizeStringArg(rawChatGptListUrl);
   const aiExtraListUrl = normalizeStringArg(rawAiExtraListUrl);
+  const devListUrl = normalizeStringArg(rawDevListUrl);
   const ruleSourcePreset = normalizeRuleSourcePreset(rawRuleSourcePreset, DEFAULT_RULE_SOURCE_PRESET);
   const steamFixUrl = normalizeStringArg(rawSteamFixUrl);
   const ruleProviderPathDir = normalizeRuleProviderPathDir(rawRuleProviderPathDir);
@@ -3955,6 +3964,8 @@ function resolveArgs(rawArgs) {
     hasChatGptListUrl: !!chatGptListUrl,
     aiExtraListUrl,
     hasAiExtraListUrl: !!aiExtraListUrl,
+    devListUrl,
+    hasDevListUrl: !!devListUrl,
     ruleSourcePreset,
     hasRuleSourcePreset: rawRuleSourcePreset !== undefined,
     steamFix: parseBool(rawSteamFix, false),
@@ -5949,6 +5960,8 @@ const ruleProviders = finalizeRuleProviders({
   Google: createRuleProvider("domain", metaGeoSite("google")),
   // GitHub 规则。
   GitHub: createPresetAwareRuleProvider("GitHub", "domain", metaGeoSite("github")),
+  // 本地开发补充规则，用来承接社区规则未完全覆盖的开发域名。
+  DevList: createRuleProvider("classical", ARGS.hasDevListUrl ? ARGS.devListUrl : DEV_LIST_URL, "text"),
   // GitLab 规则。
   GitLab: createDeveloperRuleProvider("GitLab"),
   // Docker 规则。
@@ -6072,6 +6085,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "YouTube", target: GROUPS.YOUTUBE },
   // Google 域名交给 Google 组。
   { provider: "Google", target: GROUPS.GOOGLE },
+  // 本地开发补充规则流量交给开发服务组。
+  { provider: "DevList", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // GitLab 流量交给开发服务组。
   { provider: "GitLab", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Docker 流量交给开发服务组。
@@ -6198,6 +6213,7 @@ const RULE_SET_DEFINITIONS = (() => {
 // 业务链路专属摘要重点关注的规则入口。
 const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "GitHub", label: "GitHub", expectedTarget: GROUPS.GITHUB },
+  { provider: "DevList", label: "DevList", expectedTarget: GROUPS.DEV },
   { provider: "GitLab", label: "GitLab", expectedTarget: GROUPS.DEV },
   { provider: "Docker", label: "Docker", expectedTarget: GROUPS.DEV },
   { provider: "Npmjs", label: "Npmjs", expectedTarget: GROUPS.DEV },
@@ -6847,6 +6863,7 @@ function analyzeServiceRuleWindows(rules) {
     { key: "AI", label: "AI", category: "ai" },
     { key: "Crypto", label: "Crypto", category: "trade" },
     { key: "GitHub", label: "GitHub", category: "dev" },
+    { key: "DevList", label: "DevList", category: "dev" },
     { key: "GitLab", label: "GitLab", category: "dev" },
     { key: "Docker", label: "Docker", category: "dev" },
     { key: "Npmjs", label: "Npmjs", category: "dev" },
@@ -7944,6 +7961,12 @@ function createRuleProviderAliasMap() {
     aiextra: "AIExtra",
     moreai: "AIExtra",
     aisupplement: "AIExtra",
+    dev: "DevList",
+    developer: "DevList",
+    development: "DevList",
+    devlist: "DevList",
+    devextra: "DevList",
+    developers: "DevList",
     perplexity: "AIExtra",
     pplx: "AIExtra",
     cursor: "AIExtra",
@@ -10309,6 +10332,7 @@ function buildRuntimeResponseHeaders(diagnostics) {
     [`${prefix}Crypto-List-Url`]: ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default",
     [`${prefix}ChatGPT-List-Url`]: ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default",
     [`${prefix}AI-Extra-List-Url`]: ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default",
+    [`${prefix}Dev-List-Url`]: ARGS.hasDevListUrl ? ARGS.devListUrl : "default",
     [`${prefix}Grok-Rule-Url`]: accademiaAdditionalRule("Grok"),
     [`${prefix}Apple-AI-Rule-Url`]: accademiaAdditionalRule("AppleAI"),
     [`${prefix}Rule-Provider-Path-Dir`]: ARGS.ruleProviderPathDir,
@@ -11831,7 +11855,7 @@ function logBuildSummary(stats) {
   // 输出 DNS listen / fake-ip 地址池覆盖情况。
   console.log(`   ✓ DNS池参数: listen=${ARGS.hasDnsListen ? ARGS.dnsListen : "config/default"}, fake-ip-range=${ARGS.hasFakeIpRange ? ARGS.fakeIpRange : "config/default"}, fake-ip-range6=${ARGS.hasFakeIpRange6 ? ARGS.fakeIpRange6 : (ARGS.ipv6 ? "auto/default" : "off")}`);
   // 输出自定义规则源覆盖情况。
-  console.log(`   ✓ 规则源参数: preset=${ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET}, steam-fix=${ARGS.hasSteamFix ? ARGS.steamFix : false}, steam-fix-url=${ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled"}, direct-list-url=${ARGS.hasDirectListUrl ? ARGS.directListUrl : "default"}, crypto-list-url=${ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default"}, chatgpt-list-url=${ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default"}, ai-extra-list-url=${ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default"}, grok-rule-url=${accademiaAdditionalRule("Grok")}, apple-ai-rule-url=${accademiaAdditionalRule("AppleAI")}, provider-path-dir=${ARGS.ruleProviderPathDir}, provider-interval=${ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL}, provider-proxy=${ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default"}, provider-size-limit=${ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default"}, provider-ua=${ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default"}, provider-auth=${ARGS.hasRuleProviderAuthorization ? "configured" : "default"}, provider-headers=${ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default"}, provider-payload=${ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default"}, scope=${(ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default"}, payload-scope=${ARGS.hasRuleProviderPayload ? "inline-only" : "default"}, apply-scope=${buildRuleProviderApplyScopeSummary()}, apply-stats=${stats.ruleProviderApplyStatsSummary}, apply-preview=${stats.ruleProviderApplyPreviewSummary}, mutation-stats=${stats.ruleProviderMutationStatsSummary}, mutation-preview=${stats.ruleProviderMutationPreviewSummary}`);
+  console.log(`   ✓ 规则源参数: preset=${ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET}, steam-fix=${ARGS.hasSteamFix ? ARGS.steamFix : false}, steam-fix-url=${ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled"}, direct-list-url=${ARGS.hasDirectListUrl ? ARGS.directListUrl : "default"}, crypto-list-url=${ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default"}, chatgpt-list-url=${ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default"}, ai-extra-list-url=${ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default"}, dev-list-url=${ARGS.hasDevListUrl ? ARGS.devListUrl : "default"}, grok-rule-url=${accademiaAdditionalRule("Grok")}, apple-ai-rule-url=${accademiaAdditionalRule("AppleAI")}, provider-path-dir=${ARGS.ruleProviderPathDir}, provider-interval=${ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL}, provider-proxy=${ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default"}, provider-size-limit=${ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default"}, provider-ua=${ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default"}, provider-auth=${ARGS.hasRuleProviderAuthorization ? "configured" : "default"}, provider-headers=${ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default"}, provider-payload=${ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default"}, scope=${(ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default"}, payload-scope=${ARGS.hasRuleProviderPayload ? "inline-only" : "default"}, apply-scope=${buildRuleProviderApplyScopeSummary()}, apply-stats=${stats.ruleProviderApplyStatsSummary}, apply-preview=${stats.ruleProviderApplyPreviewSummary}, mutation-stats=${stats.ruleProviderMutationStatsSummary}, mutation-preview=${stats.ruleProviderMutationPreviewSummary}`);
   // 输出 rule-provider 官方语义自检开关，便于确认本轮自检已启用。
   console.log("   ✓ 规则源语义: official-type/behavior/format/path/payload-check=on, safe-path-hint=on");
   // 输出 proxy-provider 下载控制、节点池筛选与 health-check 覆盖情况。

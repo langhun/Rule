@@ -1,0 +1,95 @@
+// ================== 🧑‍💻 开发服务补充规则 ==================
+// 这份列表作为社区规则源的本地补丁层，专门补齐常见开发平台的零散域名。
+
+// --- GitLab ---
+DOMAIN-SUFFIX,gitlab.com
+DOMAIN-SUFFIX,gitlab-static.net
+
+// --- Docker / Registry ---
+DOMAIN-SUFFIX,docker.com
+DOMAIN-SUFFIX,docker.io
+DOMAIN-SUFFIX,dockerhub.com
+DOMAIN-SUFFIX,dockerusercontent.com
+
+// --- NPM / Yarn ---
+DOMAIN-SUFFIX,npmjs.com
+DOMAIN-SUFFIX,npmjs.org
+DOMAIN-SUFFIX,yarnpkg.com
+
+// --- JetBrains ---
+DOMAIN-SUFFIX,jetbrains.com
+DOMAIN-SUFFIX,jb.gg
+DOMAIN-SUFFIX,intellij.net
+
+// --- Vercel / Next.js / v0 / Turborepo ---
+DOMAIN-SUFFIX,vercel.com
+DOMAIN-SUFFIX,vercel.app
+DOMAIN-SUFFIX,v0.dev
+DOMAIN-SUFFIX,nextjs.org
+DOMAIN-SUFFIX,turbo.build
+
+// --- Python / PyPI ---
+DOMAIN-SUFFIX,python.org
+DOMAIN-SUFFIX,pypi.org
+DOMAIN-SUFFIX,pythonhosted.org
+DOMAIN-SUFFIX,files.pythonhosted.org
+
+// --- JFrog / Bintray ---
+DOMAIN-SUFFIX,jfrog.io
+DOMAIN-SUFFIX,jfrog.com
+DOMAIN-SUFFIX,bintray.com
+
+// --- Heroku ---
+DOMAIN-SUFFIX,heroku.com
+DOMAIN-SUFFIX,herokuapp.com
+DOMAIN-SUFFIX,herokudns.com
+DOMAIN-SUFFIX,herokussl.com
+
+// --- GitBook ---
+DOMAIN-SUFFIX,gitbook.com
+DOMAIN-SUFFIX,gitbook.io
+
+// --- SourceForge ---
+DOMAIN-SUFFIX,sourceforge.net
+DOMAIN-SUFFIX,sourceforge.io
+DOMAIN-SUFFIX,sf.net
+
+// --- DigitalOcean ---
+DOMAIN-SUFFIX,digitalocean.com
+DOMAIN-SUFFIX,digitaloceanspaces.com
+DOMAIN-SUFFIX,do.co
+
+// --- Anaconda / Conda ---
+DOMAIN-SUFFIX,anaconda.com
+DOMAIN-SUFFIX,anaconda.org
+DOMAIN-SUFFIX,conda.io
+DOMAIN-SUFFIX,continuum.io
+
+// --- Atlassian / Bitbucket / Trello / Statuspage ---
+DOMAIN-SUFFIX,atlassian.com
+DOMAIN-SUFFIX,bitbucket.org
+DOMAIN-SUFFIX,trello.com
+DOMAIN-SUFFIX,statuspage.io
+
+// --- Notion ---
+DOMAIN-SUFFIX,notion.so
+DOMAIN-SUFFIX,notion.site
+DOMAIN-SUFFIX,notion-static.com
+DOMAIN-SUFFIX,notionusercontent.com
+
+// --- Figma ---
+DOMAIN-SUFFIX,figma.com
+DOMAIN-SUFFIX,figma.site
+
+// --- Slack ---
+DOMAIN-SUFFIX,slack.com
+DOMAIN-SUFFIX,slack-edge.com
+DOMAIN-SUFFIX,slack-files.com
+DOMAIN-SUFFIX,slack-msgs.com
+
+// --- Dropbox ---
+DOMAIN-SUFFIX,dropbox.com
+DOMAIN-SUFFIX,dropboxapi.com
+DOMAIN-SUFFIX,dropboxstatic.com
+DOMAIN-SUFFIX,dropboxusercontent.com
+DOMAIN-SUFFIX,getdropbox.com

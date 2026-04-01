@@ -3,11 +3,81 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V9.1.0`
+- 当前版本：`V9.2.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
+
+## V9.2.0 这一轮新增了什么
+
+这一轮主要补三件事：**默认面板顺序更像 GitHub 社区常见工作流、开发规则再补一层本地补丁、兜底节点角色说明讲清楚**。
+
+1. **默认策略组顺序继续优化**
+   - 参考 GitHub 上常见的 Mihomo / Clash 公共配置，默认布局现在更偏向：
+     - `节点选择 / 手动切换 / 自动切换`
+     - `AI / GitHub / 开发服务`
+     - `微软服务 / OneDrive / Google / Telegram`
+     - `Steam / 其它业务组`
+     - `广告 / 直连 / 落地 / 低倍率 / 区域 / 国家 / 兜底`
+   - 这次会把：
+     - `🧑‍💻 开发服务`
+       - 明确前移到 `🐙 GitHub` 后面、`🚂 Steam` 前面
+     - `🐟 兜底节点`
+       - 统一保持后置，不再放到面板前面抢视线
+
+2. **兜底节点保留，但定位改成“收尾收容池”**
+   - `🐟 兜底节点` 仍然有用：
+     - 它负责接住 **没被国家识别命中**、或 **节点命名不规范**、或 **地区标签不完整** 的剩余节点
+   - 但默认不建议把它排太前：
+     - 更适合作为面板最后几组里的“补网漏组”
+   - 如果一个国家组都没识别出来：
+     - 脚本仍会自动回退用 `🐟 兜底节点`
+
+3. **新增 `Dev.list` 本地开发补充规则**
+   - 新增文件：
+     - `Clash/Ruleset/Dev.list`
+   - 作用：
+     - 给 `🧑‍💻 开发服务` 再补一层本地 classical 规则
+     - 主要承接社区规则没完全覆盖、但开发场景里很常见的零散域名
+   - 当前补进去的类别包括：
+     - `GitLab`
+     - `Docker`
+     - `NPM / Yarn`
+     - `JetBrains`
+     - `Vercel / Next.js / v0 / Turborepo`
+     - `Python / PyPI`
+     - `JFrog / Bintray`
+     - `Heroku`
+     - `GitBook`
+     - `SourceForge`
+     - `DigitalOcean`
+     - `Anaconda / Conda`
+     - `Atlassian / Bitbucket / Trello / Statuspage`
+     - `Notion`
+     - `Figma`
+     - `Slack`
+     - `Dropbox`
+
+4. **开放 `devListUrl` 规则源参数**
+   - 现在你也可以像 `directListUrl / cryptoListUrl / aiExtraListUrl` 一样，单独替换开发补充列表：
+     - `devListUrl`
+   - 适合：
+     - 把你自己维护在 GitHub 上的开发域名补丁表直接接进脚本
+
+5. **开发规则观测同步补齐**
+   - `Dev.list` 现在也会一起进入：
+     - `业务规则窗口`
+     - `业务链路总览`
+     - `规则顺序锚点别名`
+     - `规则源参数`
+     - 响应调试头里的 `Dev-List-Url`
+
+6. **直接可抄的示例**
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&groupOrderPreset=service&groupOrder=select,manual,fallback,ai,github,dev,microsoft,onedrive,steam,media,countries,other,extras&devListUrl=https://raw.githubusercontent.com/example/repo/main/Dev.list
+```
 
 ## V9.1.0 这一轮新增了什么
 
@@ -3785,6 +3855,7 @@
 
 `🧑‍💻 开发服务` 目前会统一承接：
 
+- `Dev.list`
 - `GitLab`
 - `Docker`
 - `Npmjs`
@@ -3801,9 +3872,11 @@
 - `Notion`
 - `Figma`
 - `Slack`
+- `Dropbox`
 
 其中：
 
+- `Dev.list` 是本地补丁层，专门补社区规则没完全覆盖的开发域名
 - `Vercel` 主要覆盖 `vercel / nextjs / turborepo` 相关域名
 - `Python` 主要覆盖 `python / pypi / pypa` 相关域名
 - `Jfrog` 主要覆盖 `jfrog / bintray` 制品仓库域名
@@ -3816,6 +3889,9 @@
 - `Notion` 主要覆盖 `notion / notion.so / notion.site` 知识库与文档协作域名
 - `Figma` 主要覆盖 `figma.com` 设计协作域名
 - `Slack` 主要覆盖 `slack / slack-files / slack-edge` 团队协作域名
+- `Dropbox` 主要覆盖 `dropbox / dropboxapi / dropboxusercontent` 文件同步与协作域名
+- 默认面板顺序里，`🧑‍💻 开发服务` 现在会贴着 `🐙 GitHub` 显示，并排在 `🚂 Steam` 前面
+- `🐟 兜底节点` 仍然保留，但更适合作为收尾组，不建议前置
 - 这些规则默认都会直接复用现有 `dev*` 参数体系，不单独新增新的组参数
 
 ---
@@ -4048,7 +4124,7 @@ $options=#full&hidden&groupInterval=300
 ### 21A. 自定义策略组布局与 config.rules 锚点
 
 ```text
-...?target=ClashMeta&full&groupOrderPreset=service&groupOrder=select,ai,github,steam,media,countries,other,extras&customRuleAnchor=Geo_Not_CN&customRulePosition=before
+...?target=ClashMeta&full&groupOrderPreset=service&groupOrder=select,ai,github,dev,microsoft,onedrive,steam,media,countries,other,extras&customRuleAnchor=Geo_Not_CN&customRulePosition=before
 ```
 
 ### 21AA. 启用区域分组并把区域桶排到国家组前面
@@ -4115,6 +4191,12 @@ $options=#full&hidden&groupInterval=300
 
 ```text
 ...?target=ClashMeta&full&aiExtraListUrl=https://raw.githubusercontent.com/example/repo/main/AIExtra.list
+```
+
+### 21J. 自定义开发补充规则源
+
+```text
+...?target=ClashMeta&full&devListUrl=https://raw.githubusercontent.com/example/repo/main/Dev.list
 ```
 
 ### 22. 自定义 GitHub / Steam 独立组 hidden / icon / disable-udp
@@ -4216,7 +4298,7 @@ $options=#full&hidden&groupInterval=300
 - `规则层级目标映射` 会继续把 `规则层级` 和 `目标组` 做交叉统计
 - 适合在排查“为什么某一层的规则几乎都送进了某个组”时直接看这份交叉摘要
 - `preview=service->🍎 Apple:2|ai->🤖 AI服务:5` 这类片段表示对应层里有多少条规则最终指向这个目标组
-- `业务规则窗口` 会继续把 `ChatGPT / AIExtra / OpenAI / Anthropic / Gemini / Copilot / Grok / AppleAI / AI / Crypto / GitHub / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / Steam / SteamCN` 这些业务规则单独抽出来看
+- `业务规则窗口` 会继续把 `ChatGPT / AIExtra / OpenAI / Anthropic / Gemini / Copilot / Grok / AppleAI / AI / Crypto / GitHub / DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / Steam / SteamCN` 这些业务规则单独抽出来看
 - 它会给每条业务规则附上前 2 条和后 2 条邻居，适合排查某条业务规则是不是正好被夹在宽泛规则和地区规则之间
 - `prev=... , curr=... , next=...` 会直接展示该业务规则前后的局部链路
 - `规则入口映射` 用来观察 `RULE-SET provider -> target` 的最终映射结果
@@ -4228,7 +4310,7 @@ $options=#full&hidden&groupInterval=300
 - `策略组候选链风险` 用来观察关键策略组内部的候选顺序是否异常
 - 当前脚本重点检查 `DIRECT / REJECT / FALLBACK / SELECT` 这些关键候选是不是被排错位
 - 一旦命中这类风险，即便规则已经把流量送进正确的组，组内实际选路结果也可能和预期不一致
-- `业务链路总览` 会单独聚焦 `GitHub / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / OneDrive / Steam / SteamCN / AIExtra / Copilot / Grok / AppleAI / AI / Crypto` 这些关键业务
+- `业务链路总览` 会单独聚焦 `GitHub / DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / OneDrive / Steam / SteamCN / AIExtra / Copilot / Grok / AppleAI / AI / Crypto` 这些关键业务
 - 它会把 `规则入口 -> 目标组 -> 组类型 -> 头部候选链` 压成单独摘要
 - 适合在排查“某一类业务为什么没有按预期组走”时，直接先看局部业务链，而不是先翻整条大链
 - 如果出现 `GitHub -> 直连组`、`SteamCN -> 节点选择`、`AI 首位 DIRECT`、`Crypto 首位偏离国家优先链`，脚本会额外进入 `业务链路提醒`
@@ -4439,7 +4521,7 @@ $options=#full&hidden&groupInterval=300
 - 如果同时设置 `devUseProviders` 和 `devIncludeAllProviders=true`，脚本会提示前者被忽略，并以 `include-all-providers` 为准
 - 如果同时设置 `devIncludeAll=true` 与 `devUseProviders / devIncludeAllProviders`，脚本会提示后两者被忽略，并以 `include-all` 为准
 - 开发服务组现在也支持“显式候选链 + 原始节点池 + proxy-providers 池”混合模式
-- 如果设置 `devRuleTarget`，会把 `GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 十七条开发规则一起改写到同一个目标组/内置策略
+- 如果设置 `devRuleTarget`，会把 `DevList / GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 十八条开发规则一起改写到同一个目标组/内置策略
 - 如果设置 `githubRuleTarget / steamRuleTarget / steamCnRuleTarget`，会直接改写对应规则命中的入口目标
 - 规则入口目标支持：
   - 已生成组名
@@ -4449,13 +4531,13 @@ $options=#full&hidden&groupInterval=300
 - 规则入口目标参数和独立组内部顺序参数是两层能力：一个决定“先进哪个组”，一个决定“进组后怎么选”
 - 如果规则入口目标参数没命中任何可用组/内置策略，脚本会显式告警并自动回退默认目标
 - 如果设置 `devRuleAnchor / devRulePosition`，会把整块开发规则一起移动到指定锚点前后
-- 开发规则块移动时会保持 `GitLab -> Docker -> Npmjs -> Jetbrains -> Vercel -> Python -> Jfrog -> Heroku -> GitBook -> SourceForge -> DigitalOcean -> Anaconda -> Atlassian -> Notion -> Figma -> Slack` 的内部相对顺序
+- 开发规则块移动时会保持 `DevList -> GitLab -> Docker -> Npmjs -> Jetbrains -> Vercel -> Python -> Jfrog -> Heroku -> GitBook -> SourceForge -> DigitalOcean -> Anaconda -> Atlassian -> Notion -> Figma -> Slack -> Dropbox` 的内部相对顺序
 - `devRuleAnchor` 同样支持 provider 名、常用别名，以及 `top / start / end / match`
-- `devRuleAnchor` 不能引用开发规则块自身；例如 `dev / gitlab / docker / npmjs / jetbrains / vercel / python / jfrog / heroku / gitbook / sourceforge / digitalocean / anaconda / atlassian / bitbucket / trello / statuspage / notion / figma / slack` 会进入显式告警
+- `devRuleAnchor` 不能引用开发规则块自身；例如 `dev / devlist / devextra / gitlab / docker / npmjs / jetbrains / vercel / python / jfrog / heroku / gitbook / sourceforge / digitalocean / anaconda / atlassian / bitbucket / trello / statuspage / notion / figma / slack / dropbox` 会进入显式告警
 - 如果设置 `githubRuleAnchor / steamRuleAnchor / steamCnRuleAnchor`，会按锚点重排对应规则入口在整条 `RULE-SET` 链里的位置
 - `RulePosition` 只支持 `before / after`；如果不传，默认按 `before` 处理
 - 规则顺序锚点支持 provider 名、常用别名，以及特殊位置别名 `top / start / first / end / match / final`
-- 常用规则顺序锚点可直接写：`ChatGPT / AIExtra / Copilot / Grok / AppleAI / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / OneDrive / AI / Steam / SteamCN / Geo_Not_CN / DirectList / CN`
+- 常用规则顺序锚点可直接写：`ChatGPT / AIExtra / DevList / Copilot / Grok / AppleAI / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox / OneDrive / AI / Steam / SteamCN / Geo_Not_CN / DirectList / CN`
 - `OneDrive` 规则锚点还支持常见别名：`sharepoint / skydrive / 1drv`
 - 如果规则顺序锚点未命中任何规则入口，或错误引用了自己，脚本会显式告警并保持默认顺序
 - 如果设置 `customRuleAnchor / customRulePosition`，会把 `config.rules` 整段插到指定锚点前后，而不再固定只放在 `MATCH` 前
@@ -4463,6 +4545,7 @@ $options=#full&hidden&groupInterval=300
 - 如果 `customRuleAnchor` 没命中任何规则入口，脚本会显式告警并回退到默认“脚本规则后、MATCH 前”
 - 如果设置 `groupOrderPreset`，脚本会按预设重排最终 `proxy-groups` 展示顺序
 - `groupOrderPreset` 支持 `balanced / core / service / media / region`
+- 内置预设现在都会把 `🧑‍💻 开发服务` 放到 `🐙 GitHub` 后、`🚂 Steam` 前，并把 `🐟 兜底节点` 保持在后段
 - 如果设置 `groupOrder`，脚本会优先使用显式 token 顺序；此时 `groupOrderPreset` 只作为 fallback / 说明项
 - 如果设置 `countryGroupSort`，脚本会按对应模式重排国家组顺序
 - 如果设置 `regionGroupSort`，脚本会按对应模式重排区域组顺序
@@ -4520,15 +4603,16 @@ $options=#full&hidden&groupInterval=300
   - `Region-Group-Preview`
   - `Region-Group-Summary`
 - 如果设置 `aiExtraListUrl`，脚本会把 `AIExtra` 规则源切到你自定义的 GitHub AI 补充列表
+- 如果设置 `devListUrl`，脚本会把 `DevList` 规则源切到你自定义的 GitHub 开发补充列表
 - 如果设置 `ruleSourcePreset=blackmatrix7`，当前会接管内置的 `GitHub / Steam / SteamCN / OpenAI / Anthropic / Gemini / Copilot / OneDrive` 规则源
 - `Grok / AppleAI` 当前走的是 `Accademia/Additional_Rule_For_Clash` 社区补充规则，不受 `ruleSourcePreset=blackmatrix7` 影响
 - 另外，新增的 `GitLab / Docker / Npmjs / Jetbrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 开发生态规则当前也统一采用 blackmatrix7 的 Clash YAML 规则
 - `OneDrive` 默认仍走 MetaCubeX geosite；当切到 `ruleSourcePreset=blackmatrix7` 时，也会改走 `blackmatrix7/ios_rule_script` 的 `OneDrive.yaml`
-- `ruleSourcePreset` 不会改动 `DirectList / Crypto / ChatGPT / AIExtra` 这些本地 classical 规则源
+- `ruleSourcePreset` 不会改动 `DirectList / Crypto / ChatGPT / AIExtra / DevList` 这些本地 classical 规则源
 - 如果设置 `steamFix=true`，脚本会插入一条 `SteamFix -> DIRECT` 规则到 `Steam / SteamCN` 前面
 - 如果继续设置 `steamFixUrl`，脚本会优先使用自定义 URL；未设置时回退内置默认 SteamFix 规则地址
 - `steamFix` 默认关闭，属于显式启用的补丁能力，不会默认改你的原始分流行为
-- 新增的 `🧑‍💻 开发服务` 组当前默认把 `🐙 GitHub` 放在最前面，因此 GitLab / Docker / NPM / JetBrains / Vercel / Python / JFrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack 流量会优先沿用 GitHub / 开发链路
+- 新增的 `🧑‍💻 开发服务` 组当前默认把 `🐙 GitHub` 放在最前面，因此 `DevList / GitLab / Docker / NPM / JetBrains / Vercel / Python / JFrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox` 流量会优先沿用 GitHub / 开发链路
 - 如果设置 `githubHidden / steamHidden`，只会隐藏 GitHub / Steam 独立组本身，不影响其他脚本组
 - 如果设置 `githubIcon / steamIcon`，脚本会把对应值原样写入独立组 `icon` 字段
 - 如果设置 `githubDisableUdp / steamDisableUdp`，脚本会把对应值写入独立组 `disable-udp` 字段
@@ -4580,6 +4664,7 @@ $options=#full&hidden&groupInterval=300
 - `cryptoListUrl`
 - `chatgptListUrl`
 - `aiExtraListUrl`
+- `devListUrl`
 - `ruleProviderPathDir`
 - `ruleProviderInterval`
 - `ruleProviderProxy`
@@ -5196,6 +5281,12 @@ devPreferCountries=新加坡,日本,美国&devMode=proxy&devType=fallback&devUse
 aiExtraListUrl=https://raw.githubusercontent.com/example/repo/main/AIExtra.list
 ```
 
+### 14G. Dev.list 开发补充规则源
+
+```ini
+devListUrl=https://raw.githubusercontent.com/example/repo/main/Dev.list
+```
+
 ### 15. GitHub / Steam 独立组 proxy-providers 池
 
 ```ini
@@ -5366,6 +5457,9 @@ ruleProviderPayload=DOMAIN-SUFFIX,internal.example,DIRECT||DOMAIN,router.local,D
 - V8.25.0 `githubIncludeAll / steamIncludeAll` 参数化 GitHub / Steam 独立组 `include-all`
 - V8.25.0 `include-all` 优先级高于 `UseProviders / include-all-providers`
 - V8.25.0 provider 池型 latency/load-balance 组会追加官方健康检查提醒
+- V9.2.0 新增 `Dev.list` 与 `devListUrl`，把本地开发补充规则正式接进 `🧑‍💻 开发服务`
+- V9.2.0 默认布局预设现已把 `🧑‍💻 开发服务` 放到 `🐙 GitHub` 后、`🚂 Steam` 前，并把 `🐟 兜底节点` 后置
+- V9.2.0 `DevList` 已同步纳入业务规则窗口、业务链路总览、规则锚点别名与 `规则源参数` / 响应调试头
 - V8.83.0 国家识别已继续扩充到 `瑞士 / 瑞典 / 挪威 / 芬兰 / 丹麦 / 葡萄牙 / 爱尔兰 / 比利时 / 奥地利 / 波兰 / 南非 / 以色列 / 新西兰`
 - V8.83.0 对 `IT / IN / MY / CH / NO / PT / IE / IL` 这类更容易误判的两位缩写做了保守收紧
 - V8.82.0 国家识别已继续扩充到 `澳门 / 荷兰 / 意大利 / 西班牙 / 印度 / 大马 / 泰国 / 越南 / 菲律宾 / 印尼 / 阿联酋 / 沙特 / 墨西哥`
