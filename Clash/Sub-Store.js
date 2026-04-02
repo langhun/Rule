@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.7.0
+ * Sub-Store 终极策略增强脚本 V9.8.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -177,11 +177,15 @@
  * 172. Rule.ini 对齐继续补强：固定模板新增本地 `Direct.list / ChatGPT.list`，与脚本主线的补充 ruleset 继续靠拢。
  * 173. 开发生态补丁继续补厚：`Dev.list` 新增 Node.js / pnpm / Deno / Go / Rust / RubyGems / Maven / Gradle 常见域名。
  * 174. 注释增强：继续给国家优先链解析、策略组排序、区域组聚合这几段核心流程补细粒度中文注释。
+ * 175. 面板预设继续补强：新增 `dashboard / daily / panel` 这类更贴近日常使用的默认布局，把高频手动切换组再往前收一轮。
+ * 176. 短小地理 preset 继续补强：新增 `cjk-core / asean-core / levant-core / oceania-core`，方便直接复用东亚、东盟、黎凡特、澳新玩法。
+ * 177. 大洋洲别名继续补强：`oceania` 兼容 `anz / anzac / 澳新` 这类常见社区写法。
+ * 178. 固定模板面板顺序继续优化：`Rule.ini` 里的 `全球直连` 前移，`AI / 开发 / 加密 / 游戏` 收拢成连续服务块。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.7.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.7.0。
+const SCRIPT_VERSION = "9.8.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.8.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -325,6 +329,11 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   workspacefirst: "workspace",
   workflow: "workspace",
   workflowfirst: "workspace",
+  dashboard: "dashboard",
+  daily: "dashboard",
+  panel: "dashboard",
+  home: "dashboard",
+  desk: "dashboard",
   compact: "compact",
   minimal: "compact",
   mini: "compact",
@@ -413,6 +422,7 @@ const GROUP_ORDER_PRESET_TOKENS = {
   region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "countries", "regions", "steam", "bing", "apple", "games", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "steam", "games", "regions", "countries", "telegram", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "other", "extras"],
   compact: ["select", "manual", "fallback", "ai", "github", "dev", "steam", "media", "regions", "countries", "helpers", "extras"],
   "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "steam", "media", "helpers", "extras"]
 };
@@ -588,6 +598,30 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🏔️ DACH核心链",
     aliases: ["dachcore", "dach-core", "deatchcore", "de-at-ch-core", "德语区核心"],
     markers: ["dach"]
+  },
+  {
+    key: "cjk-core",
+    name: "🈶 CJK核心链",
+    aliases: ["cjkcore", "cjk-core", "东北亚核心", "中日韩核心"],
+    markers: ["cjk"]
+  },
+  {
+    key: "asean-core",
+    name: "🧩 东盟核心链",
+    aliases: ["aseancore", "asean-core", "东盟核心"],
+    markers: ["asean"]
+  },
+  {
+    key: "levant-core",
+    name: "🧭 黎凡特核心链",
+    aliases: ["levantcore", "levant-core", "黎凡特核心", "eastmedcore", "eastmed-core"],
+    markers: ["levant"]
+  },
+  {
+    key: "oceania-core",
+    name: "🦘 大洋洲核心链",
+    aliases: ["oceaniacore", "oceania-core", "anzcore", "anz-core", "大洋洲核心", "澳新核心"],
+    markers: ["oceania"]
   },
   {
     key: "classic-4",
@@ -992,7 +1026,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
   {
     key: "oceania",
     name: "🦘 大洋洲节点",
-    aliases: ["oceania", "oceana", "oce", "pacific", "大洋洲"],
+    aliases: ["oceania", "oceana", "oce", "pacific", "anz", "anzac", "澳新", "大洋洲"],
     countryKeys: ["袋鼠", "新西兰"]
   },
   {
@@ -8105,18 +8139,28 @@ function buildScriptManagedGroupNames(countryGroupNames, regionGroupNames) {
 
 // 根据当前实际存在的组名，展开策略组布局里的 bucket token。
 function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupNames) {
+  // availableLookup 负责判断某个组名在最终配置里是否真实存在。
   const availableLookup = createLookup(groupNames);
+  // scriptLookup 则用来识别“脚本自动生成”的那部分组，便于把用户原配置自带组归到 extras。
   const scriptLookup = createLookup(buildScriptManagedGroupNames(countryGroupNames, regionGroupNames));
+  // pickAvailable 用来把候选名单裁成“当前真实存在且按原顺序保留”的组名子集。
   const pickAvailable = (names) => uniqueStrings(names).filter((name) => availableLookup[name]);
+  // extraGroupNames 收集原配置里脚本并不直接管理的其他组，供 `extras` bucket 统一接住。
   const extraGroupNames = groupNames.filter((name) => !scriptLookup[name]);
 
   return {
+    // core 是面板最顶层的主控组。
     core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.FALLBACK, GROUPS.DIRECT]),
+    // services 把高频业务组打包成一桶，方便 preset 用一个 token 拉整段。
     services: pickAvailable([GROUPS.AI, GROUPS.TELEGRAM, GROUPS.GOOGLE, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GAMES, GROUPS.BING, GROUPS.APPLE, GROUPS.STEAM, GROUPS.PT, GROUPS.SPEEDTEST, GROUPS.CRYPTO]),
+    // media 单独收流媒体服务，避免和普通业务组混在一起。
     media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK]),
+    // regions / countries 则分别对应地理聚合组和国家组。
     regions: pickAvailable(regionGroupNames),
     countries: pickAvailable(countryGroupNames),
+    // helpers 放直连、广告、低倍率、兜底这类辅助组。
     helpers: pickAvailable([GROUPS.ADS, GROUPS.DIRECT, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.OTHER]),
+    // extras 最后兜住用户原配置里保留下来的自定义组。
     extras: pickAvailable(extraGroupNames)
   };
 }

@@ -3,7 +3,7 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V9.7.0`
+- 当前版本：`V9.8.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
 - 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、区域组可见性诊断、区域布局预设直白别名、Clash Verge 区域排查增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
@@ -23,6 +23,75 @@
 - 所以你在 Clash Verge 里“更新了 `Sub-Store.js` 但没在 `Rule.ini` 里看到区域组玩法”，这是正常现象：两条线是并行维护，不会自动互相继承
 
 ---
+
+## V9.8.0 这一轮新增了什么
+
+这一轮继续沿着 **“面板更顺手 + 小而精的地区 preset 更好复用 + 固定模板顺序也一起理顺”** 往下做，重点是 **新增 dashboard 布局 + 再补一组常用地理 preset + 收一下 Rule.ini 的固定面板顺序**：
+
+1. **新增日常面板布局 preset**
+   - 新增：
+     - `dashboard`
+   - 同时兼容：
+     - `daily`
+     - `panel`
+     - `home`
+   - 这套布局会把：
+     - `🎯 全球直连`
+     - `AI / GitHub / 开发 / 加密 / 游戏`
+     - `regions / countries`
+   - 都拉到更靠前的位置，更适合日常手动切组
+
+2. **短小地理 preset 继续补强**
+   - 新增：
+     - `cjk-core`
+     - `asean-core`
+     - `levant-core`
+     - `oceania-core`
+   - 这样像下面这些组合就能更短地写：
+     - `githubPreferCountries=cjk-core`
+     - `steamPreferCountries=asean-core`
+     - `devPreferCountries=oceania-core`
+
+3. **区域别名继续补一轮**
+   - 这一轮继续补了：
+     - `oceania` 兼容 `anz / anzac / 澳新`
+   - 配合上一轮的：
+     - `cjk`
+     - `asean`
+     - `five-eyes`
+   - 现在从 GitHub 抄常见参数名时更不容易撞写法差异
+
+4. **Rule.ini 固定模板顺序继续优化**
+   - 这次把面板里的：
+     - `🎯 全球直连`
+   - 前移到：
+     - `节点选择 / 手动切换 / 自动选择`
+   - 后面
+   - 同时把：
+     - `💬 Ai平台`
+     - `🧑‍💻 开发服务`
+     - `💰 加密货币`
+     - `🎮 游戏平台`
+   - 收成一段，固定模板里更顺手
+
+5. **逐行中文注释继续补**
+   - 这次继续补到了：
+     - `buildProxyGroupOrderBuckets(...)`
+   - 这样后面你自己继续调：
+     - `groupOrderPreset`
+     - `groupOrder`
+     - `regions / countries / helpers / extras`
+   - 会更容易看懂每个 bucket 到底怎么展开
+
+6. **这一轮可以直接这样用**
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&regionGroups=cjk,asean,oceania&groupOrderPreset=dashboard&githubPreferCountries=cjk-core&steamPreferCountries=asean-core&devPreferCountries=oceania-core
+```
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&regionGroups=levant,westasia,mediterranean&groupOrderPreset=daily&githubPreferCountries=levant-core&steamPreferCountries=westasia-core&devPreferCountries=workspace-core
+```
 
 ## V9.7.0 这一轮新增了什么
 
@@ -4788,7 +4857,7 @@ $options=#full&hidden&groupInterval=300
 - `aiPreferCountries / cryptoPreferCountries / githubPreferCountries / steamPreferCountries / devPreferCountries` 现在也支持直接写 preset：
   - `ai-core / crypto-core / gaming-core / dev-core`
   - `asia-core / europe-core / americas-core / global-core / apac-core / westasia-core / workspace-core / westeurope-core / easteurope-core / greaterchina-core / anglosphere-core / gulf-core`
-  - `southeastasia-core / northamerica-core / nordic-core / dach-core`
+  - `southeastasia-core / northamerica-core / nordic-core / dach-core / cjk-core / asean-core / levant-core / oceania-core`
   - `classic-4 / asia-4 / classic-5 / classic-6 / asia-5`
 - 也兼容 GitHub 社区常见缩写：
   - `hksgjpus`
@@ -4885,10 +4954,10 @@ $options=#full&hidden&groupInterval=300
 - `customRuleAnchor` 复用和 `githubRuleAnchor` 一样的锚点体系：既支持 provider 名，也支持 `top / start / end / match`
 - 如果 `customRuleAnchor` 没命中任何规则入口，脚本会显式告警并回退到默认“脚本规则后、MATCH 前”
 - 如果设置 `groupOrderPreset`，脚本会按预设重排最终 `proxy-groups` 展示顺序
-- `groupOrderPreset` 支持 `balanced / core / service / media / region / national / workspace / compact / geo-compact`
+- `groupOrderPreset` 支持 `balanced / core / service / media / region / national / workspace / dashboard / compact / geo-compact`
 - 其中区域优先布局还兼容更直白的别名：`region-first / regions-first / regional-first / geo-first`
 - 国家组优先布局支持：`national / national-first / country / countries / country-first / countries-first`
-- 工作流和紧凑布局支持：`workspace / work / office / workflow / workspace-first / compact / compact-first / minimal / lite / geo-compact / subregion-first`
+- 工作流和紧凑布局支持：`workspace / work / office / workflow / workspace-first / dashboard / daily / panel / home / compact / compact-first / minimal / lite / geo-compact / subregion-first`
 - 默认 `balanced` 现在也会把 `regions / countries` 往前提一档，减少区域组、国家组被压在面板尾部
 - `compact` 现在会把 `regions` 放到 `countries` 前面；如果你想要更明显的地理导向面板，可以直接用 `geo-compact`
 - 内置预设现在都会把 `🧑‍💻 开发服务` 放到 `🐙 GitHub` 后、`🚂 Steam` 前，并把 `🐟 兜底节点` 保持在后段
@@ -4920,6 +4989,7 @@ $options=#full&hidden&groupInterval=300
   - `cjk / 中日韩 / 东北亚` → `eastasia`
   - `asean / 东盟` → `southeastasia`
   - `five-eyes / 五眼` → `anglosphere`
+  - `anz / anzac / 澳新` → `oceania`
   - `all / auto / default`
   - `none / off / false`
 - `all / auto / default` 仍只启用原来的 6 个大区，不会自动把新增子区域也一并打开
