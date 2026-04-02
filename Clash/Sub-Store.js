@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.8.0
+ * Sub-Store 终极策略增强脚本 V9.9.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -181,11 +181,15 @@
  * 176. 短小地理 preset 继续补强：新增 `cjk-core / asean-core / levant-core / oceania-core`，方便直接复用东亚、东盟、黎凡特、澳新玩法。
  * 177. 大洋洲别名继续补强：`oceania` 兼容 `anz / anzac / 澳新` 这类常见社区写法。
  * 178. 固定模板面板顺序继续优化：`Rule.ini` 里的 `全球直连` 前移，`AI / 开发 / 加密 / 游戏` 收拢成连续服务块。
+ * 179. 区域 token 继续补齐：新增 `mena`，把中东与北非收成一个可直接在 `regionGroups` 里使用的常见社区写法。
+ * 180. 子区域 preset 继续补齐：新增 `iberia-core / benelux-core / northafrica-core`，让西葡、比荷卢、北非这些现成区域也有短写入口。
+ * 181. preset 与 regionGroups 语义继续对齐：已有 `mena-core` 现在也能和 `regionGroups=mena` 直接配套使用，少记一层映射。
+ * 182. 注释增强：继续给策略组引用解析补逐步中文注释，便于后续自己排查 group-order / group 引用为什么命中或没命中。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.8.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.8.0。
+const SCRIPT_VERSION = "9.9.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.9.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -586,6 +590,24 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     name: "🗽 北美核心链",
     aliases: ["northamericacore", "north-america-core", "nacore", "na-core", "北美核心"],
     markers: ["northamerica"]
+  },
+  {
+    key: "iberia-core",
+    name: "🍷 伊比利亚核心链",
+    aliases: ["iberiacore", "iberia-core", "西葡核心", "伊比利亚核心"],
+    markers: ["iberia"]
+  },
+  {
+    key: "benelux-core",
+    name: "💎 比荷卢核心链",
+    aliases: ["beneluxcore", "benelux-core", "比荷卢核心"],
+    markers: ["benelux"]
+  },
+  {
+    key: "northafrica-core",
+    name: "🏜️ 北非核心链",
+    aliases: ["northafricacore", "north-africa-core", "maghrebcore", "maghreb-core", "北非核心"],
+    markers: ["northafrica"]
   },
   {
     key: "nordic-core",
@@ -1055,6 +1077,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     aliases: ["northafrica", "north-africa", "maghreb", "北非"],
     includeInAuto: false,
     countryKeys: ["埃及", "摩洛哥", "阿尔及利亚", "利比亚", "突尼斯"]
+  },
+  {
+    key: "mena",
+    name: "🏜️ 中东北非节点",
+    aliases: ["mena", "middleeastnorthafrica", "middle-east-north-africa", "中东北非"],
+    includeInAuto: false,
+    countryKeys: ["阿联酋", "沙特", "以色列", "卡塔尔", "科威特", "巴林", "阿曼", "约旦", "黎巴嫩", "土耳其", "埃及", "摩洛哥", "阿尔及利亚", "利比亚", "突尼斯"]
   },
   {
     key: "mediterranean",
@@ -8080,17 +8109,22 @@ function createProxyGroupOrderAliasMap() {
 
 // 解析策略组布局参数中的单个组引用：优先精确匹配，其次大小写无关，再尝试脚本别名，最后只接受唯一模糊命中。
 function inspectProxyGroupOrderReference(availableNames, marker) {
+  // 先把可用组名去重，避免后面大小写查表和模糊匹配出现重复结果。
   const names = uniqueStrings(availableNames);
+  // marker 是用户传进来的 group-order token；这里统一先做 trim。
   const token = normalizeStringArg(marker);
 
+  // 空 token 直接视为无效引用。
   if (!token) {
     return { match: "", recognized: false };
   }
 
+  // 先尝试原样精确命中；这是优先级最高、也最不容易误判的一层。
   if (names.includes(token)) {
     return { match: token, recognized: true };
   }
 
+  // 再建一份忽略大小写的查找表，兼容用户手写组名时大小写不一致。
   const lowerLookup = Object.create(null);
   for (const name of names) {
     const key = String(name || "").toLowerCase();
@@ -8099,11 +8133,13 @@ function inspectProxyGroupOrderReference(availableNames, marker) {
     }
   }
 
+  // 第二层：忽略大小写的精确匹配。
   const exactIgnoreCase = lowerLookup[token.toLowerCase()];
   if (exactIgnoreCase) {
     return { match: exactIgnoreCase, recognized: true };
   }
 
+  // 第三层：尝试脚本内置的常用别名，例如 select / manual / direct / games。
   const aliasTarget = createProxyGroupOrderAliasMap()[normalizeGroupMarkerToken(token)];
   if (aliasTarget) {
     return {
@@ -8112,11 +8148,13 @@ function inspectProxyGroupOrderReference(availableNames, marker) {
     };
   }
 
+  // 最后一层：只有在模糊命中结果唯一时，才允许自动猜测，避免误把一个 token 打到多个组。
   const fuzzyMatches = names.filter((name) => String(name || "").toLowerCase().indexOf(token.toLowerCase()) !== -1);
   if (fuzzyMatches.length === 1) {
     return { match: fuzzyMatches[0], recognized: true };
   }
 
+  // 既没命中，也没法安全猜到时，交给上层做 unresolved token 告警。
   return { match: "", recognized: false };
 }
 
