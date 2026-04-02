@@ -3,9 +3,9 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V9.10.0`
+- 当前版本：`V9.11.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、波罗的海/北美自贸/南锥体子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、区域组可见性诊断、区域布局预设直白别名、Clash Verge 区域排查增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、波罗的海/北美自贸/南锥体子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、区域组可见性诊断、区域布局预设直白别名、Clash Verge 区域排查增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、Bun/NuGet/Composer/Dart/Flutter/Swift/CocoaPods/Hex 开发生态补丁、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
 
@@ -23,6 +23,53 @@
 - 所以你在 Clash Verge 里“更新了 `Sub-Store.js` 但没在 `Rule.ini` 里看到区域组玩法”，这是正常现象：两条线是并行维护，不会自动互相继承
 
 ---
+
+## V9.11.0 这一轮新增了什么
+
+这一轮我把视线从纯 `Sub-Store.js` 再往外扩了一层，重点检查了仓库里真正会长期影响使用体验的 **本地补丁 ruleset**。结论很明确：`Dev.list` 还是最适合继续补厚的地方，因为很多开发生态在 GitHub 社区规则里并没有稳定拆成独立规则源，更适合先收敛到这层本地补丁。
+
+1. **`Dev.list` 继续补开发生态域名**
+   - 新增：
+     - `Bun / JSR`
+     - `.NET / NuGet`
+     - `PHP / Composer / Packagist`
+     - `Dart / Flutter`
+     - `Swift / CocoaPods`
+     - `Elixir / Hex`
+   - 这轮实际补进去的常见域名包括：
+     - `bun.sh / oven.sh / jsr.io`
+     - `nuget.org`
+     - `packagist.org / getcomposer.org`
+     - `dart.dev / pub.dev / flutter.dev`
+     - `swift.org / cocoapods.org`
+     - `hex.pm / elixir-lang.org`
+
+2. **为什么这轮优先补 `Dev.list`，而不是再加一堆独立组**
+   - 因为这批域名更像“开发生态补丁层”，和现在这套：
+     - `GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog`
+   - 是同一层职责
+   - 先补到 `Dev.list` 有几个好处：
+     - 不会让面板再膨胀一圈
+     - 默认继续复用 `🧑‍💻 开发服务` 这组
+     - 也继续吃现有 `devPreferCountries / devPreferGroups / devRuleTarget / devListUrl` 整套参数
+
+3. **脚本注释也顺手补了一层**
+   - 这次继续补到了：
+     - `DEV_RULE_PROVIDERS` 那段入口集合说明
+     - `DevList` 规则 provider 接入点说明
+   - 你后面自己再扩开发生态时，会更容易判断：
+     - 什么该进 `Dev.list`
+     - 什么才值得升成单独规则提供器
+
+4. **这一轮可以直接这样理解**
+   - 如果你要的是：
+     - 包管理器
+     - 语言官网
+     - SDK / 文档 / registry
+   - 这类零散开发域名，优先补 `Dev.list`
+   - 如果你要的是：
+     - 社区里已经非常稳定、并且体量足够大的单独平台
+   - 再考虑升成像 `GitLab / Docker / Npmjs / JetBrains` 这样的独立 provider
 
 ## V9.10.0 这一轮新增了什么
 
@@ -4386,7 +4433,7 @@
 
 其中：
 
-- `Dev.list` 是本地补丁层，专门补社区规则没完全覆盖的开发域名
+- `Dev.list` 是本地补丁层，专门补社区规则没完全覆盖的开发域名；这轮继续补了 `Bun / JSR / NuGet / Composer / Dart / Flutter / Swift / CocoaPods / Hex` 这批更零散的生态
 - `Vercel` 主要覆盖 `vercel / nextjs / turborepo` 相关域名
 - `Python` 主要覆盖 `python / pypi / pypa` 相关域名
 - `Jfrog` 主要覆盖 `jfrog / bintray` 制品仓库域名
@@ -5810,6 +5857,8 @@ aiExtraListUrl=https://raw.githubusercontent.com/example/repo/main/AIExtra.list
 ```ini
 devListUrl=https://raw.githubusercontent.com/example/repo/main/Dev.list
 ```
+
+- 这份本地补丁层特别适合承接 `bun.sh / jsr.io / nuget.org / packagist.org / pub.dev / swift.org / cocoapods.org / hex.pm` 这类社区规则未必稳定拆分、但日常开发又经常会命中的域名
 
 ### 15. GitHub / Steam 独立组 proxy-providers 池
 

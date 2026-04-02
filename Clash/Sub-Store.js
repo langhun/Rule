@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.10.0
+ * Sub-Store 终极策略增强脚本 V9.11.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -188,11 +188,14 @@
  * 183. 区域玩法继续扩容：新增 `baltics / nafta / southerncone` 等更贴近 GitHub 社区常见面板分法的子区域 token。
  * 184. 优先链预设继续补厚：新增 `baltics-core / nafta-core / southerncone-core`，让波罗的海、美加墨、南锥体玩法可以直接短写。
  * 185. 国家识别继续补洞：新增 `巴拉圭 / 玻利维亚`，并同步接进美洲 / 拉美 / 南美聚合，减少南美节点掉进兜底节点。
+ * 186. 开发补丁规则继续扩容：`Dev.list` 继续补入 Bun / JSR / NuGet / Composer / Dart / Flutter / Swift / CocoaPods / Hex 等常见开发生态域名。
+ * 187. 开发补丁说明增强：README 同步补充 `Dev.list` 本地补丁层的适用范围与典型生态示例，便于后续继续扩展。
+ * 188. 注释增强：继续给 `DevList` 规则接入点与开发规则入口集合补充中文注释，后续自己顺着源码找会更轻松。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.10.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.10.0。
+const SCRIPT_VERSION = "9.11.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.11.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -418,6 +421,7 @@ const GROUPS = {
 };
 
 // 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
+// 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
 const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
@@ -6290,6 +6294,7 @@ const ruleProviders = finalizeRuleProviders({
   // GitHub 规则。
   GitHub: createPresetAwareRuleProvider("GitHub", "domain", metaGeoSite("github")),
   // 本地开发补充规则，用来承接社区规则未完全覆盖的开发域名。
+  // 这层本地补丁现在除了 GitLab / Docker / JetBrains 之外，也会继续吸收 Bun / JSR / NuGet / Composer / Dart / Flutter / Swift / CocoaPods / Hex 等包管理与语言生态域名。
   DevList: createRuleProvider("classical", ARGS.hasDevListUrl ? ARGS.devListUrl : DEV_LIST_URL, "text"),
   // GitLab 规则。
   GitLab: createDeveloperRuleProvider("GitLab"),

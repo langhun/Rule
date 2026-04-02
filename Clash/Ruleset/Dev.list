@@ -105,6 +105,31 @@ DOMAIN-SUFFIX,go.dev
 DOMAIN-SUFFIX,golang.org
 DOMAIN-SUFFIX,pkg.go.dev
 
+// --- Bun / JSR ---
+DOMAIN-SUFFIX,bun.sh
+DOMAIN-SUFFIX,oven.sh
+DOMAIN-SUFFIX,jsr.io
+
+// --- .NET / NuGet ---
+DOMAIN-SUFFIX,nuget.org
+
+// --- PHP / Composer / Packagist ---
+DOMAIN-SUFFIX,packagist.org
+DOMAIN-SUFFIX,getcomposer.org
+
+// --- Dart / Flutter ---
+DOMAIN-SUFFIX,dart.dev
+DOMAIN-SUFFIX,pub.dev
+DOMAIN-SUFFIX,flutter.dev
+
+// --- Swift / CocoaPods ---
+DOMAIN-SUFFIX,swift.org
+DOMAIN-SUFFIX,cocoapods.org
+
+// --- Elixir / Hex ---
+DOMAIN-SUFFIX,hex.pm
+DOMAIN-SUFFIX,elixir-lang.org
+
 // --- Rust / Cargo ---
 DOMAIN-SUFFIX,crates.io
 DOMAIN-SUFFIX,static.crates.io
