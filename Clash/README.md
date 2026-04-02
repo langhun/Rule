@@ -3,9 +3,9 @@
 ## 概览
 
 - 脚本文件：`Clash/Sub-Store.js`
-- 当前版本：`V9.9.0`
+- 当前版本：`V9.10.0`
 - 适用内核：Mihomo / Clash.Meta / OpenClash
-- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、区域组可见性诊断、区域布局预设直白别名、Clash Verge 区域排查增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
+- 当前重点：国家分组、国家库扩容、国家排序增强、区域分组增强、区域子区域增强、中亚/高加索子区域增强、北非/巴尔干子区域增强、拉美/地中海子区域增强、波罗的海/北美自贸/南锥体子区域增强、区域核心 preset 增强、区域布局增强、区域排序增强、区域映射扩容、区域组可见性诊断、区域布局预设直白别名、Clash Verge 区域排查增强、国家别名扩充、国家缩写安全优化、自定义国家别名参数化、自定义国家别名预览、自定义国家别名冲突检测、节点命名兼容增强、国家优先链区域化、国家优先链命中摘要、国家优先链来源追踪、国家优先链逐 token 解析、国家优先链未命中摘要、国家优先链 Trace / Explain / Unmatched 响应头、国家优先链预设包、GitHub 社区经典四地/五地/六地预设、业务分流、AI 专项增强、Copilot AI 分流、Grok / AppleAI 社区规则、AIExtra 补充规则、Dev.list 开发补充规则、默认策略组顺序优化、兜底节点后置说明、DNS / Sniffer 增强、Sub-Store 官方参数与运行环境兼容、请求链路回退解析、下载响应调试、链接诊断摘要、官方链接参数语义自检、参数来源追踪、参数生效来源追踪、未消费参数追踪、策略组顺序观测、策略组布局编排、流量优先级观测、自定义规则锚点插入、GitHub 社区规则源预设、OneDrive 社区规则源切换、SteamFix 补丁规则、开发服务组、开发服务组参数化、开发服务组国家优先链、开发服务组高级项、开发服务组原始节点筛选与协议排除、开发服务组 proxy-providers 池、开发服务组 include-all 全量池、开发服务组 include-all-proxies 显式参数、开发规则统一改写、DevList/GitLab/Docker/NPM/JetBrains/Vercel/Python/JFrog/Heroku/GitBook/SourceForge/DigitalOcean/Anaconda/Atlassian/Notion/Figma/Slack/Dropbox 分流、规则层级总览观测、自定义规则区间观测、关键命中窗口观测、规则层级目标映射观测、业务规则窗口观测、规则入口映射观测、规则优先级风险观测、策略组候选链风险观测、业务链路总览观测、OneDrive 业务链路观测、整条分流链路总览、provider 缓存隔离、provider 下载控制、provider 请求头控制、现有 rule-providers 官方 type/behavior/format/path/payload 语义自检、rule-provider `payload` 作用域与 `mrs` 兼容性校验、现有 + 内置 http rule-providers 统一下载控制与请求头接管、现有 inline rule-providers 统一 payload 接管、现有 rule-providers 参数作用范围摘要、现有 rule-providers 参数命中统计、现有 rule-providers 参数命中样本预览、现有 rule-providers 参数改动统计、现有 rule-providers 参数改动样本预览、现有 rule-providers 参数无变化统计、现有 proxy-providers 统一缓存路径目录、现有 proxy-providers 通用自定义请求头、现有 proxy-providers 统一 payload 后备/inline 节点池、现有 proxy-providers 官方 type/url/path/payload 语义自检、现有 proxy-providers 下载控制与 health-check 参数化、现有 proxy-providers 节点池筛选参数化、现有 proxy-providers override 前后缀/网络/传输参数化、现有 proxy-providers override.proxy-name 正则改名参数化、现有 proxy-providers 参数作用范围摘要、现有 proxy-providers 参数命中统计、现有 proxy-providers 参数命中样本预览、现有 proxy-providers 参数改动统计、现有 proxy-providers 参数改动样本预览、现有 proxy-providers 参数无变化统计、GitHub/Steam 独立组优选链、GitHub/Steam 独立组模式、GitHub/Steam 独立组类型、GitHub/Steam 独立组专属测速、GitHub/Steam 独立组专属健康检查、GitHub/Steam 独立组原始节点筛选与协议排除、GitHub/Steam 独立组任意前置组编排、GitHub/Steam 独立组点名节点优先、GitHub/Steam/SteamCN 规则入口改写、GitHub/Steam/SteamCN 规则入口顺序编排、开发规则入口目标改写、开发规则块顺序编排、开发服务组专属测速、开发服务组专属健康检查、开发服务组 hidden/icon/disable-udp、开发服务组 `interface-name / routing-mark`、GitHub/Steam 独立组 hidden/icon/disable-udp、load-balance strategy、GitHub/Steam 独立组 proxy-providers 池、GitHub/Steam 独立组 include-all 全量池、GitHub/Steam 独立组 include-all-proxies 显式参数、expected-status 官方语法校验、全局/GitHub/Steam proxy-group `interface-name / routing-mark`
 
 ---
 
@@ -23,6 +23,61 @@
 - 所以你在 Clash Verge 里“更新了 `Sub-Store.js` 但没在 `Rule.ini` 里看到区域组玩法”，这是正常现象：两条线是并行维护，不会自动互相继承
 
 ---
+
+## V9.10.0 这一轮新增了什么
+
+这一轮继续只推 `Sub-Store.js` 主线，不碰固定模板，重点是把 **GitHub 社区常见的“美加墨 / 波罗的海 / 南锥体”这类子区域写法继续补进来**，同时把优先链解析那段再补一轮逐行中文注释。
+
+1. **新增 3 组更社区化的子区域 token**
+   - 新增：
+     - `baltics`
+     - `nafta`
+     - `southerncone`
+   - 对应的直觉就是：
+     - `波罗的海三国`
+     - `美加墨`
+     - `阿根廷 / 智利 / 巴拉圭 / 乌拉圭` 这组南锥体
+
+2. **同步补 3 个可直接复用的 Prefer-Countries preset**
+   - 新增：
+     - `baltics-core`
+     - `nafta-core`
+     - `southerncone-core`
+   - 这样 GitHub / Steam / Dev 这类独立组现在可以直接短写：
+     - `githubPreferCountries=nafta-core`
+     - `steamPreferCountries=southerncone-core`
+     - `devPreferCountries=baltics-core`
+
+3. **国家识别继续补洞**
+   - 新增：
+     - `巴拉圭`
+     - `玻利维亚`
+   - 并同步接进：
+     - `americas`
+     - `southamerica`
+     - `latam`
+   - 这样南美节点更不容易掉进 `🐟 兜底节点`
+
+4. **逐行中文注释继续补**
+   - 这次继续补到了：
+     - `inspectPreferredProxyReference(...)`
+     - `resolvePreferredRegionCountryGroups(...)`
+     - `resolvePreferredCountryGroupEntriesByMarker(...)`
+   - 现在你后面自己排查：
+     - `preset` 是怎么递归展开的
+     - `region token` 是怎么落到当前国家组的
+     - `点名节点` 为什么是精确命中 / 模糊命中 / 歧义
+   - 会更容易顺着日志和源码一起看
+
+5. **这一轮可以直接这样用**
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&regionGroups=baltics,nafta,southerncone&groupOrderPreset=dashboard&githubPreferCountries=nafta-core&steamPreferCountries=southerncone-core&devPreferCountries=baltics-core
+```
+
+```text
+...?target=ClashMeta&full&responseHeaders=true&regionGroups=easteurope,baltics,nafta&groupOrderPreset=geo-compact&githubPreferCountries=classic-6&steamPreferCountries=nafta-core&devPreferCountries=workspace-core,baltics-core
+```
 
 ## V9.9.0 这一轮新增了什么
 
@@ -4904,6 +4959,7 @@ $options=#full&hidden&groupInterval=300
   - `ai-core / crypto-core / gaming-core / dev-core`
   - `asia-core / europe-core / americas-core / global-core / apac-core / westasia-core / workspace-core / westeurope-core / easteurope-core / greaterchina-core / anglosphere-core / gulf-core`
   - `southeastasia-core / northamerica-core / iberia-core / benelux-core / northafrica-core / nordic-core / dach-core / cjk-core / asean-core / levant-core / oceania-core`
+  - `baltics-core / nafta-core / southerncone-core`
   - `classic-4 / asia-4 / classic-5 / classic-6 / asia-5`
 - 也兼容 GitHub 社区常见缩写：
   - `hksgjpus`
@@ -5024,12 +5080,12 @@ $options=#full&hidden&groupInterval=300
   - `namedesc / alphadesc / reversealpha / reversename` → `name-desc`
 - 默认仍然是 `definition`，也就是脚本内置定义顺序
 - 如果你传的是 `count`，日志和响应头里会显示规范化后的 `count-desc`
-- 内置国家识别库已经继续补到 `巴林 / 阿曼 / 约旦 / 白俄罗斯 / 马耳他 / 老挝 / 巴拿马 / 黎巴嫩 / 哥斯达黎加 / 厄瓜多尔 / 巴基斯坦 / 孟加拉 / 哈萨克 / 柬埔寨 / 文莱 / 塞尔维亚 / 摩尔多瓦 / 塞浦路斯 / 尼日利亚 / 摩洛哥 / 肯尼亚` 等常见节点命名
+- 内置国家识别库已经继续补到 `巴林 / 阿曼 / 约旦 / 白俄罗斯 / 马耳他 / 老挝 / 巴拿马 / 黎巴嫩 / 哥斯达黎加 / 厄瓜多尔 / 巴拉圭 / 玻利维亚 / 巴基斯坦 / 孟加拉 / 哈萨克 / 柬埔寨 / 文莱 / 塞尔维亚 / 摩尔多瓦 / 塞浦路斯 / 尼日利亚 / 摩洛哥 / 肯尼亚` 等常见节点命名
 - 如果设置 `regionGroups`，脚本会在国家组之上额外挂一层可选区域组；默认关闭
 - `regionGroups` 支持：
   - `asia / apac / greaterchina / eastasia / southeastasia / southasia / centralasia / caucasus / westasia`
-  - `europe / westeurope / easteurope / northeurope / centraleurope / dach / balkans / iberia / benelux`
-  - `americas / northamerica / southamerica / latam / anglosphere`
+  - `europe / westeurope / easteurope / northeurope / centraleurope / dach / balkans / iberia / benelux / baltics`
+  - `americas / northamerica / nafta / southamerica / southerncone / latam / anglosphere`
   - `middleeast / gulf / levant / oceania / africa / northafrica / mena / mediterranean`
 - 其中常用别名还包括：
   - `cjk / 中日韩 / 东北亚` → `eastasia`
@@ -5047,8 +5103,8 @@ $options=#full&hidden&groupInterval=300
   - 分组桶，如 `core / services / media / regions / countries / extras`
 - 如果已经启用了 `regionGroups`，`groupOrder` 还支持直接写区域别名：
   - `asia / apac / greaterchina / eastasia / southeastasia / southasia / centralasia / caucasus / westasia`
-  - `europe / westeurope / easteurope / northeurope / centraleurope / dach / iberia / benelux / balkans`
-  - `americas / northamerica / southamerica / latam / anglosphere`
+  - `europe / westeurope / easteurope / northeurope / centraleurope / dach / iberia / benelux / baltics / balkans`
+  - `americas / northamerica / nafta / southamerica / southerncone / latam / anglosphere`
   - `middleeast / levant / gulf / oceania / africa / northafrica / mediterranean`
 - 如果你在 Clash Verge 里“明明开了 regionGroups 但还是没看到”，优先看 `full=true` 下的 `区域可见性` / `Region-Visibility`
 - 如果 `groupOrder` 里的某个 token 没命中任何策略组或分组桶，脚本会显式告警，不会静默吞掉
@@ -5566,7 +5622,7 @@ devPreferCountries=dev-core
 aiPreferCountries=middleeast-core
 githubPreferCountries=balkans-core
 steamPreferCountries=mena-core
-devPreferCountries=eurasia-core
+devPreferCountries=eurasia-core,baltics-core
 ```
 
 ### 2C++. 用拉美 / 地中海 preset 写优先链
@@ -5574,7 +5630,7 @@ devPreferCountries=eurasia-core
 ```ini
 githubPreferCountries=latam-core
 steamPreferCountries=mediterranean-core
-devPreferCountries=latam,mediterranean
+devPreferCountries=latam,mediterranean,southerncone
 ```
 
 ### 2D. 用 GitHub 社区经典五地 / 六地写优先链

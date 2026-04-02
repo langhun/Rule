@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.9.0
+ * Sub-Store 终极策略增强脚本 V9.10.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -185,11 +185,14 @@
  * 180. 子区域 preset 继续补齐：新增 `iberia-core / benelux-core / northafrica-core`，让西葡、比荷卢、北非这些现成区域也有短写入口。
  * 181. preset 与 regionGroups 语义继续对齐：已有 `mena-core` 现在也能和 `regionGroups=mena` 直接配套使用，少记一层映射。
  * 182. 注释增强：继续给策略组引用解析补逐步中文注释，便于后续自己排查 group-order / group 引用为什么命中或没命中。
+ * 183. 区域玩法继续扩容：新增 `baltics / nafta / southerncone` 等更贴近 GitHub 社区常见面板分法的子区域 token。
+ * 184. 优先链预设继续补厚：新增 `baltics-core / nafta-core / southerncone-core`，让波罗的海、美加墨、南锥体玩法可以直接短写。
+ * 185. 国家识别继续补洞：新增 `巴拉圭 / 玻利维亚`，并同步接进美洲 / 拉美 / 南美聚合，减少南美节点掉进兜底节点。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.9.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.9.0。
+const SCRIPT_VERSION = "9.10.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.10.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -646,6 +649,24 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     markers: ["oceania"]
   },
   {
+    key: "baltics-core",
+    name: "🌊 波罗的海核心链",
+    aliases: ["balticscore", "baltics-core", "balticcore", "baltic-core", "波罗的海核心"],
+    markers: ["baltics"]
+  },
+  {
+    key: "nafta-core",
+    name: "🚚 北美自贸核心链",
+    aliases: ["naftacore", "nafta-core", "usmcacore", "usmca-core", "北美自贸核心", "美加墨核心"],
+    markers: ["nafta"]
+  },
+  {
+    key: "southerncone-core",
+    name: "🧉 南锥体核心链",
+    aliases: ["southernconecore", "southern-cone-core", "southcone-core", "南锥体核心"],
+    markers: ["southerncone"]
+  },
+  {
     key: "classic-4",
     name: "✨ 经典四地",
     aliases: ["classic4", "classic-4", "popular4", "popular-4", "common4", "common-4", "hksgjpus", "hk-sg-jp-us", "经典四地"],
@@ -853,6 +874,10 @@ const COUNTRY_DEFINITIONS = [
   { name: "哥伦比亚", flag: "🇨🇴", aliases: ["哥伦比亚", "COL", "Colombia", "Bogota", "Bogotá", "波哥大"] },
   // 秘鲁常见命名方式；优先使用中文名、三位缩写与城市名，减少 PE 误判。
   { name: "秘鲁", flag: "🇵🇪", aliases: ["秘鲁", "PER", "Peru", "Lima", "利马"] },
+  // 巴拉圭常见命名方式；南美节点里偶尔会直接写 Asuncion。
+  { name: "巴拉圭", flag: "🇵🇾", aliases: ["巴拉圭", "PRY", "Paraguay", "Asuncion", "Asunción", "亚松森"] },
+  // 玻利维亚常见命名方式；优先使用中文名、三位缩写与常见城市名。
+  { name: "玻利维亚", flag: "🇧🇴", aliases: ["玻利维亚", "BOL", "Bolivia", "La Paz", "Santa Cruz", "拉巴斯", "圣克鲁斯"] },
   // 乌拉圭常见命名方式；优先使用中文名、三位缩写与首都，减少 UY 误判。
   { name: "乌拉圭", flag: "🇺🇾", aliases: ["乌拉圭", "URY", "Uruguay", "Montevideo", "蒙得维的亚"] },
   // 南非常见命名方式。
@@ -964,6 +989,13 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     countryKeys: ["荷兰", "比利时", "卢森堡"]
   },
   {
+    key: "baltics",
+    name: "🌊 波罗的海节点",
+    aliases: ["baltics", "baltic", "balticstates", "baltic-states", "波罗的海", "波罗的海三国"],
+    includeInAuto: false,
+    countryKeys: ["爱沙尼亚", "拉脱维亚", "立陶宛"]
+  },
+  {
     key: "northeurope",
     name: "❄️ 北欧节点",
     aliases: ["northeurope", "north-europe", "nordic", "nordics", "北欧"],
@@ -995,7 +1027,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "americas",
     name: "🌎 美洲节点",
     aliases: ["americas", "america", "amer", "美洲"],
-    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "哥斯达黎加", "阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "哥斯达黎加", "阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "巴拉圭", "玻利维亚", "乌拉圭"]
   },
   {
     key: "northamerica",
@@ -1005,18 +1037,32 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     countryKeys: ["美国", "枫叶", "墨西哥", "巴拿马", "哥斯达黎加"]
   },
   {
+    key: "nafta",
+    name: "🚚 北美自贸节点",
+    aliases: ["nafta", "usmca", "usmca-region", "t-mec", "北美自贸", "美加墨"],
+    includeInAuto: false,
+    countryKeys: ["美国", "枫叶", "墨西哥"]
+  },
+  {
     key: "southamerica",
     name: "💃 南美节点",
     aliases: ["southamerica", "south-america", "saonly", "南美"],
     includeInAuto: false,
-    countryKeys: ["阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "巴拉圭", "玻利维亚", "乌拉圭"]
+  },
+  {
+    key: "southerncone",
+    name: "🧉 南锥体节点",
+    aliases: ["southerncone", "southern-cone", "southcone", "cone-south", "南锥体"],
+    includeInAuto: false,
+    countryKeys: ["阿根廷", "智利", "巴拉圭", "乌拉圭"]
   },
   {
     key: "latam",
     name: "🌮 拉美节点",
     aliases: ["latam", "latinamerica", "latin-america", "latinamericas", "拉美", "拉丁美洲"],
     includeInAuto: false,
-    countryKeys: ["墨西哥", "巴拿马", "哥斯达黎加", "阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "乌拉圭"]
+    countryKeys: ["墨西哥", "巴拿马", "哥斯达黎加", "阿根廷", "巴西", "厄瓜多尔", "智利", "哥伦比亚", "秘鲁", "巴拉圭", "玻利维亚", "乌拉圭"]
   },
   {
     key: "middleeast",
@@ -8750,38 +8796,47 @@ function validateProxyProviderHealthCheckCaveats(proxyGroups) {
 
 // 解析“点名节点”标记：优先精确匹配，其次大小写无关精确匹配，最后只在唯一命中时接受模糊包含匹配。
 function inspectPreferredProxyReference(proxyNames, marker) {
+  // 先把候选节点名去重，避免同名节点重复参与后续匹配统计。
   const names = uniqueStrings(proxyNames);
+  // 把用户输入的 marker 做同一套节点名规范化，减少大小写/空格差异的影响。
   const token = normalizeProxyName(marker);
 
+  // 空 token 直接返回 empty，后面的校验层会决定是否提示用户。
   if (!token) {
     return { match: "", reason: "empty" };
   }
 
+  // 为每个节点预先缓存“原名 / 规范化名 / 小写规范化名”，避免后面每轮匹配都重复计算。
   const entries = names.map((name) => ({
     name,
     normalized: normalizeProxyName(name),
     lower: normalizeProxyName(name).toLowerCase()
   }));
 
+  // 第一层：完全按规范化后的名字精确匹配；只接受唯一命中。
   const exactMatches = entries.filter((item) => item.normalized === token);
   if (exactMatches.length === 1) {
     return { match: exactMatches[0].name, reason: "exact" };
   }
 
+  // 第二层：忽略大小写后再做精确匹配，兼容用户手动输入大小写不一致。
   const ignoreCaseMatches = entries.filter((item) => item.lower === token.toLowerCase());
   if (ignoreCaseMatches.length === 1) {
     return { match: ignoreCaseMatches[0].name, reason: "ignore-case" };
   }
 
+  // 忽略大小写后如果出现多个同名候选，就明确标成 ambiguous，避免误点进错节点。
   if (ignoreCaseMatches.length > 1) {
     return { match: "", reason: "ambiguous" };
   }
 
+  // 第三层：只在模糊包含也唯一命中时才接受，尽量兼顾容错和安全。
   const fuzzyMatches = entries.filter((item) => item.lower.indexOf(token.toLowerCase()) !== -1);
   if (fuzzyMatches.length === 1) {
     return { match: fuzzyMatches[0].name, reason: "fuzzy" };
   }
 
+  // 最后统一返回“歧义”或“未找到”，交给上层告警逻辑拼成更易懂的提示。
   return { match: "", reason: fuzzyMatches.length > 1 ? "ambiguous" : "not-found" };
 }
 
@@ -8801,12 +8856,15 @@ function resolvePreferredProxyReferences(proxyNames, markers) {
 
 // 把单个区域标记展开成当前已生成的国家组；顺序跟随当前 countryConfigs，便于自动继承国家排序参数的效果。
 function resolvePreferredRegionCountryGroups(countryConfigs, marker) {
+  // 先把 marker 折叠到内置区域定义；没命中区域 token 就直接返回空数组。
   const definition = findRegionGroupDefinitionByToken(marker);
   if (!definition) {
     return [];
   }
 
+  // 区域定义里维护的是 country key，这里先转成查找表，后面按 O(1) 判断每个国家组是否属于该区域。
   const countryKeyLookup = createLookup(uniqueStrings(definition.countryKeys || []));
+  // 只从“当前已生成”的国家组里筛选，保证 prefer-countries 的展开结果和当前国家组面板保持一致。
   return (Array.isArray(countryConfigs) ? countryConfigs : []).filter((group) => group && countryKeyLookup[group.key]);
 }
 
@@ -8837,20 +8895,26 @@ function extractPreferredCountryGroupsFromEntries(entries) {
 
 // 递归展开优先链单个标记，支持 preset -> 区域/子区域 -> 国家 逐层展开，并防止 preset 循环引用。
 function resolvePreferredCountryGroupEntriesByMarker(countryConfigs, marker, visitedPresets, inheritedSource) {
+  // 先把单个 marker 标准化成字符串 token；空白输入不参与任何展开。
   const token = String(marker || "").trim();
   if (!token) {
     return [];
   }
 
+  // 继承来源信息只在 preset 递归展开时存在；普通直接输入则按当前命中类型补来源。
   const sourceInfo = isObject(inheritedSource) ? inheritedSource : null;
+  // 第一优先级：先尝试把 token 当成 preset，便于继续递归展开成区域/国家。
   const presetDefinition = findPreferredCountryPresetDefinitionByToken(token);
   if (presetDefinition) {
+    // 用规范化后的 preset key 做访问标记，避免 alias 指向同一 preset 时重复递归。
     const presetKey = normalizeGroupMarkerToken(presetDefinition.key);
     const currentVisited = isObject(visitedPresets) ? visitedPresets : Object.create(null);
+    // 如果当前 preset 已经在递归链里出现过，直接返回空结果，阻止循环引用。
     if (currentVisited[presetKey]) {
       return [];
     }
 
+    // 复制一份 visited 集合，把当前 preset 标记进去，再继续向下展开它的 markers。
     const nextVisited = Object.assign(Object.create(null), currentVisited);
     nextVisited[presetKey] = true;
     return resolvePreferredCountryGroupEntries(
@@ -8865,12 +8929,14 @@ function resolvePreferredCountryGroupEntriesByMarker(countryConfigs, marker, vis
     );
   }
 
+  // 第二优先级：把 token 当作国家/别名/旗帜去找国家定义，再映射回当前已生成的国家组。
   let matchedGroup = null;
   const countryDefinition = findCountryDefinitionByMarker(token);
   if (countryDefinition) {
     matchedGroup = findCountryGroup(countryConfigs, getCountryDefinitionMarkers(countryDefinition));
   }
 
+  // 命中国家组后立刻返回，并把来源类型标成 country 或继承自上层 preset。
   if (matchedGroup) {
     return createPreferredCountryGroupEntries(
       [matchedGroup],
@@ -8880,6 +8946,7 @@ function resolvePreferredCountryGroupEntriesByMarker(countryConfigs, marker, vis
     );
   }
 
+  // 第三优先级：把 token 当作区域/子区域，展开成当前已生成的多个国家组。
   const regionDefinition = findRegionGroupDefinitionByToken(token);
   const regionGroups = resolvePreferredRegionCountryGroups(countryConfigs, token);
   if (regionGroups.length) {
@@ -8891,6 +8958,7 @@ function resolvePreferredCountryGroupEntriesByMarker(countryConfigs, marker, vis
     );
   }
 
+  // 最后一层兜底：允许用户直接写“已经生成出来的国家组名”，兼容旧参数和自定义命名习惯。
   matchedGroup = findCountryGroup(countryConfigs, [token]);
   return matchedGroup
     ? createPreferredCountryGroupEntries(
