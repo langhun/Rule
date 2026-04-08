@@ -7105,18 +7105,15 @@ const RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
   cn: "cnOverrideCount",
   directlist: "directListOverrideCount"
 });
-// GitHub / Steam / Dev 独立组响应头采用统一定义生成，减少 buildRuntimeResponseHeaders 里的重复字段。
-const SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS = Object.freeze([
-  { key: "github", label: "GitHub", argToken: "Github" },
-  { key: "steam", label: "Steam", argToken: "Steam" },
-  { key: "dev", label: "Dev", argToken: "Dev" }
+// GitHub / Steam / Dev 三类独立组在响应头、校验、摘要等多个阶段都会复用相同的基础元信息，这里集中维护避免多份定义漂移。
+const SERVICE_DEFINITIONS = Object.freeze([
+  Object.freeze({ key: "github", label: "GitHub", argToken: "Github", groupName: GROUPS.GITHUB }),
+  Object.freeze({ key: "steam", label: "Steam", argToken: "Steam", groupName: GROUPS.STEAM }),
+  Object.freeze({ key: "dev", label: "Dev", argToken: "Dev", groupName: GROUPS.DEV })
 ]);
-// GitHub / Steam / Dev 独立组的优选组 / 点名节点 / Provider 池校验统一走这份定义，避免 validate 阶段硬编码三遍。
-const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = Object.freeze([
-  { key: "github", label: "GitHub", argToken: "Github", groupName: GROUPS.GITHUB },
-  { key: "steam", label: "Steam", argToken: "Steam", groupName: GROUPS.STEAM },
-  { key: "dev", label: "Dev", argToken: "Dev", groupName: GROUPS.DEV }
-]);
+// 响应头/校验两个阶段都直接复用这份基础定义，避免 label/argToken/groupName 在多处手动保持一致。
+const SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS = SERVICE_DEFINITIONS;
+const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS;
 // 独立组响应头字段定义：configured-only 表示只关心“是否配置”，value 表示输出实际生效值，custom 走自定义计算。
 const SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS = Object.freeze([
   { headerSuffix: "Mode", argSuffix: "Mode", valueType: "value", services: ["dev"] },
@@ -9036,76 +9033,71 @@ function formatServiceAdvancedLogValue(argToken, fields) {
     .join(", ");
 }
 
-// 批量构建 GitHub / Steam / Dev 独立组的通用响应头，避免主响应头对象里重复写几十行近似字段。
-// 汇总 AI / Crypto / GitHub / Steam / Dev 的 prefer-countries 校验告警，避免 validate 阶段把同一模式手写五遍。
-function collectPreferredCountryWarnings(countryConfigs) {
+// 这类“遍历一组定义 -> 拼装 warnings 数组”的模式在服务校验里多次出现，这里统一抽成 helper。
+function collectDefinitionWarnings(definitions, context, collector) {
   const warnings = [];
+  const source = Array.isArray(definitions) ? definitions : [];
+  const collect = typeof collector === "function" ? collector : (() => []);
 
-  for (const definition of SERVICE_PREFERRED_COUNTRY_DEFINITIONS) {
-    warnings.push.apply(
-      warnings,
-      validatePreferredCountryMarkers(countryConfigs, ARGS[definition.argKey], definition.label)
-    );
+  for (const definition of source) {
+    const currentWarnings = collect(definition, context);
+    if (Array.isArray(currentWarnings) && currentWarnings.length) {
+      warnings.push.apply(warnings, currentWarnings);
+    }
   }
 
   return uniqueStrings(warnings);
+}
+
+// 汇总 AI / Crypto / GitHub / Steam / Dev 的 prefer-countries 校验告警，避免 validate 阶段把同一模式手写五遍。
+function collectPreferredCountryWarnings(countryConfigs) {
+  return collectDefinitionWarnings(
+    SERVICE_PREFERRED_COUNTRY_DEFINITIONS,
+    countryConfigs,
+    (definition, currentCountryConfigs) => validatePreferredCountryMarkers(currentCountryConfigs, ARGS[definition.argKey], definition.label)
+  );
 }
 
 // 汇总 GitHub / Steam / Dev 的前置组引用告警，避免每加一个独立组都要手动改 validate 拼接。
 function collectPreferredGroupWarnings(availableGroupNames) {
-  const warnings = [];
-
-  for (const definition of SERVICE_RESOURCE_VALIDATION_DEFINITIONS) {
-    warnings.push.apply(
-      warnings,
-      validatePreferredGroupMarkers(
-        availableGroupNames,
-        ARGS[buildServiceArgKey(definition.argToken, "PreferGroups")],
-        definition.label,
-        [definition.groupName]
-      )
-    );
-  }
-
-  return uniqueStrings(warnings);
+  return collectDefinitionWarnings(
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    availableGroupNames,
+    (definition, currentGroupNames) => validatePreferredGroupMarkers(
+      currentGroupNames,
+      ARGS[buildServiceArgKey(definition.argToken, "PreferGroups")],
+      definition.label,
+      [definition.groupName]
+    )
+  );
 }
 
 // 汇总 GitHub / Steam / Dev 的点名节点告警。
 function collectPreferredNodeWarnings(proxyNames) {
-  const warnings = [];
-
-  for (const definition of SERVICE_RESOURCE_VALIDATION_DEFINITIONS) {
-    warnings.push.apply(
-      warnings,
-      validatePreferredProxyMarkers(
-        proxyNames,
-        ARGS[buildServiceArgKey(definition.argToken, "PreferNodes")],
-        definition.label
-      )
-    );
-  }
-
-  return uniqueStrings(warnings);
+  return collectDefinitionWarnings(
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    proxyNames,
+    (definition, currentProxyNames) => validatePreferredProxyMarkers(
+      currentProxyNames,
+      ARGS[buildServiceArgKey(definition.argToken, "PreferNodes")],
+      definition.label
+    )
+  );
 }
 
 // 汇总 GitHub / Steam / Dev 的 provider 池引用告警，同时兼容 include-all / include-all-providers 官方语义。
 function collectPreferredProviderWarnings(availableProxyProviderNames) {
-  const warnings = [];
-
-  for (const definition of SERVICE_RESOURCE_VALIDATION_DEFINITIONS) {
-    warnings.push.apply(
-      warnings,
-      validatePreferredProxyProviderMarkers(
-        availableProxyProviderNames,
-        ARGS[buildServiceArgKey(definition.argToken, "UseProviders")],
-        definition.label,
-        ARGS[buildServiceArgKey(definition.argToken, "IncludeAllProviders")],
-        ARGS[buildServiceArgKey(definition.argToken, "IncludeAll")]
-      )
-    );
-  }
-
-  return uniqueStrings(warnings);
+  return collectDefinitionWarnings(
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    availableProxyProviderNames,
+    (definition, currentProviderNames) => validatePreferredProxyProviderMarkers(
+      currentProviderNames,
+      ARGS[buildServiceArgKey(definition.argToken, "UseProviders")],
+      definition.label,
+      ARGS[buildServiceArgKey(definition.argToken, "IncludeAllProviders")],
+      ARGS[buildServiceArgKey(definition.argToken, "IncludeAll")]
+    )
+  );
 }
 
 // 汇总“请求 -> 规则 -> 目标组 -> 组内候选链”的关键链路，便于快速观察整条分流路径。
@@ -12097,31 +12089,75 @@ function createBuildSummaryArgLineDefinition(label, entries) {
   return { label, entries };
 }
 
+// full 日志里多处服务参数项都遵循 `service + argSuffix -> hasKey/valueKey` 的同一模板，这里统一构造。
+function createServiceBuildSummaryArgEntries(services, fields, options) {
+  const entries = [];
+  const source = Array.isArray(services) ? services : [];
+  const fieldDefinitions = Array.isArray(fields) ? fields : [];
+  const currentOptions = isObject(options) ? options : {};
+  const keyBuilder = typeof currentOptions.keyBuilder === "function"
+    ? currentOptions.keyBuilder
+    : ((service, field) => `${service.key}-${field.keySuffix}`);
+
+  for (const service of source) {
+    for (const field of fieldDefinitions) {
+      entries.push({
+        key: keyBuilder(service, field),
+        hasKey: `has${service.argToken}${field.argSuffix}`,
+        valueKey: buildServiceArgKey(service.argToken, field.argSuffix)
+      });
+    }
+  }
+
+  return entries;
+}
+
+const BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS = Object.freeze(
+  SERVICE_RESOURCE_VALIDATION_DEFINITIONS.filter((service) => service.key !== "dev")
+);
+const BUILD_SUMMARY_SERVICE_DISPLAY_FIELD_DEFINITIONS = Object.freeze([
+  { keySuffix: "hidden", argSuffix: "Hidden" },
+  { keySuffix: "icon", argSuffix: "Icon" }
+]);
+const BUILD_SUMMARY_SERVICE_UDP_FIELD_DEFINITIONS = Object.freeze([
+  { keySuffix: "disable-udp", argSuffix: "DisableUdp" }
+]);
+const BUILD_SUMMARY_SERVICE_NETWORK_FIELD_DEFINITIONS = Object.freeze([
+  { keySuffix: "interface-name", argSuffix: "InterfaceName" },
+  { keySuffix: "routing-mark", argSuffix: "RoutingMark" }
+]);
+
 // full 日志中剩余的服务参数摘要也统一收敛，避免每行都手写 `hasX ? X : default`。
 const BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS = Object.freeze([
-  createBuildSummaryArgLineDefinition("规则入口目标", [
-    { key: "github", hasKey: "hasGithubRuleTarget", valueKey: "githubRuleTarget" },
-    { key: "steam", hasKey: "hasSteamRuleTarget", valueKey: "steamRuleTarget" },
-    { key: "steam-cn", hasKey: "hasSteamCnRuleTarget", valueKey: "steamCnRuleTarget" },
-    { key: "dev", hasKey: "hasDevRuleTarget", valueKey: "devRuleTarget" }
-  ]),
-  createBuildSummaryArgLineDefinition("独立组展示", [
-    { key: "github-hidden", hasKey: "hasGithubHidden", valueKey: "githubHidden" },
-    { key: "github-icon", hasKey: "hasGithubIcon", valueKey: "githubIcon" },
-    { key: "steam-hidden", hasKey: "hasSteamHidden", valueKey: "steamHidden" },
-    { key: "steam-icon", hasKey: "hasSteamIcon", valueKey: "steamIcon" }
-  ]),
-  createBuildSummaryArgLineDefinition("独立组UDP", [
-    { key: "github-disable-udp", hasKey: "hasGithubDisableUdp", valueKey: "githubDisableUdp" },
-    { key: "steam-disable-udp", hasKey: "hasSteamDisableUdp", valueKey: "steamDisableUdp" }
-  ]),
+  createBuildSummaryArgLineDefinition(
+    "规则入口目标",
+    createServiceBuildSummaryArgEntries(
+      SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+      [{ argSuffix: "RuleTarget" }],
+      { keyBuilder: (service) => service.key }
+    ).concat([{ key: "steam-cn", hasKey: "hasSteamCnRuleTarget", valueKey: "steamCnRuleTarget" }])
+  ),
+  createBuildSummaryArgLineDefinition(
+    "独立组展示",
+    createServiceBuildSummaryArgEntries(
+      BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS,
+      BUILD_SUMMARY_SERVICE_DISPLAY_FIELD_DEFINITIONS
+    )
+  ),
+  createBuildSummaryArgLineDefinition(
+    "独立组UDP",
+    createServiceBuildSummaryArgEntries(
+      BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS,
+      BUILD_SUMMARY_SERVICE_UDP_FIELD_DEFINITIONS
+    )
+  ),
   createBuildSummaryArgLineDefinition("独立组网络", [
     { key: "group-interface-name", hasKey: "hasGroupInterfaceName", valueKey: "groupInterfaceName" },
     { key: "group-routing-mark", hasKey: "hasGroupRoutingMark", valueKey: "groupRoutingMark" },
-    { key: "github-interface-name", hasKey: "hasGithubInterfaceName", valueKey: "githubInterfaceName" },
-    { key: "github-routing-mark", hasKey: "hasGithubRoutingMark", valueKey: "githubRoutingMark" },
-    { key: "steam-interface-name", hasKey: "hasSteamInterfaceName", valueKey: "steamInterfaceName" },
-    { key: "steam-routing-mark", hasKey: "hasSteamRoutingMark", valueKey: "steamRoutingMark" }
+    ...createServiceBuildSummaryArgEntries(
+      BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS,
+      BUILD_SUMMARY_SERVICE_NETWORK_FIELD_DEFINITIONS
+    )
   ])
 ]);
 // rule-provider 响应头字段定义；统一收敛后，响应头与日志里引用的统计摘要更容易保持一致。
