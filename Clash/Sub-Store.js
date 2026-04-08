@@ -315,6 +315,8 @@
  * 308. response-header / diagnostics definitions 继续收口：把服务响应头与 special-warning 的同构对象模板抽成轻量 helper，继续压缩 definitions 区样板。
  * 309. 分类计数模板继续收口：把业务窗口/规则风险/策略组风险里的 category 计数分支统一改成映射 + helper，减少多处 if-else 累加模板。
  * 310. 规则定义查表继续收口：把 provider->definition / provider->index 两份查找表构建统一到共享 builder，减少重复循环模板。
+ * 313. resolveArgs 服务告警继续收敛：把 GitHub / Steam / Dev 的测速、模式、类型、strategy、expected-status 等同构告警收成共享 helper + 状态表批量输出。
+ * 314. resolveArgs 服务 URL/优先级告警继续收敛：把独立组 test-url、include-all 覆盖链、icon/interface/routing-mark 提示改成统一循环，减少大段平铺 if 模板。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
@@ -3531,6 +3533,69 @@ function buildCompiledCountries() {
   });
 }
 
+// 这类“原始值存在且最终被 clamp/兜底修正”的告警模板在 resolveArgs 里大量出现，这里统一成共享 helper。
+function warnAdjustedNumericArg(rawValue, parsedValue, finalValue, argLabel) {
+  if (rawValue === undefined || parsedValue === finalValue) {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${argLabel} 无效，已重置为 ${finalValue}`);
+}
+
+// 这类“枚举值非法，最终回退到规范值”的告警也统一收口，减少 mode/type/position 这类参数的重复模板。
+function warnNormalizedChoiceArg(rawValue, finalValue, argLabel) {
+  if (rawValue === undefined || normalizeStringArg(rawValue).toLowerCase() === finalValue) {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${argLabel} 无效，已重置为 ${finalValue}`);
+}
+
+// expected-status 三类提示文案完全同构，只是参数名不同，这里统一收口。
+function warnInvalidExpectedStatusArg(rawValue, normalizedValue, finalValue, argLabel) {
+  if (rawValue === undefined || !normalizedValue || finalValue) {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${argLabel} 语法无效，已回退为默认值`);
+}
+
+// icon / interface-name 这种“传了值但规范化后为空”的提示模板一致，也抽成 helper。
+function warnIgnoredEmptyStringArg(rawValue, finalValue, argLabel) {
+  if (rawValue === undefined || finalValue) {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${argLabel} 为空，已忽略`);
+}
+
+// routing-mark 统一只接受 >=0 的整数；各服务提示文案一致，这里复用同一 helper。
+function warnIgnoredRoutingMarkArg(rawValue, finalValue, argLabel) {
+  if (rawValue === undefined || finalValue !== null) {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${argLabel} 仅支持大于等于 0 的整数，已忽略`);
+}
+
+// strategy 参数本身非法时会回退默认值；这类提示在 GitHub / Steam / Dev 三组里完全同构。
+function warnInvalidStrategyArg(rawValue, finalValue, argLabel) {
+  if (rawValue === undefined || finalValue) {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${argLabel} 无效，已回退为默认策略`);
+}
+
+// strategy 只有 load-balance 组才生效；GitHub / Steam / Dev 三组提示模板一致，这里统一收敛。
+function warnIneffectiveStrategyArg(rawValue, finalValue, typeValue, strategyLabel, typeLabel) {
+  if (rawValue === undefined || !finalValue || typeValue === "load-balance") {
+    return;
+  }
+
+  console.warn(`⚠️ 警告: ${strategyLabel} 仅在 ${typeLabel}=load-balance 时生效`);
+}
+
 // 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
 function resolveArgs(rawArgs) {
   // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
@@ -4139,6 +4204,123 @@ function resolveArgs(rawArgs) {
   const snifferForceDomains = toStringList(rawSnifferForceDomains);
   const snifferSkipDomains = toStringList(rawSnifferSkipDomains);
   const responseHeaderPrefix = normalizeHeaderPrefix(rawResponseHeaderPrefix);
+  // GitHub / Steam / Dev 三类独立组后面会集中跑同一批参数告警，这里先把每组的规范化结果打包成统一上下文。
+  const serviceResolveWarningStates = [
+    {
+      key: "github",
+      testUrl: githubTestUrl,
+      rawGroupInterval: rawGithubGroupInterval,
+      parsedGroupInterval: parsedGithubGroupInterval,
+      groupInterval: githubGroupInterval,
+      rawGroupTolerance: rawGithubGroupTolerance,
+      parsedGroupTolerance: parsedGithubGroupTolerance,
+      groupTolerance: githubGroupTolerance,
+      rawGroupTimeout: rawGithubGroupTimeout,
+      parsedGroupTimeout: parsedGithubGroupTimeout,
+      groupTimeout: githubGroupTimeout,
+      rawGroupMaxFailedTimes: rawGithubGroupMaxFailedTimes,
+      parsedGroupMaxFailedTimes: parsedGithubGroupMaxFailedTimes,
+      groupMaxFailedTimes: githubGroupMaxFailedTimes,
+      rawMode: rawGithubMode,
+      mode: githubMode,
+      rawType: rawGithubType,
+      type: githubType,
+      rawStrategy: rawGithubGroupStrategy,
+      strategy: githubGroupStrategy,
+      rawExpectedStatus: rawGithubGroupExpectedStatus,
+      normalizedExpectedStatus: rawNormalizedGithubGroupExpectedStatus,
+      expectedStatus: githubGroupExpectedStatus,
+      rawInterfaceName: rawGithubInterfaceName,
+      interfaceName: githubInterfaceName,
+      rawRoutingMark: rawGithubRoutingMark,
+      routingMark: githubRoutingMark,
+      useProviders: githubUseProviders,
+      rawIncludeAll: rawGithubIncludeAll,
+      includeAll: parseBool(rawGithubIncludeAll, false),
+      rawIncludeAllProviders: rawGithubIncludeAllProviders,
+      includeAllProviders: parseBool(rawGithubIncludeAllProviders, false),
+      rawIncludeAllProxies: rawGithubIncludeAllProxies,
+      includeAllProxies: parseBool(rawGithubIncludeAllProxies, false),
+      rawIcon: rawGithubIcon,
+      icon: githubIcon
+    },
+    {
+      key: "steam",
+      testUrl: steamTestUrl,
+      rawGroupInterval: rawSteamGroupInterval,
+      parsedGroupInterval: parsedSteamGroupInterval,
+      groupInterval: steamGroupInterval,
+      rawGroupTolerance: rawSteamGroupTolerance,
+      parsedGroupTolerance: parsedSteamGroupTolerance,
+      groupTolerance: steamGroupTolerance,
+      rawGroupTimeout: rawSteamGroupTimeout,
+      parsedGroupTimeout: parsedSteamGroupTimeout,
+      groupTimeout: steamGroupTimeout,
+      rawGroupMaxFailedTimes: rawSteamGroupMaxFailedTimes,
+      parsedGroupMaxFailedTimes: parsedSteamGroupMaxFailedTimes,
+      groupMaxFailedTimes: steamGroupMaxFailedTimes,
+      rawMode: rawSteamMode,
+      mode: steamMode,
+      rawType: rawSteamType,
+      type: steamType,
+      rawStrategy: rawSteamGroupStrategy,
+      strategy: steamGroupStrategy,
+      rawExpectedStatus: rawSteamGroupExpectedStatus,
+      normalizedExpectedStatus: rawNormalizedSteamGroupExpectedStatus,
+      expectedStatus: steamGroupExpectedStatus,
+      rawInterfaceName: rawSteamInterfaceName,
+      interfaceName: steamInterfaceName,
+      rawRoutingMark: rawSteamRoutingMark,
+      routingMark: steamRoutingMark,
+      useProviders: steamUseProviders,
+      rawIncludeAll: rawSteamIncludeAll,
+      includeAll: parseBool(rawSteamIncludeAll, false),
+      rawIncludeAllProviders: rawSteamIncludeAllProviders,
+      includeAllProviders: parseBool(rawSteamIncludeAllProviders, false),
+      rawIncludeAllProxies: rawSteamIncludeAllProxies,
+      includeAllProxies: parseBool(rawSteamIncludeAllProxies, false),
+      rawIcon: rawSteamIcon,
+      icon: steamIcon
+    },
+    {
+      key: "dev",
+      testUrl: devTestUrl,
+      rawGroupInterval: rawDevGroupInterval,
+      parsedGroupInterval: parsedDevGroupInterval,
+      groupInterval: devGroupInterval,
+      rawGroupTolerance: rawDevGroupTolerance,
+      parsedGroupTolerance: parsedDevGroupTolerance,
+      groupTolerance: devGroupTolerance,
+      rawGroupTimeout: rawDevGroupTimeout,
+      parsedGroupTimeout: parsedDevGroupTimeout,
+      groupTimeout: devGroupTimeout,
+      rawGroupMaxFailedTimes: rawDevGroupMaxFailedTimes,
+      parsedGroupMaxFailedTimes: parsedDevGroupMaxFailedTimes,
+      groupMaxFailedTimes: devGroupMaxFailedTimes,
+      rawMode: rawDevMode,
+      mode: devMode,
+      rawType: rawDevType,
+      type: devType,
+      rawStrategy: rawDevGroupStrategy,
+      strategy: devGroupStrategy,
+      rawExpectedStatus: rawDevGroupExpectedStatus,
+      normalizedExpectedStatus: rawNormalizedDevGroupExpectedStatus,
+      expectedStatus: devGroupExpectedStatus,
+      rawInterfaceName: rawDevInterfaceName,
+      interfaceName: devInterfaceName,
+      rawRoutingMark: rawDevRoutingMark,
+      routingMark: devRoutingMark,
+      useProviders: devUseProviders,
+      rawIncludeAll: rawDevIncludeAll,
+      includeAll: parseBool(rawDevIncludeAll, false),
+      rawIncludeAllProviders: rawDevIncludeAllProviders,
+      includeAllProviders: parseBool(rawDevIncludeAllProviders, false),
+      rawIncludeAllProxies: rawDevIncludeAllProxies,
+      includeAllProxies: parseBool(rawDevIncludeAllProxies, false),
+      rawIcon: rawDevIcon,
+      icon: devIcon
+    }
+  ];
 
   // 如果用户传入值被修正了，就打印一条警告帮助定位问题。
   if (parsedThreshold !== threshold) {
@@ -4227,16 +4409,11 @@ function resolveArgs(rawArgs) {
     console.warn(`⚠️ 警告: country-extra-aliases 别名与其他内置国家标记冲突，可能导致优先链歧义: ${item}`);
   }
 
-  if (githubTestUrl && !looksLikeHttpUrl(githubTestUrl)) {
-    console.warn(`⚠️ 警告: github-test-url 看起来不像合法 http(s) 地址: ${githubTestUrl}`);
-  }
-
-  if (steamTestUrl && !looksLikeHttpUrl(steamTestUrl)) {
-    console.warn(`⚠️ 警告: steam-test-url 看起来不像合法 http(s) 地址: ${steamTestUrl}`);
-  }
-
-  if (devTestUrl && !looksLikeHttpUrl(devTestUrl)) {
-    console.warn(`⚠️ 警告: dev-test-url 看起来不像合法 http(s) 地址: ${devTestUrl}`);
+  // GitHub / Steam / Dev 三类独立组的 test-url 语义一致，统一批量做 URL 合法性提示。
+  for (const serviceState of serviceResolveWarningStates) {
+    if (serviceState.testUrl && !looksLikeHttpUrl(serviceState.testUrl)) {
+      console.warn(`⚠️ 警告: ${serviceState.key}-test-url 看起来不像合法 http(s) 地址: ${serviceState.testUrl}`);
+    }
   }
 
   // 如果 rule-provider 路径目录传了空值，则回退默认目录并提示。
@@ -4437,225 +4614,63 @@ function resolveArgs(rawArgs) {
     }
   }
 
-  // 如果 GitHub 独立组测速间隔被修正，也打印提示。
-  if (rawGithubGroupInterval !== undefined && parsedGithubGroupInterval !== githubGroupInterval) {
-    console.warn(`⚠️ 警告: github-group-interval 无效，已重置为 ${githubGroupInterval}`);
-  }
+  // GitHub / Steam / Dev 三类独立组的测速/类型/节点池优先级告警完全同构，统一走状态表批量输出。
+  for (const serviceState of serviceResolveWarningStates) {
+    warnAdjustedNumericArg(
+      serviceState.rawGroupInterval,
+      serviceState.parsedGroupInterval,
+      serviceState.groupInterval,
+      `${serviceState.key}-group-interval`
+    );
+    warnAdjustedNumericArg(
+      serviceState.rawGroupTolerance,
+      serviceState.parsedGroupTolerance,
+      serviceState.groupTolerance,
+      `${serviceState.key}-group-tolerance`
+    );
+    warnAdjustedNumericArg(
+      serviceState.rawGroupTimeout,
+      serviceState.parsedGroupTimeout,
+      serviceState.groupTimeout,
+      `${serviceState.key}-group-timeout`
+    );
+    warnAdjustedNumericArg(
+      serviceState.rawGroupMaxFailedTimes,
+      serviceState.parsedGroupMaxFailedTimes,
+      serviceState.groupMaxFailedTimes,
+      `${serviceState.key}-group-max-failed-times`
+    );
+    warnNormalizedChoiceArg(serviceState.rawMode, serviceState.mode, `${serviceState.key}-mode`);
+    warnNormalizedChoiceArg(serviceState.rawType, serviceState.type, `${serviceState.key}-type`);
+    warnInvalidStrategyArg(serviceState.rawStrategy, serviceState.strategy, `${serviceState.key}-group-strategy`);
+    warnInvalidExpectedStatusArg(
+      serviceState.rawExpectedStatus,
+      serviceState.normalizedExpectedStatus,
+      serviceState.expectedStatus,
+      `${serviceState.key}-group-expected-status`
+    );
+    warnIgnoredEmptyStringArg(serviceState.rawInterfaceName, serviceState.interfaceName, `${serviceState.key}-interface-name`);
+    warnIgnoredRoutingMarkArg(serviceState.rawRoutingMark, serviceState.routingMark, `${serviceState.key}-routing-mark`);
+    warnIneffectiveStrategyArg(
+      serviceState.rawStrategy,
+      serviceState.strategy,
+      serviceState.type,
+      `${serviceState.key}-group-strategy`,
+      `${serviceState.key}-type`
+    );
+    warnIgnoredEmptyStringArg(serviceState.rawIcon, serviceState.icon, `${serviceState.key}-icon`);
 
-  // 如果 Steam 独立组测速间隔被修正，也打印提示。
-  if (rawSteamGroupInterval !== undefined && parsedSteamGroupInterval !== steamGroupInterval) {
-    console.warn(`⚠️ 警告: steam-group-interval 无效，已重置为 ${steamGroupInterval}`);
-  }
+    if (serviceState.rawIncludeAllProviders !== undefined && serviceState.includeAllProviders && serviceState.useProviders.length) {
+      console.warn(`⚠️ 警告: ${serviceState.key}-include-all-providers 已开启，${serviceState.key}-use-providers 将被忽略`);
+    }
 
-  // 如果开发服务组测速间隔被修正，也打印提示。
-  if (rawDevGroupInterval !== undefined && parsedDevGroupInterval !== devGroupInterval) {
-    console.warn(`⚠️ 警告: dev-group-interval 无效，已重置为 ${devGroupInterval}`);
-  }
+    if (serviceState.rawIncludeAll !== undefined && serviceState.includeAll && (serviceState.useProviders.length || serviceState.includeAllProviders)) {
+      console.warn(`⚠️ 警告: ${serviceState.key}-include-all 已开启，${serviceState.key}-use-providers / ${serviceState.key}-include-all-providers 将被忽略`);
+    }
 
-  // 如果 GitHub 独立组测速容差被修正，也打印提示。
-  if (rawGithubGroupTolerance !== undefined && parsedGithubGroupTolerance !== githubGroupTolerance) {
-    console.warn(`⚠️ 警告: github-group-tolerance 无效，已重置为 ${githubGroupTolerance}`);
-  }
-
-  // 如果 Steam 独立组测速容差被修正，也打印提示。
-  if (rawSteamGroupTolerance !== undefined && parsedSteamGroupTolerance !== steamGroupTolerance) {
-    console.warn(`⚠️ 警告: steam-group-tolerance 无效，已重置为 ${steamGroupTolerance}`);
-  }
-
-  // 如果开发服务组测速容差被修正，也打印提示。
-  if (rawDevGroupTolerance !== undefined && parsedDevGroupTolerance !== devGroupTolerance) {
-    console.warn(`⚠️ 警告: dev-group-tolerance 无效，已重置为 ${devGroupTolerance}`);
-  }
-
-  // 如果 GitHub 独立组测速超时被修正，也打印提示。
-  if (rawGithubGroupTimeout !== undefined && parsedGithubGroupTimeout !== githubGroupTimeout) {
-    console.warn(`⚠️ 警告: github-group-timeout 无效，已重置为 ${githubGroupTimeout}`);
-  }
-
-  // 如果 Steam 独立组测速超时被修正，也打印提示。
-  if (rawSteamGroupTimeout !== undefined && parsedSteamGroupTimeout !== steamGroupTimeout) {
-    console.warn(`⚠️ 警告: steam-group-timeout 无效，已重置为 ${steamGroupTimeout}`);
-  }
-
-  // 如果开发服务组测速超时被修正，也打印提示。
-  if (rawDevGroupTimeout !== undefined && parsedDevGroupTimeout !== devGroupTimeout) {
-    console.warn(`⚠️ 警告: dev-group-timeout 无效，已重置为 ${devGroupTimeout}`);
-  }
-
-  // 如果 GitHub 独立组最大失败次数被修正，也打印提示。
-  if (rawGithubGroupMaxFailedTimes !== undefined && parsedGithubGroupMaxFailedTimes !== githubGroupMaxFailedTimes) {
-    console.warn(`⚠️ 警告: github-group-max-failed-times 无效，已重置为 ${githubGroupMaxFailedTimes}`);
-  }
-
-  // 如果 Steam 独立组最大失败次数被修正，也打印提示。
-  if (rawSteamGroupMaxFailedTimes !== undefined && parsedSteamGroupMaxFailedTimes !== steamGroupMaxFailedTimes) {
-    console.warn(`⚠️ 警告: steam-group-max-failed-times 无效，已重置为 ${steamGroupMaxFailedTimes}`);
-  }
-
-  // 如果开发服务组最大失败次数被修正，也打印提示。
-  if (rawDevGroupMaxFailedTimes !== undefined && parsedDevGroupMaxFailedTimes !== devGroupMaxFailedTimes) {
-    console.warn(`⚠️ 警告: dev-group-max-failed-times 无效，已重置为 ${devGroupMaxFailedTimes}`);
-  }
-
-  // 如果 GitHub 模式非法，则回退默认值并提示。
-  if (rawGithubMode !== undefined && normalizeStringArg(rawGithubMode).toLowerCase() !== githubMode) {
-    console.warn(`⚠️ 警告: github-mode 无效，已重置为 ${githubMode}`);
-  }
-
-  // 如果 Steam 模式非法，则回退默认值并提示。
-  if (rawSteamMode !== undefined && normalizeStringArg(rawSteamMode).toLowerCase() !== steamMode) {
-    console.warn(`⚠️ 警告: steam-mode 无效，已重置为 ${steamMode}`);
-  }
-
-  // 如果开发服务组模式非法，则回退默认值并提示。
-  if (rawDevMode !== undefined && normalizeStringArg(rawDevMode).toLowerCase() !== devMode) {
-    console.warn(`⚠️ 警告: dev-mode 无效，已重置为 ${devMode}`);
-  }
-
-  // 如果 GitHub 组类型非法，则回退默认值并提示。
-  if (rawGithubType !== undefined && normalizeStringArg(rawGithubType).toLowerCase() !== githubType) {
-    console.warn(`⚠️ 警告: github-type 无效，已重置为 ${githubType}`);
-  }
-
-  // 如果 Steam 组类型非法，则回退默认值并提示。
-  if (rawSteamType !== undefined && normalizeStringArg(rawSteamType).toLowerCase() !== steamType) {
-    console.warn(`⚠️ 警告: steam-type 无效，已重置为 ${steamType}`);
-  }
-
-  // 如果开发服务组类型非法，则回退默认值并提示。
-  if (rawDevType !== undefined && normalizeStringArg(rawDevType).toLowerCase() !== devType) {
-    console.warn(`⚠️ 警告: dev-type 无效，已重置为 ${devType}`);
-  }
-
-  // 如果 GitHub 独立组 strategy 非法，则回退默认值并提示。
-  if (rawGithubGroupStrategy !== undefined && !githubGroupStrategy) {
-    console.warn("⚠️ 警告: github-group-strategy 无效，已回退为默认策略");
-  }
-
-  // 如果 Steam 独立组 strategy 非法，则回退默认值并提示。
-  if (rawSteamGroupStrategy !== undefined && !steamGroupStrategy) {
-    console.warn("⚠️ 警告: steam-group-strategy 无效，已回退为默认策略");
-  }
-
-  // 如果开发服务组 strategy 非法，则回退默认值并提示。
-  if (rawDevGroupStrategy !== undefined && !devGroupStrategy) {
-    console.warn("⚠️ 警告: dev-group-strategy 无效，已回退为默认策略");
-  }
-
-  // 如果 GitHub 独立组 expected-status 语法非法，则回退默认值并提示。
-  if (rawGithubGroupExpectedStatus !== undefined && rawNormalizedGithubGroupExpectedStatus && !githubGroupExpectedStatus) {
-    console.warn("⚠️ 警告: github-group-expected-status 语法无效，已回退为默认值");
-  }
-
-  // 如果 Steam 独立组 expected-status 语法非法，则回退默认值并提示。
-  if (rawSteamGroupExpectedStatus !== undefined && rawNormalizedSteamGroupExpectedStatus && !steamGroupExpectedStatus) {
-    console.warn("⚠️ 警告: steam-group-expected-status 语法无效，已回退为默认值");
-  }
-
-  // 如果开发服务组 expected-status 语法非法，则回退默认值并提示。
-  if (rawDevGroupExpectedStatus !== undefined && rawNormalizedDevGroupExpectedStatus && !devGroupExpectedStatus) {
-    console.warn("⚠️ 警告: dev-group-expected-status 语法无效，已回退为默认值");
-  }
-
-  // 如果 GitHub / Steam 独立组 interface-name 传了空值，则提示已经忽略。
-  if (rawGithubInterfaceName !== undefined && !githubInterfaceName) {
-    console.warn("⚠️ 警告: github-interface-name 为空，已忽略");
-  }
-
-  if (rawSteamInterfaceName !== undefined && !steamInterfaceName) {
-    console.warn("⚠️ 警告: steam-interface-name 为空，已忽略");
-  }
-
-  if (rawDevInterfaceName !== undefined && !devInterfaceName) {
-    console.warn("⚠️ 警告: dev-interface-name 为空，已忽略");
-  }
-
-  // 如果 GitHub / Steam 独立组 routing-mark 非法，则显式提示帮助排查。
-  if (rawGithubRoutingMark !== undefined && githubRoutingMark === null) {
-    console.warn("⚠️ 警告: github-routing-mark 仅支持大于等于 0 的整数，已忽略");
-  }
-
-  if (rawSteamRoutingMark !== undefined && steamRoutingMark === null) {
-    console.warn("⚠️ 警告: steam-routing-mark 仅支持大于等于 0 的整数，已忽略");
-  }
-
-  if (rawDevRoutingMark !== undefined && devRoutingMark === null) {
-    console.warn("⚠️ 警告: dev-routing-mark 仅支持大于等于 0 的整数，已忽略");
-  }
-
-  // 如果同时设置了 GitHub use-providers 与 include-all-providers，则提示 use-providers 会被忽略。
-  if (rawGithubIncludeAllProviders !== undefined && parseBool(rawGithubIncludeAllProviders, false) && githubUseProviders.length) {
-    console.warn("⚠️ 警告: github-include-all-providers 已开启，github-use-providers 将被忽略");
-  }
-
-  // 如果同时设置了 Steam use-providers 与 include-all-providers，则提示 use-providers 会被忽略。
-  if (rawSteamIncludeAllProviders !== undefined && parseBool(rawSteamIncludeAllProviders, false) && steamUseProviders.length) {
-    console.warn("⚠️ 警告: steam-include-all-providers 已开启，steam-use-providers 将被忽略");
-  }
-
-  // 如果同时设置了 Dev use-providers 与 include-all-providers，则提示 use-providers 会被忽略。
-  if (rawDevIncludeAllProviders !== undefined && parseBool(rawDevIncludeAllProviders, false) && devUseProviders.length) {
-    console.warn("⚠️ 警告: dev-include-all-providers 已开启，dev-use-providers 将被忽略");
-  }
-
-  // 如果 GitHub include-all 已开启，则 use-providers / include-all-providers 都会被更高优先级的 include-all 覆盖。
-  if (rawGithubIncludeAll !== undefined && parseBool(rawGithubIncludeAll, false) && (githubUseProviders.length || parseBool(rawGithubIncludeAllProviders, false))) {
-    console.warn("⚠️ 警告: github-include-all 已开启，github-use-providers / github-include-all-providers 将被忽略");
-  }
-
-  // 如果 Steam include-all 已开启，则 use-providers / include-all-providers 都会被更高优先级的 include-all 覆盖。
-  if (rawSteamIncludeAll !== undefined && parseBool(rawSteamIncludeAll, false) && (steamUseProviders.length || parseBool(rawSteamIncludeAllProviders, false))) {
-    console.warn("⚠️ 警告: steam-include-all 已开启，steam-use-providers / steam-include-all-providers 将被忽略");
-  }
-
-  // 如果 Dev include-all 已开启，则 use-providers / include-all-providers 都会被更高优先级的 include-all 覆盖。
-  if (rawDevIncludeAll !== undefined && parseBool(rawDevIncludeAll, false) && (devUseProviders.length || parseBool(rawDevIncludeAllProviders, false))) {
-    console.warn("⚠️ 警告: dev-include-all 已开启，dev-use-providers / dev-include-all-providers 将被忽略");
-  }
-
-  // 如果 GitHub include-all 已开启，则 include-all-proxies 也会被更高优先级的 include-all 覆盖。
-  if (rawGithubIncludeAll !== undefined && parseBool(rawGithubIncludeAll, false) && parseBool(rawGithubIncludeAllProxies, false)) {
-    console.warn("⚠️ 警告: github-include-all 已开启，github-include-all-proxies 将被忽略");
-  }
-
-  // 如果 Steam include-all 已开启，则 include-all-proxies 也会被更高优先级的 include-all 覆盖。
-  if (rawSteamIncludeAll !== undefined && parseBool(rawSteamIncludeAll, false) && parseBool(rawSteamIncludeAllProxies, false)) {
-    console.warn("⚠️ 警告: steam-include-all 已开启，steam-include-all-proxies 将被忽略");
-  }
-
-  // 如果 Dev include-all 已开启，则 include-all-proxies 也会被更高优先级的 include-all 覆盖。
-  if (rawDevIncludeAll !== undefined && parseBool(rawDevIncludeAll, false) && parseBool(rawDevIncludeAllProxies, false)) {
-    console.warn("⚠️ 警告: dev-include-all 已开启，dev-include-all-proxies 将被忽略");
-  }
-
-  // 如果给 GitHub 传了 strategy，但当前组类型不是 load-balance，也提示其仅在 load-balance 下生效。
-  if (rawGithubGroupStrategy !== undefined && githubGroupStrategy && githubType !== "load-balance") {
-    console.warn("⚠️ 警告: github-group-strategy 仅在 github-type=load-balance 时生效");
-  }
-
-  // 如果给 Steam 传了 strategy，但当前组类型不是 load-balance，也提示其仅在 load-balance 下生效。
-  if (rawSteamGroupStrategy !== undefined && steamGroupStrategy && steamType !== "load-balance") {
-    console.warn("⚠️ 警告: steam-group-strategy 仅在 steam-type=load-balance 时生效");
-  }
-
-  // 如果给开发服务组传了 strategy，但当前组类型不是 load-balance，也提示其仅在 load-balance 下生效。
-  if (rawDevGroupStrategy !== undefined && devGroupStrategy && devType !== "load-balance") {
-    console.warn("⚠️ 警告: dev-group-strategy 仅在 dev-type=load-balance 时生效");
-  }
-
-  // 如果 GitHub icon 传了空值，则给出提示，避免用户误以为已经生效。
-  if (rawGithubIcon !== undefined && !githubIcon) {
-    console.warn("⚠️ 警告: github-icon 为空，已忽略");
-  }
-
-  // 如果 Steam icon 传了空值，则给出提示，避免用户误以为已经生效。
-  if (rawSteamIcon !== undefined && !steamIcon) {
-    console.warn("⚠️ 警告: steam-icon 为空，已忽略");
-  }
-
-  // 如果开发服务组 icon 传了空值，则给出提示，避免用户误以为已经生效。
-  if (rawDevIcon !== undefined && !devIcon) {
-    console.warn("⚠️ 警告: dev-icon 为空，已忽略");
+    if (serviceState.rawIncludeAll !== undefined && serviceState.includeAll && serviceState.includeAllProxies) {
+      console.warn(`⚠️ 警告: ${serviceState.key}-include-all 已开启，${serviceState.key}-include-all-proxies 将被忽略`);
+    }
   }
 
   // 官方文档已将 interface-name 标记为 deprecated，这里主动提醒，避免长期依赖。
