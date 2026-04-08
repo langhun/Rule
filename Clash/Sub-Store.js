@@ -304,6 +304,8 @@
  * 299. assemblyContext 装配继续定义化：把 result / diagnostics / finalize 共用的阶段裁剪字段收成 definitions，并让 supplement 上下文优先复用预装配产物。
  * 300. runtime response-header section 协议收尾：移除已无调用的 custom 分支与 build 回退，显式只保留 definition / diagnostic-summary 两类 section。
  * 301. build summary metrics 继续收敛：把 primary / warning metric logging 集合成同一套 definition section，减少 `logBuildSummary` 的平铺调用。
+ * 311. 服务响应头继续收敛：把独立组字段适用性判断与 definitions 展开统一到共享 helper，减少 service header 区域的 filter/reduce 模板。
+ * 312. 服务日志字段继续收敛：把独立组测速/节点池/高级项日志都统一到字段 definitions + 单一 formatter，并把资源摘要行改成定义驱动生成。
  * 302. buildProxyGroups 运行时上下文继续收敛：把候选链、优先国家链与服务组中间产物改成顺序 definitions builder，压缩函数前半段平行局部变量。
  * 303. build summary metric lines 收敛：抽出 `emitBuildSummaryMetricLine` 统一 label/value/unit 输出，减少 `logBuildSummaryMetricLines` 主体的重复模板。
  * 304. 调度 helper 继续收口：移除 buildProxyGroups 与 diagnostics section 中剩余的一次性中转 wrapper，减少无意义的调用层级。
@@ -7111,6 +7113,10 @@ const SERVICE_DEFINITIONS = Object.freeze([
   Object.freeze({ key: "steam", label: "Steam", argToken: "Steam", groupName: GROUPS.STEAM }),
   Object.freeze({ key: "dev", label: "Dev", argToken: "Dev", groupName: GROUPS.DEV })
 ]);
+// GitHub / Steam 会共用不少“仅面板独立组、不含 Dev”的摘要模板，这里预先缓存避免多处重复 filter。
+const NON_DEV_SERVICE_DEFINITIONS = Object.freeze(
+  SERVICE_DEFINITIONS.filter((service) => service.key !== "dev")
+);
 // 响应头/校验两个阶段都直接复用这份基础定义，避免 label/argToken/groupName 在多处手动保持一致。
 const SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS = SERVICE_DEFINITIONS;
 const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS;
@@ -7160,16 +7166,33 @@ function createServiceResponseHeaderDefinition(service, field) {
   };
 }
 
-const SERVICE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
-  SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS.reduce((entries, service) => {
-    const applicableFields = SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS.filter(
-      (field) => !Array.isArray(field.services) || field.services.includes(service.key)
-    );
-    for (const field of applicableFields) {
+// 独立组响应头字段有的只适用于部分服务（例如 Dev 独享 mode/type/test-url），这里统一做字段适用性判断。
+function isServiceResponseHeaderFieldApplicable(service, field) {
+  return !Array.isArray(field && field.services) || field.services.includes(service && service.key);
+}
+
+// 按“服务 × 字段”批量展开响应头 definitions，避免 definitions 区域再保留 reduce + filter 双层模板。
+function buildServiceResponseHeaderDefinitions(services, fields) {
+  const entries = [];
+
+  for (const service of Array.isArray(services) ? services : []) {
+    for (const field of Array.isArray(fields) ? fields : []) {
+      if (!isServiceResponseHeaderFieldApplicable(service, field)) {
+        continue;
+      }
+
       entries.push(createServiceResponseHeaderDefinition(service, field));
     }
-    return entries;
-  }, [])
+  }
+
+  return entries;
+}
+
+const SERVICE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
+  buildServiceResponseHeaderDefinitions(
+    SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS,
+    SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS
+  )
 );
 
 function createServicePreferredCountryResponseHeaderDefinition(definition, field) {
@@ -9003,31 +9026,43 @@ function formatServiceProviderPoolLogValue(argToken) {
 }
 
 // 统一格式化独立组测速日志。
+const SERVICE_LATENCY_LOG_FIELD_DEFINITIONS = Object.freeze([
+  { label: "test-url", suffix: "TestUrl" },
+  { label: "group-interval", suffix: "GroupInterval" },
+  { label: "group-tolerance", suffix: "GroupTolerance" },
+  { label: "group-timeout", suffix: "GroupTimeout" },
+  { label: "group-lazy", suffix: "GroupLazy" },
+  { label: "group-max-failed-times", suffix: "GroupMaxFailedTimes" },
+  { label: "group-expected-status", suffix: "GroupExpectedStatus" },
+  { label: "group-strategy", suffix: "GroupStrategy" }
+]);
+const SERVICE_NODE_POOL_LOG_FIELD_DEFINITIONS = Object.freeze([
+  { label: "include-all-proxies", suffix: "IncludeAllProxies" },
+  { label: "filter", suffix: "NodeFilter" },
+  { label: "exclude-filter", suffix: "NodeExcludeFilter" },
+  { label: "exclude-type", suffix: "NodeExcludeType" }
+]);
+const DEV_SERVICE_ADVANCED_LOG_FIELD_DEFINITIONS = Object.freeze([
+  { label: "test-url", suffix: "TestUrl" },
+  { label: "strategy", suffix: "GroupStrategy" },
+  { label: "hidden", suffix: "Hidden" },
+  { label: "disable-udp", suffix: "DisableUdp" },
+  { label: "icon", suffix: "Icon" },
+  { label: "interface-name", suffix: "InterfaceName" },
+  { label: "routing-mark", suffix: "RoutingMark" }
+]);
+
 function formatServiceLatencyLogValue(argToken) {
-  return [
-    `test-url=${getServiceArgLogValue(argToken, "TestUrl")}`,
-    `group-interval=${getServiceArgLogValue(argToken, "GroupInterval")}`,
-    `group-tolerance=${getServiceArgLogValue(argToken, "GroupTolerance")}`,
-    `group-timeout=${getServiceArgLogValue(argToken, "GroupTimeout")}`,
-    `group-lazy=${getServiceArgLogValue(argToken, "GroupLazy")}`,
-    `group-max-failed-times=${getServiceArgLogValue(argToken, "GroupMaxFailedTimes")}`,
-    `group-expected-status=${getServiceArgLogValue(argToken, "GroupExpectedStatus")}`,
-    `group-strategy=${getServiceArgLogValue(argToken, "GroupStrategy")}`
-  ].join(", ");
+  return formatServiceArgFieldsLogValue(argToken, SERVICE_LATENCY_LOG_FIELD_DEFINITIONS);
 }
 
 // 统一格式化独立组节点池日志。
 function formatServiceNodePoolLogValue(argToken) {
-  return [
-    `include-all-proxies=${getServiceArgLogValue(argToken, "IncludeAllProxies")}`,
-    `filter=${getServiceArgLogValue(argToken, "NodeFilter")}`,
-    `exclude-filter=${getServiceArgLogValue(argToken, "NodeExcludeFilter")}`,
-    `exclude-type=${getServiceArgLogValue(argToken, "NodeExcludeType")}`
-  ].join(", ");
+  return formatServiceArgFieldsLogValue(argToken, SERVICE_NODE_POOL_LOG_FIELD_DEFINITIONS);
 }
 
-// 统一格式化开发服务组高级项日志。
-function formatServiceAdvancedLogValue(argToken, fields) {
+// 一组 `label + argSuffix` 型日志字段都统一走这套 formatter，避免测速/节点池/高级项各写一份 map 模板。
+function formatServiceArgFieldsLogValue(argToken, fields) {
   return (Array.isArray(fields) ? fields : [])
     .map((field) => `${field.label}=${getServiceArgLogValue(argToken, field.suffix)}`)
     .join(", ");
@@ -12112,9 +12147,6 @@ function createServiceBuildSummaryArgEntries(services, fields, options) {
   return entries;
 }
 
-const BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS = Object.freeze(
-  SERVICE_RESOURCE_VALIDATION_DEFINITIONS.filter((service) => service.key !== "dev")
-);
 const BUILD_SUMMARY_SERVICE_DISPLAY_FIELD_DEFINITIONS = Object.freeze([
   { keySuffix: "hidden", argSuffix: "Hidden" },
   { keySuffix: "icon", argSuffix: "Icon" }
@@ -12140,14 +12172,14 @@ const BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS = Object.freeze([
   createBuildSummaryArgLineDefinition(
     "独立组展示",
     createServiceBuildSummaryArgEntries(
-      BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS,
+      NON_DEV_SERVICE_DEFINITIONS,
       BUILD_SUMMARY_SERVICE_DISPLAY_FIELD_DEFINITIONS
     )
   ),
   createBuildSummaryArgLineDefinition(
     "独立组UDP",
     createServiceBuildSummaryArgEntries(
-      BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS,
+      NON_DEV_SERVICE_DEFINITIONS,
       BUILD_SUMMARY_SERVICE_UDP_FIELD_DEFINITIONS
     )
   ),
@@ -12155,7 +12187,7 @@ const BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS = Object.freeze([
     { key: "group-interface-name", hasKey: "hasGroupInterfaceName", valueKey: "groupInterfaceName" },
     { key: "group-routing-mark", hasKey: "hasGroupRoutingMark", valueKey: "groupRoutingMark" },
     ...createServiceBuildSummaryArgEntries(
-      BUILD_SUMMARY_PANEL_SERVICE_DEFINITIONS,
+      NON_DEV_SERVICE_DEFINITIONS,
       BUILD_SUMMARY_SERVICE_NETWORK_FIELD_DEFINITIONS
     )
   ])
@@ -12651,34 +12683,43 @@ function createServiceSummaryValueLineDefinition(label, services, formatter) {
   };
 }
 
-// full 日志里这几条“独立组资源摘要”行都是同一模板：标签不同，但都走 formatServiceLogSummary，这里统一构造。
-const BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINES = Object.freeze([
-  createServiceSummaryValueLineDefinition(
-    "独立组前置组",
-    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
-    (service) => getServiceArgLogValue(service.argToken, "PreferGroups")
-  ),
-  createServiceSummaryValueLineDefinition(
-    "独立组点名节点",
-    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
-    (service) => getServiceArgLogValue(service.argToken, "PreferNodes")
-  ),
-  createServiceSummaryValueLineDefinition(
-    "独立组Provider池",
-    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
-    (service) => formatServiceProviderPoolLogValue(service.argToken)
-  ),
-  createServiceSummaryValueLineDefinition(
-    "独立组测速",
-    SERVICE_RESOURCE_VALIDATION_DEFINITIONS.filter((service) => service.key !== "dev"),
-    (service) => formatServiceLatencyLogValue(service.argToken)
-  ),
-  createServiceSummaryValueLineDefinition(
-    "独立组节点池",
-    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
-    (service) => formatServiceNodePoolLogValue(service.argToken)
-  )
+// 独立组资源摘要行的差异只剩“标签 / 服务集合 / formatter”，这里改成定义驱动，后续扩展新摘要只需补一项配置。
+const BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINE_DEFINITIONS = Object.freeze([
+  {
+    label: "独立组前置组",
+    services: SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    formatter: (service) => getServiceArgLogValue(service.argToken, "PreferGroups")
+  },
+  {
+    label: "独立组点名节点",
+    services: SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    formatter: (service) => getServiceArgLogValue(service.argToken, "PreferNodes")
+  },
+  {
+    label: "独立组Provider池",
+    services: SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    formatter: (service) => formatServiceProviderPoolLogValue(service.argToken)
+  },
+  {
+    label: "独立组测速",
+    services: NON_DEV_SERVICE_DEFINITIONS,
+    formatter: (service) => formatServiceLatencyLogValue(service.argToken)
+  },
+  {
+    label: "独立组节点池",
+    services: SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    formatter: (service) => formatServiceNodePoolLogValue(service.argToken)
+  }
 ]);
+
+function buildServiceSummaryValueLines(definitions) {
+  return (Array.isArray(definitions) ? definitions : [])
+    .map((definition) => createServiceSummaryValueLineDefinition(definition.label, definition.services, definition.formatter));
+}
+
+const BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINES = Object.freeze(
+  buildServiceSummaryValueLines(BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINE_DEFINITIONS)
+);
 
 const BUILD_SUMMARY_VALUE_LINE_DEFINITIONS = Object.freeze([
   {
@@ -12731,15 +12772,7 @@ const BUILD_SUMMARY_VALUE_LINE_DEFINITIONS = Object.freeze([
   },
   {
     label: "开发服务组高级项",
-    value: () => formatServiceAdvancedLogValue("Dev", [
-      { label: "test-url", suffix: "TestUrl" },
-      { label: "strategy", suffix: "GroupStrategy" },
-      { label: "hidden", suffix: "Hidden" },
-      { label: "disable-udp", suffix: "DisableUdp" },
-      { label: "icon", suffix: "Icon" },
-      { label: "interface-name", suffix: "InterfaceName" },
-      { label: "routing-mark", suffix: "RoutingMark" }
-    ])
+    value: () => formatServiceArgFieldsLogValue("Dev", DEV_SERVICE_ADVANCED_LOG_FIELD_DEFINITIONS)
   },
   ...BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINES,
   {
