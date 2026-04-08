@@ -1,0 +1,15 @@
+# ========== AI补充服务 ==========
+# 这一份主要承接 GitHub 社区常见的 AI 补充分流域名。
+
+# ========== Perplexity ==========
+DOMAIN-SUFFIX,perplexity.ai
+DOMAIN-SUFFIX,pplx.ai
+
+# ========== Cursor ==========
+DOMAIN-SUFFIX,cursor.com
+DOMAIN-SUFFIX,cursor.sh
+
+# ========== Hugging Face ==========
+DOMAIN-SUFFIX,huggingface.co
+DOMAIN-SUFFIX,hf.co
+DOMAIN-SUFFIX,huggingfaceusercontent.com

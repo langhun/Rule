@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.11.0
+ * Sub-Store 终极策略增强脚本 V9.12.2
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -191,11 +191,133 @@
  * 186. 开发补丁规则继续扩容：`Dev.list` 继续补入 Bun / JSR / NuGet / Composer / Dart / Flutter / Swift / CocoaPods / Hex 等常见开发生态域名。
  * 187. 开发补丁说明增强：README 同步补充 `Dev.list` 本地补丁层的适用范围与典型生态示例，便于后续继续扩展。
  * 188. 注释增强：继续给 `DevList` 规则接入点与开发规则入口集合补充中文注释，后续自己顺着源码找会更轻松。
+ * 189. 规则诊断缓存优化：把 rules 的描述/层级/目标解析与关键 provider 首次命中索引缓存到主流程，减少多份顺序诊断里的重复扫描。
+ * 190. 服务校验抽象优化：把 GitHub / Steam / Dev 的优选组、点名节点、Provider 池诊断改成数据驱动，减少 validate 阶段的重复拼接。
+ * 191. 服务组选项构造优化：把 GitHub / Steam / Dev 的测速、节点池、Provider 池与展示高级项拼装收敛到统一 helper，减少 buildProxyGroups 内平行模板代码。
+ * 192. 服务组候选链优化：把 GitHub / Steam / Dev 的前置组、点名节点、Provider 引用解析与最终候选链拼装抽成统一 helper，继续压缩 buildProxyGroups 模板代码。
+ * 193. 摘要装配优化：把 diagnostics 补充字段与 full 日志数量指标改成统一装配 helper，减少 main/logBuildSummary 内的长串手写赋值。
+ * 194. 诊断日志模板优化：把 logDiagnostics 中成组的告警输出改成统一定义表驱动，减少几十段重复 warn 模板。
+ * 195. 服务日志摘要优化：把 full 日志里 GitHub / Steam / Dev 的前置组、节点池、Provider 池、测速与高级项输出收敛到统一 helper。
+ * 196. 诊断摘要继续收敛：把响应头与 full 日志共用的链路/规则摘要字段改成统一定义表，并收敛剩余服务参数日志模板。
+ * 197. Provider 模板继续收敛：把 rule/proxy-provider 响应头和 full 日志里的下载控制/Override 参数改成统一定义驱动。
+ * 198. 运行时响应头继续收敛：把下载链路上下文与规则源 URL 类响应头改成统一定义装配，继续压缩主响应头函数。
+ * 199. 地理参数摘要继续收敛：把 group/region/country-extra-alias 响应头与对应 full 日志改成统一计算定义。
+ * 200. 收尾模板继续收敛：把顺序类响应头与若干运行时/编排摘要日志改成统一 value 定义，继续压缩主函数体积。
+ * 201. full 日志参数块继续收敛：把全局参数、测速、Sniffer、DNS 池、国家优先链与开发服务组摘要改成统一定义表输出。
+ * 202. 可选摘要继续收敛：把国家/区域统计与国家优先链 trace/explain/unmatched 这些按条件输出的行也改成定义驱动。
+ * 203. diagnostics 补字段继续收敛：把 diagnostics supplement 和 full 日志剩余散点摘要继续改成统一定义表。
+ * 204. 摘要定义引用优化：把 full 日志里的定义访问从数组索引改成按标签查找，降低后续继续插项时的维护成本。
+ * 205. 摘要查表继续收敛：给 full 日志定义表增加 lookup/批量输出 helper，避免反复 `find` 同一批 label。
+ * 206. 告警与摘要装配继续收敛：把 diagnostics 特例告警和 full 日志 payload 装配改成统一 helper，继续压缩主流程。
+ * 207. full 日志分段计划化：把按标签批量输出的摘要分段改成配置表，进一步减少 logBuildSummary 主体里的重复调用。
+ * 208. main 装配继续收敛：把 diagnostics supplement 的上游上下文拼装也改成定义驱动，继续压缩主流程中的长对象字面量。
+ * 209. 分析摘要继续收敛：把 main 里成组的 `analyze -> formatSummary/Preview` 结果改成统一定义装配，减少平行变量。
+ * 210. 主流程分析装配继续收敛：把 main 里连续的分析对象计算与派生 payload 打包成统一 helper，继续压缩主流程。
+ * 211. 预计算分析缓存收敛：把 validate 阶段复用的 analysis cache 提取成 helper，继续减少 main 中的零散对象拼装。
+ * 212. 最终结果装配收敛：把 main 里最终 result 对象的构建抽成 helper，继续压缩主流程并集中默认值策略。
+ * 213. Provider 阶段装配收敛：把 provider 合并、补强与 mutation 统计改成统一 helper，继续减少 main 中平行变量。
+ * 214. 尾部后处理收敛：把 profile 注入与 full 模式日志/日志等级处理收成 helper，继续压缩 main 尾段。
+ * 215. 前置阶段装配收敛：把 main 里国家/区域阶段与规则阶段的连续准备逻辑抽成 helper，继续压缩主流程前半段。
+ * 216. diagnostics 阶段装配收敛：把主流程中的校验、补字段、响应头回写与诊断日志输出整理成统一 helper。
+ * 217. 最终结果字段装配继续收敛：把 mixed-port / allow-lan / unified-delay / tcp-concurrent 等收尾字段改成统一定义驱动。
+ * 218. full 日志收尾装配继续收敛：把 full 模式日志上下文与 log-level 解析抽成 helper，继续压缩 finalizeMainResultArtifacts。
+ * 219. 阶段产物裁剪继续收敛：把 geo/rule 两批 artifacts 的常用字段提炼成统一规范化 helper，减少多个 payload builder 重复挑字段。
+ * 220. payload 装配继续收敛：analysis/result/diagnostics/finalize 四段改为复用共享 artifacts helper，继续压缩阶段上下文拼装代码。
+ * 221. 收尾摘要上下文继续收敛：把 finalize/full 日志共同依赖的 geo/rule/analysis 摘要字段提炼成共享 helper，减少重复装配。
+ * 222. profile 注入模板继续收敛：把 profile.store-selected/store-fake-ip 默认值组装抽成 helper，减少 buildMainProfileConfig 内条件模板。
+ * 223. diagnostics 摘要装配继续收敛：让 diagnostics payload/supplement 复用共享摘要上下文，减少 country/analysis 字段重复拼装。
+ * 224. diagnostics 补字段收尾继续收敛：把 provider mutation 与 analysis 摘要并入统一 supplement context helper，继续压缩 buildMainDiagnosticsArtifacts。
+ * 225. 收尾摘要字段定义化：把 geo/rule/analysis 摘要上下文改成统一定义表装配，减少 buildMainSummaryPayloadContext 内重复 fallback 模板。
+ * 226. 主流程阶段编排继续收敛：把 pipeline 前半段五个阶段改成顺序定义表驱动，减少 buildMainPipelineArtifacts 内平行调用模板。
+ * 227. 规则输入裁剪继续收敛：把主流程对 config.rules 的规范化读取抽成 helper，减少 pipeline/diagnostics 阶段重复兜底。
+ * 228. payload 装配上下文继续收敛：把 result/diagnostics/finalize 三段共同依赖的规范化输入提炼成共享 helper，减少多处重复取值。
+ * 229. 最终结果字段继续收敛：把 result 阶段的 provider 注入与基础输出字段拆成共享 helper，减少 buildMainResultConfig 内对象模板体积。
+ * 230. 收尾 full 模式继续收敛：把 full 日志所需的 log-level 与 summary payload 装配抽成 helper，继续压缩 finalizeMainResultArtifacts。
+ * 231. 定义驱动装配继续收敛：把若干“遍历 definitions 产出对象”的同构循环抽成统一 helper，减少收尾阶段重复模板。
+ * 232. full 日志上下文继续收敛：让 full summary payload 复用主流程统一装配上下文，减少 summary/finalize 间的重复裁剪。
+ * 233. diagnostics/analysis builder 继续收敛：把 supplement、single-value 与 summary/preview 这几类定义驱动装配统一走共享 helper，减少同构循环。
+ * 234. analysis/provider 继续定义化：把分析主产物与 provider mutation 摘要装配改成统一定义驱动，减少平铺调用模板。
+ * 235. full 日志指标继续收敛：把 diagnostics 统计里的额外 Provider/改名摘要改成定义表装配，减少 buildFullSummaryDiagnosticMetrics 内模板代码。
+ * 236. 裁剪型 helper 继续定义化：把 analysis-stage / validation-cache / diagnostics-supplement-context 这些字段挑选逻辑改成统一定义驱动。
+ * 237. artifacts 裁剪继续定义化：把 analysis/geo/rule 三组 payload-artifacts helper 也改成统一定义表装配，继续减少重复裁剪模板。
+ * 238. 结果/profile 字段继续定义化：把 result 核心产物字段与 profile 运行时字段都改成统一定义驱动，继续压缩收尾 helper。
+ * 239. 收尾副作用继续收敛：把 diagnostics 响应头回写与 full 模式结果字段装配提成 helper/定义表，减少 finalize 阶段条件模板。
+ * 240. diagnostics/pipeline 装配继续收敛：把 diagnostics supplement 合并与 pipeline 阶段执行上下文抽成 helper，继续减少阶段函数里的模板代码。
+ * 241. 响应头装配继续收敛：把 buildRuntimeResponseHeaders 里的多段 header section 合并改成统一计划表驱动，减少主函数平铺模板。
+ * 242. 响应头与摘要循环继续收敛：把 runtime 响应头剩余附加字段与 logBuildSummary 里的批量循环也改成统一定义/批量执行 helper。
+ * 243. buildProxyGroups 服务组装配继续收敛：把 GitHub / Steam / Dev 的资源解析、候选链与组选项构建抽成统一 helper，减少函数中成组模板代码。
+ * 244. 日志定义批量执行继续收敛：把 diagnostics/full-summary 里按 definitions 顺序执行的循环抽成统一 helper，减少日志函数模板。
+ * 245. 顺序产物装配继续收敛：新增顺序定义执行 helper，并让 geo/rule/pipeline 三段顺序产物统一走同一套装配模式。
+ * 246. 日志循环继续收敛：把 logDiagnostics 与 logBuildSummary 里按 definitions 顺序执行的同构循环进一步抽成统一 helper。
+ * 247. 响应头/日志分段继续计划化：把 runtime header section 的 mode 分派与 logBuildSummary 里的剩余分组循环改成统一计划表驱动。
+ * 248. buildProxyGroups 服务组装配继续收敛：把 GitHub / Steam / Dev 的资源解析、候选链与组选项构建进一步合并成共享 helper。
+ * 249. buildProxyGroups 服务状态继续收敛：把 GitHub / Steam / Dev 的模式基链、优选资源、组选项与最终组构造提炼成统一 helper。
+ * 250. buildProxyGroups 服务定义继续收敛：把 GitHub / Steam / Dev 的服务组构造计划改成统一定义表装配，继续压缩函数内部平行模板。
+ * 251. buildProxyGroups 固定组装配继续收敛：把固定功能组数组改成统一定义表构造，减少大段 createSelectGroup/createServiceGroup 模板。
+ * 252. buildProxyGroups 追加组继续收敛：把 landing/low-cost/country/region/other 这些追加组构造改成统一 helper，继续压缩尾段模板。
+ * 253. buildProxyGroups 尾段列表装配继续收敛：把固定组与追加组的拼接统一交给 helper，减少尾段 push/循环模板。
+ * 254. buildProxyGroups 收尾继续收敛：把生成组拼装与 merge/order 收尾提成 helper，减少 buildProxyGroups 尾段样板代码。
+ * 255. buildProxyGroups 前置状态继续收敛：把 preferred country groups 与 mode base proxies 改成定义驱动装配，继续压缩函数前半段平行模板。
+ * 256. name 列表提取继续收敛：把多处对象数组里的 `name` 收集模板抽成统一 helper，顺带压缩策略组排序、诊断与 buildProxyGroups 中的重复过滤逻辑。
+ * 257. 可用组名集合继续收敛：把“若干组名数组 + 内置策略名”的拼装提成统一 helper，并抽出稳定生成的功能组常量，减少规则/校验/buildProxyGroups 中的重复列表模板。
+ * 258. buildProxyGroups 基础上下文继续收敛：把 country/region/group/provider/name 这批无副作用的前置提取统一收成 helper，继续压缩函数开头的平行变量模板。
+ * 259. diagnostics 预览输出继续收敛：把 warning/special-warning 在 full 模式下的样本打印模板抽成共享 helper，减少日志函数里的重复 slice/format 循环。
+ * 260. DNS / Kernel / Sniffer 标量回退继续收敛：把“参数优先 -> 配置回退 -> 默认值”的 string/bool/hasOwn 模板提成通用 resolver，减少核心配置构建函数中的重复三元分支。
+ * 261. definition-build 列表装配继续收敛：把“definitions -> build -> 列表/拍平列表”的双份循环统一成共享 helper，减少 buildProxyGroups 周边重复模板。
+ * 262. build summary 阶段调度继续收敛：给 definition handler sections 显式加上 phase，移除 logBuildSummary 里的 slice 魔法索引。
+ * 263. runtime response-header section 分派继续收敛：把 definition / diagnostic-summary 的 kind 分支改成注册表驱动，减少 section payload builder 内的条件模板。
+ * 264. 校验/内核显式值回退继续收敛：把 validateRuleTargets 的组名提取与 Kernel 默认项里剩余的 hasOwn 标量模板继续统一到共享 helper。
+ * 265. DNS / Kernel / Sniffer 标量装配继续定义化：把已抽成 resolver 的局部标量字段改为小范围 definition-driven 产物，继续压缩三段配置构建函数里的平行局部变量模板。
+ * 266. diagnostics 定义解析继续收敛：把 warning/special-warning 对 shouldLog/message/previewItems/preview 配置的默认值解析统一到共享 helper，并补齐 DNS fake-ip-filter 的新字段引用。
+ * 267. DNS / Kernel config-only 标量继续定义化：把 use-hosts / direct-nameserver-follow-policy / mode / etag-support 这批仅依赖配置回退的字段也并入共享 scalar definitions，继续收敛零散模板。
+ * 268. DNS optional scalar / diagnostics logger 状态继续收敛：把 fake-ip-range6/fake-ip-ttl 写回改成可选定义装配，并把 warning/special-warning 的运行态解析统一到单一 state resolver。
+ * 269. DNS 默认列表合并继续收敛：把 default-nameserver / nameserver / fallback / fallback-filter 里的默认值拼接模板统一到共享 helper，减少 buildDnsConfig 中的重复 uniqueStrings + toStringArray 模板。
+ * 270. DNS fallback-filter 继续局部定义化：把“默认对象 + geosite/domain/ipcidr 三段补齐”收成专用 helper，继续压缩 buildDnsConfig 尾段固定模板。
+ * 271. full 日志服务摘要行继续收敛：把独立组前置组/点名节点/Provider池/测速/节点池这批同构 value 行抽成共享构造 helper，减少 BUILD_SUMMARY_VALUE_LINE_DEFINITIONS 中的重复模板。
+ * 272. 响应头条件定义继续收敛：把 country-extra-aliases 与 rule-order 这两组同构 header 定义抽成共享构造 helper，减少 response-header definitions 中的重复模板。
+ * 273. summary/header 参数定义继续收敛：把 `ARGS.hasX ? ARGS.x : fallback` 型 header 定义与 BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS 的条目构造统一到共享 helper，继续压缩 definitions 区域的重复模板。
+ * 274. response-header / summary definitions 继续模板化：把 Geo/Rule-Order 里同构的参数回退 header 与 build summary 参数条目统一到共享构造 helper，减少 definitions 区域里重复的 `hasX/valueKey/fallback` 样板。
+ * 275. rule-order 展示定义继续收敛：把 full 日志里的规则顺序摘要与响应头里共用的 anchor/position 读取逻辑统一到共享 helper / definitions，集中维护规则顺序的键位映射。
+ * 276. Sniffer / build-summary 模板继续收敛：把 sniff 协议表与字符串列表写回改成 definitions 驱动，并统一 full 日志单行输出 helper，继续压缩局部重复模板。
+ * 277. Kernel 默认项输出映射继续定义化：把 buildKernelDefaults 末尾静态的输出键投影集中到共享 definitions，保持默认值解析不变，只收敛最终装配模板。
+ * 278. DNS 默认列表 / policy 合并继续定义化：把 buildDnsConfig 尾段的 nameserver/fallback/proxy-server-nameserver 与两组 policy 合并模板统一到共享 definitions，集中维护默认值来源与写回顺序。
+ * 279. diagnostics 执行壳层继续收敛：把 warning/special-warning 共同的 message + preview 输出流程统一到共享 helper，保持 definitions、触发条件与预览格式不变。
+ * 280. diagnostics 计数/response-header 适配继续收敛：把 issue 总数改成从 diagnostics definitions 派生，并统一两类 response-header definition 的适配壳层，减少计数名单与响应头映射模板的漂移。
+ * 281. diagnostics 调度壳层继续收敛：把 logDiagnostics 里 warning/special-warning 的分发顺序整理成统一 section 计划表，继续压缩主函数中的平铺 handler 调用。
+ * 282. DNS policy / diagnostics count definitions 继续收敛：把 buildDnsConfig 里两份同构 nameserver-policy 模板统一到共享 builder，并把 special issue 计数 definitions 收成轻量构造 helper，继续减少定义区样板。
+ * 283. diagnostics count meta 继续内聚：把 special-warning 的计数来源直接并回 DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS，进一步消除日志定义与计数定义的并行维护。
+ * 284. response-header entry shape 继续收敛：把 `{ suffix, value }` 结构的构造统一到共享 helper，减少 header 适配层里重复的 entry 字面量模板。
+ * 285. DNS policy merge / header single-entry 路径继续收敛：把成对的 DNS policy merge definition 改成共享 builder，并把单值响应头的 entry-list 构造统一到轻量 helper，继续压缩适配层样板。
+ * 286. diagnostics handler 协议继续收敛：把 warning/special-warning 两类 diagnostics 输出统一到单一 definition handler，保持定义表、顺序与输出格式不变，继续压缩分发壳层。
+ * 287. definition-handler section runner 继续收敛：把 diagnostics 与 build summary 里两处同构的 section 循环统一到共享 runner，继续压缩调度层重复模板。
+ * 288. DNS / header runtime context 继续收敛：把 buildDnsConfig 尾段共享数据打包成统一 runtime context，并把 runtime response-header section 改成显式 context 协议，继续压缩装配层样板。
+ * 289. response-header normalize boundary 继续前移：把 entry 后缀标准化集中到 buildMappedResponseHeaders 中间层，让 buildPrefixedHeaderPayload 更专注于最终 header 拼装，继续压缩重复校验模板。
+ * 290. runtime response-header section 协议继续统一：把 definitions 驱动区段、自定义区段与 diagnostic-summary 区段统一成更显式的 section 协议，并集中到共享 section payload resolver，继续压缩装配层模板。
+ * 291. DNS runtime context 继续定义化：把 buildDnsRuntimeContext 里的固定 nameserver 列表与 policy 派生字段进一步收成共享常量/definitions，继续压缩 runtime context 装配模板。
+ * 292. response-header emit / section 协议继续收敛：把 prefixed header 的最终 emit 独立成纯 helper，并让 diagnostics/build-summary 的 section 都显式带 handler，继续收紧 builder 层级职责。
+ * 293. runtime response-header builder 层级继续收紧：把 trailing headers 也纳入统一 section 协议，并新增专用 runtime context builder，让 buildRuntimeResponseHeaders 只负责装配 context 与执行 section 计划。
+ * 294. runtime response-header section 工厂继续收敛：把 definitions 型与 diagnostic-summary 型 section 统一到共享的映射式 section builder，并让 section payload resolver 改按显式 kind 分发，继续压缩 section 装配模板。
+ * 295. runtime response-header builder 继续局部收敛：把 section helper 统一到单一协议，并把 definitions→entries 的两类小映射模板抽成共享 helper，继续压缩映射层样板。
+ * 296. DNS runtime context 继续分层定义化：把 buildDnsRuntimeContext 拆成 base definitions 与 policy definitions 两段串行装配，显式表达“基础列表/选项 -> policy 派生字段”的依赖层次。
+ * 297. buildProxyGroups 生成组列表继续收敛：把固定组与追加组 definitions 合并成单一生成计划，减少尾段数组拼接模板。
+ * 298. runtime response-header definition 继续收敛：把 service / prefer-country custom sections 改为同一套 definition section，避免多层 master builder 模板。
+ * 299. assemblyContext 装配继续定义化：把 result / diagnostics / finalize 共用的阶段裁剪字段收成 definitions，并让 supplement 上下文优先复用预装配产物。
+ * 300. runtime response-header section 协议收尾：移除已无调用的 custom 分支与 build 回退，显式只保留 definition / diagnostic-summary 两类 section。
+ * 301. build summary metrics 继续收敛：把 primary / warning metric logging 集合成同一套 definition section，减少 `logBuildSummary` 的平铺调用。
+ * 302. buildProxyGroups 运行时上下文继续收敛：把候选链、优先国家链与服务组中间产物改成顺序 definitions builder，压缩函数前半段平行局部变量。
+ * 303. build summary metric lines 收敛：抽出 `emitBuildSummaryMetricLine` 统一 label/value/unit 输出，减少 `logBuildSummaryMetricLines` 主体的重复模板。
+ * 304. 调度 helper 继续收口：移除 buildProxyGroups 与 diagnostics section 中剩余的一次性中转 wrapper，减少无意义的调用层级。
+ * 305. assemblyContext 消费层继续定义化：把 result / finalization / full-summary 这几段输出装配统一成 definitions，减少尾部对象模板。
+ * 306. build summary / proxy group definition 继续收口：把 lookup registry/section 与 fixed/extra group 常见模板抽成 helper，继续压缩重复对象壳层。
+ * 307. summary/preview 派生 definitions 继续收口：把 diagnostics/full-summary 对同一批摘要键的展开统一成 helper，减少重复 flatMap 模板。
+ * 308. response-header / diagnostics definitions 继续收口：把服务响应头与 special-warning 的同构对象模板抽成轻量 helper，继续压缩 definitions 区样板。
+ * 309. 分类计数模板继续收口：把业务窗口/规则风险/策略组风险里的 category 计数分支统一改成映射 + helper，减少多处 if-else 累加模板。
+ * 310. 规则定义查表继续收口：把 provider->definition / provider->index 两份查找表构建统一到共享 builder，减少重复循环模板。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.11.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.11.0。
+const SCRIPT_VERSION = "9.12.8";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.12.8。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -419,6 +541,35 @@ const GROUPS = {
   // 广告拦截策略组。
   ADS: "🛑 广告拦截"
 };
+
+// 这批功能组在脚本正常构建时始终会生成，可供规则目标解析与前置组引用直接复用。
+const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
+  GROUPS.SELECT,
+  GROUPS.MANUAL,
+  GROUPS.FALLBACK,
+  GROUPS.DIRECT,
+  GROUPS.OTHER,
+  GROUPS.AI,
+  GROUPS.CRYPTO,
+  GROUPS.APPLE,
+  GROUPS.MICROSOFT,
+  GROUPS.GOOGLE,
+  GROUPS.GITHUB,
+  GROUPS.DEV,
+  GROUPS.BING,
+  GROUPS.ONEDRIVE,
+  GROUPS.TELEGRAM,
+  GROUPS.YOUTUBE,
+  GROUPS.NETFLIX,
+  GROUPS.DISNEY,
+  GROUPS.SPOTIFY,
+  GROUPS.TIKTOK,
+  GROUPS.STEAM,
+  GROUPS.GAMES,
+  GROUPS.PT,
+  GROUPS.SPEEDTEST,
+  GROUPS.ADS
+]);
 
 // 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
 // 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
@@ -1230,6 +1381,25 @@ function toStringArray(value) {
   return uniqueStrings(Array.isArray(value) ? value : []);
 }
 
+// 从对象数组里稳定提取 `.name` 字段，统一处理空值/空白，避免多处重复写 filter + map 模板。
+function collectNamedEntries(items) {
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => isObject(item) && typeof item.name === "string" && item.name.trim())
+    .map((item) => item.name.trim());
+}
+
+// 把多段组名/节点名引用统一拼成“可直接引用的名字列表”，并自动附带内置策略名。
+function buildBuiltinAwareNameList() {
+  const segments = Array.prototype.slice.call(arguments);
+  const names = [];
+
+  for (const segment of segments) {
+    names.push.apply(names, toStringArray(segment));
+  }
+
+  return uniqueStrings(names.concat(BUILTIN_POLICY_NAMES));
+}
+
 // 规范化 DNS policy 映射，把 string/array 都收敛成字符串数组，便于后续合并。
 function normalizeDnsPolicyMap(value) {
   const source = isObject(value) ? value : {};
@@ -1369,6 +1539,299 @@ function parseBool(value, defaultValue) {
 
   // 无法识别时回落到默认值。
   return defaultValue;
+}
+
+// 常见的“参数优先 -> 配置字符串 -> 默认值”模板统一收口，避免 DNS / Kernel 等区域重复手写。
+function resolveArgOrStringConfigValue(current, hasArgKey, argKey, configKey, defaultValue) {
+  const source = isObject(current) ? current : {};
+  return ARGS[hasArgKey]
+    ? ARGS[argKey]
+    : (typeof source[configKey] === "string" && source[configKey] ? source[configKey] : defaultValue);
+}
+
+// 常见的“参数优先 -> parseBool(配置值) -> 默认值”模板统一收口。
+function resolveArgOrParsedBoolConfigValue(current, hasArgKey, argKey, configKey, defaultValue) {
+  const source = isObject(current) ? current : {};
+  return ARGS[hasArgKey]
+    ? ARGS[argKey]
+    : parseBool(source[configKey], defaultValue);
+}
+
+// 常见的“参数优先 -> 保留配置显式值 -> 默认值”模板统一收口，适合 number / boolean / 任意标量。
+function resolveArgOrHasOwnConfigValue(current, hasArgKey, argKey, configKey, defaultValue) {
+  const source = isObject(current) ? current : {};
+  return ARGS[hasArgKey]
+    ? ARGS[argKey]
+    : (hasOwn(source, configKey) ? source[configKey] : defaultValue);
+}
+
+// 没有参数覆盖时，一些字段只需要“保留配置显式值，否则回落默认”，这里单独收口。
+function resolveConfigOrDefaultValue(current, configKey, defaultValue) {
+  const source = isObject(current) ? current : {};
+  return hasOwn(source, configKey) ? source[configKey] : defaultValue;
+}
+
+// 常见的“只看配置字符串，否则回落默认值”模板统一收口。
+function resolveConfigStringValue(current, configKey, defaultValue) {
+  const source = isObject(current) ? current : {};
+  return typeof source[configKey] === "string" && source[configKey] ? source[configKey] : defaultValue;
+}
+
+// 常见的“只看配置值并按布尔解析，否则回落默认值”模板统一收口。
+function resolveConfigParsedBoolValue(current, configKey, defaultValue) {
+  const source = isObject(current) ? current : {};
+  return parseBool(source[configKey], defaultValue);
+}
+
+// buildDnsConfig 顶部这批标量字段都遵循同一套参数/配置回退策略，这里先定义化，减少平铺局部变量。
+const DNS_SCALAR_RUNTIME_OPTION_DEFINITIONS = Object.freeze([
+  { key: "cacheAlgorithm", value: (currentDns) => resolveArgOrStringConfigValue(currentDns, "hasDnsCacheAlgorithm", "dnsCacheAlgorithm", "cache-algorithm", "arc") },
+  { key: "preferH3", value: (currentDns) => resolveArgOrParsedBoolConfigValue(currentDns, "hasDnsPreferH3", "dnsPreferH3", "prefer-h3", false) },
+  { key: "respectRules", value: (currentDns) => resolveArgOrParsedBoolConfigValue(currentDns, "hasDnsRespectRules", "dnsRespectRules", "respect-rules", false) },
+  { key: "useHosts", value: (currentDns) => resolveConfigParsedBoolValue(currentDns, "use-hosts", true) },
+  { key: "useSystemHosts", value: (currentDns) => resolveArgOrParsedBoolConfigValue(currentDns, "hasDnsUseSystemHosts", "dnsUseSystemHosts", "use-system-hosts", true) },
+  { key: "listen", value: (currentDns) => resolveArgOrStringConfigValue(currentDns, "hasDnsListen", "dnsListen", "listen", ":1053") },
+  { key: "fakeIpFilterMode", value: (currentDns) => resolveArgOrStringConfigValue(currentDns, "hasFakeIpFilterMode", "fakeIpFilterMode", "fake-ip-filter-mode", "blacklist") },
+  { key: "fakeIpRange", value: (currentDns) => resolveArgOrStringConfigValue(currentDns, "hasFakeIpRange", "fakeIpRange", "fake-ip-range", "198.18.0.1/16") },
+  { key: "directNameserverFollowPolicy", value: (currentDns) => resolveConfigParsedBoolValue(currentDns, "direct-nameserver-follow-policy", true) }
+]);
+
+// DNS 顶部那批纯标量 runtime 选项统一通过 definitions 装配，避免 buildDnsConfig 再继续堆平行常量。
+function buildDnsScalarRuntimeOptions(currentDns) {
+  return buildDefinitionDrivenPayload(DNS_SCALAR_RUNTIME_OPTION_DEFINITIONS, currentDns);
+}
+
+// DNS 里少量“满足条件才写回”的可选标量统一定义化，避免 buildDnsConfig 尾段继续保留多段 if/else 模板。
+const DNS_OPTIONAL_SCALAR_DEFINITIONS = Object.freeze([
+  {
+    key: "fake-ip-range6",
+    value: (currentDns) => {
+      if (ARGS.hasFakeIpRange6) {
+        return ARGS.fakeIpRange6;
+      }
+      if (typeof currentDns["fake-ip-range6"] === "string" && currentDns["fake-ip-range6"]) {
+        return currentDns["fake-ip-range6"];
+      }
+      return ARGS.ipv6 ? "fdfe:dcba:9876::1/64" : undefined;
+    }
+  },
+  {
+    key: "fake-ip-ttl",
+    value: (currentDns) => (ARGS.hasFakeIpTtl || hasOwn(currentDns, "fake-ip-ttl"))
+      ? (ARGS.hasFakeIpTtl ? ARGS.fakeIpTtl : currentDns["fake-ip-ttl"])
+      : undefined
+  }
+]);
+
+// 只把 value !== undefined 的定义结果写入 payload，适合 DNS 这类“可选写回”的字段装配。
+function buildOptionalDefinitionDrivenPayload(definitions, context) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const payload = {};
+
+  for (const definition of source) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key || typeof (definition && definition.value) !== "function") {
+      continue;
+    }
+
+    const value = definition.value(context);
+    if (typeof value !== "undefined") {
+      payload[key] = value;
+    }
+  }
+
+  return payload;
+}
+
+// DNS 尾段这些可选标量统一通过 definitions 装配，避免 buildDnsConfig 再保留多段条件写回模板。
+function buildDnsOptionalScalarOptions(currentDns) {
+  return buildOptionalDefinitionDrivenPayload(DNS_OPTIONAL_SCALAR_DEFINITIONS, currentDns);
+}
+
+// DNS 里很多列表都遵循“默认值在前 + 用户当前值在后 + 去重”的同一模板，这里统一收口。
+function mergeDefaultStringEntries(defaultEntries, currentEntries) {
+  return uniqueStrings(toStringArray(defaultEntries).concat(toStringArray(currentEntries)));
+}
+
+// buildDnsConfig 里多组 nameserver 列表只是默认来源不同，这里集中成 definitions，避免尾段继续平铺赋值模板。
+const DNS_DEFAULT_STRING_LIST_DEFINITIONS = Object.freeze([
+  {
+    key: "default-nameserver",
+    value: (context) => mergeDefaultStringEntries([
+      "223.5.5.5",
+      "119.29.29.29"
+    ], context.currentDns["default-nameserver"])
+  },
+  { key: "nameserver", value: (context) => mergeDefaultStringEntries(context.domesticNameservers, context.currentDns.nameserver) },
+  { key: "fallback", value: (context) => mergeDefaultStringEntries(context.fallbackNameservers, context.currentDns.fallback) },
+  {
+    key: "proxy-server-nameserver",
+    value: (context) => mergeDefaultStringEntries(
+      context.fallbackNameservers.concat(context.domesticNameservers),
+      context.currentDns["proxy-server-nameserver"]
+    )
+  },
+  { key: "direct-nameserver", value: (context) => mergeDefaultStringEntries(context.domesticNameservers, context.currentDns["direct-nameserver"]) }
+]);
+
+// 批量装配 DNS 默认字符串列表，确保默认值始终在前、用户原值在后，并统一去重。
+function buildDnsDefaultStringListPayload(context) {
+  return buildDefinitionDrivenPayload(DNS_DEFAULT_STRING_LIST_DEFINITIONS, isObject(context) ? context : {});
+}
+
+// DNS policy 这类 pair-definition 只是目标字段和默认 policy 来源不同，这里统一构造，减少 definitions 内联函数重复。
+function createDnsPolicyMergeDefinition(key, policySourceKey) {
+  return {
+    key,
+    value: (context) => mergeDnsPolicyMaps(
+      context[policySourceKey],
+      context.currentDns[key]
+    )
+  };
+}
+
+// nameserver-policy 与 proxy-server-nameserver-policy 都遵循“默认 policy + 用户 policy”的同构模板，也统一定义化。
+const DNS_POLICY_MERGE_DEFINITIONS = Object.freeze([
+  createDnsPolicyMergeDefinition("nameserver-policy", "nameserverPolicy"),
+  createDnsPolicyMergeDefinition("proxy-server-nameserver-policy", "proxyServerNameserverPolicy")
+]);
+
+// 批量装配 DNS policy 字段，避免 buildDnsConfig 尾段再平铺两段近似的 mergeDnsPolicyMaps。
+function buildDnsPolicyPayload(context) {
+  return buildDefinitionDrivenPayload(DNS_POLICY_MERGE_DEFINITIONS, isObject(context) ? context : {});
+}
+
+// 默认 nameserver-policy 模板本体在主 DNS 与 proxy-server DNS 两侧完全同构，这里统一成共享 builder。
+function buildDefaultDnsNameserverPolicy(domesticNameservers, fallbackNameservers) {
+  return {
+    "geosite:cn,private,apple,steam@cn,microsoft": domesticNameservers,
+    "geosite:geolocation-!cn,gfw,google,youtube,telegram,openai,anthropic,google-gemini": fallbackNameservers
+  };
+}
+
+// buildDnsRuntimeContext 里这两组默认 nameserver 列表是稳定常量，提前提升避免每次都内联构造。
+const DNS_DEFAULT_DOMESTIC_NAMESERVERS = Object.freeze([
+  "https://dns.alidns.com/dns-query",
+  "https://doh.pub/dns-query"
+]);
+
+const DNS_DEFAULT_FALLBACK_NAMESERVERS = Object.freeze([
+  "https://1.1.1.1/dns-query",
+  "https://8.8.8.8/dns-query"
+]);
+
+// DNS runtime context 第一层是基础选项与默认 nameserver 列表；这批字段不依赖 policy 派生值，先单独装配。
+const DNS_RUNTIME_BASE_CONTEXT_DEFINITIONS = Object.freeze([
+  { key: "scalarOptions", value: (context) => buildDnsScalarRuntimeOptions(context.currentDns) },
+  { key: "optionalScalarOptions", value: (context) => buildDnsOptionalScalarOptions(context.currentDns) },
+  { key: "domesticNameservers", value: () => DNS_DEFAULT_DOMESTIC_NAMESERVERS.slice() },
+  { key: "fallbackNameservers", value: () => DNS_DEFAULT_FALLBACK_NAMESERVERS.slice() }
+]);
+
+// 两个 policy context 字段完全同构，只是输出 key 不同，这里统一构造避免 definitions 内重复。
+function createDnsRuntimePolicyContextDefinition(key) {
+  return {
+    key,
+    value: (context) => buildDefaultDnsNameserverPolicy(context.domesticNameservers, context.fallbackNameservers)
+  };
+}
+
+// DNS runtime context 第二层是基于 nameserver 列表派生的 policy 字段，单独装配后依赖关系更直观。
+const DNS_RUNTIME_POLICY_CONTEXT_DEFINITIONS = Object.freeze([
+  createDnsRuntimePolicyContextDefinition("nameserverPolicy"),
+  createDnsRuntimePolicyContextDefinition("proxyServerNameserverPolicy")
+]);
+
+// buildDnsConfig 尾段这批 current/default/policy 数据始终成组流动，这里统一打包成 runtime context，减少调用点重复装配。
+function buildDnsRuntimeContext(existingDns) {
+  const currentDns = isObject(existingDns) ? existingDns : {};
+  const baseContext = Object.assign(
+    { currentDns },
+    buildDefinitionDrivenPayload(DNS_RUNTIME_BASE_CONTEXT_DEFINITIONS, { currentDns })
+  );
+
+  return Object.assign(
+    baseContext,
+    buildDefinitionDrivenPayload(DNS_RUNTIME_POLICY_CONTEXT_DEFINITIONS, baseContext)
+  );
+}
+
+// fallback-filter 固定遵循“默认对象 + geosite/domain/ipcidr 三段补齐”的模板，这里单独抽出便于复用。
+function buildDnsFallbackFilter(currentFallbackFilter) {
+  const fallbackFilter = mergeObjects(
+    {
+      geoip: true,
+      "geoip-code": "CN",
+      geosite: ["gfw"],
+      domain: ["+.google.com", "+.facebook.com", "+.youtube.com"],
+      ipcidr: ["240.0.0.0/4"]
+    },
+    currentFallbackFilter
+  );
+
+  fallbackFilter.geosite = mergeDefaultStringEntries(["gfw"], fallbackFilter.geosite);
+  fallbackFilter.domain = mergeDefaultStringEntries([
+    "+.google.com",
+    "+.facebook.com",
+    "+.youtube.com"
+  ], fallbackFilter.domain);
+  fallbackFilter.ipcidr = mergeDefaultStringEntries(["240.0.0.0/4"], fallbackFilter.ipcidr);
+  return fallbackFilter;
+}
+
+// Kernel 默认项里的标量回退规则也统一定义化，后续加字段时不必再扩一串局部变量。
+const KERNEL_DEFAULT_SCALAR_DEFINITIONS = Object.freeze([
+  { key: "mode", value: (currentConfig) => resolveConfigStringValue(currentConfig, "mode", "rule") },
+  { key: "globalUa", value: (currentConfig) => resolveArgOrStringConfigValue(currentConfig, "hasGlobalUa", "globalUa", "global-ua", "clash.meta") },
+  { key: "geoAutoUpdate", value: (currentConfig) => resolveArgOrParsedBoolConfigValue(currentConfig, "hasGeoAutoUpdate", "geoAutoUpdate", "geo-auto-update", false) },
+  { key: "geoUpdateInterval", value: (currentConfig) => resolveArgOrHasOwnConfigValue(currentConfig, "hasGeoUpdateInterval", "geoUpdateInterval", "geo-update-interval", 24) },
+  { key: "processMode", value: (currentConfig) => resolveArgOrStringConfigValue(currentConfig, "hasProcessMode", "processMode", "find-process-mode", "strict") },
+  { key: "geodataMode", value: (currentConfig) => resolveArgOrParsedBoolConfigValue(currentConfig, "hasGeodataMode", "geodataMode", "geodata-mode", true) },
+  { key: "geodataLoader", value: (currentConfig) => resolveArgOrStringConfigValue(currentConfig, "hasGeodataLoader", "geodataLoader", "geodata-loader", "memconservative") },
+  { key: "etagSupport", value: (currentConfig) => resolveConfigParsedBoolValue(currentConfig, "etag-support", true) },
+  { key: "keepAliveIdle", value: (currentConfig) => resolveConfigOrDefaultValue(currentConfig, "keep-alive-idle", 15) },
+  { key: "keepAliveInterval", value: (currentConfig) => resolveConfigOrDefaultValue(currentConfig, "keep-alive-interval", 15) },
+  { key: "disableKeepAlive", value: (currentConfig) => resolveConfigOrDefaultValue(currentConfig, "disable-keep-alive", false) },
+  { key: "tcpConcurrent", value: (currentConfig) => resolveConfigOrDefaultValue(currentConfig, "tcp-concurrent", true) }
+]);
+
+// Kernel 默认项里这批标量字段集中装配，避免 buildKernelDefaults 里继续保留多段近似 fallback 模板。
+function buildKernelDefaultScalarOptions(currentConfig) {
+  return buildDefinitionDrivenPayload(KERNEL_DEFAULT_SCALAR_DEFINITIONS, currentConfig);
+}
+
+// buildKernelDefaults 末尾只是把准备好的运行时值投影成固定输出键，这里集中成 definitions，减少平铺对象模板。
+const KERNEL_DEFAULT_OUTPUT_DEFINITIONS = Object.freeze([
+  { key: "mode", value: (context) => context.mode },
+  { key: "global-ua", value: (context) => context.globalUa },
+  { key: "find-process-mode", value: (context) => context.processMode },
+  { key: "geodata-mode", value: (context) => context.geodataMode },
+  { key: "geodata-loader", value: (context) => context.geodataLoader },
+  { key: "geo-auto-update", value: (context) => context.geoAutoUpdate },
+  { key: "geo-update-interval", value: (context) => context.geoUpdateInterval },
+  { key: "geox-url", value: (context) => context.geoxUrl },
+  { key: "etag-support", value: (context) => context.etagSupport },
+  { key: "keep-alive-idle", value: (context) => context.keepAliveIdle },
+  { key: "keep-alive-interval", value: (context) => context.keepAliveInterval },
+  { key: "disable-keep-alive", value: (context) => context.disableKeepAlive },
+  { key: "tcp-concurrent", value: (context) => context.tcpConcurrent }
+]);
+
+// 按固定顺序装配 Kernel 默认项输出，避免 buildKernelDefaults 主体里保留一大段静态投影。
+function buildKernelDefaultOutputPayload(context) {
+  return buildDefinitionDrivenPayload(KERNEL_DEFAULT_OUTPUT_DEFINITIONS, context);
+}
+
+// Sniffer 顶层布尔开关完全同构，这里单独定义化，避免继续保留三段相同 resolver 调用。
+const SNIFFER_SCALAR_OPTION_DEFINITIONS = Object.freeze([
+  { key: "forceDnsMapping", value: (currentSniffer) => resolveArgOrParsedBoolConfigValue(currentSniffer, "hasSnifferForceDnsMapping", "snifferForceDnsMapping", "force-dns-mapping", true) },
+  { key: "parsePureIp", value: (currentSniffer) => resolveArgOrParsedBoolConfigValue(currentSniffer, "hasSnifferParsePureIp", "snifferParsePureIp", "parse-pure-ip", true) },
+  { key: "overrideDestination", value: (currentSniffer) => resolveArgOrParsedBoolConfigValue(currentSniffer, "hasSnifferOverrideDestination", "snifferOverrideDestination", "override-destination", false) }
+]);
+
+// Sniffer 顶层布尔选项统一装配，保持 buildSnifferConfig 更聚焦在协议表和域名列表拼装。
+function buildSnifferScalarOptions(currentSniffer) {
+  return buildDefinitionDrivenPayload(SNIFFER_SCALAR_OPTION_DEFINITIONS, currentSniffer);
 }
 
 // 判断一个值是否至少长得像布尔量，便于对配置对象做宽松校验。
@@ -6576,6 +7039,161 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Crypto", label: "Crypto", expectedTarget: GROUPS.CRYPTO }
 ];
 
+// 统一维护 AI / Crypto / GitHub / Steam / Dev 的国家优先链配置，避免主流程、日志和响应头各写一套。
+const SERVICE_PREFERRED_COUNTRY_DEFINITIONS = Object.freeze([
+  { key: "ai", label: "AI", argKey: "aiPreferCountries", defaultMarkers: DEFAULT_AI_PREFERRED_COUNTRY_MARKERS, defaultSourceKey: "ai-default" },
+  { key: "crypto", label: "Crypto", argKey: "cryptoPreferCountries", defaultMarkers: DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS, defaultSourceKey: "crypto-default" },
+  { key: "github", label: "GitHub", argKey: "githubPreferCountries", hasArgKey: "hasGithubPreferCountries", defaultMarkers: [], defaultSourceKey: "github-default" },
+  { key: "steam", label: "Steam", argKey: "steamPreferCountries", hasArgKey: "hasSteamPreferCountries", defaultMarkers: [], defaultSourceKey: "steam-default" },
+  { key: "dev", label: "Dev", argKey: "devPreferCountries", hasArgKey: "hasDevPreferCountries", defaultMarkers: [], defaultSourceKey: "dev-default" }
+]);
+// 统一维护国家优先链的诊断字段后缀，避免 diagnostics / 响应头 / full 日志逐处手写。
+const SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS = Object.freeze([
+  { key: "resolvedSummary", propertySuffix: "ResolvedSummary", headerSuffix: "Resolved" },
+  { key: "traceSummary", propertySuffix: "TraceSummary", headerSuffix: "Trace" },
+  { key: "explainSummary", propertySuffix: "ExplainSummary", headerSuffix: "Explain" },
+  { key: "unmatchedSummary", propertySuffix: "UnmatchedSummary", headerSuffix: "Unmatched" }
+]);
+// 规则优先级风险采用数据表驱动，避免分析函数里重复堆一长串 addRisk 调用。
+const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
+  {
+    category: "geo",
+    blockerProvider: "Geo_Not_CN",
+    blockedProvider: "GitHub",
+    message: "GitHub 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，GitHub 流量可能会先命中节点选择而不是 GitHub 独立组"
+  },
+  {
+    category: "geo",
+    blockerProvider: "Geo_Not_CN",
+    blockedProvider: "Steam",
+    message: "Steam 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，Steam 全球流量可能会先命中节点选择而不是 Steam 独立组"
+  },
+  {
+    category: "cn",
+    blockerProvider: "CN",
+    blockedProvider: "SteamCN",
+    message: "SteamCN 规则当前排在 CN 之后；CN 是更宽泛的中国大陆规则，Steam 中国区流量可能会先命中全球直连而不是 Steam 独立组"
+  },
+  {
+    category: "cn",
+    blockerProvider: "CN_IP",
+    blockedProvider: "SteamCN",
+    message: "SteamCN 规则当前排在 CN_IP 之后；CN_IP 是更宽泛的中国大陆 IP 规则，Steam 中国区 IP 流量可能会先命中全球直连而不是 Steam 独立组"
+  },
+  {
+    category: "directlist",
+    blockerProvider: "DirectList",
+    blockedProvider: "GitHub",
+    message: "GitHub 规则当前排在 DirectList 之后；如果自定义直连列表与 GitHub 规则有重叠，相关流量会先命中全球直连而不是 GitHub 独立组"
+  },
+  {
+    category: "directlist",
+    blockerProvider: "DirectList",
+    blockedProvider: "Steam",
+    message: "Steam 规则当前排在 DirectList 之后；如果自定义直连列表与 Steam 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
+  },
+  {
+    category: "directlist",
+    blockerProvider: "DirectList",
+    blockedProvider: "SteamCN",
+    message: "SteamCN 规则当前排在 DirectList 之后；如果自定义直连列表与 SteamCN 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
+  }
+]);
+// 规则优先级风险里的分类计数统一走映射，避免 addRisk 内重复 category 分支模板。
+const RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
+  geo: "geoOverrideCount",
+  cn: "cnOverrideCount",
+  directlist: "directListOverrideCount"
+});
+// GitHub / Steam / Dev 独立组响应头采用统一定义生成，减少 buildRuntimeResponseHeaders 里的重复字段。
+const SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS = Object.freeze([
+  { key: "github", label: "GitHub", argToken: "Github" },
+  { key: "steam", label: "Steam", argToken: "Steam" },
+  { key: "dev", label: "Dev", argToken: "Dev" }
+]);
+// GitHub / Steam / Dev 独立组的优选组 / 点名节点 / Provider 池校验统一走这份定义，避免 validate 阶段硬编码三遍。
+const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = Object.freeze([
+  { key: "github", label: "GitHub", argToken: "Github", groupName: GROUPS.GITHUB },
+  { key: "steam", label: "Steam", argToken: "Steam", groupName: GROUPS.STEAM },
+  { key: "dev", label: "Dev", argToken: "Dev", groupName: GROUPS.DEV }
+]);
+// 独立组响应头字段定义：configured-only 表示只关心“是否配置”，value 表示输出实际生效值，custom 走自定义计算。
+const SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS = Object.freeze([
+  { headerSuffix: "Mode", argSuffix: "Mode", valueType: "value", services: ["dev"] },
+  { headerSuffix: "Type", argSuffix: "Type", valueType: "value", services: ["dev"] },
+  { headerSuffix: "Test-Url", argSuffix: "TestUrl", valueType: "value", services: ["dev"] },
+  { headerSuffix: "Group-Strategy", argSuffix: "GroupStrategy", valueType: "value" },
+  { headerSuffix: "Hidden", argSuffix: "Hidden", valueType: "value" },
+  { headerSuffix: "Disable-UDP", argSuffix: "DisableUdp", valueType: "value" },
+  { headerSuffix: "Icon", argSuffix: "Icon", valueType: "value" },
+  { headerSuffix: "Interface-Name", argSuffix: "InterfaceName", valueType: "value" },
+  { headerSuffix: "Routing-Mark", argSuffix: "RoutingMark", valueType: "value" },
+  { headerSuffix: "Prefer-Groups", argSuffix: "PreferGroups", valueType: "configured" },
+  { headerSuffix: "Prefer-Countries", argSuffix: "PreferCountries", valueType: "configured" },
+  { headerSuffix: "Prefer-Nodes", argSuffix: "PreferNodes", valueType: "configured" },
+  { headerSuffix: "Use-Providers", argSuffix: "UseProviders", valueType: "configured" },
+  { headerSuffix: "Include-All", argSuffix: "IncludeAll", valueType: "value" },
+  { headerSuffix: "Include-All-Proxies", argSuffix: "IncludeAllProxies", valueType: "value" },
+  { headerSuffix: "Include-All-Providers", argSuffix: "IncludeAllProviders", valueType: "value" },
+  { headerSuffix: "Rule-Order", valueType: "custom", customValue: (service) => buildRuleOrderSummary(ARGS[buildServiceArgKey(service.argToken, "RuleAnchor")], ARGS[buildServiceArgKey(service.argToken, "RulePosition")]) },
+  { headerSuffix: "Rule-Target", argSuffix: "RuleTarget", valueType: "value" },
+  { headerSuffix: "Auto-Proxies", valueType: "custom", customValue: (service) => buildServiceAutoProxyHeaderValue(service.argToken) }
+]);
+
+function resolveServiceResponseHeaderFieldValue(service, field) {
+  const currentService = isObject(service) ? service : {};
+  const currentField = isObject(field) ? field : {};
+
+  if (currentField.valueType === "configured") {
+    return ARGS[`has${currentService.argToken}${currentField.argSuffix}`] ? "configured" : "default";
+  }
+  if (currentField.valueType === "value") {
+    const hasKey = `has${currentService.argToken}${currentField.argSuffix}`;
+    const valueKey = buildServiceArgKey(currentService.argToken, currentField.argSuffix);
+    return ARGS[hasKey] ? ARGS[valueKey] : "default";
+  }
+
+  return typeof currentField.customValue === "function" ? currentField.customValue(currentService) : "default";
+}
+
+function createServiceResponseHeaderDefinition(service, field) {
+  return {
+    headerSuffix: `${service.label}-${field.headerSuffix}`,
+    value: () => resolveServiceResponseHeaderFieldValue(service, field)
+  };
+}
+
+const SERVICE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
+  SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS.reduce((entries, service) => {
+    const applicableFields = SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS.filter(
+      (field) => !Array.isArray(field.services) || field.services.includes(service.key)
+    );
+    for (const field of applicableFields) {
+      entries.push(createServiceResponseHeaderDefinition(service, field));
+    }
+    return entries;
+  }, [])
+);
+
+function createServicePreferredCountryResponseHeaderDefinition(definition, field) {
+  return {
+    headerSuffix: `${definition.label}-Prefer-Countries-${field.headerSuffix}`,
+    value: (current) => {
+      const diagnostics = isObject(current) ? current : {};
+      return diagnostics[`${definition.key}PreferCountry${field.propertySuffix}`] || "none";
+    }
+  };
+}
+
+const SERVICE_PREFERRED_COUNTRY_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
+  SERVICE_PREFERRED_COUNTRY_DEFINITIONS.reduce((entries, definition) => {
+    for (const field of SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS) {
+      entries.push(createServicePreferredCountryResponseHeaderDefinition(definition, field));
+    }
+    return entries;
+  }, [])
+);
+
 // 构造单条 RULE-SET 规则字符串。
 function buildRule(provider, target, noResolve) {
   // 按 Mihomo / Clash 规则格式输出 RULE-SET 语句，可选追加 no-resolve。
@@ -6758,9 +7376,7 @@ function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
   // proxy-groups 可能混入外部 merge 进来的异常项，这里先只保留真正带名字的组。
   const groups = Array.isArray(proxyGroups) ? proxyGroups : [];
   // 把最终面板顺序压平成组名数组，后续就能直接用 indexOf 比较前后位置。
-  const groupNames = groups
-    .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
-    .map((group) => group.name.trim());
+  const groupNames = collectNamedEntries(groups);
   // 区域组名称仍按“最终国家组结果 + 当前 regionGroupKeys”重新推导，确保诊断口径和真实产物一致。
   const regionGroupNames = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys)
     .map((region) => region && region.name)
@@ -6834,6 +7450,79 @@ function buildRuleOrderSummary(anchor, position) {
   return `${normalizeRuleOrderPosition(position, "before")}:${marker}`;
 }
 
+// 基于 ARGS 里的 anchor/position 键位读取规则顺序摘要，便于响应头 / full 日志共用同一套读取逻辑。
+function buildRuleOrderArgSummary(anchorKey, positionKey) {
+  return buildRuleOrderSummary(ARGS[anchorKey], ARGS[positionKey]);
+}
+
+// full 日志中的“规则顺序编排”只是 key 不同、读取的 anchor/position 不同，这里集中维护键位映射。
+const BUILD_SUMMARY_RULE_ORDER_ENTRY_DEFINITIONS = Object.freeze([
+  { key: "github", anchorKey: "githubRuleAnchor", positionKey: "githubRulePosition" },
+  { key: "steam", anchorKey: "steamRuleAnchor", positionKey: "steamRulePosition" },
+  { key: "steam-cn", anchorKey: "steamCnRuleAnchor", positionKey: "steamCnRulePosition" },
+  { key: "dev", anchorKey: "devRuleAnchor", positionKey: "devRulePosition" }
+]);
+
+// 把规则顺序定义列表拼成统一摘要，避免 full 日志里继续手写长串模板。
+function formatRuleOrderPresentationSummary(definitions) {
+  return definitions
+    .map((definition) => `${definition.key}=${buildRuleOrderArgSummary(definition.anchorKey, definition.positionKey)}`)
+    .join(", ");
+}
+
+// 关键规则窗口的基础观测项常量，避免每次分析都重新构造同一份定义数组。
+const KEY_RULE_WINDOW_BASE_DEFINITIONS = Object.freeze([
+  { key: "Geo_Not_CN", label: "Geo_Not_CN", kind: "blocker" },
+  { key: "DirectList", label: "DirectList", kind: "blocker" },
+  { key: "CN", label: "CN", kind: "blocker" },
+  { key: "CN_IP", label: "CN_IP", kind: "blocker" },
+  { key: "GitHub", label: "GitHub", kind: "business" },
+  { key: "Steam", label: "Steam", kind: "business" },
+  { key: "SteamCN", label: "SteamCN", kind: "business" },
+  { key: "MATCH", label: "MATCH", kind: "match" }
+]);
+// 业务规则窗口的观测项常量，避免业务诊断里重复分配大数组。
+const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
+  { key: "ChatGPT", label: "ChatGPT", category: "ai" },
+  { key: "AIExtra", label: "AIExtra", category: "ai" },
+  { key: "OpenAI", label: "OpenAI", category: "ai" },
+  { key: "Anthropic", label: "Anthropic", category: "ai" },
+  { key: "Gemini", label: "Gemini", category: "ai" },
+  { key: "Copilot", label: "Copilot", category: "ai" },
+  { key: "Grok", label: "Grok", category: "ai" },
+  { key: "AppleAI", label: "AppleAI", category: "ai" },
+  { key: "AI", label: "AI", category: "ai" },
+  { key: "Crypto", label: "Crypto", category: "trade" },
+  { key: "GitHub", label: "GitHub", category: "dev" },
+  { key: "DevList", label: "DevList", category: "dev" },
+  { key: "GitLab", label: "GitLab", category: "dev" },
+  { key: "Docker", label: "Docker", category: "dev" },
+  { key: "Npmjs", label: "Npmjs", category: "dev" },
+  { key: "Jetbrains", label: "JetBrains", category: "dev" },
+  { key: "Vercel", label: "Vercel", category: "dev" },
+  { key: "Python", label: "Python", category: "dev" },
+  { key: "Jfrog", label: "Jfrog", category: "dev" },
+  { key: "Heroku", label: "Heroku", category: "dev" },
+  { key: "GitBook", label: "GitBook", category: "dev" },
+  { key: "SourceForge", label: "SourceForge", category: "dev" },
+  { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
+  { key: "Anaconda", label: "Anaconda", category: "dev" },
+  { key: "Atlassian", label: "Atlassian", category: "dev" },
+  { key: "Notion", label: "Notion", category: "dev" },
+  { key: "Figma", label: "Figma", category: "dev" },
+  { key: "Slack", label: "Slack", category: "dev" },
+  { key: "Dropbox", label: "Dropbox", category: "dev" },
+  { key: "Steam", label: "Steam", category: "game" },
+  { key: "SteamCN", label: "SteamCN", category: "game" }
+]);
+// 业务规则窗口里的分类计数统一走映射，减少分析函数里重复 if-else 分支。
+const SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY = Object.freeze({
+  ai: "aiCount",
+  dev: "devCount",
+  trade: "tradeCount",
+  game: "gameCount"
+});
+
 // 把单条最终规则压成可读摘要，便于快速观察“谁排在前面、谁会先吃到流量”。
 function describeTrafficRule(rule) {
   const source = normalizeStringArg(rule);
@@ -6870,16 +7559,17 @@ function describeTrafficRule(rule) {
 }
 
 // 把最终规则链的优先级压成单行摘要，便于直接看出实际匹配顺序。
-function buildTrafficPrioritySummary(rules, generatedRules, configuredRules) {
+function buildTrafficPrioritySummary(rules, generatedRules, configuredRules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
+  const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
   const baseRules = Array.isArray(generatedRules) ? uniqueStrings(generatedRules) : [];
   const generatedBodyRules = baseRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const rawConfiguredRuleList = Array.isArray(configuredRules) ? uniqueStrings(configuredRules) : [];
   const effectiveExtraRules = rawConfiguredRuleList
     .filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)))
     .filter((rule) => !generatedBodyRules.includes(rule));
-  const head = currentRules.slice(0, 6).map((rule) => describeTrafficRule(rule)).filter(Boolean);
-  const tail = currentRules.slice(-4).map((rule) => describeTrafficRule(rule)).filter(Boolean);
+  const head = currentRuleAnalysis.describedRules.slice(0, 6).filter(Boolean);
+  const tail = currentRuleAnalysis.describedRules.slice(-4).filter(Boolean);
   const mergeOrder = effectiveExtraRules.length
     ? (ARGS.hasCustomRuleAnchor
       ? `script+config@${buildRuleOrderSummary(ARGS.customRuleAnchor, ARGS.customRulePosition)}>match`
@@ -6964,18 +7654,19 @@ function formatTrafficRuleLayerTag(layer) {
 }
 
 // 把最终规则按层级聚合成区间统计，便于快速观察每一层占了多少条、排在第几段。
-function analyzeRuleLayering(rules) {
+function analyzeRuleLayering(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
+  const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
   const layerEntries = [];
   const previewEntries = [];
   let customCount = 0;
   let matchIndex = -1;
 
-  for (let index = 0; index < currentRules.length; index += 1) {
-    const rule = currentRules[index];
-    const layer = classifyTrafficRuleLayer(rule);
-    const tag = formatTrafficRuleLayerTag(layer);
-    const desc = describeTrafficRule(rule);
+  for (let index = 0; index < currentRuleAnalysis.entries.length; index += 1) {
+    const entry = currentRuleAnalysis.entries[index];
+    const layer = entry.layer;
+    const tag = entry.tag;
+    const desc = entry.described;
 
     if (layer === "custom") {
       customCount += 1;
@@ -7054,10 +7745,72 @@ function inspectTrafficRuleShape(rule) {
   };
 }
 
+// 把整条 rules 链预解析成可复用缓存，避免多个诊断函数反复 split / classify / describe 同一批规则。
+function analyzeRuleCollection(rules) {
+  const currentRules = Array.isArray(rules) ? rules : [];
+  const entries = [];
+  const describedRules = [];
+  const firstIndexByKey = Object.create(null);
+  const normalizedIndexLookup = Object.create(null);
+
+  for (let index = 0; index < currentRules.length; index += 1) {
+    const rule = currentRules[index];
+    const normalized = normalizeStringArg(rule);
+    const described = describeTrafficRule(normalized);
+    const layer = classifyTrafficRuleLayer(normalized);
+    const tag = formatTrafficRuleLayerTag(layer);
+    const shape = inspectTrafficRuleShape(normalized);
+    const target = sanitizeProviderPreviewName(shape.target || "unknown");
+    const key = /^MATCH->/i.test(described)
+      ? "MATCH"
+      : (described.includes("->") ? normalizeStringArg(described.split("->")[0]) : "");
+
+    if (normalized && !hasOwn(normalizedIndexLookup, normalized)) {
+      normalizedIndexLookup[normalized] = index;
+    }
+
+    if (key && !hasOwn(firstIndexByKey, key)) {
+      firstIndexByKey[key] = index;
+    }
+
+    entries.push({
+      index,
+      rule,
+      normalized,
+      described,
+      layer,
+      tag,
+      shape,
+      target,
+      key
+    });
+    describedRules.push(described);
+  }
+
+  return {
+    rules: currentRules,
+    entries,
+    describedRules,
+    firstIndexByKey,
+    normalizedIndexLookup
+  };
+}
+
+// 优先复用主流程传入的规则缓存；若当前调用方没传，则按需现场构建一份。
+function getRuleAnalysis(rules, precomputedAnalysis) {
+  const currentRules = Array.isArray(rules) ? rules : [];
+  return isObject(precomputedAnalysis)
+    && precomputedAnalysis.rules === currentRules
+    && Array.isArray(precomputedAnalysis.entries)
+    ? precomputedAnalysis
+    : analyzeRuleCollection(currentRules);
+}
+
 // 单独分析 config.rules 在最终规则链里的有效插入区间，便于快速判断外部自定义规则到底插进了哪里。
-function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules) {
+function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ruleAnalysis) {
   const baseRules = Array.isArray(generatedRules) ? uniqueStrings(generatedRules) : [];
-  const mergedRules = Array.isArray(finalRules) ? uniqueStrings(finalRules) : [];
+  const currentFinalRules = Array.isArray(finalRules) ? finalRules : [];
+  const finalRuleAnalysis = getRuleAnalysis(currentFinalRules, ruleAnalysis);
   const generatedBodyRules = baseRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const rawConfiguredRuleList = Array.isArray(configuredRules) ? configuredRules.slice() : [];
   const uniqueConfiguredRules = uniqueStrings(rawConfiguredRuleList);
@@ -7065,7 +7818,12 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules) {
   const rawExtraRules = uniqueConfiguredRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const effectiveExtraRules = rawExtraRules.filter((rule) => !generatedBodyRules.includes(rule));
   const effectiveIndexes = effectiveExtraRules
-    .map((rule) => mergedRules.findIndex((item) => normalizeStringArg(item) === normalizeStringArg(rule)))
+    .map((rule) => {
+      const normalizedRule = normalizeStringArg(rule);
+      return hasOwn(finalRuleAnalysis.normalizedIndexLookup, normalizedRule)
+        ? finalRuleAnalysis.normalizedIndexLookup[normalizedRule]
+        : -1;
+    })
     .filter((index) => index >= 0);
   const typeCounts = Object.create(null);
   const targetCounts = Object.create(null);
@@ -7131,22 +7889,32 @@ function formatCustomRuleWindowPreview(source) {
   return formatProviderPreviewNames(current.previewEntries, 6, 24);
 }
 
+// 统一把 category 映射到结果对象里的计数字段，减少多个分析函数里重复 if-else 累加模板。
+function increaseCategorizedCounter(target, category, fieldLookup) {
+  const current = isObject(target) ? target : null;
+  const normalizedCategory = normalizeStringArg(category);
+  const lookup = isObject(fieldLookup) ? fieldLookup : null;
+
+  if (!current || !normalizedCategory || !lookup || !hasOwn(lookup, normalizedCategory)) {
+    return;
+  }
+
+  const countField = normalizeStringArg(lookup[normalizedCategory]);
+  if (!countField) {
+    return;
+  }
+
+  current[countField] = (Number(current[countField]) || 0) + 1;
+}
+
 // 聚焦几条真正决定 GitHub / Steam / SteamCN 先后关系的关键规则窗口，便于直接看“谁卡在谁前面”。
-function analyzeKeyRuleWindows(rules) {
+function analyzeKeyRuleWindows(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
-  const describedRules = currentRules.map((rule) => describeTrafficRule(rule));
+  const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  const describedRules = currentRuleAnalysis.describedRules;
   const definitions = []
     .concat(ARGS.steamFix ? [{ key: "SteamFix", label: "SteamFix", kind: "business" }] : [])
-    .concat([
-    { key: "Geo_Not_CN", label: "Geo_Not_CN", kind: "blocker" },
-    { key: "DirectList", label: "DirectList", kind: "blocker" },
-    { key: "CN", label: "CN", kind: "blocker" },
-    { key: "CN_IP", label: "CN_IP", kind: "blocker" },
-    { key: "GitHub", label: "GitHub", kind: "business" },
-    { key: "Steam", label: "Steam", kind: "business" },
-    { key: "SteamCN", label: "SteamCN", kind: "business" },
-    { key: "MATCH", label: "MATCH", kind: "match" }
-  ]);
+    .concat(KEY_RULE_WINDOW_BASE_DEFINITIONS);
   const result = {
     foundCount: 0,
     blockerCount: 0,
@@ -7158,10 +7926,9 @@ function analyzeKeyRuleWindows(rules) {
   };
 
   for (const definition of definitions) {
-    const index = describedRules.findIndex((item) => definition.key === "MATCH"
-      ? /^MATCH->/i.test(normalizeStringArg(item))
-      : normalizeStringArg(item).indexOf(`${definition.key}->`) === 0
-    );
+    const index = hasOwn(currentRuleAnalysis.firstIndexByKey, definition.key)
+      ? currentRuleAnalysis.firstIndexByKey[definition.key]
+      : -1;
 
     if (index === -1) {
       result.missingCount += 1;
@@ -7202,16 +7969,16 @@ function formatKeyRuleWindowPreview(source) {
 }
 
 // 把规则层级与目标组做交叉统计，便于直接看出每一层主要把流量送到了哪些组。
-function analyzeRuleLayerTargetMapping(rules) {
+function analyzeRuleLayerTargetMapping(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
+  const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
   const layerCounts = Object.create(null);
   const targetCounts = Object.create(null);
   const crossCounts = Object.create(null);
 
-  for (const rule of currentRules) {
-    const layer = formatTrafficRuleLayerTag(classifyTrafficRuleLayer(rule));
-    const shape = inspectTrafficRuleShape(rule);
-    const target = sanitizeProviderPreviewName(shape.target || "unknown");
+  for (const entry of currentRuleAnalysis.entries) {
+    const layer = entry.tag;
+    const target = entry.target;
     const crossKey = `${layer}->${target}`;
 
     layerCounts[layer] = (layerCounts[layer] || 0) + 1;
@@ -7261,42 +8028,11 @@ function formatRuleLayerTargetMappingPreview(source) {
 }
 
 // 单独聚焦 AI / Crypto / GitHub / Steam / SteamCN 等业务规则的前后 2 跳窗口，便于快速看出它们被谁夹在中间。
-function analyzeServiceRuleWindows(rules) {
+function analyzeServiceRuleWindows(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
-  const describedRules = currentRules.map((rule) => describeTrafficRule(rule));
-  const definitions = [
-    { key: "ChatGPT", label: "ChatGPT", category: "ai" },
-    { key: "AIExtra", label: "AIExtra", category: "ai" },
-    { key: "OpenAI", label: "OpenAI", category: "ai" },
-    { key: "Anthropic", label: "Anthropic", category: "ai" },
-    { key: "Gemini", label: "Gemini", category: "ai" },
-    { key: "Copilot", label: "Copilot", category: "ai" },
-    { key: "Grok", label: "Grok", category: "ai" },
-    { key: "AppleAI", label: "AppleAI", category: "ai" },
-    { key: "AI", label: "AI", category: "ai" },
-    { key: "Crypto", label: "Crypto", category: "trade" },
-    { key: "GitHub", label: "GitHub", category: "dev" },
-    { key: "DevList", label: "DevList", category: "dev" },
-    { key: "GitLab", label: "GitLab", category: "dev" },
-    { key: "Docker", label: "Docker", category: "dev" },
-    { key: "Npmjs", label: "Npmjs", category: "dev" },
-    { key: "Jetbrains", label: "JetBrains", category: "dev" },
-    { key: "Vercel", label: "Vercel", category: "dev" },
-    { key: "Python", label: "Python", category: "dev" },
-    { key: "Jfrog", label: "Jfrog", category: "dev" },
-    { key: "Heroku", label: "Heroku", category: "dev" },
-    { key: "GitBook", label: "GitBook", category: "dev" },
-    { key: "SourceForge", label: "SourceForge", category: "dev" },
-    { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
-    { key: "Anaconda", label: "Anaconda", category: "dev" },
-    { key: "Atlassian", label: "Atlassian", category: "dev" },
-    { key: "Notion", label: "Notion", category: "dev" },
-    { key: "Figma", label: "Figma", category: "dev" },
-    { key: "Slack", label: "Slack", category: "dev" },
-    { key: "Dropbox", label: "Dropbox", category: "dev" },
-    { key: "Steam", label: "Steam", category: "game" },
-    { key: "SteamCN", label: "SteamCN", category: "game" }
-  ];
+  const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  const describedRules = currentRuleAnalysis.describedRules;
+  const definitions = SERVICE_RULE_WINDOW_DEFINITIONS;
   const result = {
     tracked: definitions.length,
     foundCount: 0,
@@ -7312,7 +8048,9 @@ function analyzeServiceRuleWindows(rules) {
   };
 
   for (const definition of definitions) {
-    const index = describedRules.findIndex((item) => normalizeStringArg(item).indexOf(`${definition.key}->`) === 0);
+    const index = hasOwn(currentRuleAnalysis.firstIndexByKey, definition.key)
+      ? currentRuleAnalysis.firstIndexByKey[definition.key]
+      : -1;
 
     if (index === -1) {
       result.missingCount += 1;
@@ -7320,16 +8058,7 @@ function analyzeServiceRuleWindows(rules) {
     }
 
     result.foundCount += 1;
-
-    if (definition.category === "ai") {
-      result.aiCount += 1;
-    } else if (definition.category === "dev") {
-      result.devCount += 1;
-    } else if (definition.category === "trade") {
-      result.tradeCount += 1;
-    } else if (definition.category === "game") {
-      result.gameCount += 1;
-    }
+    increaseCategorizedCounter(result, definition.category, SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY);
 
     result.firstIndex = result.firstIndex === -1 ? index : Math.min(result.firstIndex, index);
     result.lastIndex = result.lastIndex === -1 ? index : Math.max(result.lastIndex, index);
@@ -7361,7 +8090,7 @@ function formatServiceRuleWindowPreview(source) {
 }
 
 // 汇总规则入口最终会打到哪些目标组，并统计各目标组承接了多少条业务规则。
-function analyzeRuleTargetMapping(ruleDefinitions, rules) {
+function analyzeRuleTargetMapping(ruleDefinitions, rules, ruleAnalysis) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
   const targetCounts = Object.create(null);
   const previewEntries = [];
@@ -7384,8 +8113,13 @@ function analyzeRuleTargetMapping(ruleDefinitions, rules) {
     })
     .map((target) => `${sanitizeProviderPreviewName(target)}:${targetCounts[target]}`);
   const currentRules = Array.isArray(rules) ? rules : [];
-  const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
-  const matchTarget = matchRule ? describeTrafficRule(matchRule).replace(/^MATCH->/, "") : GROUPS.SELECT;
+  const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  const matchIndex = hasOwn(currentRuleAnalysis.firstIndexByKey, "MATCH")
+    ? currentRuleAnalysis.firstIndexByKey.MATCH
+    : -1;
+  const matchTarget = matchIndex >= 0
+    ? normalizeStringArg((currentRuleAnalysis.describedRules[matchIndex] || "").replace(/^MATCH->/, "")) || GROUPS.SELECT
+    : GROUPS.SELECT;
 
   return {
     total: previewEntries.length,
@@ -7410,14 +8144,36 @@ function formatRuleTargetMappingPreview(source) {
   return formatProviderPreviewNames(current.previewEntries, 8, 24);
 }
 
-// 按 provider 名查找当前规则定义中的位置，便于判断“谁排在谁前面”。
-function findRuleDefinitionIndex(ruleDefinitions, provider) {
-  return (Array.isArray(ruleDefinitions) ? ruleDefinitions : []).findIndex((definition) => isObject(definition) && definition.provider === provider);
+// 统一构建 provider -> value 查找表，避免 definition/index 两套查找表各自维护一份近似循环模板。
+function buildRuleDefinitionProviderLookup(ruleDefinitions, valueBuilder) {
+  const lookup = Object.create(null);
+  const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const buildValue = typeof valueBuilder === "function" ? valueBuilder : ((definition) => definition);
+
+  definitions.forEach((definition, index) => {
+    const provider = isObject(definition) ? normalizeStringArg(definition.provider) : "";
+    if (provider && !hasOwn(lookup, provider)) {
+      lookup[provider] = buildValue(definition, index);
+    }
+  });
+
+  return lookup;
+}
+
+// 把规则定义数组压成 provider -> definition 查找表，避免一轮诊断里反复 find。
+function buildRuleDefinitionLookup(ruleDefinitions) {
+  return buildRuleDefinitionProviderLookup(ruleDefinitions);
+}
+
+// 把规则定义数组压成 provider -> index 查找表，减少业务链路分析里的重复 findIndex。
+function buildRuleDefinitionIndexLookup(ruleDefinitions) {
+  return buildRuleDefinitionProviderLookup(ruleDefinitions, (_, index) => index);
 }
 
 // 分析宽泛规则是否排在特定业务规则前面，避免目标流量被更早的规则入口提前吃掉。
 function analyzeRulePriorityRisks(ruleDefinitions) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const definitionIndexLookup = buildRuleDefinitionIndexLookup(definitions);
   const result = {
     total: 0,
     geoOverrideCount: 0,
@@ -7428,69 +8184,23 @@ function analyzeRulePriorityRisks(ruleDefinitions) {
   };
 
   function addRisk(category, blockerProvider, blockedProvider, message) {
-    const blockerIndex = findRuleDefinitionIndex(definitions, blockerProvider);
-    const blockedIndex = findRuleDefinitionIndex(definitions, blockedProvider);
+    const blockerIndex = hasOwn(definitionIndexLookup, blockerProvider) ? definitionIndexLookup[blockerProvider] : -1;
+    const blockedIndex = hasOwn(definitionIndexLookup, blockedProvider) ? definitionIndexLookup[blockedProvider] : -1;
 
     if (blockerIndex === -1 || blockedIndex === -1 || blockerIndex >= blockedIndex) {
       return;
     }
 
     result.total += 1;
-
-    if (category === "geo") {
-      result.geoOverrideCount += 1;
-    } else if (category === "cn") {
-      result.cnOverrideCount += 1;
-    } else if (category === "directlist") {
-      result.directListOverrideCount += 1;
-    }
+    increaseCategorizedCounter(result, category, RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY);
 
     result.previewEntries.push(`${sanitizeProviderPreviewName(blockerProvider)}>${sanitizeProviderPreviewName(blockedProvider)}`);
     result.warnings.push(message);
   }
 
-  addRisk(
-    "geo",
-    "Geo_Not_CN",
-    "GitHub",
-    "GitHub 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，GitHub 流量可能会先命中节点选择而不是 GitHub 独立组"
-  );
-  addRisk(
-    "geo",
-    "Geo_Not_CN",
-    "Steam",
-    "Steam 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，Steam 全球流量可能会先命中节点选择而不是 Steam 独立组"
-  );
-  addRisk(
-    "cn",
-    "CN",
-    "SteamCN",
-    "SteamCN 规则当前排在 CN 之后；CN 是更宽泛的中国大陆规则，Steam 中国区流量可能会先命中全球直连而不是 Steam 独立组"
-  );
-  addRisk(
-    "cn",
-    "CN_IP",
-    "SteamCN",
-    "SteamCN 规则当前排在 CN_IP 之后；CN_IP 是更宽泛的中国大陆 IP 规则，Steam 中国区 IP 流量可能会先命中全球直连而不是 Steam 独立组"
-  );
-  addRisk(
-    "directlist",
-    "DirectList",
-    "GitHub",
-    "GitHub 规则当前排在 DirectList 之后；如果自定义直连列表与 GitHub 规则有重叠，相关流量会先命中全球直连而不是 GitHub 独立组"
-  );
-  addRisk(
-    "directlist",
-    "DirectList",
-    "Steam",
-    "Steam 规则当前排在 DirectList 之后；如果自定义直连列表与 Steam 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
-  );
-  addRisk(
-    "directlist",
-    "DirectList",
-    "SteamCN",
-    "SteamCN 规则当前排在 DirectList 之后；如果自定义直连列表与 SteamCN 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
-  );
+  for (const item of RULE_PRIORITY_RISK_DEFINITIONS) {
+    addRisk(item.category, item.blockerProvider, item.blockedProvider, item.message);
+  }
 
   result.previewEntries = uniqueStrings(result.previewEntries);
   result.warnings = uniqueStrings(result.warnings);
@@ -7532,9 +8242,18 @@ function buildRules(quicEnabled, ruleDefinitions) {
   return uniqueStrings(rules);
 }
 
-// 在最终策略组列表里按名称查找单个组，便于构建关键组顺序摘要。
-function findProxyGroupByName(proxyGroups, name) {
-  return (Array.isArray(proxyGroups) ? proxyGroups : []).find((group) => isObject(group) && group.name === name) || null;
+// 把策略组数组压成 name -> group 查找表，便于顺序诊断与链路总览复用。
+function buildProxyGroupLookup(proxyGroups) {
+  const lookup = Object.create(null);
+
+  for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
+    const name = isObject(group) ? normalizeStringArg(group.name) : "";
+    if (name && !hasOwn(lookup, name)) {
+      lookup[name] = group;
+    }
+  }
+
+  return lookup;
 }
 
 // 把单个关键策略组的候选顺序压成可读摘要，便于判断组内“谁排在前面”。
@@ -7576,9 +8295,10 @@ function buildProxyGroupOrderSummary(proxyGroups) {
 
 // 汇总几个最关键策略组的候选顺序，方便直接看出选择组/独立组/广告组内部谁排在前面。
 function buildProxyGroupPrioritySummary(proxyGroups) {
+  const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   const keyNames = [GROUPS.SELECT, GROUPS.FALLBACK, GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS];
   const entries = keyNames
-    .map((name) => formatProxyGroupPriorityEntry(findProxyGroupByName(proxyGroups, name)))
+    .map((name) => formatProxyGroupPriorityEntry(proxyGroupLookup[name] || null))
     .filter(Boolean);
 
   return entries.length ? entries.join("; ") : "none";
@@ -7590,8 +8310,18 @@ function findProxyGroupCandidateIndex(group, candidate) {
   return proxies.findIndex((item) => item === candidate);
 }
 
+// 策略组优先级风险里的分类计数统一走映射，避免 addRisk 内重复 category 分支模板。
+const PROXY_GROUP_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
+  "direct-group": "directGroupCount",
+  "ads-group": "adsGroupCount",
+  "select-chain": "selectChainCount",
+  "service-chain": "serviceChainCount",
+  "mode-chain": "modeCount"
+});
+
 // 分析关键策略组的候选链顺序是否偏离脚本原本意图，避免 DIRECT / REJECT / FALLBACK / SELECT 排位异常。
 function analyzeProxyGroupPriorityRisks(proxyGroups) {
+  const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   const result = {
     total: 0,
     directGroupCount: 0,
@@ -7605,25 +8335,14 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
 
   function addRisk(category, groupName, tag, message) {
     result.total += 1;
-
-    if (category === "direct-group") {
-      result.directGroupCount += 1;
-    } else if (category === "ads-group") {
-      result.adsGroupCount += 1;
-    } else if (category === "select-chain") {
-      result.selectChainCount += 1;
-    } else if (category === "service-chain") {
-      result.serviceChainCount += 1;
-    } else if (category === "mode-chain") {
-      result.modeCount += 1;
-    }
+    increaseCategorizedCounter(result, category, PROXY_GROUP_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY);
 
     result.previewEntries.push(`${sanitizeProviderPreviewName(groupName)}>${tag}`);
     result.warnings.push(message);
   }
 
   function inspectDirectFirstServiceGroup(name, label) {
-    const group = findProxyGroupByName(proxyGroups, name);
+    const group = proxyGroupLookup[name] || null;
     if (!group) {
       return;
     }
@@ -7642,7 +8361,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
   }
 
   function inspectDeveloperGroup(name, label) {
-    const group = findProxyGroupByName(proxyGroups, name);
+    const group = proxyGroupLookup[name] || null;
     if (!group) {
       return;
     }
@@ -7661,7 +8380,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
   }
 
   function inspectModeSensitiveGroup(name, label, mode) {
-    const group = findProxyGroupByName(proxyGroups, name);
+    const group = proxyGroupLookup[name] || null;
     if (!group) {
       return;
     }
@@ -7684,7 +8403,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
     }
   }
 
-  const directGroup = findProxyGroupByName(proxyGroups, GROUPS.DIRECT);
+  const directGroup = proxyGroupLookup[GROUPS.DIRECT] || null;
   if (directGroup) {
     const directIndex = findProxyGroupCandidateIndex(directGroup, BUILTIN_DIRECT);
     const selectIndex = findProxyGroupCandidateIndex(directGroup, GROUPS.SELECT);
@@ -7698,7 +8417,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
     }
   }
 
-  const adsGroup = findProxyGroupByName(proxyGroups, GROUPS.ADS);
+  const adsGroup = proxyGroupLookup[GROUPS.ADS] || null;
   if (adsGroup) {
     const proxies = Array.isArray(adsGroup.proxies) ? adsGroup.proxies : [];
     const firstProxy = proxies[0] || "";
@@ -7712,7 +8431,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
     }
   }
 
-  const selectGroup = findProxyGroupByName(proxyGroups, GROUPS.SELECT);
+  const selectGroup = proxyGroupLookup[GROUPS.SELECT] || null;
   if (selectGroup) {
     const fallbackIndex = findProxyGroupCandidateIndex(selectGroup, GROUPS.FALLBACK);
     const manualIndex = findProxyGroupCandidateIndex(selectGroup, GROUPS.MANUAL);
@@ -7762,15 +8481,15 @@ function formatProxyGroupPriorityRiskPreview(source) {
 }
 
 // 把关键策略组的候选链压成简短片段，便于拼成整条分流链路摘要。
-function buildTrafficChainGroupEntry(proxyGroups, groupName) {
-  const group = findProxyGroupByName(proxyGroups, groupName);
+function buildTrafficChainGroupEntry(group) {
+  const current = isObject(group) ? group : null;
 
-  if (!group) {
+  if (!current) {
     return "";
   }
 
-  const proxies = Array.isArray(group.proxies) ? group.proxies : [];
-  return `${sanitizeProviderPreviewName(groupName)}=${formatProviderPreviewNames(proxies, 3, 14)}`;
+  const proxies = Array.isArray(current.proxies) ? current.proxies : [];
+  return `${sanitizeProviderPreviewName(current.name)}=${formatProviderPreviewNames(proxies, 3, 14)}`;
 }
 
 // 统一按“用户显式优先链 > 脚本默认优先链”解析国家组，避免 AI / Crypto / 诊断逻辑各写一份。
@@ -7838,23 +8557,576 @@ function buildPreferredCountryResolution(countryConfigs, preferredCountries, def
   };
 }
 
+// 统一解析 AI / Crypto / GitHub / Steam / Dev 的国家优先链，避免主流程里拆成五段重复代码。
+function resolveServicePreferredCountryStates(countryConfigs) {
+  const result = Object.create(null);
+
+  for (const definition of SERVICE_PREFERRED_COUNTRY_DEFINITIONS) {
+    const preferredCountries = definition.hasArgKey && !ARGS[definition.hasArgKey]
+      ? []
+      : ARGS[definition.argKey];
+    const resolution = buildPreferredCountryResolution(
+      countryConfigs,
+      preferredCountries,
+      definition.defaultMarkers,
+      definition.defaultSourceKey
+    );
+
+    result[definition.key] = {
+      groups: Array.isArray(resolution.groups) ? resolution.groups : [],
+      entries: Array.isArray(resolution.entries) ? resolution.entries : [],
+      resolvedSummary: resolution.summary,
+      traceSummary: resolution.trace,
+      explainSummary: resolution.explain,
+      unmatchedSummary: resolution.unmatched
+    };
+  }
+
+  return result;
+}
+
+// 把国家优先链解析结果压平成 diagnostics/full 日志统一使用的字段集合。
+function buildServicePreferredCountrySummaryPayload(states) {
+  const payload = {};
+  const currentStates = isObject(states) ? states : {};
+
+  for (const definition of SERVICE_PREFERRED_COUNTRY_DEFINITIONS) {
+    const state = isObject(currentStates[definition.key]) ? currentStates[definition.key] : {};
+
+    for (const field of SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS) {
+      payload[`${definition.key}PreferCountry${field.propertySuffix}`] = state[field.key] || "";
+    }
+  }
+
+  return payload;
+}
+
+// 把国家优先链的某一类摘要拼成单行文本，供 full 日志复用。
+function formatServicePreferredCountrySummaryLine(source, propertySuffix) {
+  const current = isObject(source) ? source : {};
+  return SERVICE_PREFERRED_COUNTRY_DEFINITIONS
+    .map((definition) => `${definition.label}=${current[`${definition.key}PreferCountry${propertySuffix}`] || "none"}`)
+    .join(", ");
+}
+
+// 判断某类国家优先链摘要是否至少有一项非空，避免日志层每次都手写一遍 some + 模板字段。
+function hasServicePreferredCountrySummary(source, propertySuffix) {
+  const current = isObject(source) ? source : {};
+  return SERVICE_PREFERRED_COUNTRY_DEFINITIONS.some((definition) => current[`${definition.key}PreferCountry${propertySuffix}`]);
+}
+
+// 把 Github / Steam / Dev 这类服务 token 统一转成 `githubPreferGroups` / `hasGithubPreferGroups` 这类参数键名。
+function buildServiceArgKey(argToken, suffix) {
+  return `${String(argToken || "").charAt(0).toLowerCase()}${String(argToken || "").slice(1)}${suffix}`;
+}
+
+// 独立组响应头里凡是“节点池自动筛选已配置”这类布尔摘要，都走统一 helper 计算。
+function buildServiceAutoProxyHeaderValue(argToken) {
+  return (
+    ARGS[`has${argToken}NodeFilter`] ||
+    ARGS[`has${argToken}NodeExcludeFilter`] ||
+    ARGS[`has${argToken}NodeExcludeType`] ||
+    ARGS[`has${argToken}IncludeAllProxies`]
+  )
+    ? "configured"
+    : "default";
+}
+
+// GitHub / Steam / Dev 这类独立组的测速覆盖项结构一致，这里统一按参数前缀组装。
+function buildServiceLatencyOverrides(argToken) {
+  return {
+    testUrl: ARGS[buildServiceArgKey(argToken, "TestUrl")],
+    hasTestUrl: ARGS[`has${argToken}TestUrl`],
+    groupInterval: ARGS[buildServiceArgKey(argToken, "GroupInterval")],
+    hasGroupInterval: ARGS[`has${argToken}GroupInterval`],
+    groupTolerance: ARGS[buildServiceArgKey(argToken, "GroupTolerance")],
+    hasGroupTolerance: ARGS[`has${argToken}GroupTolerance`],
+    groupTimeout: ARGS[buildServiceArgKey(argToken, "GroupTimeout")],
+    hasGroupTimeout: ARGS[`has${argToken}GroupTimeout`],
+    groupLazy: ARGS[buildServiceArgKey(argToken, "GroupLazy")],
+    hasGroupLazy: ARGS[`has${argToken}GroupLazy`],
+    groupMaxFailedTimes: ARGS[buildServiceArgKey(argToken, "GroupMaxFailedTimes")],
+    hasGroupMaxFailedTimes: ARGS[`has${argToken}GroupMaxFailedTimes`],
+    groupExpectedStatus: ARGS[buildServiceArgKey(argToken, "GroupExpectedStatus")],
+    hasGroupExpectedStatus: ARGS[`has${argToken}GroupExpectedStatus`],
+    groupStrategy: ARGS[buildServiceArgKey(argToken, "GroupStrategy")],
+    hasGroupStrategy: ARGS[`has${argToken}GroupStrategy`]
+  };
+}
+
+// GitHub / Steam / Dev 的原始节点自动收集参数也完全同构，统一在这里生成。
+function buildServiceAutoCollectionOptions(argToken) {
+  return {
+    filter: ARGS[buildServiceArgKey(argToken, "NodeFilter")],
+    excludeFilter: ARGS[buildServiceArgKey(argToken, "NodeExcludeFilter")],
+    excludeType: ARGS[buildServiceArgKey(argToken, "NodeExcludeType")],
+    includeAllProxies: ARGS[buildServiceArgKey(argToken, "IncludeAllProxies")]
+  };
+}
+
+// GitHub / Steam / Dev 的 provider 池配置统一走这套结构，调用方只需传入已解析好的 provider 名称列表。
+function buildServiceProviderCollectionOptions(argToken, providerReferences) {
+  return {
+    includeAll: ARGS[buildServiceArgKey(argToken, "IncludeAll")],
+    use: Array.isArray(providerReferences) ? providerReferences : [],
+    includeAllProviders: ARGS[buildServiceArgKey(argToken, "IncludeAllProviders")]
+  };
+}
+
+// GitHub / Steam / Dev 的展示与网络高级项统一组装，避免 buildProxyGroups 里重复写 hidden/icon/udp/interface/routing-mark。
+function buildServiceAdvancedOptions(argToken) {
+  return {
+    hidden: ARGS[buildServiceArgKey(argToken, "Hidden")],
+    hasHidden: ARGS[`has${argToken}Hidden`],
+    disableUdp: ARGS[buildServiceArgKey(argToken, "DisableUdp")],
+    hasDisableUdp: ARGS[`has${argToken}DisableUdp`],
+    icon: ARGS[buildServiceArgKey(argToken, "Icon")],
+    hasIcon: ARGS[`has${argToken}Icon`],
+    interfaceName: ARGS[buildServiceArgKey(argToken, "InterfaceName")],
+    hasInterfaceName: ARGS[`has${argToken}InterfaceName`],
+    routingMark: ARGS[buildServiceArgKey(argToken, "RoutingMark")],
+    hasRoutingMark: ARGS[`has${argToken}RoutingMark`]
+  };
+}
+
+// 统一解析 GitHub / Steam / Dev 的前置组、点名节点与 provider 引用，避免 buildProxyGroups 里重复写三组相同分支。
+function resolveServicePreferredResources(argToken, availableGroupNames, proxyNames, providerNames, excludedGroupName) {
+  return {
+    preferredReferences: ARGS[`has${argToken}PreferGroups`]
+      ? resolvePreferredGroupReferences(
+        availableGroupNames,
+        ARGS[buildServiceArgKey(argToken, "PreferGroups")],
+        [excludedGroupName]
+      )
+      : [],
+    preferredNodes: ARGS[`has${argToken}PreferNodes`]
+      ? resolvePreferredProxyReferences(proxyNames, ARGS[buildServiceArgKey(argToken, "PreferNodes")])
+      : [],
+    providerReferences: ARGS[`has${argToken}UseProviders`]
+      ? resolvePreferredProxyProviderReferences(providerNames, ARGS[buildServiceArgKey(argToken, "UseProviders")])
+      : []
+  };
+}
+
+// 统一组装 GitHub / Steam / Dev 的最终候选链：国家优先 -> 前置组 -> 点名节点，并在 direct 模式下固定 DIRECT 第一位。
+function buildServicePreferredProxies(options) {
+  const current = isObject(options) ? options : {};
+  const mode = normalizeStringArg(current.mode).toLowerCase();
+  const keepDirectFirst = mode === "direct";
+  const modeBaseProxies = Array.isArray(current.modeBaseProxies) ? current.modeBaseProxies : [];
+  const directPreferBaseProxies = Array.isArray(current.directPreferBaseProxies) ? current.directPreferBaseProxies : modeBaseProxies;
+  const preferredGroups = Array.isArray(current.preferredGroups) ? current.preferredGroups : [];
+  const preferredReferences = Array.isArray(current.preferredReferences) ? current.preferredReferences : [];
+  const preferredNodes = Array.isArray(current.preferredNodes) ? current.preferredNodes : [];
+
+  const countryResolvedProxies = current.hasPreferredCountries
+    ? (keepDirectFirst
+      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(preferredGroups, directPreferBaseProxies)))
+      : prependPreferredGroups(preferredGroups, modeBaseProxies))
+    : modeBaseProxies;
+  const structuredProxies = preferredReferences.length
+    ? prependPreferredNames(preferredReferences, countryResolvedProxies, keepDirectFirst)
+    : countryResolvedProxies;
+
+  return preferredNodes.length
+    ? prependPreferredNames(preferredNodes, structuredProxies, keepDirectFirst)
+    : structuredProxies;
+}
+
+// GitHub / Steam / Dev 三类独立组在 buildProxyGroups 里的资源解析、候选链与组选项构建模板完全一致，这里统一装配。
+function buildProxyGroupServiceArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const argToken = normalizeStringArg(context.argToken);
+  const preferredResources = resolveServicePreferredResources(
+    argToken,
+    context.availableGroupNames,
+    context.proxyNames,
+    context.providerNames,
+    context.groupName
+  );
+
+  return {
+    preferredResources,
+    proxies: buildServicePreferredProxies({
+      mode: context.mode,
+      hasPreferredCountries: context.hasPreferredCountries,
+      preferredGroups: context.preferredGroups,
+      modeBaseProxies: context.modeBaseProxies,
+      directPreferBaseProxies: context.directPreferBaseProxies,
+      preferredReferences: preferredResources.preferredReferences,
+      preferredNodes: preferredResources.preferredNodes
+    }),
+    latencyOverrides: buildServiceLatencyOverrides(argToken),
+    autoCollectionOptions: buildServiceAutoCollectionOptions(argToken),
+    providerCollectionOptions: buildServiceProviderCollectionOptions(argToken, preferredResources.providerReferences),
+    advancedOptions: buildServiceAdvancedOptions(argToken)
+  };
+}
+
+// buildProxyGroups 中 GitHub / Steam / Dev 三类独立组的构造计划基本一致，统一表驱动减少模板。
+const PROXY_GROUP_SERVICE_ARTIFACT_INPUTS = Object.freeze([
+  {
+    key: "github",
+    argToken: "Github",
+    groupName: GROUPS.GITHUB,
+    modeArg: () => ARGS.githubMode,
+    hasPreferredCountries: () => ARGS.hasGithubPreferCountries,
+    preferredGroupsKey: "githubPreferredGroups",
+    modeBaseProxiesKey: "githubModeBaseProxies",
+    directPrefer: (context) => context.selectFirstProxies
+  },
+  {
+    key: "steam",
+    argToken: "Steam",
+    groupName: GROUPS.STEAM,
+    modeArg: () => ARGS.steamMode,
+    hasPreferredCountries: () => ARGS.hasSteamPreferCountries,
+    preferredGroupsKey: "steamPreferredGroups",
+    modeBaseProxiesKey: "steamModeBaseProxies",
+    directPrefer: (context) => context.selectFirstProxies
+  },
+  {
+    key: "dev",
+    argToken: "Dev",
+    groupName: GROUPS.DEV,
+    modeArg: () => ARGS.devMode,
+    hasPreferredCountries: () => ARGS.hasDevPreferCountries,
+    preferredGroupsKey: "devPreferredGroups",
+    modeBaseProxiesKey: "developerModeBaseProxies",
+    directPrefer: (context) => uniqueStrings([GROUPS.GITHUB].concat(toStringArray(context.selectFirstProxies)))
+  }
+]);
+
+// 按统一计划批量构造 GitHub / Steam / Dev 的服务组中间产物，避免 buildProxyGroups 里重复声明三段近似对象。
+function buildProxyGroupServiceArtifactMap(payload) {
+  const current = isObject(payload) ? payload : {};
+  const artifacts = Object.create(null);
+  for (const definition of PROXY_GROUP_SERVICE_ARTIFACT_INPUTS) {
+    artifacts[definition.key] = buildProxyGroupServiceArtifacts({
+      argToken: definition.argToken,
+      groupName: definition.groupName,
+      mode: definition.modeArg(),
+      hasPreferredCountries: definition.hasPreferredCountries(),
+      preferredGroups: current[definition.preferredGroupsKey],
+      modeBaseProxies: current[definition.modeBaseProxiesKey],
+      directPreferBaseProxies: definition.directPrefer(current),
+      availableGroupNames: current.availableGroupNames,
+      proxyNames: current.proxyNames,
+      providerNames: current.existingProxyProviderNames
+    });
+  }
+
+  return artifacts;
+}
+
+// 固定功能组里部分条目虽然组名不同，但最终都落到同一套 createSelectGroup/createServiceGroup 模板，这里统一收口。
+function createProxyGroupServiceArtifactGroup(serviceArtifact) {
+  const current = isObject(serviceArtifact) ? serviceArtifact : {};
+  return createServiceGroup(
+    current.groupName,
+    Array.isArray(current.proxies) ? current.proxies : [],
+    current.type,
+    current.latencyOverrides,
+    current.autoCollectionOptions,
+    current.advancedOptions,
+    current.providerCollectionOptions
+  );
+}
+
+// definitions 里这类 `build(current)` 循环在 buildProxyGroups 周边出现了“直接收集 / 拍平收集”两种形态，这里统一收口。
+function buildDefinitionBuildList(definitions, context, options) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const current = isObject(context) ? context : {};
+  const currentOptions = isObject(options) ? options : {};
+  const flatten = !!currentOptions.flatten;
+  const filterFalsy = !!currentOptions.filterFalsy;
+  const items = [];
+
+  for (const definition of source) {
+    if (!definition || typeof definition.build !== "function") {
+      continue;
+    }
+
+    const built = definition.build(current);
+
+    if (flatten && Array.isArray(built)) {
+      items.push.apply(items, filterFalsy ? built.filter(Boolean) : built);
+      continue;
+    }
+
+    if (filterFalsy && !built) {
+      continue;
+    }
+
+    items.push(built);
+  }
+
+  return items;
+}
+
+// buildProxyGroups 的 generatedGroups 最终都来自“固定组 + 追加组”这同一份生成计划，这里合并 definitions 以减少尾段数组拼接模板。
+const PROXY_GROUP_GENERATED_GROUP_DEFINITIONS = Object.freeze(
+  PROXY_GROUP_FIXED_GROUP_DEFINITIONS.concat(PROXY_GROUP_EXTRA_GROUP_DEFINITIONS)
+);
+
+// buildProxyGroups 的 generatedGroups 统一走单一生成计划，避免主函数尾段继续保留两段 definitions 的手工拼接。
+function buildProxyGroupGeneratedGroups(payload) {
+  const context = isObject(payload) ? payload : {};
+  return buildDefinitionBuildList(PROXY_GROUP_GENERATED_GROUP_DEFINITIONS, context, {
+    flatten: true,
+    filterFalsy: true
+  });
+}
+
+// generatedGroups 最后总会经历 merge + resolve order 这两个固定收尾步骤，这里单独抽出便于继续收敛。
+function finalizeProxyGroupGeneration(generatedGroups, existingGroups, countryGroupNames, regionGroupNames) {
+  const mergedGroups = mergeProxyGroups(generatedGroups, existingGroups);
+  return resolveConfiguredProxyGroupOrder(mergedGroups, countryGroupNames, regionGroupNames).groups;
+}
+
+// buildProxyGroups 开头那批 country/region/group/provider/name 提取都是无副作用派生值，这里统一裁成基础上下文。
+function buildProxyGroupBaseContext(payload) {
+  const context = isObject(payload) ? payload : {};
+  const countries = Array.isArray(context.countryConfigs) ? context.countryConfigs : [];
+  const regions = Array.isArray(context.regionConfigs) ? context.regionConfigs : [];
+  return {
+    countryGroupNames: countries.map((country) => country.name),
+    resolvedRegionConfigs: regions,
+    regionGroupNames: regions.map((region) => region.name),
+    existingGroupNames: collectNamedEntries(context.existingGroups),
+    existingProxyProviderNames: Object.keys(isObject(context.existingProxyProviders) ? context.existingProxyProviders : {}),
+    proxyNames: collectNamedEntries(context.proxies),
+    countryFilters: countries.map((country) => country.filter)
+  };
+}
+
+// GitHub / Steam / Dev 这类“显式开启才生效”的优先国家链都遵循同一套规则，这里统一收口。
+function resolveOptionalPreferredCountryGroups(countryConfigs, enabled, markers) {
+  return enabled ? resolvePreferredCountryGroups(countryConfigs, markers) : [];
+}
+
+// 服务组虽然名称不同，但 mode 只分 direct / proxy / default 三路，这里统一根据模式挑选基础候选链。
+function resolveServiceModeBaseProxies(mode, branches) {
+  const current = isObject(branches) ? branches : {};
+  return mode === "direct"
+    ? toStringArray(current.direct)
+    : (mode === "proxy"
+      ? toStringArray(current.proxy)
+      : toStringArray(current.default));
+}
+
+// buildProxyGroups 前半段里 AI / Crypto / GitHub / Steam / Dev 的优先国家组解析模式固定，统一改成定义驱动。
+const PROXY_GROUP_PREFERRED_COUNTRY_DEFINITIONS = Object.freeze([
+  {
+    key: "aiPreferredGroups",
+    value: (context) => buildPreferredCountryGroups(context.countryConfigs, ARGS.aiPreferCountries, DEFAULT_AI_PREFERRED_COUNTRY_MARKERS)
+  },
+  {
+    key: "cryptoPreferredGroups",
+    value: (context) => buildPreferredCountryGroups(context.countryConfigs, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS)
+  },
+  {
+    key: "githubPreferredGroups",
+    value: (context) => resolveOptionalPreferredCountryGroups(context.countryConfigs, ARGS.hasGithubPreferCountries, ARGS.githubPreferCountries)
+  },
+  {
+    key: "steamPreferredGroups",
+    value: (context) => resolveOptionalPreferredCountryGroups(context.countryConfigs, ARGS.hasSteamPreferCountries, ARGS.steamPreferCountries)
+  },
+  {
+    key: "devPreferredGroups",
+    value: (context) => resolveOptionalPreferredCountryGroups(context.countryConfigs, ARGS.hasDevPreferCountries, ARGS.devPreferCountries)
+  }
+]);
+
+// GitHub / Steam / Dev 三类服务组都遵循“同一套 mode 分支 + 不同的前缀链”模板，这里统一计划化。
+const PROXY_GROUP_MODE_BASE_PROXY_DEFINITIONS = Object.freeze([
+  {
+    key: "developerModeBaseProxies",
+    value: (context) => resolveServiceModeBaseProxies(ARGS.devMode, {
+      direct: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, true),
+      proxy: prependPreferredNames([GROUPS.GITHUB], context.baseProxies, false),
+      default: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, false)
+    })
+  },
+  {
+    key: "githubModeBaseProxies",
+    value: (context) => resolveServiceModeBaseProxies(ARGS.githubMode, {
+      direct: context.directFirstProxies,
+      proxy: context.baseProxies,
+      default: context.selectFirstProxies
+    })
+  },
+  {
+    key: "steamModeBaseProxies",
+    value: (context) => resolveServiceModeBaseProxies(ARGS.steamMode, {
+      direct: context.directFirstProxies,
+      proxy: context.baseProxies,
+      default: context.selectFirstProxies
+    })
+  }
+]);
+
+// 把一组服务按统一格式拼成 `github=... , steam=...` 这种单行摘要，供 full 日志复用。
+function formatServiceLogSummary(services, formatter) {
+  const source = Array.isArray(services) ? services : [];
+  const formatCurrent = typeof formatter === "function" ? formatter : (() => "default");
+  return source
+    .map((service) => `${service.key}=${formatCurrent(service)}`)
+    .join(", ");
+}
+
+// 读取 GitHub / Steam / Dev 的通用参数值；未显式配置时统一回退到 default。
+function getServiceArgLogValue(argToken, suffix, fallback) {
+  const hasKey = `has${argToken}${suffix}`;
+  const valueKey = buildServiceArgKey(argToken, suffix);
+  if (!ARGS[hasKey]) {
+    return typeof fallback === "undefined" ? "default" : fallback;
+  }
+
+  const value = ARGS[valueKey];
+  if (Array.isArray(value)) {
+    return value.length ? value.join(" > ") : "default";
+  }
+
+  return hasUsableArgValue(value) ? value : "default";
+}
+
+// 统一格式化独立组 provider 池日志：优先显示 include-all，其次 include-all-providers，再回退 use-providers。
+function formatServiceProviderPoolLogValue(argToken) {
+  if (ARGS[`has${argToken}IncludeAll`]) {
+    return ARGS[buildServiceArgKey(argToken, "IncludeAll")] ? "include-all" : "off";
+  }
+
+  if (ARGS[`has${argToken}IncludeAllProviders`]) {
+    return ARGS[buildServiceArgKey(argToken, "IncludeAllProviders")] ? "include-all-providers" : "off";
+  }
+
+  return getServiceArgLogValue(argToken, "UseProviders");
+}
+
+// 统一格式化独立组测速日志。
+function formatServiceLatencyLogValue(argToken) {
+  return [
+    `test-url=${getServiceArgLogValue(argToken, "TestUrl")}`,
+    `group-interval=${getServiceArgLogValue(argToken, "GroupInterval")}`,
+    `group-tolerance=${getServiceArgLogValue(argToken, "GroupTolerance")}`,
+    `group-timeout=${getServiceArgLogValue(argToken, "GroupTimeout")}`,
+    `group-lazy=${getServiceArgLogValue(argToken, "GroupLazy")}`,
+    `group-max-failed-times=${getServiceArgLogValue(argToken, "GroupMaxFailedTimes")}`,
+    `group-expected-status=${getServiceArgLogValue(argToken, "GroupExpectedStatus")}`,
+    `group-strategy=${getServiceArgLogValue(argToken, "GroupStrategy")}`
+  ].join(", ");
+}
+
+// 统一格式化独立组节点池日志。
+function formatServiceNodePoolLogValue(argToken) {
+  return [
+    `include-all-proxies=${getServiceArgLogValue(argToken, "IncludeAllProxies")}`,
+    `filter=${getServiceArgLogValue(argToken, "NodeFilter")}`,
+    `exclude-filter=${getServiceArgLogValue(argToken, "NodeExcludeFilter")}`,
+    `exclude-type=${getServiceArgLogValue(argToken, "NodeExcludeType")}`
+  ].join(", ");
+}
+
+// 统一格式化开发服务组高级项日志。
+function formatServiceAdvancedLogValue(argToken, fields) {
+  return (Array.isArray(fields) ? fields : [])
+    .map((field) => `${field.label}=${getServiceArgLogValue(argToken, field.suffix)}`)
+    .join(", ");
+}
+
+// 批量构建 GitHub / Steam / Dev 独立组的通用响应头，避免主响应头对象里重复写几十行近似字段。
+// 汇总 AI / Crypto / GitHub / Steam / Dev 的 prefer-countries 校验告警，避免 validate 阶段把同一模式手写五遍。
+function collectPreferredCountryWarnings(countryConfigs) {
+  const warnings = [];
+
+  for (const definition of SERVICE_PREFERRED_COUNTRY_DEFINITIONS) {
+    warnings.push.apply(
+      warnings,
+      validatePreferredCountryMarkers(countryConfigs, ARGS[definition.argKey], definition.label)
+    );
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 汇总 GitHub / Steam / Dev 的前置组引用告警，避免每加一个独立组都要手动改 validate 拼接。
+function collectPreferredGroupWarnings(availableGroupNames) {
+  const warnings = [];
+
+  for (const definition of SERVICE_RESOURCE_VALIDATION_DEFINITIONS) {
+    warnings.push.apply(
+      warnings,
+      validatePreferredGroupMarkers(
+        availableGroupNames,
+        ARGS[buildServiceArgKey(definition.argToken, "PreferGroups")],
+        definition.label,
+        [definition.groupName]
+      )
+    );
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 汇总 GitHub / Steam / Dev 的点名节点告警。
+function collectPreferredNodeWarnings(proxyNames) {
+  const warnings = [];
+
+  for (const definition of SERVICE_RESOURCE_VALIDATION_DEFINITIONS) {
+    warnings.push.apply(
+      warnings,
+      validatePreferredProxyMarkers(
+        proxyNames,
+        ARGS[buildServiceArgKey(definition.argToken, "PreferNodes")],
+        definition.label
+      )
+    );
+  }
+
+  return uniqueStrings(warnings);
+}
+
+// 汇总 GitHub / Steam / Dev 的 provider 池引用告警，同时兼容 include-all / include-all-providers 官方语义。
+function collectPreferredProviderWarnings(availableProxyProviderNames) {
+  const warnings = [];
+
+  for (const definition of SERVICE_RESOURCE_VALIDATION_DEFINITIONS) {
+    warnings.push.apply(
+      warnings,
+      validatePreferredProxyProviderMarkers(
+        availableProxyProviderNames,
+        ARGS[buildServiceArgKey(definition.argToken, "UseProviders")],
+        definition.label,
+        ARGS[buildServiceArgKey(definition.argToken, "IncludeAllProviders")],
+        ARGS[buildServiceArgKey(definition.argToken, "IncludeAll")]
+      )
+    );
+  }
+
+  return uniqueStrings(warnings);
+}
+
 // 汇总“请求 -> 规则 -> 目标组 -> 组内候选链”的关键链路，便于快速观察整条分流路径。
 function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, proxyGroups) {
   const context = isObject(runtimeContext) ? runtimeContext : {};
   const currentRules = Array.isArray(rules) ? rules : [];
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  const definitionLookup = buildRuleDefinitionLookup(definitions);
+  const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   const query = isObject(queryArgs) ? queryArgs : {};
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
     .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     .map((provider) => {
-      const definition = definitions.find((item) => isObject(item) && item.provider === provider);
+      const definition = definitionLookup[provider];
       return definition ? `${sanitizeProviderPreviewName(provider)}->${sanitizeProviderPreviewName(definition.target)}${definition.noResolve ? ":NR" : ""}` : "";
     })
     .filter(Boolean);
   const groupEntries = [GROUPS.SELECT, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS]
-    .map((groupName) => buildTrafficChainGroupEntry(proxyGroups, groupName))
+    .map((groupName) => buildTrafficChainGroupEntry(proxyGroupLookup[groupName] || null))
     .filter(Boolean);
   const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
   const matchTarget = matchRule ? describeTrafficRule(matchRule).replace(/^MATCH->/, "") : GROUPS.SELECT;
@@ -7887,19 +9159,27 @@ function formatRoutingChainPreview(source) {
 }
 
 // 单独聚焦 GitHub / Steam / SteamCN / AI / Crypto 等关键业务的规则入口与候选链，便于直接看“这类流量到底会怎么走”。
-function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConfigs) {
+function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConfigs, preferredCountryStates) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
   const countries = Array.isArray(countryConfigs) ? countryConfigs : [];
-  const cryptoPreferredGroupLookup = createLookup(
-    buildPreferredCountryGroups(countries, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS)
-      .map((group) => group && group.name)
-      .filter(Boolean)
-  );
-  const devPreferredGroupLookup = createLookup(
-    (ARGS.hasDevPreferCountries ? resolvePreferredCountryGroups(countries, ARGS.devPreferCountries) : [])
-      .map((group) => group && group.name)
-      .filter(Boolean)
-  );
+  const definitionLookup = buildRuleDefinitionLookup(definitions);
+  const definitionIndexLookup = buildRuleDefinitionIndexLookup(definitions);
+  const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
+  const preferredStates = isObject(preferredCountryStates) ? preferredCountryStates : {};
+  const cryptoPreferredGroups = isObject(preferredStates.crypto)
+    ? preferredStates.crypto.groups
+    : buildPreferredCountryGroups(countries, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS);
+  const devPreferredGroups = isObject(preferredStates.dev)
+    ? preferredStates.dev.groups
+    : (ARGS.hasDevPreferCountries ? resolvePreferredCountryGroups(countries, ARGS.devPreferCountries) : []);
+  const cryptoPreferredGroupNames = cryptoPreferredGroups
+    .map((group) => group && group.name)
+    .filter(Boolean);
+  const devPreferredGroupNames = devPreferredGroups
+    .map((group) => group && group.name)
+    .filter(Boolean);
+  const cryptoPreferredGroupLookup = createLookup(cryptoPreferredGroupNames);
+  const devPreferredGroupLookup = createLookup(devPreferredGroupNames);
   const hasDeveloperLeadingOverrides = !!(ARGS.hasDevPreferCountries || ARGS.hasDevPreferGroups || ARGS.hasDevPreferNodes);
   const expectedDeveloperFirstProxy = ARGS.devMode === "direct"
     ? BUILTIN_DIRECT
@@ -7917,15 +9197,15 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
   };
 
   for (const profile of SERVICE_ROUTING_PROFILE_DEFINITIONS) {
-    const definition = definitions.find((item) => isObject(item) && item.provider === profile.provider);
+    const definition = definitionLookup[profile.provider];
     const target = normalizeStringArg(definition && definition.target) || profile.expectedTarget;
-    const targetGroup = findProxyGroupByName(proxyGroups, target);
+    const targetGroup = proxyGroupLookup[target] || null;
     const groupType = targetGroup
       ? (normalizeStringArg(targetGroup.type) || "select")
       : (BUILTIN_POLICY_NAMES.includes(target) ? "builtin" : "missing");
     const groupProxies = Array.isArray(targetGroup && targetGroup.proxies) ? targetGroup.proxies : [];
     const firstProxy = groupProxies[0] || (target === BUILTIN_DIRECT ? BUILTIN_DIRECT : "");
-    const ruleIndex = findRuleDefinitionIndex(definitions, profile.provider);
+    const ruleIndex = hasOwn(definitionIndexLookup, profile.provider) ? definitionIndexLookup[profile.provider] : -1;
 
     result.total += 1;
     if (target === profile.expectedTarget) {
@@ -7966,11 +9246,11 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
       !ARGS.hasDevPreferGroups &&
       !ARGS.hasDevPreferNodes &&
       ARGS.devMode !== "direct" &&
-      Object.keys(devPreferredGroupLookup).length &&
+      devPreferredGroupNames.length &&
       firstProxy &&
       !devPreferredGroupLookup[firstProxy]
     ) {
-      result.warnings.push(`${profile.label} 当前打到 ${GROUPS.DEV}，但 ${GROUPS.DEV} 第一个候选不是开发优先国家链 ${formatProviderPreviewNames(Object.keys(devPreferredGroupLookup), 3, 12)} 中的组，而是 ${firstProxy}；相关流量可能不会先走偏好的国家节点`);
+      result.warnings.push(`${profile.label} 当前打到 ${GROUPS.DEV}，但 ${GROUPS.DEV} 第一个候选不是开发优先国家链 ${formatProviderPreviewNames(devPreferredGroupNames, 3, 12)} 中的组，而是 ${firstProxy}；相关流量可能不会先走偏好的国家节点`);
     }
 
     if (profile.provider === "SteamCN" && target === GROUPS.SELECT) {
@@ -7981,8 +9261,8 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
       result.warnings.push("AI 组当前第一个候选是 DIRECT；AIExtra / OpenAI / Anthropic / Gemini / Copilot / Grok / AppleAI 等流量可能会先走直连，而不是 AI 优先国家链");
     }
 
-    if (profile.provider === "Crypto" && Object.keys(cryptoPreferredGroupLookup).length && firstProxy && !cryptoPreferredGroupLookup[firstProxy]) {
-      result.warnings.push(`Crypto 组当前第一个候选是 ${firstProxy}，而不是预设国家优先链 ${formatProviderPreviewNames(Object.keys(cryptoPreferredGroupLookup), 3, 12)}；相关流量可能不会先走偏好的国家节点`);
+    if (profile.provider === "Crypto" && cryptoPreferredGroupNames.length && firstProxy && !cryptoPreferredGroupLookup[firstProxy]) {
+      result.warnings.push(`Crypto 组当前第一个候选是 ${firstProxy}，而不是预设国家优先链 ${formatProviderPreviewNames(cryptoPreferredGroupNames, 3, 12)}；相关流量可能不会先走偏好的国家节点`);
     }
   }
 
@@ -8259,9 +9539,7 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
   // 先浅拷贝一份策略组，避免后续排序直接改写传入数组。
   const groups = Array.isArray(proxyGroups) ? proxyGroups.slice() : [];
   // 抽出所有实际存在的组名；后面无论是 bucket 展开还是 direct match 都基于这份清单。
-  const groupNames = groups
-    .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
-    .map((group) => group.name.trim());
+  const groupNames = collectNamedEntries(groups);
   // 先把“主业务组 / 区域组 / 国家组 / helpers / extras”这些桶都算好，便于 preset 里的 bucket token 直接展开。
   const buckets = buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupNames);
   // bucketAliasMap 负责把 region / country / services / helpers 这类 token 归一化到固定桶名。
@@ -10500,7 +11778,7 @@ function validateLatencyGroupOptions(proxyGroups) {
 // 校验规则目标组是否都能在生成后的 proxy-groups 中找到。
 function validateRuleTargets(proxyGroups, ruleDefinitions) {
   // 收集所有真实生成的组名。
-  const groupNames = Array.isArray(proxyGroups) ? proxyGroups.map((group) => group.name) : [];
+  const groupNames = collectNamedEntries(proxyGroups);
   // 建立组名查找表。
   const groupLookup = createLookup(groupNames);
   // 收集规则里要求存在的目标组。
@@ -10514,11 +11792,11 @@ function validateRuleTargets(proxyGroups, ruleDefinitions) {
 // 校验策略组里的 proxies 引用是否都能解析到“已有策略组 / 实际节点 / 内置策略”。
 function validateProxyGroupReferences(proxyGroups, proxies) {
   // 收集所有策略组名称。
-  const groupNames = Array.isArray(proxyGroups) ? proxyGroups.map((group) => group.name) : [];
+  const groupNames = collectNamedEntries(proxyGroups);
   // 收集所有节点名称。
-  const proxyNames = Array.isArray(proxies) ? proxies.map((proxy) => proxy.name) : [];
+  const proxyNames = collectNamedEntries(proxies);
   // 建立统一查找表。
-  const validReferenceLookup = createLookup(groupNames.concat(proxyNames, BUILTIN_POLICY_NAMES));
+  const validReferenceLookup = createLookup(buildBuiltinAwareNameList(groupNames, proxyNames));
   // 收集所有无效引用。
   const unresolvedReferences = [];
 
@@ -10660,16 +11938,9 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
   // 先跑自动分组可用性校验。
   const autoGroupValidation = validateAutoGroups(proxyGroups, proxies);
   // 提前抽出最终可见节点名称，给 GitHub / Steam 点名节点参数校验复用。
-  const proxyNames = Array.isArray(proxies)
-    ? proxies
-      .filter((proxy) => isObject(proxy) && typeof proxy.name === "string" && proxy.name.trim())
-      .map((proxy) => proxy.name.trim())
-    : [];
+  const proxyNames = collectNamedEntries(proxies);
   // 收集最终可用的策略组名称与内置策略，给 GitHub / Steam 前置组参数校验复用。
-  const availableGroupNames = uniqueStrings(
-    (Array.isArray(proxyGroups) ? proxyGroups.map((group) => group && group.name).filter(Boolean) : [])
-      .concat(BUILTIN_POLICY_NAMES)
-  );
+  const availableGroupNames = buildBuiltinAwareNameList(collectNamedEntries(proxyGroups));
   // 收集当前可用 proxy-provider 名称，给 GitHub / Steam provider 池参数校验复用。
   const availableProxyProviderNames = Object.keys(isObject(config && config["proxy-providers"]) ? config["proxy-providers"] : {});
   const ruleProviderApplyStats = analyzeRuleProviderApplyStats(providers);
@@ -10703,32 +11974,10 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
     kernelOptionWarnings: validateKernelOptionWarnings(config),
     latencyGroupWarnings: validateLatencyGroupOptions(proxyGroups),
     providerHealthWarnings: validateProxyProviderHealthCheckCaveats(proxyGroups),
-    preferredCountryWarnings: uniqueStrings(
-      validatePreferredCountryMarkers(countryConfigs, ARGS.aiPreferCountries, "AI").concat(
-        validatePreferredCountryMarkers(countryConfigs, ARGS.cryptoPreferCountries, "Crypto"),
-        validatePreferredCountryMarkers(countryConfigs, ARGS.githubPreferCountries, "GitHub"),
-        validatePreferredCountryMarkers(countryConfigs, ARGS.steamPreferCountries, "Steam"),
-        validatePreferredCountryMarkers(countryConfigs, ARGS.devPreferCountries, "Dev")
-      )
-    ),
-    preferredGroupWarnings: uniqueStrings(
-      validatePreferredGroupMarkers(availableGroupNames, ARGS.githubPreferGroups, "GitHub", [GROUPS.GITHUB]).concat(
-        validatePreferredGroupMarkers(availableGroupNames, ARGS.steamPreferGroups, "Steam", [GROUPS.STEAM]),
-        validatePreferredGroupMarkers(availableGroupNames, ARGS.devPreferGroups, "Dev", [GROUPS.DEV])
-      )
-    ),
-    preferredNodeWarnings: uniqueStrings(
-      validatePreferredProxyMarkers(proxyNames, ARGS.githubPreferNodes, "GitHub").concat(
-        validatePreferredProxyMarkers(proxyNames, ARGS.steamPreferNodes, "Steam"),
-        validatePreferredProxyMarkers(proxyNames, ARGS.devPreferNodes, "Dev")
-      )
-    ),
-    preferredProviderWarnings: uniqueStrings(
-      validatePreferredProxyProviderMarkers(availableProxyProviderNames, ARGS.githubUseProviders, "GitHub", ARGS.githubIncludeAllProviders, ARGS.githubIncludeAll).concat(
-        validatePreferredProxyProviderMarkers(availableProxyProviderNames, ARGS.steamUseProviders, "Steam", ARGS.steamIncludeAllProviders, ARGS.steamIncludeAll),
-        validatePreferredProxyProviderMarkers(availableProxyProviderNames, ARGS.devUseProviders, "Dev", ARGS.devIncludeAllProviders, ARGS.devIncludeAll)
-      )
-    ),
+    preferredCountryWarnings: collectPreferredCountryWarnings(countryConfigs),
+    preferredGroupWarnings: collectPreferredGroupWarnings(availableGroupNames),
+    preferredNodeWarnings: collectPreferredNodeWarnings(proxyNames),
+    preferredProviderWarnings: collectPreferredProviderWarnings(availableProxyProviderNames),
     regionVisibilityWarnings: regionVisibility.warnings,
     regionVisibilitySummary: regionVisibility.summary,
     regionVisibilityPreview: regionVisibility.previewEntries,
@@ -10768,265 +12017,2157 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
 
 // 统计诊断项总数，便于写入响应头摘要。
 function countDiagnosticIssues(diagnostics) {
-  const keys = [
-    "renamedProxies",
-    "missingProviders",
-    "duplicateRuleProviderPaths",
-    "invalidRuleProviderUrls",
-    "ruleProviderWarnings",
-    "proxyProviderWarnings",
-    "deprecatedSettings",
-    "dnsRiskWarnings",
-    "dnsOptionWarnings",
-    "geoConfigWarnings",
-    "kernelOptionWarnings",
-    "latencyGroupWarnings",
-    "providerHealthWarnings",
-    "preferredCountryWarnings",
-    "preferredGroupWarnings",
-    "preferredNodeWarnings",
-    "preferredProviderWarnings",
-    "regionVisibilityWarnings",
-    "groupOrderWarnings",
-    "ruleOrderWarnings",
-    "customRuleOrderWarnings",
-    "ruleTargetWarnings",
-    "rulePriorityWarnings",
-    "proxyGroupPriorityWarnings",
-    "customRuleWarnings",
-    "serviceRoutingWarnings",
-    "targetPlatformWarnings",
-    "runtimeArgWarnings",
-    "runtimeResponseWarnings",
-    "runtimeLinkWarnings",
-    "missingRuleTargets",
-    "unresolvedGroupReferences",
-    "unresolvedProviderReferences",
-    "invalidGroupPatterns",
-    "emptyAutoGroups"
-  ];
-  let total = 0;
+  return countDiagnosticIssueDefinitions(diagnostics, DIAGNOSTIC_WARNING_BLOCK_DEFINITIONS)
+    + countDiagnosticIssueDefinitions(diagnostics, DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS);
+}
 
-  for (const key of keys) {
-    if (Array.isArray(diagnostics[key])) {
-      total += diagnostics[key].length;
+// full 日志里的核心数量指标统一走定义表，避免 logBuildSummary 里堆大量近似 console.log。
+const BUILD_SUMMARY_PRIMARY_METRIC_DEFINITIONS = Object.freeze([
+  { key: "totalProxies", label: "代理节点", unit: "个" },
+  { key: "validProxies", label: "有效节点", unit: "个" },
+  { key: "lowCostProxies", label: "低倍率节点", unit: "个" },
+  { key: "landingProxies", label: "落地节点", unit: "个" },
+  { key: "countryGroups", label: "国家分组", unit: "个" },
+  { key: "regionGroups", label: "区域分组", unit: "个" },
+  { key: "proxyGroups", label: "策略组", unit: "个" },
+  { key: "rules", label: "规则数", unit: "条" },
+  { key: "classifiedCountryProxies", label: "国家识别节点", unit: "个" },
+  { key: "unclassifiedCountryProxies", label: "国家未识别节点", unit: "个" },
+  { key: "renamedProxies", label: "自动改名节点", unit: "个" }
+]);
+// full 日志里的各类告警/提醒计数也统一走定义表，减少新增诊断项时的维护面。
+const BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS = Object.freeze([
+  { key: "missingProviders", label: "Provider告警" },
+  { key: "invalidRuleProviderUrls", label: "Provider链接告警" },
+  { key: "ruleProviderWarnings", label: "规则源语义告警" },
+  { key: "proxyProviderWarnings", label: "代理集合告警" },
+  { key: "deprecatedSettings", label: "弃用项告警" },
+  { key: "dnsRiskWarnings", label: "DNS风险告警" },
+  { key: "dnsOptionWarnings", label: "DNS选项告警" },
+  { key: "latencyGroupWarnings", label: "测速组告警" },
+  { key: "providerHealthWarnings", label: "Provider健康提醒" },
+  { key: "preferredCountryWarnings", label: "优先链告警" },
+  { key: "preferredGroupWarnings", label: "前置组告警" },
+  { key: "preferredNodeWarnings", label: "点名节点告警" },
+  { key: "preferredProviderWarnings", label: "Provider池告警" },
+  { key: "regionVisibilityWarnings", label: "区域可见性提醒" },
+  { key: "groupOrderWarnings", label: "策略组布局告警" },
+  { key: "ruleOrderWarnings", label: "规则顺序告警" },
+  { key: "customRuleOrderWarnings", label: "自定义规则编排告警" },
+  { key: "ruleTargetWarnings", label: "规则入口告警" },
+  { key: "rulePriorityWarnings", label: "规则优先级风险" },
+  { key: "proxyGroupPriorityWarnings", label: "候选链风险" },
+  { key: "customRuleWarnings", label: "自定义规则提醒" },
+  { key: "serviceRoutingWarnings", label: "业务链路提醒" },
+  { key: "targetPlatformWarnings", label: "平台提醒" },
+  { key: "runtimeArgWarnings", label: "参数诊断提醒" },
+  { key: "runtimeResponseWarnings", label: "响应头提醒" },
+  { key: "runtimeLinkWarnings", label: "链路参数提醒" },
+  { key: "geoConfigWarnings", label: "GEO风险告警" },
+  { key: "kernelOptionWarnings", label: "核心项告警" },
+  { key: "duplicateRuleProviderPaths", label: "Provider路径告警" },
+  { key: "missingRuleTargets", label: "规则目标告警" },
+  { key: "unresolvedGroupReferences", label: "引用异常告警" },
+  { key: "unresolvedProviderReferences", label: "Provider引用告警" },
+  { key: "invalidGroupPatterns", label: "分组正则告警" },
+  { key: "emptyAutoGroups", label: "空自动分组告警" }
+]);
+const BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS = Object.freeze([
+  { definitions: BUILD_SUMMARY_PRIMARY_METRIC_DEFINITIONS, defaultUnit: "" },
+  { definitions: BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, defaultUnit: "条" }
+]);
+// 这批规则/链路摘要会同时写进 full 日志和响应头，统一定义可避免两边字段逐步漂移。
+const BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS = Object.freeze([
+  { label: "策略组顺序", summaryKey: "proxyGroupOrderSummary", headerSuffix: "Proxy-Group-Order" },
+  { label: "策略组优先级", summaryKey: "proxyGroupPrioritySummary", headerSuffix: "Proxy-Group-Priority" },
+  { label: "流量优先级", summaryKey: "trafficPrioritySummary", headerSuffix: "Traffic-Priority-Summary" },
+  { label: "规则层级总览", summaryKey: "ruleLayerSummary", previewKey: "ruleLayerPreview", headerSuffix: "Rule-Layer-Summary", previewHeaderSuffix: "Rule-Layer-Preview" },
+  { label: "自定义规则区间", summaryKey: "customRuleSummary", previewKey: "customRulePreview", headerSuffix: "Custom-Rule-Summary", previewHeaderSuffix: "Custom-Rule-Preview" },
+  { label: "关键命中窗口", summaryKey: "keyRuleWindowSummary", previewKey: "keyRuleWindowPreview", headerSuffix: "Key-Rule-Window-Summary", previewHeaderSuffix: "Key-Rule-Window-Preview" },
+  { label: "规则层级目标映射", summaryKey: "ruleLayerTargetSummary", previewKey: "ruleLayerTargetPreview", headerSuffix: "Rule-Layer-Target-Summary", previewHeaderSuffix: "Rule-Layer-Target-Preview" },
+  { label: "业务规则窗口", summaryKey: "serviceRuleWindowSummary", previewKey: "serviceRuleWindowPreview", headerSuffix: "Service-Rule-Window-Summary", previewHeaderSuffix: "Service-Rule-Window-Preview" },
+  { label: "规则入口映射", summaryKey: "ruleTargetMappingSummary", previewKey: "ruleTargetMappingPreview", headerSuffix: "Rule-Target-Summary", previewHeaderSuffix: "Rule-Target-Preview" },
+  { label: "规则优先级风险", summaryKey: "rulePriorityRiskSummary", previewKey: "rulePriorityRiskPreview", headerSuffix: "Rule-Priority-Risk-Summary", previewHeaderSuffix: "Rule-Priority-Risk-Preview" },
+  { label: "策略组候选链风险", summaryKey: "proxyGroupPriorityRiskSummary", previewKey: "proxyGroupPriorityRiskPreview", headerSuffix: "Proxy-Group-Priority-Risk-Summary", previewHeaderSuffix: "Proxy-Group-Priority-Risk-Preview" },
+  { label: "业务链路总览", summaryKey: "serviceRoutingSummary", previewKey: "serviceRoutingPreview", headerSuffix: "Service-Routing-Summary", previewHeaderSuffix: "Service-Routing-Preview" },
+  { label: "分流链路总览", summaryKey: "routingChainSummary", previewKey: "routingChainPreview", headerSuffix: "Routing-Chain-Summary", previewHeaderSuffix: "Routing-Chain-Preview" }
+]);
+// full 日志里很多参数行只是 label 不同、entries 结构完全一致，这里统一成构造 helper，便于继续扩展更多参数摘要。
+function createBuildSummaryArgLineDefinition(label, entries) {
+  return { label, entries };
+}
+
+// full 日志中剩余的服务参数摘要也统一收敛，避免每行都手写 `hasX ? X : default`。
+const BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS = Object.freeze([
+  createBuildSummaryArgLineDefinition("规则入口目标", [
+    { key: "github", hasKey: "hasGithubRuleTarget", valueKey: "githubRuleTarget" },
+    { key: "steam", hasKey: "hasSteamRuleTarget", valueKey: "steamRuleTarget" },
+    { key: "steam-cn", hasKey: "hasSteamCnRuleTarget", valueKey: "steamCnRuleTarget" },
+    { key: "dev", hasKey: "hasDevRuleTarget", valueKey: "devRuleTarget" }
+  ]),
+  createBuildSummaryArgLineDefinition("独立组展示", [
+    { key: "github-hidden", hasKey: "hasGithubHidden", valueKey: "githubHidden" },
+    { key: "github-icon", hasKey: "hasGithubIcon", valueKey: "githubIcon" },
+    { key: "steam-hidden", hasKey: "hasSteamHidden", valueKey: "steamHidden" },
+    { key: "steam-icon", hasKey: "hasSteamIcon", valueKey: "steamIcon" }
+  ]),
+  createBuildSummaryArgLineDefinition("独立组UDP", [
+    { key: "github-disable-udp", hasKey: "hasGithubDisableUdp", valueKey: "githubDisableUdp" },
+    { key: "steam-disable-udp", hasKey: "hasSteamDisableUdp", valueKey: "steamDisableUdp" }
+  ]),
+  createBuildSummaryArgLineDefinition("独立组网络", [
+    { key: "group-interface-name", hasKey: "hasGroupInterfaceName", valueKey: "groupInterfaceName" },
+    { key: "group-routing-mark", hasKey: "hasGroupRoutingMark", valueKey: "groupRoutingMark" },
+    { key: "github-interface-name", hasKey: "hasGithubInterfaceName", valueKey: "githubInterfaceName" },
+    { key: "github-routing-mark", hasKey: "hasGithubRoutingMark", valueKey: "githubRoutingMark" },
+    { key: "steam-interface-name", hasKey: "hasSteamInterfaceName", valueKey: "steamInterfaceName" },
+    { key: "steam-routing-mark", hasKey: "hasSteamRoutingMark", valueKey: "steamRoutingMark" }
+  ])
+]);
+// rule-provider 响应头字段定义；统一收敛后，响应头与日志里引用的统计摘要更容易保持一致。
+const RULE_PROVIDER_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  { headerSuffix: "Rule-Provider-Path-Dir", value: () => ARGS.ruleProviderPathDir },
+  { headerSuffix: "Rule-Provider-Interval", value: () => ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL },
+  { headerSuffix: "Rule-Provider-Proxy", value: () => ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default" },
+  { headerSuffix: "Rule-Provider-Size-Limit", value: () => ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default" },
+  { headerSuffix: "Rule-Provider-UA", value: () => ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default" },
+  { headerSuffix: "Rule-Provider-Authorization", value: () => ARGS.hasRuleProviderAuthorization ? "configured" : "default" },
+  { headerSuffix: "Rule-Provider-Header", value: () => ARGS.hasRuleProviderHeader ? `configured:${ARGS.ruleProviderHeaderEntryCount}` : "default" },
+  { headerSuffix: "Rule-Provider-Payload", value: () => ARGS.hasRuleProviderPayload ? `configured:${ARGS.ruleProviderPayloadCount}` : "default" },
+  { headerSuffix: "Rule-Provider-Apply-Scope", value: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "default" },
+  { headerSuffix: "Rule-Provider-Apply-Scope-Detail", value: () => buildRuleProviderApplyScopeSummary() },
+  { headerSuffix: "Rule-Provider-Apply-Stats", value: (diagnostics) => formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats) },
+  { headerSuffix: "Rule-Provider-Apply-Preview", value: (diagnostics) => formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview) },
+  { headerSuffix: "Rule-Provider-Mutation-Stats", value: (diagnostics) => formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats) },
+  { headerSuffix: "Rule-Provider-Mutation-Preview", value: (diagnostics) => formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview) },
+  { headerSuffix: "Rule-Provider-Payload-Apply-Scope", value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" },
+  { headerSuffix: "Rule-Provider-Semantic-Check", value: () => "enabled" }
+]);
+// proxy-provider 响应头字段定义；过滤、Override、health-check 也统一归档，避免 buildRuntimeResponseHeaders 继续拉长。
+const PROXY_PROVIDER_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  { headerSuffix: "Proxy-Provider-Interval", value: () => ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default" },
+  { headerSuffix: "Proxy-Provider-Proxy", value: () => ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default" },
+  { headerSuffix: "Proxy-Provider-Size-Limit", value: () => ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default" },
+  { headerSuffix: "Proxy-Provider-UA", value: () => ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default" },
+  { headerSuffix: "Proxy-Provider-Authorization", value: () => ARGS.hasProxyProviderAuthorization ? "configured" : "default" },
+  { headerSuffix: "Proxy-Provider-Header", value: () => ARGS.hasProxyProviderHeader ? `configured:${ARGS.proxyProviderHeaderEntryCount}` : "default" },
+  { headerSuffix: "Proxy-Provider-Payload", value: () => ARGS.hasProxyProviderPayload ? `configured:${ARGS.proxyProviderPayloadCount}` : "default" },
+  { headerSuffix: "Proxy-Provider-Path-Dir", value: () => ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged" },
+  { headerSuffix: "Proxy-Provider-Apply-Scope", value: () => buildProxyProviderApplyScopeSummary() },
+  { headerSuffix: "Proxy-Provider-Apply-Stats", value: (diagnostics) => formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats) },
+  { headerSuffix: "Proxy-Provider-Apply-Preview", value: (diagnostics) => formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview) },
+  { headerSuffix: "Proxy-Provider-Mutation-Stats", value: (diagnostics) => formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats) },
+  { headerSuffix: "Proxy-Provider-Mutation-Preview", value: (diagnostics) => formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview) },
+  { headerSuffix: "Proxy-Provider-Semantic-Check", value: () => "enabled" },
+  { headerSuffix: "Proxy-Provider-Filter", value: () => ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default" },
+  { headerSuffix: "Proxy-Provider-Exclude-Filter", value: () => ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default" },
+  { headerSuffix: "Proxy-Provider-Exclude-Type", value: () => ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Prefix", value: () => ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Suffix", value: () => ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default" },
+  { headerSuffix: "Proxy-Provider-Override-UDP", value: () => ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default" },
+  { headerSuffix: "Proxy-Provider-Override-UDP-Over-TCP", value: () => ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Down", value: () => ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Up", value: () => ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default" },
+  { headerSuffix: "Proxy-Provider-Override-TFO", value: () => ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default" },
+  { headerSuffix: "Proxy-Provider-Override-MPTCP", value: () => ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Skip-Cert-Verify", value: () => ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Dialer-Proxy", value: () => ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Interface-Name", value: () => ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Routing-Mark", value: () => ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default" },
+  { headerSuffix: "Proxy-Provider-Override-IP-Version", value: () => ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default" },
+  { headerSuffix: "Proxy-Provider-Override-Proxy-Name", value: () => ARGS.hasProxyProviderOverrideProxyNameRules ? `configured:${ARGS.proxyProviderOverrideProxyNameRules.length}` : "default" },
+  { headerSuffix: "Proxy-Provider-HC-Enable", value: () => ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default" },
+  { headerSuffix: "Proxy-Provider-HC-Url", value: () => ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default" },
+  { headerSuffix: "Proxy-Provider-HC-Interval", value: () => ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default" },
+  { headerSuffix: "Proxy-Provider-HC-Timeout", value: () => ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default" },
+  { headerSuffix: "Proxy-Provider-HC-Lazy", value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" },
+  { headerSuffix: "Proxy-Provider-HC-Expected-Status", value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" }
+]);
+// full 日志里 provider 与下载链路参数的模板同样很长，继续用定义表压缩，减少后续新增参数时的重复修改点。
+const BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS = Object.freeze([
+  {
+    label: "规则源参数",
+    entries: [
+      { key: "preset", value: () => ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET },
+      { key: "steam-fix", value: () => ARGS.hasSteamFix ? ARGS.steamFix : false },
+      { key: "steam-fix-url", value: () => ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled" },
+      { key: "direct-list-url", value: () => ARGS.hasDirectListUrl ? ARGS.directListUrl : "default" },
+      { key: "crypto-list-url", value: () => ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default" },
+      { key: "chatgpt-list-url", value: () => ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default" },
+      { key: "ai-extra-list-url", value: () => ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default" },
+      { key: "dev-list-url", value: () => ARGS.hasDevListUrl ? ARGS.devListUrl : "default" },
+      { key: "grok-rule-url", value: () => accademiaAdditionalRule("Grok") },
+      { key: "apple-ai-rule-url", value: () => accademiaAdditionalRule("AppleAI") },
+      { key: "provider-path-dir", value: () => ARGS.ruleProviderPathDir },
+      { key: "provider-interval", value: () => ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL },
+      { key: "provider-proxy", value: () => ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default" },
+      { key: "provider-size-limit", value: () => ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default" },
+      { key: "provider-ua", value: () => ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default" },
+      { key: "provider-auth", value: () => ARGS.hasRuleProviderAuthorization ? "configured" : "default" },
+      { key: "provider-headers", value: () => ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default" },
+      { key: "provider-payload", value: () => ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default" },
+      { key: "scope", value: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default" },
+      { key: "payload-scope", value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" },
+      { key: "apply-scope", value: () => buildRuleProviderApplyScopeSummary() },
+      { key: "apply-stats", value: () => stats.ruleProviderApplyStatsSummary },
+      { key: "apply-preview", value: () => stats.ruleProviderApplyPreviewSummary },
+      { key: "mutation-stats", value: () => stats.ruleProviderMutationStatsSummary },
+      { key: "mutation-preview", value: () => stats.ruleProviderMutationPreviewSummary }
+    ]
+  },
+  {
+    label: "代理集合参数",
+    entries: [
+      { key: "interval", value: () => ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default" },
+      { key: "proxy", value: () => ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default" },
+      { key: "size-limit", value: () => ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default" },
+      { key: "ua", value: () => ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default" },
+      { key: "auth", value: () => ARGS.hasProxyProviderAuthorization ? "configured" : "default" },
+      { key: "headers", value: () => ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeaderEntryCount : "default" },
+      { key: "payload", value: () => ARGS.hasProxyProviderPayload ? ARGS.proxyProviderPayloadCount : "default" },
+      { key: "path-dir", value: () => ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged" },
+      { key: "filter", value: () => ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default" },
+      { key: "exclude-filter", value: () => ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default" },
+      { key: "exclude-type", value: () => ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default" },
+      { key: "hc-enable", value: () => ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default" },
+      { key: "hc-url", value: () => ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default" },
+      { key: "hc-interval", value: () => ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default" },
+      { key: "hc-timeout", value: () => ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default" },
+      { key: "hc-lazy", value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" },
+      { key: "hc-expected-status", value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" },
+      { key: "apply-scope", value: () => buildProxyProviderApplyScopeSummary() },
+      { key: "apply-stats", value: () => stats.proxyProviderApplyStatsSummary },
+      { key: "apply-preview", value: () => stats.proxyProviderApplyPreviewSummary },
+      { key: "mutation-stats", value: () => stats.proxyProviderMutationStatsSummary },
+      { key: "mutation-preview", value: () => stats.proxyProviderMutationPreviewSummary }
+    ]
+  },
+  {
+    label: "代理集合Override",
+    entries: [
+      { key: "prefix", value: () => ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default" },
+      { key: "suffix", value: () => ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default" },
+      { key: "udp", value: () => ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default" },
+      { key: "udp-over-tcp", value: () => ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default" },
+      { key: "down", value: () => ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default" },
+      { key: "up", value: () => ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default" },
+      { key: "tfo", value: () => ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default" },
+      { key: "mptcp", value: () => ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default" },
+      { key: "skip-cert-verify", value: () => ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default" },
+      { key: "dialer-proxy", value: () => ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default" },
+      { key: "interface-name", value: () => ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default" },
+      { key: "routing-mark", value: () => ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default" },
+      { key: "ip-version", value: () => ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default" },
+      { key: "proxy-name-rules", value: () => ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default" }
+    ]
+  },
+  {
+    label: "下载链路",
+    entries: [
+      { key: "route-kind", value: () => RUNTIME_CONTEXT.routeKind || "unknown" },
+      { key: "route-name", value: () => RUNTIME_CONTEXT.routeName || "unknown" },
+      { key: "no-cache", value: () => RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default" },
+      { key: "include-unsupported", value: () => RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default" },
+      { key: "ignore-failed", value: () => RUNTIME_LINK_OPTIONS.hasIgnoreFailedRemoteSub ? RUNTIME_LINK_OPTIONS.ignoreFailedRemoteSub : "default" },
+      { key: "merge-sources", value: () => RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default" },
+      { key: "produce-type", value: () => RUNTIME_LINK_OPTIONS.hasProduceType ? RUNTIME_LINK_OPTIONS.produceType : "default" },
+      { key: "url", value: () => RUNTIME_LINK_OPTIONS.hasUrl ? "yes" : "no" },
+      { key: "url-kind", value: () => RUNTIME_LINK_OPTIONS.urlKind || "none" },
+      { key: "content", value: () => RUNTIME_LINK_OPTIONS.hasContent ? "yes" : "no" },
+      { key: "ua", value: () => RUNTIME_LINK_OPTIONS.hasUa ? "yes" : "no" },
+      { key: "proxy", value: () => RUNTIME_LINK_OPTIONS.hasProxy ? "yes" : "no" }
+    ]
+  }
+]);
+// full 日志里的全局参数/测速/Sniffer/DNS 池这几类都属于 `key=value` 串，统一定义后新增参数时更集中。
+const BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS = Object.freeze([
+  {
+    label: "参数",
+    entries: [
+      { key: "ipv6", value: () => ARGS.ipv6 },
+      { key: "landing", value: () => ARGS.landing },
+      { key: "hidden", value: () => ARGS.hidden },
+      { key: "load-balance", value: () => ARGS.lb },
+      { key: "fakeip", value: () => ARGS.fakeip },
+      { key: "quic", value: () => ARGS.quic },
+      { key: "unified-delay", value: () => ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : "config" },
+      { key: "tcp-concurrent", value: () => ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : "config" },
+      { key: "dns-respect-rules", value: () => ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : "config" },
+      { key: "dns-prefer-h3", value: () => ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : "config" },
+      { key: "profile-cache", value: () => ARGS.hasProfileCache ? ARGS.profileCache : "auto" },
+      { key: "geo-auto-update", value: () => ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : "config" },
+      { key: "geo-update-interval", value: () => ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : "config" },
+      { key: "threshold", value: () => ARGS.threshold }
+    ]
+  },
+  {
+    label: "测速参数",
+    entries: [
+      { key: "test-url", value: () => ARGS.hasTestUrl ? ARGS.testUrl : "default" },
+      { key: "group-interval", value: () => ARGS.hasGroupInterval ? ARGS.groupInterval : "default" },
+      { key: "group-tolerance", value: () => ARGS.hasGroupTolerance ? ARGS.groupTolerance : "default" },
+      { key: "group-timeout", value: () => ARGS.hasGroupTimeout ? ARGS.groupTimeout : "default" },
+      { key: "group-max-failed-times", value: () => ARGS.hasGroupMaxFailedTimes ? ARGS.groupMaxFailedTimes : "default" },
+      { key: "group-expected-status", value: () => ARGS.hasGroupExpectedStatus ? ARGS.groupExpectedStatus : "default" },
+      { key: "group-lazy", value: () => ARGS.hasGroupLazy ? ARGS.groupLazy : "default" },
+      { key: "group-strategy", value: () => ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default" }
+    ]
+  },
+  {
+    label: "Sniffer参数",
+    entries: [
+      { key: "force-dns-mapping", value: () => ARGS.hasSnifferForceDnsMapping ? ARGS.snifferForceDnsMapping : "default" },
+      { key: "parse-pure-ip", value: () => ARGS.hasSnifferParsePureIp ? ARGS.snifferParsePureIp : "default" },
+      { key: "override-destination", value: () => ARGS.hasSnifferOverrideDestination ? ARGS.snifferOverrideDestination : "default" },
+      { key: "http-override-destination", value: () => ARGS.hasSnifferHttpOverrideDestination ? ARGS.snifferHttpOverrideDestination : "default" }
+    ]
+  },
+  {
+    label: "Sniffer域名",
+    entries: [
+      { key: "force-domain+", value: () => ARGS.hasSnifferForceDomains ? ARGS.snifferForceDomains.join(" | ") : "default" },
+      { key: "skip-domain+", value: () => ARGS.hasSnifferSkipDomains ? ARGS.snifferSkipDomains.join(" | ") : "default" }
+    ]
+  },
+  {
+    label: "DNS池参数",
+    entries: [
+      { key: "listen", value: () => ARGS.hasDnsListen ? ARGS.dnsListen : "config/default" },
+      { key: "fake-ip-range", value: () => ARGS.hasFakeIpRange ? ARGS.fakeIpRange : "config/default" },
+      { key: "fake-ip-range6", value: () => ARGS.hasFakeIpRange6 ? ARGS.fakeIpRange6 : (ARGS.ipv6 ? "auto/default" : "off") }
+    ]
+  },
+  {
+    label: "开发服务组",
+    entries: [
+      { key: "mode", value: () => getServiceArgLogValue("Dev", "Mode") },
+      { key: "type", value: () => getServiceArgLogValue("Dev", "Type") },
+      { key: "prefer-groups", value: () => getServiceArgLogValue("Dev", "PreferGroups") },
+      { key: "prefer-nodes", value: () => getServiceArgLogValue("Dev", "PreferNodes") }
+    ]
+  }
+]);
+// full 日志里一部分摘要只有在存在内容时才输出，统一定义后可以避免 `if (...) console.log(...)` 连着堆很多段。
+const BUILD_SUMMARY_OPTIONAL_VALUE_LINE_DEFINITIONS = Object.freeze([
+  {
+    label: "国家统计",
+    shouldLog: (stats) => !!stats.countrySummary,
+    value: (stats) => stats.countrySummary
+  },
+  {
+    label: "区域统计",
+    shouldLog: (stats) => !!stats.regionGroupSummary,
+    value: (stats) => stats.regionGroupSummary
+  },
+  {
+    label: "国家优先链来源",
+    shouldLog: (stats) => hasServicePreferredCountrySummary(stats, "TraceSummary"),
+    value: (stats) => formatServicePreferredCountrySummaryLine(stats, "TraceSummary")
+  },
+  {
+    label: "国家优先链解析",
+    shouldLog: (stats) => hasServicePreferredCountrySummary(stats, "ExplainSummary"),
+    value: (stats) => formatServicePreferredCountrySummaryLine(stats, "ExplainSummary")
+  },
+  {
+    label: "国家优先链未命中",
+    shouldLog: (stats) => hasServicePreferredCountrySummary(stats, "UnmatchedSummary"),
+    value: (stats) => formatServicePreferredCountrySummaryLine(stats, "UnmatchedSummary")
+  }
+]);
+// 这类 definitions 只是在同一批 summary/preview 键上派生不同 entry shape，这里统一抽成 helper，减少多处 flatMap 模板。
+function mapSummaryPreviewDefinitionEntries(definitions, builder) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const buildCurrent = typeof builder === "function" ? builder : (() => []);
+
+  return source.flatMap((definition) => {
+    const summaryKey = normalizeStringArg(definition && definition.summaryKey);
+    const previewKey = normalizeStringArg(definition && definition.previewKey);
+    return []
+      .concat(summaryKey ? buildCurrent(summaryKey, "summary", definition) : [])
+      .concat(previewKey ? buildCurrent(previewKey, "preview", definition) : []);
+  });
+}
+
+// diagnostics supplement 里这些字段都是主流程派生摘要，统一定义后便于新增观测项时同时维护默认值策略。
+const BUILD_DIAGNOSTICS_SUPPLEMENT_FIELD_DEFINITIONS = Object.freeze([]
+  .concat([
+    { key: "renamedProxies", type: "array" },
+    { key: "ruleProviderMutationStats", type: "raw" },
+    { key: "proxyProviderMutationStats", type: "raw" },
+    { key: "ruleProviderMutationPreview", type: "raw" },
+    { key: "proxyProviderMutationPreview", type: "raw" },
+    { key: "unclassifiedCountryProxies", type: "number" },
+    { key: "unclassifiedCountryExamples", type: "array" },
+    { key: "countrySummary", type: "string" },
+    { key: "serviceRoutingWarnings", type: "array" },
+    { key: "regionGroupSummary", type: "string" },
+    { key: "customRuleWarnings", type: "array" }
+  ])
+  .concat(mapSummaryPreviewDefinitionEntries(
+    BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS,
+    (key) => [{ key, type: "string" }]
+  ))
+);
+// main 里传给 diagnostics supplement 的上游上下文也用定义表统一描述，避免再维护一大段对象字面量。
+const BUILD_DIAGNOSTICS_SUPPLEMENT_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "renamedProxies", value: (context) => context.normalizedProxyState.renamed },
+  { key: "ruleProviderMutationStats", value: (context) => context.ruleProviderMutationStats },
+  { key: "proxyProviderMutationStats", value: (context) => context.proxyProviderMutationStats },
+  { key: "ruleProviderMutationPreview", value: (context) => context.ruleProviderMutationPreview },
+  { key: "proxyProviderMutationPreview", value: (context) => context.proxyProviderMutationPreview },
+  { key: "unclassifiedCountryProxies", value: (context) => context.countryCoverage.unclassified },
+  { key: "unclassifiedCountryExamples", value: (context) => context.countryCoverage.unclassifiedExamples },
+  { key: "countrySummary", value: (context) => context.countrySummary },
+  { key: "serviceRoutingWarnings", value: (context) => context.serviceRoutingProfiles.warnings },
+  { key: "regionGroupSummary", value: (context) => context.regionGroupSummary },
+  { key: "customRuleWarnings", value: (context) => context.customRuleWindow.warnings }
+].concat(mapSummaryPreviewDefinitionEntries(
+  BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS,
+  (key) => [{ key, value: (context) => context[key] }]
+)));
+// main 里很多分析结果都会再派生出 summary/preview，统一定义后可避免平行的 format 调用散落一大片。
+const MAIN_ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS = Object.freeze([
+  { sourceKey: "routingChain", summaryKey: "routingChainSummary", previewKey: "routingChainPreview", summaryFormatter: formatRoutingChainSummary, previewFormatter: formatRoutingChainPreview },
+  { sourceKey: "serviceRoutingProfiles", summaryKey: "serviceRoutingSummary", previewKey: "serviceRoutingPreview", summaryFormatter: formatServiceRoutingProfilesSummary, previewFormatter: formatServiceRoutingProfilesPreview },
+  { sourceKey: "proxyGroupPriorityRisks", summaryKey: "proxyGroupPriorityRiskSummary", previewKey: "proxyGroupPriorityRiskPreview", summaryFormatter: formatProxyGroupPriorityRiskSummary, previewFormatter: formatProxyGroupPriorityRiskPreview },
+  { sourceKey: "rulePriorityRisks", summaryKey: "rulePriorityRiskSummary", previewKey: "rulePriorityRiskPreview", summaryFormatter: formatRulePriorityRiskSummary, previewFormatter: formatRulePriorityRiskPreview },
+  { sourceKey: "ruleTargetMapping", summaryKey: "ruleTargetMappingSummary", previewKey: "ruleTargetMappingPreview", summaryFormatter: formatRuleTargetMappingSummary, previewFormatter: formatRuleTargetMappingPreview },
+  { sourceKey: "ruleLayering", summaryKey: "ruleLayerSummary", previewKey: "ruleLayerPreview", summaryFormatter: formatRuleLayeringSummary, previewFormatter: formatRuleLayeringPreview },
+  { sourceKey: "customRuleWindow", summaryKey: "customRuleSummary", previewKey: "customRulePreview", summaryFormatter: formatCustomRuleWindowSummary, previewFormatter: formatCustomRuleWindowPreview },
+  { sourceKey: "keyRuleWindows", summaryKey: "keyRuleWindowSummary", previewKey: "keyRuleWindowPreview", summaryFormatter: formatKeyRuleWindowSummary, previewFormatter: formatKeyRuleWindowPreview },
+  { sourceKey: "ruleLayerTargetMapping", summaryKey: "ruleLayerTargetSummary", previewKey: "ruleLayerTargetPreview", summaryFormatter: formatRuleLayerTargetMappingSummary, previewFormatter: formatRuleLayerTargetMappingPreview },
+  { sourceKey: "serviceRuleWindows", summaryKey: "serviceRuleWindowSummary", previewKey: "serviceRuleWindowPreview", summaryFormatter: formatServiceRuleWindowSummary, previewFormatter: formatServiceRuleWindowPreview }
+]);
+// 还有几项只产出单个 summary 值，也放进同一套装配体系，便于 diagnostics/full-summary 共用。
+const MAIN_ANALYSIS_SINGLE_VALUE_DEFINITIONS = Object.freeze([
+  { key: "proxyGroupOrderSummary", value: (context) => buildProxyGroupOrderSummary(context.proxyGroups) },
+  { key: "proxyGroupPrioritySummary", value: (context) => buildProxyGroupPrioritySummary(context.proxyGroups) },
+  { key: "trafficPrioritySummary", value: (context) => buildTrafficPrioritySummary(context.rules, context.generatedRules, context.configuredRules, context.ruleAnalysis) }
+]);
+// 分析阶段主产物本身也统一定义，避免 buildMainAnalysisArtifacts 再平铺十来段 analyzeX 调用。
+const MAIN_ANALYSIS_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "routingChain", value: (context) => analyzeRoutingChain(RUNTIME_CONTEXT, RUNTIME_QUERY_ARGS, context.rules, context.finalRuleDefinitions, context.proxyGroups) },
+  { key: "serviceRoutingProfiles", value: (context) => analyzeServiceRoutingProfiles(context.finalRuleDefinitions, context.proxyGroups, context.countryConfigs, context.preferredCountryStates) },
+  { key: "regionVisibility", value: (context) => analyzeRegionGroupVisibility(context.proxyGroups, context.countryConfigs) },
+  { key: "proxyGroupPriorityRisks", value: (context) => analyzeProxyGroupPriorityRisks(context.proxyGroups) },
+  { key: "rulePriorityRisks", value: (context) => analyzeRulePriorityRisks(context.finalRuleDefinitions) },
+  { key: "ruleTargetMapping", value: (context) => analyzeRuleTargetMapping(context.finalRuleDefinitions, context.rules, context.ruleAnalysis) },
+  { key: "ruleLayering", value: (context) => analyzeRuleLayering(context.rules, context.ruleAnalysis) },
+  { key: "customRuleWindow", value: (context) => analyzeCustomRuleWindow(context.generatedRules, context.configuredRules, context.rules, context.ruleAnalysis) },
+  { key: "keyRuleWindows", value: (context) => analyzeKeyRuleWindows(context.rules, context.ruleAnalysis) },
+  { key: "ruleLayerTargetMapping", value: (context) => analyzeRuleLayerTargetMapping(context.rules, context.ruleAnalysis) },
+  { key: "serviceRuleWindows", value: (context) => analyzeServiceRuleWindows(context.rules, context.ruleAnalysis) }
+]);
+// full 日志统计对象里这批基础字段来自主流程上下文，统一定义后可避免 main 中重复手写长对象。
+const BUILD_FULL_SUMMARY_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "totalProxies", value: (context) => context.proxyStats.total },
+  { key: "validProxies", value: (context) => context.proxyStats.valid },
+  { key: "lowCostProxies", value: (context) => context.proxyStats.lowCost },
+  { key: "landingProxies", value: (context) => context.proxyStats.landing },
+  { key: "countryGroups", value: (context) => context.countryConfigs.length },
+  { key: "countrySummary", value: (context) => context.countrySummary },
+  { key: "regionGroups", value: (context) => context.regionConfigs.length },
+  { key: "regionGroupSummary", value: (context) => context.regionGroupSummary },
+  { key: "regionVisibilitySummary", value: (context) => context.diagnostics.regionVisibilitySummary },
+  { key: "regionVisibilityPreview", value: (context) => formatProviderPreviewNames(context.diagnostics.regionVisibilityPreview, 6, 18) },
+  { key: "proxyGroups", value: (context) => context.proxyGroups.length },
+  { key: "rules", value: (context) => context.rules.length },
+  { key: "classifiedCountryProxies", value: (context) => context.countryCoverage.classified },
+  { key: "unclassifiedCountryProxies", value: (context) => context.countryCoverage.unclassified },
+  { key: "responseHeadersApplied", value: (context) => context.responseHeadersApplied }
+].concat(mapSummaryPreviewDefinitionEntries(
+  BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS,
+  (key) => [{ key, value: (context) => context[key] }]
+)));
+// full 日志 diagnostics 指标里这一批额外统计都来自 diagnostics 对象，单独定义后减少 buildFullSummaryDiagnosticMetrics 内平铺模板。
+const FULL_SUMMARY_DIAGNOSTIC_EXTRA_METRIC_DEFINITIONS = Object.freeze([
+  { key: "renamedProxies", value: (context) => Array.isArray(context.renamedProxies) ? context.renamedProxies.length : 0 },
+  { key: "ruleProviderApplyStatsSummary", value: (context) => formatRuleProviderApplyStats(context.ruleProviderApplyStats) },
+  { key: "ruleProviderApplyPreviewSummary", value: (context) => formatRuleProviderApplyPreview(context.ruleProviderApplyPreview) },
+  { key: "proxyProviderApplyStatsSummary", value: (context) => formatProxyProviderApplyStats(context.proxyProviderApplyStats) },
+  { key: "proxyProviderApplyPreviewSummary", value: (context) => formatProxyProviderApplyPreview(context.proxyProviderApplyPreview) },
+  { key: "ruleProviderMutationStatsSummary", value: (context) => formatRuleProviderMutationStats(context.ruleProviderMutationStats) },
+  { key: "ruleProviderMutationPreviewSummary", value: (context) => formatRuleProviderMutationPreview(context.ruleProviderMutationPreview) },
+  { key: "proxyProviderMutationStatsSummary", value: (context) => formatProxyProviderMutationStats(context.proxyProviderMutationStats) },
+  { key: "proxyProviderMutationPreviewSummary", value: (context) => formatProxyProviderMutationPreview(context.proxyProviderMutationPreview) }
+]);
+// lookup section 只是 lookup/logger/labels 组合不同，这里抽成轻量 helper，避免定义表继续平铺同构对象。
+function createBuildSummaryLookupSectionDefinition(lookupKey, loggerKey, labels) {
+  return { lookupKey, loggerKey, labels };
+}
+
+// full 日志里按 label 批量输出的区块也整理成计划表，避免 logBuildSummary 主体继续出现多段近似调用。
+const BUILD_SUMMARY_LOG_LOOKUP_SECTION_DEFINITIONS = Object.freeze([
+  createBuildSummaryLookupSectionDefinition("value", "value", ["分组排序"]),
+  createBuildSummaryLookupSectionDefinition("providerArg", "arg", ["规则源参数"]),
+  createBuildSummaryLookupSectionDefinition("value", "value", ["规则源语义"]),
+  createBuildSummaryLookupSectionDefinition("providerArg", "arg", ["代理集合参数"]),
+  createBuildSummaryLookupSectionDefinition("value", "value", ["代理集合语义"]),
+  createBuildSummaryLookupSectionDefinition("providerArg", "arg", ["代理集合Override"]),
+  createBuildSummaryLookupSectionDefinition("value", "value", ["国家优先链", "国家优先链命中", "国家附加别名", "区域分组参数", "区域可见性", "分组排序参数"]),
+  createBuildSummaryLookupSectionDefinition("coreArg", "arg", ["开发服务组"]),
+  createBuildSummaryLookupSectionDefinition("value", "value", ["开发服务组高级项", "独立组前置组", "独立组点名节点", "独立组Provider池", "策略组编排", "规则顺序编排", "自定义规则编排"]),
+  createBuildSummaryLookupSectionDefinition("value", "value", ["独立组测速", "独立组节点池", "响应头参数"]),
+  createBuildSummaryLookupSectionDefinition("providerArg", "arg", ["下载链路"]),
+  createBuildSummaryLookupSectionDefinition("value", "value", ["下载链路语义", "参数来源", "参数生效来源", "未消费参数", "运行环境"])
+]);
+// 下载响应头前半段主要由运行时上下文和链接参数组成，统一定义后更容易继续扩展新观测项。
+const RUNTIME_CONTEXT_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  { headerSuffix: "Script-Version", value: () => SCRIPT_VERSION },
+  { headerSuffix: "Target", value: () => RUNTIME_CONTEXT.target || "unknown" },
+  { headerSuffix: "Route-Kind", value: () => RUNTIME_CONTEXT.routeKind || "unknown" },
+  { headerSuffix: "Route-Name", value: () => RUNTIME_CONTEXT.routeName || "unknown" },
+  { headerSuffix: "Route-Target", value: () => RUNTIME_CONTEXT.routeTarget || "none" },
+  { headerSuffix: "Query-Target", value: () => RUNTIME_CONTEXT.queryTarget || "none" },
+  { headerSuffix: "Request-Params-Target", value: () => RUNTIME_CONTEXT.requestParamsTarget || "none" },
+  { headerSuffix: "Arg-Source-Summary", value: () => formatRuntimeArgSourceSummary(RUNTIME_ARG_SOURCES) },
+  { headerSuffix: "Arg-Effective-Summary", value: () => formatRuntimeArgEffectiveSummary(RUNTIME_ARG_EFFECTIVE) },
+  { headerSuffix: "Arg-Effective-Preview", value: () => formatRuntimeArgEffectivePreview(RUNTIME_ARG_EFFECTIVE) },
+  { headerSuffix: "Unused-Arg-Summary", value: () => formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS) },
+  { headerSuffix: "Unused-Arg-Preview", value: () => formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS) },
+  { headerSuffix: "Route-Target-Source", value: () => RUNTIME_ARG_SOURCES.routeTargetSource || "none" },
+  { headerSuffix: "Route-Info-Source", value: () => RUNTIME_ARG_SOURCES.routeInfoSource || "none" },
+  { headerSuffix: "Merge-Sources", value: () => RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default" },
+  { headerSuffix: "No-Cache", value: () => RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default" },
+  { headerSuffix: "Include-Unsupported", value: () => RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default" },
+  { headerSuffix: "Link-Url-Kind", value: () => RUNTIME_LINK_OPTIONS.urlKind || "none" },
+  { headerSuffix: "Link-Semantic-Summary", value: () => buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS) },
+  { headerSuffix: "Link-Semantic-Check", value: () => "enabled" }
+]);
+// 规则源 URL/预设相关响应头也统一定义，避免 buildRuntimeResponseHeaders 再平铺十几行近似三元表达式。
+const RULE_SOURCE_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  { headerSuffix: "Rule-Source-Preset", value: () => ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET },
+  { headerSuffix: "Steam-Fix", value: () => ARGS.hasSteamFix ? ARGS.steamFix : false },
+  { headerSuffix: "Steam-Fix-Url", value: () => ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled" },
+  { headerSuffix: "Direct-List-Url", value: () => ARGS.hasDirectListUrl ? ARGS.directListUrl : "default" },
+  { headerSuffix: "Crypto-List-Url", value: () => ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default" },
+  { headerSuffix: "ChatGPT-List-Url", value: () => ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default" },
+  { headerSuffix: "AI-Extra-List-Url", value: () => ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default" },
+  { headerSuffix: "Dev-List-Url", value: () => ARGS.hasDevListUrl ? ARGS.devListUrl : "default" },
+  { headerSuffix: "Grok-Rule-Url", value: () => accademiaAdditionalRule("Grok") },
+  { headerSuffix: "Apple-AI-Rule-Url", value: () => accademiaAdditionalRule("AppleAI") }
+]);
+// group/region 相关响应头集中定义，方便后续继续扩展面板布局/区域显示调试项。
+const GEO_RUNTIME_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  createArgConfiguredResponseHeaderDefinition("Group-Strategy", "hasGroupStrategy", "groupStrategy", "default"),
+  createArgConfiguredResponseHeaderDefinition("Group-Interface-Name", "hasGroupInterfaceName", "groupInterfaceName", "default"),
+  createArgConfiguredResponseHeaderDefinition("Group-Routing-Mark", "hasGroupRoutingMark", "groupRoutingMark", "default"),
+  { headerSuffix: "Group-Order-Preset", value: () => ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET) },
+  { headerSuffix: "Group-Order-Config", value: () => ARGS.hasGroupOrder ? formatProviderPreviewNames(ARGS.groupOrder, 8, 12) : "preset-only" },
+  createArgConfiguredResponseHeaderDefinition("Country-Group-Sort", "hasCountryGroupSort", "countryGroupSort", "definition/default"),
+  { headerSuffix: "Country-Group-Summary", value: (diagnostics) => diagnostics.countrySummary || "none" },
+  createArgConfiguredResponseHeaderDefinition("Region-Group-Sort", "hasRegionGroupSort", "regionGroupSort", "definition/default"),
+  { headerSuffix: "Region-Groups", value: () => ARGS.hasRegionGroups ? `configured:${ARGS.regionGroupKeys.length}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off") },
+  { headerSuffix: "Region-Group-Preview", value: () => ARGS.hasRegionGroups ? ARGS.regionGroupPreview : (ARGS.hasRegionGroupsArg ? "off" : "none") },
+  { headerSuffix: "Region-Group-Summary", value: (diagnostics) => diagnostics.regionGroupSummary || "none" },
+  { headerSuffix: "Region-Visibility", value: (diagnostics) => diagnostics.regionVisibilitySummary || "none" },
+  { headerSuffix: "Region-Visibility-Preview", value: (diagnostics) => formatProviderPreviewNames(diagnostics.regionVisibilityPreview, 6, 18) }
+]);
+
+// 这类“同一开关控制启用/禁用值”的响应头定义模板高度一致，这里统一构造，减少 definitions 平铺重复。
+function createConditionalResponseHeaderDefinition(headerSuffix, enabled, enabledValue, disabledValue) {
+  return {
+    headerSuffix,
+    value: () => enabled
+      ? (typeof enabledValue === "function" ? enabledValue() : enabledValue)
+      : (typeof disabledValue === "function" ? disabledValue() : disabledValue)
+  };
+}
+
+// 这类 header 只是读取某组 `ARGS.hasX / ARGS.x`，这里再包一层轻量构造，减少 definitions 中成片重复模板。
+function createArgConfiguredResponseHeaderDefinition(headerSuffix, hasKey, valueKey, fallbackValue) {
+  return {
+    headerSuffix,
+    value: () => ARGS[hasKey] ? ARGS[valueKey] : fallbackValue
+  };
+}
+
+// country-extra-aliases 一组响应头同构程度很高，也单独抽成定义表，避免主响应头函数再拉长。
+const COUNTRY_EXTRA_ALIAS_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  createConditionalResponseHeaderDefinition("Country-Extra-Aliases", ARGS.hasCountryExtraAliases, "configured", "default"),
+  createConditionalResponseHeaderDefinition("Country-Extra-Alias-Countries", ARGS.hasCountryExtraAliases, () => ARGS.countryExtraAliasCountryCount, 0),
+  createConditionalResponseHeaderDefinition("Country-Extra-Alias-Entries", ARGS.hasCountryExtraAliases, () => ARGS.countryExtraAliasEntryCount, 0),
+  createConditionalResponseHeaderDefinition("Country-Extra-Alias-Preview", ARGS.hasCountryExtraAliases, () => ARGS.countryExtraAliasPreview, "none"),
+  createConditionalResponseHeaderDefinition("Country-Extra-Alias-Conflicts", ARGS.hasCountryExtraAliases, () => ARGS.countryExtraAliasConflictCount, 0),
+  createConditionalResponseHeaderDefinition("Country-Extra-Alias-Conflict-Preview", ARGS.hasCountryExtraAliases, () => ARGS.countryExtraAliasConflictPreview, "none")
+]);
+
+// 几个规则顺序响应头只是 anchor/position 参数不同，统一构造后更容易继续扩展更多服务规则入口。
+function createRuleOrderResponseHeaderDefinition(headerSuffix, anchorKey, positionKey) {
+  return {
+    headerSuffix,
+    value: () => buildRuleOrderArgSummary(anchorKey, positionKey)
+  };
+}
+
+// 规则编排相关响应头单独归档，方便后面继续补更多 order/anchor 调试项。
+const ORDER_RUNTIME_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
+  createRuleOrderResponseHeaderDefinition("SteamCN-Rule-Order", "steamCnRuleAnchor", "steamCnRulePosition"),
+  createRuleOrderResponseHeaderDefinition("Custom-Rule-Order", "customRuleAnchor", "customRulePosition"),
+  createArgConfiguredResponseHeaderDefinition("SteamCN-Rule-Target", "hasSteamCnRuleTarget", "steamCnRuleTarget", "default")
+]);
+// full 日志里有些行是“标签 + 一段动态摘要”，不适合 `key=value,key=value` 风格，这里也统一成计算定义。
+function createServiceSummaryValueLineDefinition(label, services, formatter) {
+  return {
+    label,
+    value: () => formatServiceLogSummary(services, formatter)
+  };
+}
+
+// full 日志里这几条“独立组资源摘要”行都是同一模板：标签不同，但都走 formatServiceLogSummary，这里统一构造。
+const BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINES = Object.freeze([
+  createServiceSummaryValueLineDefinition(
+    "独立组前置组",
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    (service) => getServiceArgLogValue(service.argToken, "PreferGroups")
+  ),
+  createServiceSummaryValueLineDefinition(
+    "独立组点名节点",
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    (service) => getServiceArgLogValue(service.argToken, "PreferNodes")
+  ),
+  createServiceSummaryValueLineDefinition(
+    "独立组Provider池",
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    (service) => formatServiceProviderPoolLogValue(service.argToken)
+  ),
+  createServiceSummaryValueLineDefinition(
+    "独立组测速",
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS.filter((service) => service.key !== "dev"),
+    (service) => formatServiceLatencyLogValue(service.argToken)
+  ),
+  createServiceSummaryValueLineDefinition(
+    "独立组节点池",
+    SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
+    (service) => formatServiceNodePoolLogValue(service.argToken)
+  )
+]);
+
+const BUILD_SUMMARY_VALUE_LINE_DEFINITIONS = Object.freeze([
+  {
+    label: "国家附加别名",
+    value: () => ARGS.hasCountryExtraAliases
+      ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}`
+      : "default"
+  },
+  {
+    label: "区域分组参数",
+    value: (stats) => ARGS.hasRegionGroups
+      ? `configured,preview=${ARGS.regionGroupPreview},generated=${stats.regionGroups},summary=${stats.regionGroupSummary || "none"}`
+      : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off")
+  },
+  {
+    label: "分组排序参数",
+    value: () => `country-sort=${ARGS.hasCountryGroupSort ? ARGS.countryGroupSort : "definition/default"}, region-sort=${ARGS.hasRegionGroupSort ? ARGS.regionGroupSort : "definition/default"}`
+  },
+  {
+    label: "策略组编排",
+    value: () => `preset=${ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET)}, order=${ARGS.hasGroupOrder ? ARGS.groupOrder.join(" > ") : "preset-only"}`
+  },
+  {
+    label: "规则顺序编排",
+    value: () => formatRuleOrderPresentationSummary(BUILD_SUMMARY_RULE_ORDER_ENTRY_DEFINITIONS)
+  },
+  {
+    label: "自定义规则编排",
+    value: () => buildRuleOrderArgSummary("customRuleAnchor", "customRulePosition")
+  },
+  {
+    label: "响应头参数",
+    value: (stats) => `enabled=${ARGS.hasResponseHeaders ? ARGS.responseHeaders : false}, prefix=${ARGS.responseHeaderPrefix}, applied=${stats.responseHeadersApplied ? "yes" : "no"}`
+  },
+  {
+    label: "参数来源",
+    value: () => formatRuntimeArgSourceSummary(RUNTIME_ARG_SOURCES)
+  },
+  {
+    label: "参数生效来源",
+    value: () => `${formatRuntimeArgEffectiveSummary(RUNTIME_ARG_EFFECTIVE)}, preview=${formatRuntimeArgEffectivePreview(RUNTIME_ARG_EFFECTIVE)}`
+  },
+  {
+    label: "未消费参数",
+    value: () => `${formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS)}, preview=${formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS)}`
+  },
+  {
+    label: "国家优先链",
+    value: () => `ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`
+  },
+  {
+    label: "开发服务组高级项",
+    value: () => formatServiceAdvancedLogValue("Dev", [
+      { label: "test-url", suffix: "TestUrl" },
+      { label: "strategy", suffix: "GroupStrategy" },
+      { label: "hidden", suffix: "Hidden" },
+      { label: "disable-udp", suffix: "DisableUdp" },
+      { label: "icon", suffix: "Icon" },
+      { label: "interface-name", suffix: "InterfaceName" },
+      { label: "routing-mark", suffix: "RoutingMark" }
+    ])
+  },
+  ...BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINES,
+  {
+    label: "分组排序",
+    value: () => `countries=${ARGS.countryGroupSort}${ARGS.hasCountryGroupSort ? "" : " (default)"}, regions=${ARGS.regionGroupSort}${ARGS.hasRegionGroupSort ? "" : " (default)"}`
+  },
+  {
+    label: "国家优先链命中",
+    value: (stats) => formatServicePreferredCountrySummaryLine(stats, "ResolvedSummary")
+  },
+  {
+    label: "区域可见性",
+    value: (stats) => `${stats.regionVisibilitySummary || "disabled"}, preview=${stats.regionVisibilityPreview || "none"}`
+  },
+  {
+    label: "规则源语义",
+    value: () => "official-type/behavior/format/path/payload-check=on, safe-path-hint=on"
+  },
+  {
+    label: "代理集合语义",
+    value: () => "official-type/url/path/payload-check=on, safe-path-hint=on"
+  },
+  {
+    label: "下载链路语义",
+    value: () => `official-link-params-check=on, summary=${buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS)}`
+  },
+  {
+    label: "运行环境",
+    value: () => `target=${RUNTIME_CONTEXT.target || "unknown"}, route-target=${RUNTIME_CONTEXT.routeTarget || "none"}, query-target=${RUNTIME_CONTEXT.queryTarget || "none"}, request-url=${RUNTIME_CONTEXT.requestUrl || "unknown"}, request-path=${RUNTIME_CONTEXT.requestPath || "unknown"}, route-path=${RUNTIME_CONTEXT.routePath || "unknown"}, request-params-target=${RUNTIME_CONTEXT.requestParamsTarget || "none"}, ua=${RUNTIME_CONTEXT.userAgent || "unknown"}, query-args=${Object.keys(RUNTIME_QUERY_ARGS).length}`
+  }
+]);
+
+// 把数量型指标按定义表批量输出，避免 logBuildSummary 里重复写几十行格式完全相同的 console.log。
+function emitBuildSummaryMetricLine(definition, stats, defaultUnit) {
+  const label = normalizeStringArg(definition && definition.label);
+  const key = normalizeStringArg(definition && definition.key);
+  if (!label || !key) {
+    return;
+  }
+
+  const current = isObject(stats) ? stats : {};
+  const unit = normalizeStringArg(definition.unit || defaultUnit);
+  const value = Number(current[key]) || 0;
+  console.log(`   ✓ ${label}: ${value}${unit ? ` ${unit}` : ""}`);
+}
+
+function logBuildSummaryMetricLines(stats, definitions, defaultUnit) {
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    emitBuildSummaryMetricLine(definition, stats, defaultUnit);
+  }
+}
+
+function logBuildSummaryMetricSections(stats) {
+  for (const section of BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS) {
+    logBuildSummaryMetricLines(stats, section.definitions, section.defaultUnit);
+  }
+}
+
+// 把定义表预编成按 label 查找的字典，避免同一轮 full 日志里反复线性扫描同一批定义。
+function buildBuildSummaryDefinitionLookup(definitions) {
+  const lookup = Object.create(null);
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const label = normalizeStringArg(definition && definition.label);
+    if (!label || hasOwn(lookup, label)) {
+      continue;
+    }
+
+    lookup[label] = definition;
+  }
+
+  return lookup;
+}
+
+// lookup registry 也整理成定义表，避免 logBuildSummary 每次手写同构的 buildBuildSummaryDefinitionLookup 组合。
+const BUILD_SUMMARY_LOOKUP_REGISTRY_DEFINITIONS = Object.freeze([
+  { key: "value", definitions: BUILD_SUMMARY_VALUE_LINE_DEFINITIONS },
+  { key: "coreArg", definitions: BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS },
+  { key: "providerArg", definitions: BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS }
+]);
+
+function buildBuildSummaryLookupRegistry(definitions) {
+  const registry = Object.create(null);
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key || hasOwn(registry, key)) {
+      continue;
+    }
+
+    registry[key] = buildBuildSummaryDefinitionLookup(definition.definitions);
+  }
+
+  return registry;
+}
+
+// 按标签列表批量输出摘要行，减少 logBuildSummary 里一长串重复的 find+log 调用。
+function logBuildSummaryDefinitionLabels(stats, lookup, labels, logger) {
+  const currentLookup = isObject(lookup) ? lookup : {};
+  const logCurrent = typeof logger === "function" ? logger : (() => {});
+
+  for (const label of Array.isArray(labels) ? labels : []) {
+    const normalizedLabel = normalizeStringArg(label);
+    if (!normalizedLabel || !hasOwn(currentLookup, normalizedLabel)) {
+      continue;
+    }
+
+    logCurrent(currentLookup[normalizedLabel], stats);
+  }
+}
+
+const BUILD_SUMMARY_LOOKUP_LOGGER_MAP = Object.freeze({
+  arg: logBuildSummaryArgLine,
+  value: logBuildSummaryValueLine
+});
+
+// 按计划表批量执行 full 日志中的 lookup 区块，减少 logBuildSummary 里重复声明 logger/lookup/labels 组合。
+function logBuildSummaryLookupSections(stats, lookups, sections) {
+  const currentLookups = isObject(lookups) ? lookups : {};
+
+  for (const section of Array.isArray(sections) ? sections : []) {
+    const lookupKey = normalizeStringArg(section && section.lookupKey);
+    const loggerKey = normalizeStringArg(section && section.loggerKey);
+    const labels = Array.isArray(section && section.labels) ? section.labels : [];
+
+    if (!lookupKey || !loggerKey || !hasOwn(currentLookups, lookupKey) || !hasOwn(BUILD_SUMMARY_LOOKUP_LOGGER_MAP, loggerKey)) {
+      continue;
+    }
+
+    logBuildSummaryDefinitionLabels(stats, currentLookups[lookupKey], labels, BUILD_SUMMARY_LOOKUP_LOGGER_MAP[loggerKey]);
+  }
+}
+
+// full 日志里这类“摘要 + 可选 preview”格式也走统一模板，减少多段近似 console.log。
+function logBuildSummaryDiagnosticLines(stats, definitions) {
+  const current = isObject(stats) ? stats : {};
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const label = normalizeStringArg(definition && definition.label);
+    const summaryKey = normalizeStringArg(definition && definition.summaryKey);
+    const previewKey = normalizeStringArg(definition && definition.previewKey);
+
+    if (!label || !summaryKey) {
+      continue;
+    }
+
+    const summary = current[summaryKey] || "none";
+    const preview = previewKey ? (current[previewKey] || "none") : "";
+    console.log(`   ✓ ${label}: ${summary}${previewKey ? `, preview=${preview}` : ""}`);
+  }
+}
+
+// 统一解析 full 日志里的单个参数项；未配置时回退为 default，避免每条日志都手写三元表达式。
+function getBuildSummaryArgEntryValue(entry, stats) {
+  const current = isObject(entry) ? entry : {};
+  if (typeof current.value === "function") {
+    return current.value(isObject(stats) ? stats : {});
+  }
+
+  if (current.hasKey && !ARGS[current.hasKey]) {
+    return typeof current.fallback === "undefined" ? "default" : current.fallback;
+  }
+
+  if (!current.valueKey) {
+    return typeof current.fallback === "undefined" ? "default" : current.fallback;
+  }
+
+  const value = ARGS[current.valueKey];
+  if (Array.isArray(value)) {
+    return value.length ? value.join(" > ") : "default";
+  }
+
+  return hasUsableArgValue(value) ? value : "default";
+}
+
+// full 日志里大量条目最终都落成“✓ 标签: 内容”，这里统一输出，减少壳层 logger 的重复 console.log 模板。
+function emitBuildSummaryLine(label, content) {
+  const normalizedLabel = normalizeStringArg(label);
+  if (!normalizedLabel) {
+    return;
+  }
+
+  console.log(`   ✓ ${normalizedLabel}: ${content}`);
+}
+
+// 把一组参数项按 `key=value` 形式压成单行摘要，供规则入口目标/独立组网络等日志复用。
+function formatBuildSummaryArgEntries(entries, stats) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => `${entry.key}=${getBuildSummaryArgEntryValue(entry, stats)}`)
+    .join(", ");
+}
+
+// 统一输出 full 日志里的服务参数摘要块。
+function logBuildSummaryArgLine(definition, stats) {
+  const label = normalizeStringArg(definition && definition.label);
+  if (!label) {
+    return;
+  }
+
+  emitBuildSummaryLine(label, formatBuildSummaryArgEntries(definition.entries, stats));
+}
+
+// 统一输出“标签 + 动态摘要”型日志，适合国家附加别名、区域分组参数这类不规则摘要行。
+function logBuildSummaryValueLine(definition, stats) {
+  const label = normalizeStringArg(definition && definition.label);
+  if (!label || typeof (definition && definition.value) !== "function") {
+    return;
+  }
+
+  emitBuildSummaryLine(label, definition.value(isObject(stats) ? stats : {}));
+}
+
+// 统一输出“满足条件才打印”的摘要行，适合国家统计/区域统计/国家优先链 trace 这类可选项。
+function logBuildSummaryOptionalValueLine(definition, stats) {
+  const current = isObject(stats) ? stats : {};
+  const shouldLog = definition && typeof definition.shouldLog === "function"
+    ? definition.shouldLog(current)
+    : false;
+
+  if (!shouldLog) {
+    return;
+  }
+
+  logBuildSummaryValueLine(definition, current);
+}
+
+// 把 diagnostics 里的摘要字段批量转成响应头，避免 buildRuntimeResponseHeaders 底部长串近似赋值。
+function buildPrefixedHeaderEntryPayload(prefix, entries) {
+  const headers = {};
+
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (!entry || !entry.suffix) {
+      continue;
+    }
+
+    headers[`${prefix}${entry.suffix}`] = entry.value;
+  }
+
+  return headers;
+}
+
+// 这一层只负责“definitions -> entries”映射，再把最终 emit 委托给纯 header payload helper。
+function buildPrefixedHeaderPayload(prefix, definitions, entryBuilder) {
+  const entries = [];
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const mappedEntries = typeof entryBuilder === "function" ? entryBuilder(definition) : [];
+    entries.push.apply(entries, Array.isArray(mappedEntries) ? mappedEntries : []);
+  }
+
+  return buildPrefixedHeaderEntryPayload(prefix, entries);
+}
+
+// 两类 runtime response-header builder 都只是“definitions + diagnostics -> entries”的轻量适配，这里统一收口。
+function buildMappedResponseHeaders(prefix, diagnostics, definitions, entryBuilder) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const mapper = typeof entryBuilder === "function" ? entryBuilder : (() => []);
+  return buildPrefixedHeaderPayload(prefix, definitions, (definition) => normalizeResponseHeaderEntries(mapper(definition, current)));
+}
+
+// response-header 适配层里最终都落成 `{ suffix, value }` 结构，这里统一构造 shape，本身不做额外规范化。
+function createResponseHeaderEntry(suffix, value) {
+  return { suffix, value };
+}
+
+// 把 mapper 产出的 entry 列表统一规范化到中间层，避免底层 payload emitter 和上层 builder 各自重复校验 suffix。
+function normalizeResponseHeaderEntries(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => {
+      const suffix = normalizeStringArg(entry && entry.suffix);
+      return suffix ? createResponseHeaderEntry(suffix, entry && entry.value) : null;
+    })
+    .filter(Boolean);
+}
+
+// 大多数响应头定义最终只产出单个 entry，这里统一返回单项数组，减少单值路径反复手写 `[entry].filter(Boolean)`。
+function buildSingleResponseHeaderEntryList(suffix, value) {
+  return [createResponseHeaderEntry(suffix, value)];
+}
+
+// 把 diagnostics 里的摘要字段批量转成响应头，避免 buildRuntimeResponseHeaders 底部长串近似赋值。
+function buildDiagnosticSummaryResponseHeaderEntryList(definition, diagnostics) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const summaryKey = normalizeStringArg(definition && definition.summaryKey);
+  const summaryHeaderSuffix = normalizeStringArg(definition && definition.headerSuffix);
+  const previewKey = normalizeStringArg(definition && definition.previewKey);
+  const previewHeaderSuffix = normalizeStringArg(definition && definition.previewHeaderSuffix);
+
+  return []
+    .concat(summaryKey && summaryHeaderSuffix ? buildSingleResponseHeaderEntryList(summaryHeaderSuffix, current[summaryKey] || "none") : [])
+    .concat(previewKey && previewHeaderSuffix ? buildSingleResponseHeaderEntryList(previewHeaderSuffix, current[previewKey] || "none") : []);
+}
+
+function buildDiagnosticSummaryResponseHeaders(prefix, diagnostics, definitions) {
+  return buildMappedResponseHeaders(prefix, diagnostics, definitions, buildDiagnosticSummaryResponseHeaderEntryList);
+}
+
+// 把定义表批量转成响应头，字段值可按需读取 diagnostics，减少 provider 响应头的大块平行模板。
+function buildRuntimeResponseHeaderDefinitionEntryList(definition, diagnostics) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const headerSuffix = normalizeStringArg(definition && definition.headerSuffix);
+  if (!headerSuffix) {
+    return [];
+  }
+
+  return buildSingleResponseHeaderEntryList(
+    headerSuffix,
+    typeof (definition && definition.value) === "function"
+      ? definition.value(current)
+      : "default"
+  );
+}
+
+function buildRuntimeResponseHeaderEntries(prefix, definitions, diagnostics) {
+  return buildMappedResponseHeaders(prefix, diagnostics, definitions, buildRuntimeResponseHeaderDefinitionEntryList);
+}
+
+// runtime 响应头由多段固定 section 构成；现在统一只保留 kind + definitions 协议，避免遗留 custom 分支继续扩散。
+function createRuntimeResponseHeaderSection(kind, payload) {
+  return typeof payload === "undefined"
+    ? { kind }
+    : { kind, definitions: payload };
+}
+
+function createRuntimeResponseHeaderMappedSection(kind, definitions) {
+  return createRuntimeResponseHeaderSection(kind, definitions);
+}
+
+function createRuntimeResponseHeaderDefinitionSection(definitions) {
+  return createRuntimeResponseHeaderMappedSection("definition", definitions);
+}
+
+// diagnostics summary 这类 section 也收成显式协议，避免和普通 definitions section 混在同一套 definitions builder 里。
+function createRuntimeResponseHeaderDiagnosticSummarySection(definitions) {
+  return createRuntimeResponseHeaderMappedSection("diagnostic-summary", definitions);
+}
+
+// runtime 响应头末尾还有一小批固定统计项，也整理成定义表，并继续纳入统一 section 计划执行。
+const RUNTIME_RESPONSE_HEADER_TRAILING_DEFINITIONS = Object.freeze([
+  { headerSuffix: "Query-Args", value: () => Object.keys(RUNTIME_QUERY_ARGS).length },
+  { headerSuffix: "Diagnostic-Issues", value: (diagnostics) => countDiagnosticIssues(diagnostics) }
+]);
+
+const RUNTIME_RESPONSE_HEADER_SECTION_DEFINITIONS = Object.freeze([
+  createRuntimeResponseHeaderDefinitionSection(RUNTIME_CONTEXT_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(RULE_SOURCE_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(RULE_PROVIDER_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(PROXY_PROVIDER_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(GEO_RUNTIME_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(SERVICE_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(SERVICE_PREFERRED_COUNTRY_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(COUNTRY_EXTRA_ALIAS_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(ORDER_RUNTIME_RESPONSE_HEADER_DEFINITIONS),
+  createRuntimeResponseHeaderDiagnosticSummarySection(BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS),
+  createRuntimeResponseHeaderDefinitionSection(RUNTIME_RESPONSE_HEADER_TRAILING_DEFINITIONS)
+]);
+
+// runtime response-header 运行期只需要 prefix/diagnostics 这两个上下文字段，这里单独打包，收紧 buildRuntimeResponseHeaders 的职责。
+function buildRuntimeResponseHeaderContext(diagnostics) {
+  return {
+    prefix: ARGS.responseHeaderPrefix,
+    diagnostics
+  };
+}
+
+// runtime response-header 的 section 目前只分 definitions / diagnostics-summary 两类；注册表化后更容易继续扩展新 section 类型。
+const RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS = Object.freeze({
+  definition: (section, context) => {
+    const definitions = Array.isArray(section && section.definitions) ? section.definitions : [];
+    return definitions.length
+      ? buildRuntimeResponseHeaderEntries(context.prefix, definitions, context.diagnostics)
+      : {};
+  },
+  "diagnostic-summary": (section, context) => {
+    const definitions = Array.isArray(section && section.definitions) ? section.definitions : [];
+    return definitions.length
+      ? buildDiagnosticSummaryResponseHeaders(context.prefix, context.diagnostics, definitions)
+      : {};
+  }
+});
+
+// 按 section 计划批量装配运行时响应头，减少 buildRuntimeResponseHeaders 内平行展开多段 helper 调用。
+function buildRuntimeResponseHeaderSectionPayload(section, context) {
+  const currentContext = isObject(context) ? context : {};
+  const kind = normalizeStringArg(section && section.kind);
+
+  return kind && hasOwn(RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS, kind)
+    ? RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS[kind](section, currentContext)
+    : {};
+}
+
+function buildRuntimeResponseHeaderSections(context, sections) {
+  const headers = {};
+  const runtimeContext = isObject(context) ? context : {};
+
+  for (const definition of Array.isArray(sections) ? sections : []) {
+    Object.assign(headers, buildRuntimeResponseHeaderSectionPayload(definition, runtimeContext));
+  }
+
+  return headers;
+}
+
+// 按字段定义统一补齐 diagnostics supplement 的默认值，避免主流程里继续堆一长串同构赋值。
+function normalizeDiagnosticsSupplementFieldValue(current, definition) {
+  const key = normalizeStringArg(definition && definition.key);
+  const type = normalizeStringArg(definition && definition.type);
+
+  if (!key) {
+    return undefined;
+  }
+
+  if (type === "array") {
+    return Array.isArray(current[key]) ? current[key] : [];
+  }
+
+  if (type === "number") {
+    return Number(current[key]) || 0;
+  }
+
+  if (type === "string") {
+    return current[key] || "";
+  }
+
+  return current[key];
+}
+
+// 这类“遍历定义并按自定义规则归一化字段”的装配在 diagnostics 等阶段会重复出现，这里抽成共享 helper。
+function buildNormalizedDefinitionPayload(definitions, context, normalizer) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const current = isObject(context) ? context : {};
+  const payload = {};
+
+  for (const definition of source) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key || typeof normalizer !== "function") {
+      continue;
+    }
+
+    payload[key] = normalizer(current, definition);
+  }
+
+  return payload;
+}
+
+// 这类“一个 source 同时产出 summary/preview 两个派生字段”的定义也抽成共享 helper，减少平行格式化循环。
+function buildSummaryPreviewDefinitionPayload(definitions, context) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const current = isObject(context) ? context : {};
+  const payload = {};
+
+  for (const definition of source) {
+    const sourceKey = normalizeStringArg(definition && definition.sourceKey);
+    const summaryKey = normalizeStringArg(definition && definition.summaryKey);
+    const previewKey = normalizeStringArg(definition && definition.previewKey);
+    const value = sourceKey ? current[sourceKey] : undefined;
+
+    if (summaryKey && typeof (definition && definition.summaryFormatter) === "function") {
+      payload[summaryKey] = definition.summaryFormatter(value);
+    }
+
+    if (previewKey && typeof (definition && definition.previewFormatter) === "function") {
+      payload[previewKey] = definition.previewFormatter(value);
     }
   }
 
-  if (typeof diagnostics.unclassifiedCountryProxies === "number" && diagnostics.unclassifiedCountryProxies > 0) {
-    total += diagnostics.unclassifiedCountryProxies;
+  return payload;
+}
+
+// 统一补齐主流程里派生出来的 diagnostics 字段，避免 main 中一长串逐项赋值难维护。
+function buildDiagnosticsSupplement(payload) {
+  return buildNormalizedDefinitionPayload(
+    BUILD_DIAGNOSTICS_SUPPLEMENT_FIELD_DEFINITIONS,
+    payload,
+    normalizeDiagnosticsSupplementFieldValue
+  );
+}
+
+// 按统一定义从主流程上下文提取 diagnostics supplement 的原始 payload，减少 main 中同构的键值拼装。
+function buildDiagnosticsSupplementPayload(payload) {
+  return buildDefinitionDrivenPayload(BUILD_DIAGNOSTICS_SUPPLEMENT_PAYLOAD_DEFINITIONS, payload);
+}
+
+// 从一组分析结果批量派生 summary/preview 字段，避免 main 中平行的 formatSummary/formatPreview 调用。
+function buildMainAnalysisSummaryPreviewPayload(payload) {
+  return buildSummaryPreviewDefinitionPayload(MAIN_ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS, payload);
+}
+
+// 同时补齐只产出单个 summary 的分析字段，继续减少 main 中零散的 build/format 调用。
+function buildMainAnalysisSingleValuePayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_ANALYSIS_SINGLE_VALUE_DEFINITIONS, payload);
+}
+
+// 主流程里一批顺序/链路分析高度相关，这里统一计算并附带派生摘要，避免 main 中堆连续二三十行平行变量。
+function buildMainAnalysisArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const analysisPayload = buildDefinitionDrivenPayload(MAIN_ANALYSIS_ARTIFACT_DEFINITIONS, context);
+
+  return Object.assign(analysisPayload, {
+    analysisSummaryPayload: buildMainAnalysisSummaryPreviewPayload(analysisPayload),
+    analysisSingleValuePayload: buildMainAnalysisSingleValuePayload({
+      proxyGroups: context.proxyGroups,
+      rules: context.rules,
+      generatedRules: context.generatedRules,
+      configuredRules: context.configuredRules,
+      ruleAnalysis: context.ruleAnalysis
+    })
+  });
+}
+
+// analysis 派生摘要固定只暴露这两个字段，统一定义后后续若新增派生摘要可直接扩表。
+const MAIN_ANALYSIS_PAYLOAD_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "analysisSummaryPayload", value: (context) => isObject(context.analysisSummaryPayload) ? context.analysisSummaryPayload : {} },
+  { key: "analysisSingleValuePayload", value: (context) => isObject(context.analysisSingleValuePayload) ? context.analysisSingleValuePayload : {} }
+]);
+
+// 从 analysisArtifacts 中统一抽取两份派生摘要，避免 main 与后续阶段各自手写取值和兜底。
+function buildMainAnalysisPayloadArtifacts(analysisArtifacts) {
+  return buildDefinitionDrivenPayload(MAIN_ANALYSIS_PAYLOAD_ARTIFACT_DEFINITIONS, analysisArtifacts);
+}
+
+// geo 阶段复用字段固定，统一定义后便于继续和 summary/pipeline 等下游保持同步。
+const MAIN_GEO_PAYLOAD_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "proxyStats", value: (context) => context.proxyStats },
+  { key: "countryCoverage", value: (context) => context.countryCoverage },
+  { key: "countryConfigs", value: (context) => context.countryConfigs },
+  { key: "countrySummary", value: (context) => context.countrySummary },
+  { key: "preferredCountryStates", value: (context) => context.preferredCountryStates },
+  { key: "preferredCountrySummaryPayload", value: (context) => context.preferredCountrySummaryPayload },
+  { key: "regionConfigs", value: (context) => context.regionConfigs },
+  { key: "regionGroupSummary", value: (context) => context.regionGroupSummary },
+  { key: "proxyGroups", value: (context) => Array.isArray(context.proxyGroups) ? context.proxyGroups : [] }
+]);
+
+// geo 阶段产物会被 analysis/result/diagnostics/finalize 多处复用，这里统一做一次字段裁剪和基础兜底。
+function buildMainGeoPayloadArtifacts(geoArtifacts) {
+  return buildDefinitionDrivenPayload(MAIN_GEO_PAYLOAD_ARTIFACT_DEFINITIONS, geoArtifacts);
+}
+
+// rule 阶段复用字段也统一定义，避免后续更多 payload builder 接入时重复写同一套裁剪逻辑。
+const MAIN_RULE_PAYLOAD_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "finalRuleDefinitions", value: (context) => context.finalRuleDefinitions },
+  { key: "generatedRules", value: (context) => Array.isArray(context.generatedRules) ? context.generatedRules : [] },
+  { key: "rules", value: (context) => Array.isArray(context.rules) ? context.rules : [] },
+  { key: "ruleAnalysis", value: (context) => context.ruleAnalysis }
+]);
+
+// rule 阶段产物同样会被多段 payload builder 复用，这里统一裁剪，减少每处重复解构。
+function buildMainRulePayloadArtifacts(ruleArtifacts) {
+  return buildDefinitionDrivenPayload(MAIN_RULE_PAYLOAD_ARTIFACT_DEFINITIONS, ruleArtifacts);
+}
+
+// analysis-stage 只消费这几项 geo/rule/configuredRules 字段，统一定义后便于继续扩展而不回到平铺对象。
+const MAIN_ANALYSIS_STAGE_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "proxyGroups", value: (context, geoPayloadArtifacts) => geoPayloadArtifacts.proxyGroups },
+  { key: "countryConfigs", value: (context, geoPayloadArtifacts) => geoPayloadArtifacts.countryConfigs },
+  { key: "preferredCountryStates", value: (context, geoPayloadArtifacts) => geoPayloadArtifacts.preferredCountryStates },
+  { key: "finalRuleDefinitions", value: (context, geoPayloadArtifacts, rulePayloadArtifacts) => rulePayloadArtifacts.finalRuleDefinitions },
+  { key: "rules", value: (context, geoPayloadArtifacts, rulePayloadArtifacts) => rulePayloadArtifacts.rules },
+  { key: "generatedRules", value: (context, geoPayloadArtifacts, rulePayloadArtifacts) => rulePayloadArtifacts.generatedRules },
+  { key: "configuredRules", value: (context) => Array.isArray(context.configuredRules) ? context.configuredRules : [] },
+  { key: "ruleAnalysis", value: (context, geoPayloadArtifacts, rulePayloadArtifacts) => rulePayloadArtifacts.ruleAnalysis }
+]);
+
+// 分析阶段只消费 geo/rule 两批产物中的少数字段，这里统一装配，减少 main 中的跨阶段解构噪音。
+function buildMainAnalysisStagePayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  const geoPayloadArtifacts = buildMainGeoPayloadArtifacts(context.geoArtifacts);
+  const rulePayloadArtifacts = buildMainRulePayloadArtifacts(context.ruleArtifacts);
+
+  return buildDefinitionDrivenPayload(
+    MAIN_ANALYSIS_STAGE_PAYLOAD_DEFINITIONS,
+    context,
+    geoPayloadArtifacts,
+    rulePayloadArtifacts
+  );
+}
+
+// validate 阶段只复用这几个分析结果，统一定义后后续若新增缓存字段可直接扩表。
+const VALIDATION_ANALYSIS_CACHE_DEFINITIONS = Object.freeze([
+  { key: "regionVisibility", value: (context) => context.regionVisibility },
+  { key: "rulePriorityRisks", value: (context) => context.rulePriorityRisks },
+  { key: "proxyGroupPriorityRisks", value: (context) => context.proxyGroupPriorityRisks }
+]);
+
+// validate 阶段只需要复用少数几个预计算分析结果，这里单独裁剪成 cache，避免 main 里手写挑字段。
+function buildValidationAnalysisCache(payload) {
+  return buildDefinitionDrivenPayload(VALIDATION_ANALYSIS_CACHE_DEFINITIONS, payload);
+}
+
+// diagnostics supplement 额外依赖的 provider mutation / normalized state 字段也整理成定义表，避免再平铺展开。
+const MAIN_DIAGNOSTICS_SUPPLEMENT_CONTEXT_DEFINITIONS = Object.freeze([
+  { key: "normalizedProxyState", value: (context) => context.normalizedProxyState },
+  { key: "ruleProviderMutationStats", value: (context, providerArtifacts) => providerArtifacts.ruleProviderMutationStats },
+  { key: "proxyProviderMutationStats", value: (context, providerArtifacts) => providerArtifacts.proxyProviderMutationStats },
+  { key: "ruleProviderMutationPreview", value: (context, providerArtifacts) => providerArtifacts.ruleProviderMutationPreview },
+  { key: "proxyProviderMutationPreview", value: (context, providerArtifacts) => providerArtifacts.proxyProviderMutationPreview }
+]);
+
+// diagnostics supplement 还需要 provider mutation / analysis 原始对象等额外上下文，这里统一装配，避免后面重复展开。
+function buildMainDiagnosticsSupplementContext(payload) {
+  const context = isObject(payload) ? payload : {};
+  const assemblyContext = buildMainPayloadAssemblyContext(context);
+  const providerArtifacts = isObject(context.providerArtifacts)
+    ? context.providerArtifacts
+    : assemblyContext.providerArtifacts;
+
+  return Object.assign(
+    buildDefinitionDrivenPayload(MAIN_DIAGNOSTICS_SUPPLEMENT_CONTEXT_DEFINITIONS, context, providerArtifacts),
+    assemblyContext.summaryPayloadContext,
+    isObject(context.analysisArtifacts) ? context.analysisArtifacts : {}
+  );
+}
+
+// diagnostics 补字段最终会合并 supplement 与国家优先链摘要，这里统一装配，避免 buildMainDiagnosticsArtifacts 再写一段 Object.assign。
+function buildMainDiagnosticsSupplementArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  return Object.assign(
+    buildDiagnosticsSupplement(
+      buildDiagnosticsSupplementPayload(buildMainDiagnosticsSupplementContext(context))
+    ),
+    isObject(context.preferredCountrySummaryPayload) ? context.preferredCountrySummaryPayload : {}
+  );
+}
+
+// 主流程里的 diagnostics 阶段：统一完成最终产物校验、补齐派生 diagnostics 字段与国家优先链摘要。
+function buildMainDiagnosticsArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const diagnostics = validateGeneratedArtifacts(
+    context.proxies,
+    context.proxyGroups,
+    context.result && context.result["rule-providers"],
+    context.result,
+    context.dns,
+    context.countryConfigs,
+    context.finalRuleDefinitions,
+    context.configuredRules,
+    buildValidationAnalysisCache(context.analysisArtifacts)
+  );
+  Object.assign(diagnostics, buildMainDiagnosticsSupplementArtifacts(context));
+
+  return diagnostics;
+}
+
+// diagnostics 副作用里“是否回写响应头”有固定判断逻辑，这里单独收口，避免 finalizeMainDiagnostics 内联三元模板。
+function resolveMainDiagnosticsResponseHeadersApplied(diagnostics) {
+  if (!(ARGS.hasResponseHeaders ? ARGS.responseHeaders : false)) {
+    return false;
   }
 
-  return total;
+  return setRuntimeResponseHeaders(RAW_OPTIONS, buildRuntimeResponseHeaders(diagnostics));
+}
+
+// diagnostics 阶段的副作用统一收敛：响应头回写 + 诊断日志输出。
+function finalizeMainDiagnostics(diagnostics) {
+  const responseHeadersApplied = resolveMainDiagnosticsResponseHeadersApplied(diagnostics);
+
+  logDiagnostics(diagnostics);
+  return responseHeadersApplied;
+}
+
+// pipeline / diagnostics 等阶段都只需要“规范化后的 config.rules”，这里统一收口避免重复 Array.isArray 判断。
+function buildMainConfiguredRules(config) {
+  const currentConfig = isObject(config) ? config : {};
+  return Array.isArray(currentConfig.rules) ? currentConfig.rules : [];
+}
+
+// 主流程里的 DNS / Sniffer / 通用内核默认项统一归到同一阶段，减少 main 里分散的三段构建调用。
+function buildMainCoreConfigArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+
+  return {
+    dns: buildDnsConfig(currentConfig.dns),
+    sniffer: buildSnifferConfig(currentConfig.sniffer),
+    kernelDefaults: buildKernelDefaults(currentConfig)
+  };
+}
+
+// provider 阶段除了最终 providers 外，其余 mutation 统计/预览都遵循同一装配模式，统一定义后避免重复模板。
+const MAIN_PROVIDER_MUTATION_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "ruleProviderMutationStats", value: (context) => analyzeRuleProviderMutationStats(context.existingRuleProviders, context.finalRuleProviders) },
+  { key: "proxyProviderMutationStats", value: (context) => analyzeProxyProviderMutationStats(context.existingProxyProviders, context.proxyProviders) },
+  { key: "ruleProviderMutationPreview", value: (context) => analyzeRuleProviderMutationPreview(context.existingRuleProviders, context.finalRuleProviders) },
+  { key: "proxyProviderMutationPreview", value: (context) => analyzeProxyProviderMutationPreview(context.existingProxyProviders, context.proxyProviders) }
+]);
+
+// pipeline 前半段的阶段顺序固定，统一定义后便于继续扩展而不把 buildMainPipelineArtifacts 拉成长模板。
+const MAIN_PIPELINE_STAGE_DEFINITIONS = Object.freeze([
+  {
+    key: "geoArtifacts",
+    value: (context) => buildMainGeoArtifacts({
+      proxies: context.proxies,
+      config: context.currentConfig
+    })
+  },
+  {
+    key: "ruleArtifacts",
+    value: (context) => buildMainRuleArtifacts({
+      proxyGroups: context.geoArtifacts && context.geoArtifacts.proxyGroups,
+      configuredRules: context.configuredRules
+    })
+  },
+  {
+    key: "analysisArtifacts",
+    value: (context) => buildMainAnalysisArtifacts(buildMainAnalysisStagePayload({
+      geoArtifacts: context.geoArtifacts,
+      ruleArtifacts: context.ruleArtifacts,
+      configuredRules: context.configuredRules
+    }))
+  },
+  {
+    key: "coreConfigArtifacts",
+    value: (context) => buildMainCoreConfigArtifacts({
+      config: context.currentConfig
+    })
+  },
+  {
+    key: "providerArtifacts",
+    value: (context) => buildMainProviderArtifacts({
+      config: context.currentConfig,
+      generatedRuleProviders: context.generatedRuleProviders
+    })
+  }
+]);
+
+// pipeline 每个阶段都基于“初始上下文 + 已产出的前序阶段结果”执行，这里抽成 helper 以避免循环里反复手写 Object.assign。
+function buildMainPipelineStageExecutionContext(baseContext, pipelineArtifacts) {
+  return Object.assign({}, isObject(baseContext) ? baseContext : {}, isObject(pipelineArtifacts) ? pipelineArtifacts : {});
+}
+
+// 主流程前半段的顺序产物统一在这里串起来，避免 main 中逐阶段展开太多中间变量。
+function buildMainPipelineArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+  const stageContext = {
+    currentConfig,
+    proxies: Array.isArray(context.proxies) ? context.proxies : [],
+    configuredRules: buildMainConfiguredRules(currentConfig),
+    generatedRuleProviders: ruleProviders
+  };
+  return buildSequentialDefinitionPayload(
+    MAIN_PIPELINE_STAGE_DEFINITIONS,
+    stageContext,
+    buildMainPipelineStageExecutionContext
+  );
+}
+
+// 统一完成 provider 阶段：proxy-provider 补强、rule-provider 合并，以及两者 mutation 统计/预览。
+function buildMainProviderArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+  const existingProxyProviders = currentConfig["proxy-providers"];
+  const existingRuleProviders = currentConfig["rule-providers"];
+  const generatedRuleProviders = isObject(context.generatedRuleProviders) ? context.generatedRuleProviders : {};
+
+  const proxyProviders = finalizeProxyProviders(existingProxyProviders);
+  const finalRuleProviders = mergeRuleProviders(existingRuleProviders, generatedRuleProviders);
+
+  return Object.assign({
+    proxyProviders,
+    finalRuleProviders
+  }, buildDefinitionDrivenPayload(MAIN_PROVIDER_MUTATION_ARTIFACT_DEFINITIONS, {
+    existingProxyProviders,
+    existingRuleProviders,
+    proxyProviders,
+    finalRuleProviders
+  }));
+}
+
+// diagnostics 阶段需要的上下文较多，这里按阶段产物统一装配，避免 main 中维护长对象字面量。
+function buildMainDiagnosticsPayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  const assemblyContext = buildMainPayloadAssemblyContext(context);
+
+  return Object.assign({
+    proxies: assemblyContext.proxies,
+    proxyGroups: assemblyContext.summaryPayloadContext.proxyGroups,
+    result: context.result,
+    dns: assemblyContext.coreConfigArtifacts.dns,
+    countryConfigs: assemblyContext.summaryPayloadContext.countryConfigs,
+    finalRuleDefinitions: assemblyContext.rulePayloadArtifacts.finalRuleDefinitions,
+    configuredRules: assemblyContext.configuredRules,
+    analysisArtifacts: context.analysisArtifacts,
+    normalizedProxyState: context.normalizedProxyState,
+    providerArtifacts: context.providerArtifacts
+  }, assemblyContext.summaryPayloadContext);
+}
+
+// geo 阶段本身也是顺序产物：后面的 countrySummary/regionConfigs/proxyGroups 依赖前序结果，这里统一定义执行顺序。
+const MAIN_GEO_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "proxyStats", value: (context) => analyzeProxies(context.proxies) },
+  { key: "countryCoverage", value: (context) => analyzeCountryCoverage(context.proxies) },
+  { key: "countryConfigs", value: (context) => parseCountries(context.proxies) },
+  { key: "countrySummary", value: (context) => buildCountrySummary(context.countryConfigs) },
+  { key: "preferredCountryStates", value: (context) => resolveServicePreferredCountryStates(context.countryConfigs) },
+  { key: "preferredCountrySummaryPayload", value: (context) => buildServicePreferredCountrySummaryPayload(context.preferredCountryStates) },
+  { key: "regionConfigs", value: (context) => buildRegionGroupConfigs(context.countryConfigs, ARGS.regionGroupKeys) },
+  { key: "regionGroupSummary", value: (context) => buildRegionGroupSummary(context.regionConfigs) },
+  {
+    key: "proxyGroups",
+    value: (context) => buildProxyGroups(
+      context.proxies,
+      context.countryConfigs,
+      context.regionConfigs,
+      context.proxyStats.lowCost > 0,
+      context.currentConfig["proxy-groups"],
+      context.currentConfig["proxy-providers"]
+    )
+  }
+]);
+
+// 主流程里的国家/区域/策略组准备阶段：统一完成节点统计、国家识别、区域聚合与策略组生成。
+function buildMainGeoArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  return buildSequentialDefinitionPayload(MAIN_GEO_ARTIFACT_DEFINITIONS, {
+    proxies: Array.isArray(context.proxies) ? context.proxies : [],
+    currentConfig: isObject(context.config) ? context.config : {}
+  });
+}
+
+// rule 阶段同样是顺序产物：availableTargets -> resolved definitions -> final rules -> analysis，统一定义后更便于扩展。
+const MAIN_RULE_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "availableTargets",
+    value: (context) => buildBuiltinAwareNameList(collectNamedEntries(context.proxyGroups))
+  },
+  { key: "resolvedRuleDefinitions", value: (context) => resolveRuleSetDefinitions(context.availableTargets) },
+  { key: "finalRuleDefinitions", value: (context) => applyRuleSetDefinitionOrder(context.resolvedRuleDefinitions) },
+  { key: "generatedRules", value: (context) => buildRules(ARGS.quic, context.finalRuleDefinitions) },
+  { key: "rules", value: (context) => mergeRules(context.generatedRules, context.configuredRules, context.finalRuleDefinitions) },
+  { key: "ruleAnalysis", value: (context) => analyzeRuleCollection(context.rules) }
+]);
+
+// 主流程里的规则准备阶段：统一完成规则入口目标解析、顺序重排、RULE-SET 生成、规则合并与规则缓存。
+function buildMainRuleArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  const ruleArtifacts = buildSequentialDefinitionPayload(MAIN_RULE_ARTIFACT_DEFINITIONS, {
+    proxyGroups: Array.isArray(context.proxyGroups) ? context.proxyGroups : [],
+    configuredRules: Array.isArray(context.configuredRules) ? context.configuredRules : []
+  });
+
+  return {
+    finalRuleDefinitions: ruleArtifacts.finalRuleDefinitions,
+    generatedRules: ruleArtifacts.generatedRules,
+    rules: ruleArtifacts.rules,
+    ruleAnalysis: ruleArtifacts.ruleAnalysis
+  };
+}
+
+// assemblyContext 里的字段本身也遵循固定裁剪模板，这里继续定义化，方便后续新增复用字段时不用回到平铺对象。
+const MAIN_PAYLOAD_ASSEMBLY_CONTEXT_DEFINITIONS = Object.freeze([
+  { key: "currentConfig", value: (context, currentConfig) => currentConfig },
+  { key: "proxies", value: (context) => Array.isArray(context.proxies) ? context.proxies : [] },
+  { key: "configuredRules", value: (context, currentConfig) => buildMainConfiguredRules(currentConfig) },
+  { key: "rulePayloadArtifacts", value: (context) => buildMainRulePayloadArtifacts(context.ruleArtifacts) },
+  { key: "coreConfigArtifacts", value: (context) => isObject(context.coreConfigArtifacts) ? context.coreConfigArtifacts : {} },
+  { key: "providerArtifacts", value: (context) => isObject(context.providerArtifacts) ? context.providerArtifacts : {} },
+  { key: "summaryPayloadContext", value: (context, currentConfig, summaryPayloadContext) => summaryPayloadContext }
+]);
+
+// result / diagnostics / finalize 三段都会消费同一批规范化输入，这里统一装配，减少多处重复取值。
+function buildMainPayloadAssemblyContext(payload) {
+  const context = isObject(payload) ? payload : {};
+  // 若上游已经预先装配过 assemblyContext，就直接复用，避免 result/diagnostics/finalize 三段重复裁剪同一批阶段产物。
+  if (isObject(context.assemblyContext)) {
+    return context.assemblyContext;
+  }
+
+  const currentConfig = isObject(context.config) ? context.config : {};
+  const summaryPayloadContext = isObject(context.summaryPayloadContext)
+    ? context.summaryPayloadContext
+    : buildMainSummaryPayloadContext(context);
+
+  return buildDefinitionDrivenPayload(
+    MAIN_PAYLOAD_ASSEMBLY_CONTEXT_DEFINITIONS,
+    context,
+    currentConfig,
+    summaryPayloadContext
+  );
+}
+
+// result 阶段真正消费的字段也固定成一份 definitions，便于继续扩展而不用回到对象模板。
+const MAIN_RESULT_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "config", value: (context) => context.config },
+  { key: "kernelDefaults", value: (context, assemblyContext) => assemblyContext.coreConfigArtifacts.kernelDefaults },
+  { key: "proxies", value: (context, assemblyContext) => assemblyContext.proxies },
+  { key: "proxyGroups", value: (context, assemblyContext) => assemblyContext.summaryPayloadContext.proxyGroups },
+  { key: "proxyProviders", value: (context, assemblyContext) => assemblyContext.providerArtifacts.proxyProviders },
+  { key: "finalRuleProviders", value: (context, assemblyContext) => assemblyContext.providerArtifacts.finalRuleProviders },
+  { key: "rules", value: (context, assemblyContext) => assemblyContext.rulePayloadArtifacts.rules },
+  { key: "dns", value: (context, assemblyContext) => assemblyContext.coreConfigArtifacts.dns },
+  { key: "sniffer", value: (context, assemblyContext) => assemblyContext.coreConfigArtifacts.sniffer }
+]);
+
+// result 阶段真正需要的是规则、策略组以及 core/provider 两批产物，这里统一装配，避免 main 里平铺长对象。
+function buildMainResultPayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  return buildDefinitionDrivenPayload(MAIN_RESULT_PAYLOAD_DEFINITIONS, context, buildMainPayloadAssemblyContext(context));
+}
+
+// 主流程最终结果里这批运行时字段都遵循“参数优先 / 保留原值 / 回落默认”的同类策略，统一收成定义表。
+const MAIN_RESULT_RUNTIME_FIELD_DEFINITIONS = Object.freeze([
+  {
+    key: "mixed-port",
+    value: (config) => hasOwn(config, "mixed-port") ? config["mixed-port"] : DEFAULT_MIXED_PORT
+  },
+  {
+    key: "ipv6",
+    value: () => ARGS.ipv6
+  },
+  {
+    key: "allow-lan",
+    value: (config) => hasOwn(config, "allow-lan") ? config["allow-lan"] : true
+  },
+  {
+    key: "unified-delay",
+    value: (config) => ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : (hasOwn(config, "unified-delay") ? config["unified-delay"] : true)
+  },
+  {
+    key: "tcp-concurrent",
+    value: (config) => ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : (hasOwn(config, "tcp-concurrent") ? config["tcp-concurrent"] : true)
+  }
+]);
+
+// 按统一定义装配主流程最终结果的运行时字段，避免 buildMainResultConfig 中散落多段同类优先级逻辑。
+function buildDefinitionDrivenPayload(definitions, context) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const payload = {};
+  const args = Array.prototype.slice.call(arguments, 2);
+
+  for (const definition of source) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key || typeof (definition && definition.value) !== "function") {
+      continue;
+    }
+
+    payload[key] = definition.value.apply(null, [context].concat(args));
+  }
+
+  return payload;
+}
+
+// 对于存在前后依赖的阶段产物，按定义顺序逐个求值并把前序结果回灌上下文，减少顺序 builder 的平铺模板。
+function buildSequentialDefinitionPayload(definitions, baseContext, contextBuilder) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const currentBaseContext = isObject(baseContext) ? baseContext : {};
+  const buildContext = typeof contextBuilder === "function"
+    ? contextBuilder
+    : ((context, payload) => Object.assign({}, context, payload));
+  const payload = {};
+
+  for (const definition of source) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key || typeof (definition && definition.value) !== "function") {
+      continue;
+    }
+
+    payload[key] = definition.value(buildContext(currentBaseContext, payload));
+  }
+
+  return payload;
+}
+
+// 按统一定义装配主流程最终结果的运行时字段，避免 buildMainResultConfig 中散落多段同类优先级逻辑。
+function buildMainResultRuntimeFields(config) {
+  const currentConfig = isObject(config) ? config : {};
+  return buildDefinitionDrivenPayload(MAIN_RESULT_RUNTIME_FIELD_DEFINITIONS, currentConfig);
+}
+
+// proxy-providers 只有在原配置存在或补强后非空时才注入结果，这里单独抽出避免 buildMainResultConfig 内联条件模板。
+function buildMainResultProviderFields(config, proxyProviders) {
+  const currentConfig = isObject(config) ? config : {};
+  const currentProxyProviders = isObject(proxyProviders) ? proxyProviders : {};
+
+  if (!hasOwn(currentConfig, "proxy-providers") && Object.keys(currentProxyProviders).length === 0) {
+    return {};
+  }
+
+  return {
+    "proxy-providers": currentProxyProviders
+  };
+}
+
+// result 阶段这批核心产物字段都直接来自主流程阶段输出，统一定义后便于继续扩展/裁剪。
+const MAIN_RESULT_ARTIFACT_FIELD_DEFINITIONS = Object.freeze([
+  { key: "proxies", value: (context) => Array.isArray(context.proxies) ? context.proxies : [] },
+  { key: "proxy-groups", value: (context) => Array.isArray(context.proxyGroups) ? context.proxyGroups : [] },
+  { key: "rule-providers", value: (context) => context.finalRuleProviders },
+  { key: "rules", value: (context) => Array.isArray(context.rules) ? context.rules : [] },
+  { key: "dns", value: (context) => context.dns },
+  { key: "sniffer", value: (context) => context.sniffer }
+]);
+
+// 结果对象里除运行时字段外，这批核心产物字段始终来自主流程阶段产物，统一收成 helper 便于继续扩展。
+function buildMainResultArtifactFields(payload) {
+  return buildDefinitionDrivenPayload(MAIN_RESULT_ARTIFACT_FIELD_DEFINITIONS, payload);
+}
+
+// 统一组装主流程最终输出的配置对象，集中管理 mixed-port / allow-lan / unified-delay / tcp-concurrent 等默认值策略。
+function buildMainResultConfig(payload) {
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+  const currentKernelDefaults = isObject(context.kernelDefaults) ? context.kernelDefaults : {};
+
+  return {
+    // 先展开原配置，保留用户未冲突的全局键。
+    ...currentConfig,
+    // 注入通用内核默认项，但不覆盖用户显式设置。
+    ...currentKernelDefaults,
+    // provider 字段与主流程产物字段统一走 helper，减少 buildMainResultConfig 中大段平铺模板。
+    ...buildMainResultProviderFields(currentConfig, context.proxyProviders),
+    ...buildMainResultArtifactFields(context),
+    // 这批运行时字段统一按“参数优先 / 保留原值 / 回落默认”定义装配，减少收尾逻辑散落。
+    ...buildMainResultRuntimeFields(currentConfig),
+  };
+}
+
+// 根据参数与 full 模式决定是否需要注入 profile 缓存配置；不需要时返回 null，调用方可直接跳过。
+function shouldApplyMainProfileConfig() {
+  return ARGS.hasProfileCache
+    ? ARGS.profileCache
+    : (ARGS.hasProfileSelected || ARGS.hasProfileFakeIp || ARGS.full);
+}
+
+// profile 注入阶段只有两项脚本默认值，这里也整理成定义表，避免后续若新增 profile 字段时回到对象模板。
+const MAIN_PROFILE_RUNTIME_FIELD_DEFINITIONS = Object.freeze([
+  { key: "store-selected", value: () => ARGS.hasProfileSelected ? ARGS.profileSelected : true },
+  { key: "store-fake-ip", value: () => ARGS.hasProfileFakeIp ? ARGS.profileFakeIp : true }
+]);
+
+// profile 注入阶段只有两项脚本默认值，这里统一收口，减少 buildMainProfileConfig 内内联模板。
+function buildMainProfileRuntimeFields() {
+  return buildDefinitionDrivenPayload(MAIN_PROFILE_RUNTIME_FIELD_DEFINITIONS, {});
+}
+
+// 根据参数与 full 模式决定是否需要注入 profile 缓存配置；不需要时返回 null，调用方可直接跳过。
+function buildMainProfileConfig(payload) {
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+
+  if (!shouldApplyMainProfileConfig()) {
+    return null;
+  }
+
+  return mergeObjects(buildMainProfileRuntimeFields(), currentConfig.profile);
+}
+
+// 收尾阶段与 diagnostics/full 日志会共同消费这批 geo/rule/analysis 摘要字段，统一定义后更容易继续扩展。
+const MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS = Object.freeze([
+  {
+    key: "proxyStats",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "proxyStats") ? context.proxyStats : geoPayloadArtifacts.proxyStats
+  },
+  {
+    key: "countryConfigs",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "countryConfigs") ? context.countryConfigs : geoPayloadArtifacts.countryConfigs
+  },
+  {
+    key: "countrySummary",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "countrySummary") ? context.countrySummary : geoPayloadArtifacts.countrySummary
+  },
+  {
+    key: "preferredCountrySummaryPayload",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "preferredCountrySummaryPayload") ? context.preferredCountrySummaryPayload : geoPayloadArtifacts.preferredCountrySummaryPayload
+  },
+  {
+    key: "regionConfigs",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "regionConfigs") ? context.regionConfigs : geoPayloadArtifacts.regionConfigs
+  },
+  {
+    key: "regionGroupSummary",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "regionGroupSummary") ? context.regionGroupSummary : geoPayloadArtifacts.regionGroupSummary
+  },
+  {
+    key: "proxyGroups",
+    value: (context, geoPayloadArtifacts) => Array.isArray(context.proxyGroups) ? context.proxyGroups : geoPayloadArtifacts.proxyGroups
+  },
+  {
+    key: "rules",
+    value: (context, geoPayloadArtifacts, rulePayloadArtifacts) => Array.isArray(context.rules) ? context.rules : rulePayloadArtifacts.rules
+  },
+  {
+    key: "countryCoverage",
+    value: (context, geoPayloadArtifacts) => hasOwn(context, "countryCoverage") ? context.countryCoverage : geoPayloadArtifacts.countryCoverage
+  },
+  {
+    key: "analysisSummaryPayload",
+    value: (context, geoPayloadArtifacts, rulePayloadArtifacts, analysisPayloadArtifacts) => isObject(context.analysisSummaryPayload) ? context.analysisSummaryPayload : analysisPayloadArtifacts.analysisSummaryPayload
+  },
+  {
+    key: "analysisSingleValuePayload",
+    value: (context, geoPayloadArtifacts, rulePayloadArtifacts, analysisPayloadArtifacts) => isObject(context.analysisSingleValuePayload) ? context.analysisSingleValuePayload : analysisPayloadArtifacts.analysisSingleValuePayload
+  }
+]);
+
+// 收尾阶段与 full 日志都会复用同一批 geo/rule/analysis 摘要字段，这里统一裁剪，减少重复装配。
+function buildMainSummaryPayloadContext(payload) {
+  const context = isObject(payload) ? payload : {};
+  const geoPayloadArtifacts = buildMainGeoPayloadArtifacts(context.geoArtifacts);
+  const rulePayloadArtifacts = buildMainRulePayloadArtifacts(context.ruleArtifacts);
+  const analysisPayloadArtifacts = buildMainAnalysisPayloadArtifacts(context.analysisArtifacts);
+  return buildDefinitionDrivenPayload(
+    MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS,
+    context,
+    geoPayloadArtifacts,
+    rulePayloadArtifacts,
+    analysisPayloadArtifacts
+  );
+}
+
+// finalize 阶段除 summaryPayloadContext 外只额外依赖这三项字段，统一成 definitions 后更便于复用。
+const MAIN_FINALIZATION_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "config", value: (context) => context.config },
+  { key: "diagnostics", value: (context) => context.diagnostics },
+  { key: "responseHeadersApplied", value: (context) => context.responseHeadersApplied }
+]);
+
+// 主流程收尾阶段只需要 geo 摘要 + analysis 派生摘要，这里统一裁剪成最终日志/注入所需上下文。
+function buildMainFinalizationPayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  const assemblyContext = buildMainPayloadAssemblyContext(context);
+  return Object.assign(
+    buildDefinitionDrivenPayload(MAIN_FINALIZATION_PAYLOAD_DEFINITIONS, context),
+    assemblyContext.summaryPayloadContext
+  );
+}
+
+// full 模式下的 log-level 解析也遵循“保留原值，否则回落默认”的固定策略，这里单独抽出便于复用。
+function resolveMainFullLogLevel(config) {
+  const currentConfig = isObject(config) ? config : {};
+  return typeof currentConfig["log-level"] === "string" && currentConfig["log-level"]
+    ? currentConfig["log-level"]
+    : "info";
+}
+
+// full-summary 日志在 summaryPayloadContext 之外只额外依赖这三项字段，这里统一定义化以减少尾段对象模板。
+const MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "diagnostics", value: (context) => context.diagnostics },
+  { key: "diagnosticsSummaryMetrics", value: (context) => buildFullSummaryDiagnosticMetrics(context.diagnostics) },
+  { key: "responseHeadersApplied", value: (context) => context.responseHeadersApplied }
+]);
+
+// finalize 阶段写 full 日志前，统一把需要的上下文裁成 buildFullSummaryPayload 可直接消费的结构。
+function buildMainFullSummaryLogPayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  const assemblyContext = buildMainPayloadAssemblyContext(context);
+  return Object.assign(
+    {},
+    assemblyContext.summaryPayloadContext,
+    buildDefinitionDrivenPayload(MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS, context)
+  );
+}
+
+// full 模式收尾最终只产出 log-level 和 summary payload，定义化后便于继续扩展其它 full-only 字段。
+const MAIN_FULL_RESULT_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "logLevel", value: (context) => resolveMainFullLogLevel(context.config) },
+  { key: "fullSummaryPayload", value: (context) => buildFullSummaryPayload(buildMainFullSummaryLogPayload(context)) }
+]);
+
+// full 模式收尾只关心 log-level 与 summary payload，两项都集中在这里装配，避免 finalize 再各自拼接。
+function buildMainFullResultArtifacts(payload) {
+  return buildDefinitionDrivenPayload(MAIN_FULL_RESULT_ARTIFACT_DEFINITIONS, payload);
+}
+
+// 统一处理主流程尾部的 profile 注入与 full 模式日志输出，减少 main 末尾的条件分支堆叠。
+function finalizeMainResultArtifacts(result, payload) {
+  const currentResult = isObject(result) ? result : {};
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+  const profileConfig = buildMainProfileConfig({ config: currentConfig });
+
+  if (profileConfig) {
+    currentResult.profile = profileConfig;
+  }
+
+  if (!ARGS.full) {
+    return currentResult;
+  }
+
+  const fullResultArtifacts = buildMainFullResultArtifacts(context);
+  currentResult["log-level"] = fullResultArtifacts.logLevel;
+  logBuildSummary(fullResultArtifacts.fullSummaryPayload);
+
+  return currentResult;
+}
+
+// 按统一定义从主流程上下文装配 full 日志 payload，减少 main 中那段长对象字面量的维护负担。
+function buildFullSummaryPayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  const summary = buildDefinitionDrivenPayload(BUILD_FULL_SUMMARY_PAYLOAD_DEFINITIONS, context);
+
+  return Object.assign(
+    summary,
+    isObject(context.preferredCountrySummaryPayload) ? context.preferredCountrySummaryPayload : {},
+    isObject(context.diagnosticsSummaryMetrics) ? context.diagnosticsSummaryMetrics : {}
+  );
+}
+
+// 把 diagnostics 里的数量/Provider 摘要打平成 full 日志统计对象，减少 main 中对 length/format 的重复手写。
+function buildMetricCountDefinitionPayload(definitions, context) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const current = isObject(context) ? context : {};
+  const metrics = {};
+
+  for (const definition of source) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key) {
+      continue;
+    }
+
+    metrics[key] = Array.isArray(current[key]) ? current[key].length : (Number(current[key]) || 0);
+  }
+
+  return metrics;
+}
+
+// buildProxyGroups 里这批固定功能组的构造完全由当前上下文决定，统一定义后减少大段平行 createXxxGroup 模板。
+function createContextSelectGroupBuildDefinition(groupName, contextKey) {
+  return {
+    build: (context) => createSelectGroup(groupName, context[contextKey])
+  };
+}
+
+function createStaticSelectGroupBuildDefinition(groupName, proxies) {
+  return {
+    build: () => createSelectGroup(groupName, proxies)
+  };
+}
+
+function createContextLatencyGroupBuildDefinition(groupName, contextKey) {
+  return {
+    build: (context) => createProxyListLatencyGroup(groupName, context[contextKey])
+  };
+}
+
+function createServiceArtifactGroupBuildDefinition(serviceKey) {
+  return {
+    build: (context) => createProxyGroupServiceArtifactGroup(isObject(context.serviceArtifacts) ? context.serviceArtifacts[serviceKey] : null)
+  };
+}
+
+function createConditionalProxyGroupBuildDefinition(predicate, builder) {
+  return {
+    build: (context) => {
+      const current = isObject(context) ? context : {};
+      return typeof predicate === "function" && predicate(current)
+        ? (typeof builder === "function" ? builder(current) : null)
+        : null;
+    }
+  };
+}
+
+function createMappedContextProxyGroupBuildDefinition(contextKey, builder) {
+  return {
+    build: (context) => {
+      const current = isObject(context) ? context : {};
+      return (Array.isArray(current[contextKey]) ? current[contextKey] : [])
+        .map((item) => typeof builder === "function" ? builder(item, current) : null);
+    }
+  };
+}
+
+const PROXY_GROUP_FIXED_GROUP_DEFINITIONS = Object.freeze([
+  createContextSelectGroupBuildDefinition(GROUPS.SELECT, "baseProxies"),
+  { build: () => createIncludeAllSelectGroup(GROUPS.MANUAL) },
+  createContextLatencyGroupBuildDefinition(GROUPS.FALLBACK, "fallbackProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.AI, "aiProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.TELEGRAM, "baseProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.GOOGLE, "baseProxies"),
+  createServiceArtifactGroupBuildDefinition("github"),
+  createServiceArtifactGroupBuildDefinition("dev"),
+  createContextSelectGroupBuildDefinition(GROUPS.MICROSOFT, "baseProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.ONEDRIVE, "baseProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.GAMES, "baseProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.BING, "directFirstProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.APPLE, "directFirstProxies"),
+  createServiceArtifactGroupBuildDefinition("steam"),
+  createContextSelectGroupBuildDefinition(GROUPS.PT, "directFirstProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.SPEEDTEST, "directFirstProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.YOUTUBE, "mediaProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.NETFLIX, "mediaProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.DISNEY, "mediaProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.SPOTIFY, "mediaProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.TIKTOK, "mediaProxies"),
+  createContextSelectGroupBuildDefinition(GROUPS.CRYPTO, "cryptoProxies"),
+  createStaticSelectGroupBuildDefinition(GROUPS.ADS, ["REJECT", "REJECT-DROP", GROUPS.DIRECT]),
+  createStaticSelectGroupBuildDefinition(GROUPS.DIRECT, [BUILTIN_DIRECT, GROUPS.SELECT])
+]);
+// fixed group 之后还有一批“按条件/按国家/按区域追加”的组，也整理成统一定义，避免 buildProxyGroups 尾部残留多段 push/for 模板。
+const PROXY_GROUP_EXTRA_GROUP_DEFINITIONS = Object.freeze([
+  createConditionalProxyGroupBuildDefinition(
+    (context) => context.landingEnabled,
+    () => createIncludeAllSelectGroup(GROUPS.LANDING, composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]))
+  ),
+  createConditionalProxyGroupBuildDefinition(
+    (context) => context.hasLowCost,
+    () => createIncludeAllLatencyGroup(GROUPS.LOW_COST, composeCaseInsensitivePattern([REGEX_LOW_COST.source]), "", "url-test")
+  ),
+  createMappedContextProxyGroupBuildDefinition("countryConfigs", (country, context) => createIncludeAllLatencyGroup(
+      country.name,
+      country.filter,
+      context.countryExcludeFilter,
+      context.countryGroupType
+    )
+  ),
+  createMappedContextProxyGroupBuildDefinition("resolvedRegionConfigs", (region) => createSelectGroup(region.name, region.proxies)),
+  {
+    build: (context) => createIncludeAllSelectGroup(GROUPS.OTHER, "", context.otherExcludeFilter)
+  }
+]);
+
+// 把 diagnostics 里的数量/Provider 摘要打平成 full 日志统计对象，减少 main 中对 length/format 的重复手写。
+function buildFullSummaryDiagnosticMetrics(diagnostics) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  return Object.assign(
+    buildMetricCountDefinitionPayload(BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, current),
+    buildDefinitionDrivenPayload(FULL_SUMMARY_DIAGNOSTIC_EXTRA_METRIC_DEFINITIONS, current)
+  );
+}
+
+// buildProxyGroups 前半段这批“基础候选链 / 优先国家链 / 服务组中间产物”本质上是串行派生值，这里统一定义化以减少函数体中的平行模板。
+const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
+  {
+    key: "countryExcludeFilter",
+    value: () => composeCaseInsensitivePattern([
+      REGEX_LOW_COST.source,
+      ARGS.landing ? REGEX_LANDING_ISOLATE.source : ""
+    ])
+  },
+  {
+    key: "otherExcludeFilter",
+    value: (context) => composeCaseInsensitivePattern([
+      context.hasLowCost ? REGEX_LOW_COST.source : "",
+      ARGS.landing ? REGEX_LANDING_ISOLATE.source : "",
+      ...(Array.isArray(context.countryFilters) ? context.countryFilters : [])
+    ])
+  },
+  {
+    key: "functionalPool",
+    value: (context) => uniqueStrings([
+      ARGS.landing ? GROUPS.LANDING : "",
+      ...(Array.isArray(context.countryGroupNames) ? context.countryGroupNames : []),
+      GROUPS.OTHER,
+      context.hasLowCost ? GROUPS.LOW_COST : ""
+    ])
+  },
+  {
+    key: "baseProxies",
+    value: (context) => uniqueStrings([
+      GROUPS.FALLBACK,
+      ...(Array.isArray(context.functionalPool) ? context.functionalPool : []),
+      GROUPS.MANUAL,
+      BUILTIN_DIRECT
+    ])
+  },
+  {
+    key: "fallbackProxies",
+    value: (context) => uniqueStrings(
+      Array.isArray(context.functionalPool) && context.functionalPool.length
+        ? context.functionalPool
+        : [BUILTIN_DIRECT]
+    )
+  },
+  {
+    key: "directFirstProxies",
+    value: (context) => uniqueStrings([BUILTIN_DIRECT, GROUPS.SELECT].concat(toStringArray(context.baseProxies)))
+  },
+  {
+    key: "selectFirstProxies",
+    value: (context) => uniqueStrings([GROUPS.SELECT].concat(toStringArray(context.baseProxies)))
+  },
+  {
+    key: "mediaProxies",
+    value: (context) => uniqueStrings([GROUPS.SELECT].concat(
+      toStringArray(context.countryGroupNames),
+      [GROUPS.OTHER, GROUPS.MANUAL]
+    ))
+  },
+  {
+    key: "preferredCountryGroups",
+    value: (context) => buildDefinitionDrivenPayload(PROXY_GROUP_PREFERRED_COUNTRY_DEFINITIONS, {
+      countryConfigs: context.countryConfigs
+    })
+  },
+  {
+    key: "availableGroupNames",
+    value: (context) => buildBuiltinAwareNameList(
+      context.countryGroupNames,
+      context.regionGroupNames,
+      PROXY_GROUP_ALWAYS_GENERATED_NAMES,
+      ARGS.landing ? [GROUPS.LANDING] : [],
+      context.hasLowCost ? [GROUPS.LOW_COST] : [],
+      context.existingGroupNames
+    )
+  },
+  {
+    key: "modeBaseProxies",
+    value: (context) => buildDefinitionDrivenPayload(PROXY_GROUP_MODE_BASE_PROXY_DEFINITIONS, {
+      baseProxies: context.baseProxies,
+      directFirstProxies: context.directFirstProxies,
+      selectFirstProxies: context.selectFirstProxies
+    })
+  },
+  {
+    key: "cryptoProxies",
+    value: (context) => prependPreferredGroups(
+      context.preferredCountryGroups && context.preferredCountryGroups.cryptoPreferredGroups,
+      context.baseProxies
+    )
+  },
+  {
+    key: "aiProxies",
+    value: (context) => prependPreferredGroups(
+      context.preferredCountryGroups && context.preferredCountryGroups.aiPreferredGroups,
+      context.baseProxies
+    )
+  },
+  {
+    key: "serviceArtifacts",
+    value: (context) => buildProxyGroupServiceArtifactMap(PROXY_GROUP_SERVICE_ARTIFACT_DEFINITIONS, {
+      githubPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.githubPreferredGroups,
+      steamPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.steamPreferredGroups,
+      devPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.devPreferredGroups,
+      githubModeBaseProxies: context.modeBaseProxies && context.modeBaseProxies.githubModeBaseProxies,
+      steamModeBaseProxies: context.modeBaseProxies && context.modeBaseProxies.steamModeBaseProxies,
+      developerModeBaseProxies: context.modeBaseProxies && context.modeBaseProxies.developerModeBaseProxies,
+      selectFirstProxies: context.selectFirstProxies,
+      availableGroupNames: context.availableGroupNames,
+      proxyNames: context.proxyNames,
+      existingProxyProviderNames: context.existingProxyProviderNames
+    })
+  },
+  {
+    key: "generatedGroups",
+    value: (context) => buildProxyGroupGeneratedGroups({
+      baseProxies: context.baseProxies,
+      fallbackProxies: context.fallbackProxies,
+      aiProxies: context.aiProxies,
+      directFirstProxies: context.directFirstProxies,
+      mediaProxies: context.mediaProxies,
+      cryptoProxies: context.cryptoProxies,
+      serviceArtifacts: context.serviceArtifacts,
+      landingEnabled: ARGS.landing,
+      hasLowCost: context.hasLowCost,
+      countryConfigs: context.countryConfigs,
+      countryExcludeFilter: context.countryExcludeFilter,
+      countryGroupType: ARGS.lb ? "load-balance" : "url-test",
+      resolvedRegionConfigs: context.resolvedRegionConfigs,
+      otherExcludeFilter: context.otherExcludeFilter
+    })
+  }
+]);
+
+// buildProxyGroups 运行期上下文里的派生值前后依赖明显，这里统一串行装配，减少主函数前半段的大段平行局部变量。
+function buildProxyGroupRuntimeContext(payload) {
+  return buildSequentialDefinitionPayload(PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS, isObject(payload) ? payload : {});
 }
 
 // 构建写入 `_res.headers` 的调试头，便于直接在下载响应中查看关键运行信息。
 function buildRuntimeResponseHeaders(diagnostics) {
-  const prefix = ARGS.responseHeaderPrefix;
-
-  return {
-    [`${prefix}Script-Version`]: SCRIPT_VERSION,
-    [`${prefix}Target`]: RUNTIME_CONTEXT.target || "unknown",
-    [`${prefix}Route-Kind`]: RUNTIME_CONTEXT.routeKind || "unknown",
-    [`${prefix}Route-Name`]: RUNTIME_CONTEXT.routeName || "unknown",
-    [`${prefix}Route-Target`]: RUNTIME_CONTEXT.routeTarget || "none",
-    [`${prefix}Query-Target`]: RUNTIME_CONTEXT.queryTarget || "none",
-    [`${prefix}Request-Params-Target`]: RUNTIME_CONTEXT.requestParamsTarget || "none",
-    [`${prefix}Arg-Source-Summary`]: formatRuntimeArgSourceSummary(RUNTIME_ARG_SOURCES),
-    [`${prefix}Arg-Effective-Summary`]: formatRuntimeArgEffectiveSummary(RUNTIME_ARG_EFFECTIVE),
-    [`${prefix}Arg-Effective-Preview`]: formatRuntimeArgEffectivePreview(RUNTIME_ARG_EFFECTIVE),
-    [`${prefix}Unused-Arg-Summary`]: formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS),
-    [`${prefix}Unused-Arg-Preview`]: formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS),
-    [`${prefix}Route-Target-Source`]: RUNTIME_ARG_SOURCES.routeTargetSource || "none",
-    [`${prefix}Route-Info-Source`]: RUNTIME_ARG_SOURCES.routeInfoSource || "none",
-    [`${prefix}Merge-Sources`]: RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default",
-    [`${prefix}No-Cache`]: RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default",
-    [`${prefix}Include-Unsupported`]: RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default",
-    [`${prefix}Link-Url-Kind`]: RUNTIME_LINK_OPTIONS.urlKind || "none",
-    [`${prefix}Link-Semantic-Summary`]: buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS),
-    [`${prefix}Link-Semantic-Check`]: "enabled",
-    [`${prefix}Rule-Source-Preset`]: ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET,
-    [`${prefix}Steam-Fix`]: ARGS.hasSteamFix ? ARGS.steamFix : false,
-    [`${prefix}Steam-Fix-Url`]: ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled",
-    [`${prefix}Direct-List-Url`]: ARGS.hasDirectListUrl ? ARGS.directListUrl : "default",
-    [`${prefix}Crypto-List-Url`]: ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default",
-    [`${prefix}ChatGPT-List-Url`]: ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default",
-    [`${prefix}AI-Extra-List-Url`]: ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default",
-    [`${prefix}Dev-List-Url`]: ARGS.hasDevListUrl ? ARGS.devListUrl : "default",
-    [`${prefix}Grok-Rule-Url`]: accademiaAdditionalRule("Grok"),
-    [`${prefix}Apple-AI-Rule-Url`]: accademiaAdditionalRule("AppleAI"),
-    [`${prefix}Rule-Provider-Path-Dir`]: ARGS.ruleProviderPathDir,
-    [`${prefix}Rule-Provider-Interval`]: ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL,
-    [`${prefix}Rule-Provider-Proxy`]: ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default",
-    [`${prefix}Rule-Provider-Size-Limit`]: ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default",
-    [`${prefix}Rule-Provider-UA`]: ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default",
-    [`${prefix}Rule-Provider-Authorization`]: ARGS.hasRuleProviderAuthorization ? "configured" : "default",
-    [`${prefix}Rule-Provider-Header`]: ARGS.hasRuleProviderHeader ? `configured:${ARGS.ruleProviderHeaderEntryCount}` : "default",
-    [`${prefix}Rule-Provider-Payload`]: ARGS.hasRuleProviderPayload ? `configured:${ARGS.ruleProviderPayloadCount}` : "default",
-    [`${prefix}Rule-Provider-Apply-Scope`]: (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "default",
-    [`${prefix}Rule-Provider-Apply-Scope-Detail`]: buildRuleProviderApplyScopeSummary(),
-    [`${prefix}Rule-Provider-Apply-Stats`]: formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats),
-    [`${prefix}Rule-Provider-Apply-Preview`]: formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview),
-    [`${prefix}Rule-Provider-Mutation-Stats`]: formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats),
-    [`${prefix}Rule-Provider-Mutation-Preview`]: formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview),
-    [`${prefix}Rule-Provider-Payload-Apply-Scope`]: ARGS.hasRuleProviderPayload ? "inline-only" : "default",
-    [`${prefix}Rule-Provider-Semantic-Check`]: "enabled",
-    [`${prefix}Proxy-Provider-Interval`]: ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default",
-    [`${prefix}Proxy-Provider-Proxy`]: ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default",
-    [`${prefix}Proxy-Provider-Size-Limit`]: ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default",
-    [`${prefix}Proxy-Provider-UA`]: ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default",
-    [`${prefix}Proxy-Provider-Authorization`]: ARGS.hasProxyProviderAuthorization ? "configured" : "default",
-    [`${prefix}Proxy-Provider-Header`]: ARGS.hasProxyProviderHeader ? `configured:${ARGS.proxyProviderHeaderEntryCount}` : "default",
-    [`${prefix}Proxy-Provider-Payload`]: ARGS.hasProxyProviderPayload ? `configured:${ARGS.proxyProviderPayloadCount}` : "default",
-    [`${prefix}Proxy-Provider-Path-Dir`]: ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged",
-    [`${prefix}Proxy-Provider-Apply-Scope`]: buildProxyProviderApplyScopeSummary(),
-    [`${prefix}Proxy-Provider-Apply-Stats`]: formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats),
-    [`${prefix}Proxy-Provider-Apply-Preview`]: formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview),
-    [`${prefix}Proxy-Provider-Mutation-Stats`]: formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats),
-    [`${prefix}Proxy-Provider-Mutation-Preview`]: formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview),
-    [`${prefix}Proxy-Provider-Semantic-Check`]: "enabled",
-    [`${prefix}Proxy-Provider-Filter`]: ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default",
-    [`${prefix}Proxy-Provider-Exclude-Filter`]: ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default",
-    [`${prefix}Proxy-Provider-Exclude-Type`]: ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default",
-    [`${prefix}Proxy-Provider-Override-Prefix`]: ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default",
-    [`${prefix}Proxy-Provider-Override-Suffix`]: ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default",
-    [`${prefix}Proxy-Provider-Override-UDP`]: ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default",
-    [`${prefix}Proxy-Provider-Override-UDP-Over-TCP`]: ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default",
-    [`${prefix}Proxy-Provider-Override-Down`]: ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default",
-    [`${prefix}Proxy-Provider-Override-Up`]: ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default",
-    [`${prefix}Proxy-Provider-Override-TFO`]: ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default",
-    [`${prefix}Proxy-Provider-Override-MPTCP`]: ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default",
-    [`${prefix}Proxy-Provider-Override-Skip-Cert-Verify`]: ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default",
-    [`${prefix}Proxy-Provider-Override-Dialer-Proxy`]: ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default",
-    [`${prefix}Proxy-Provider-Override-Interface-Name`]: ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default",
-    [`${prefix}Proxy-Provider-Override-Routing-Mark`]: ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default",
-    [`${prefix}Proxy-Provider-Override-IP-Version`]: ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default",
-    [`${prefix}Proxy-Provider-Override-Proxy-Name`]: ARGS.hasProxyProviderOverrideProxyNameRules ? `configured:${ARGS.proxyProviderOverrideProxyNameRules.length}` : "default",
-    [`${prefix}Proxy-Provider-HC-Enable`]: ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default",
-    [`${prefix}Proxy-Provider-HC-Url`]: ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default",
-    [`${prefix}Proxy-Provider-HC-Interval`]: ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default",
-    [`${prefix}Proxy-Provider-HC-Timeout`]: ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default",
-    [`${prefix}Proxy-Provider-HC-Lazy`]: ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default",
-    [`${prefix}Proxy-Provider-HC-Expected-Status`]: ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default",
-    [`${prefix}Group-Strategy`]: ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default",
-    [`${prefix}Group-Interface-Name`]: ARGS.hasGroupInterfaceName ? ARGS.groupInterfaceName : "default",
-    [`${prefix}Group-Routing-Mark`]: ARGS.hasGroupRoutingMark ? ARGS.groupRoutingMark : "default",
-    [`${prefix}Group-Order-Preset`]: ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET),
-    [`${prefix}Group-Order-Config`]: ARGS.hasGroupOrder ? formatProviderPreviewNames(ARGS.groupOrder, 8, 12) : "preset-only",
-    [`${prefix}Country-Group-Sort`]: ARGS.hasCountryGroupSort ? ARGS.countryGroupSort : "definition/default",
-    [`${prefix}Country-Group-Summary`]: diagnostics.countrySummary || "none",
-    [`${prefix}Region-Group-Sort`]: ARGS.hasRegionGroupSort ? ARGS.regionGroupSort : "definition/default",
-    [`${prefix}Region-Groups`]: ARGS.hasRegionGroups ? `configured:${ARGS.regionGroupKeys.length}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off"),
-    [`${prefix}Region-Group-Preview`]: ARGS.hasRegionGroups ? ARGS.regionGroupPreview : (ARGS.hasRegionGroupsArg ? "off" : "none"),
-    [`${prefix}Region-Group-Summary`]: diagnostics.regionGroupSummary || "none",
-    [`${prefix}Region-Visibility`]: diagnostics.regionVisibilitySummary || "none",
-    [`${prefix}Region-Visibility-Preview`]: formatProviderPreviewNames(diagnostics.regionVisibilityPreview, 6, 18),
-    [`${prefix}Dev-Mode`]: ARGS.hasDevMode ? ARGS.devMode : "default",
-    [`${prefix}Dev-Type`]: ARGS.hasDevType ? ARGS.devType : "default",
-    [`${prefix}Dev-Test-Url`]: ARGS.hasDevTestUrl ? ARGS.devTestUrl : "default",
-    [`${prefix}Dev-Group-Strategy`]: ARGS.hasDevGroupStrategy ? ARGS.devGroupStrategy : "default",
-    [`${prefix}Dev-Hidden`]: ARGS.hasDevHidden ? ARGS.devHidden : "default",
-    [`${prefix}Dev-Disable-UDP`]: ARGS.hasDevDisableUdp ? ARGS.devDisableUdp : "default",
-    [`${prefix}Dev-Icon`]: ARGS.hasDevIcon ? ARGS.devIcon : "default",
-    [`${prefix}Dev-Interface-Name`]: ARGS.hasDevInterfaceName ? ARGS.devInterfaceName : "default",
-    [`${prefix}Dev-Routing-Mark`]: ARGS.hasDevRoutingMark ? ARGS.devRoutingMark : "default",
-    [`${prefix}GitHub-Prefer-Groups`]: ARGS.hasGithubPreferGroups ? "configured" : "default",
-    [`${prefix}Steam-Prefer-Groups`]: ARGS.hasSteamPreferGroups ? "configured" : "default",
-    [`${prefix}Dev-Prefer-Groups`]: ARGS.hasDevPreferGroups ? "configured" : "default",
-    [`${prefix}GitHub-Prefer-Countries`]: ARGS.hasGithubPreferCountries ? "configured" : "default",
-    [`${prefix}Steam-Prefer-Countries`]: ARGS.hasSteamPreferCountries ? "configured" : "default",
-    [`${prefix}Dev-Prefer-Countries`]: ARGS.hasDevPreferCountries ? "configured" : "default",
-    [`${prefix}AI-Prefer-Countries-Resolved`]: diagnostics.aiPreferCountryResolvedSummary || "none",
-    [`${prefix}Crypto-Prefer-Countries-Resolved`]: diagnostics.cryptoPreferCountryResolvedSummary || "none",
-    [`${prefix}GitHub-Prefer-Countries-Resolved`]: diagnostics.githubPreferCountryResolvedSummary || "none",
-    [`${prefix}Steam-Prefer-Countries-Resolved`]: diagnostics.steamPreferCountryResolvedSummary || "none",
-    [`${prefix}Dev-Prefer-Countries-Resolved`]: diagnostics.devPreferCountryResolvedSummary || "none",
-    [`${prefix}AI-Prefer-Countries-Trace`]: diagnostics.aiPreferCountryTraceSummary || "none",
-    [`${prefix}Crypto-Prefer-Countries-Trace`]: diagnostics.cryptoPreferCountryTraceSummary || "none",
-    [`${prefix}GitHub-Prefer-Countries-Trace`]: diagnostics.githubPreferCountryTraceSummary || "none",
-    [`${prefix}Steam-Prefer-Countries-Trace`]: diagnostics.steamPreferCountryTraceSummary || "none",
-    [`${prefix}Dev-Prefer-Countries-Trace`]: diagnostics.devPreferCountryTraceSummary || "none",
-    [`${prefix}AI-Prefer-Countries-Explain`]: diagnostics.aiPreferCountryExplainSummary || "none",
-    [`${prefix}Crypto-Prefer-Countries-Explain`]: diagnostics.cryptoPreferCountryExplainSummary || "none",
-    [`${prefix}GitHub-Prefer-Countries-Explain`]: diagnostics.githubPreferCountryExplainSummary || "none",
-    [`${prefix}Steam-Prefer-Countries-Explain`]: diagnostics.steamPreferCountryExplainSummary || "none",
-    [`${prefix}Dev-Prefer-Countries-Explain`]: diagnostics.devPreferCountryExplainSummary || "none",
-    [`${prefix}AI-Prefer-Countries-Unmatched`]: diagnostics.aiPreferCountryUnmatchedSummary || "none",
-    [`${prefix}Crypto-Prefer-Countries-Unmatched`]: diagnostics.cryptoPreferCountryUnmatchedSummary || "none",
-    [`${prefix}GitHub-Prefer-Countries-Unmatched`]: diagnostics.githubPreferCountryUnmatchedSummary || "none",
-    [`${prefix}Steam-Prefer-Countries-Unmatched`]: diagnostics.steamPreferCountryUnmatchedSummary || "none",
-    [`${prefix}Dev-Prefer-Countries-Unmatched`]: diagnostics.devPreferCountryUnmatchedSummary || "none",
-    [`${prefix}Country-Extra-Aliases`]: ARGS.hasCountryExtraAliases ? "configured" : "default",
-    [`${prefix}Country-Extra-Alias-Countries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasCountryCount : 0,
-    [`${prefix}Country-Extra-Alias-Entries`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasEntryCount : 0,
-    [`${prefix}Country-Extra-Alias-Preview`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasPreview : "none",
-    [`${prefix}Country-Extra-Alias-Conflicts`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasConflictCount : 0,
-    [`${prefix}Country-Extra-Alias-Conflict-Preview`]: ARGS.hasCountryExtraAliases ? ARGS.countryExtraAliasConflictPreview : "none",
-    [`${prefix}GitHub-Prefer-Nodes`]: ARGS.hasGithubPreferNodes ? "configured" : "default",
-    [`${prefix}Steam-Prefer-Nodes`]: ARGS.hasSteamPreferNodes ? "configured" : "default",
-    [`${prefix}Dev-Prefer-Nodes`]: ARGS.hasDevPreferNodes ? "configured" : "default",
-    [`${prefix}GitHub-Use-Providers`]: ARGS.hasGithubUseProviders ? "configured" : "default",
-    [`${prefix}Steam-Use-Providers`]: ARGS.hasSteamUseProviders ? "configured" : "default",
-    [`${prefix}Dev-Use-Providers`]: ARGS.hasDevUseProviders ? "configured" : "default",
-    [`${prefix}GitHub-Include-All`]: ARGS.hasGithubIncludeAll ? ARGS.githubIncludeAll : "default",
-    [`${prefix}Steam-Include-All`]: ARGS.hasSteamIncludeAll ? ARGS.steamIncludeAll : "default",
-    [`${prefix}Dev-Include-All`]: ARGS.hasDevIncludeAll ? ARGS.devIncludeAll : "default",
-    [`${prefix}GitHub-Include-All-Proxies`]: ARGS.hasGithubIncludeAllProxies ? ARGS.githubIncludeAllProxies : "default",
-    [`${prefix}Steam-Include-All-Proxies`]: ARGS.hasSteamIncludeAllProxies ? ARGS.steamIncludeAllProxies : "default",
-    [`${prefix}Dev-Include-All-Proxies`]: ARGS.hasDevIncludeAllProxies ? ARGS.devIncludeAllProxies : "default",
-    [`${prefix}GitHub-Include-All-Providers`]: ARGS.hasGithubIncludeAllProviders ? ARGS.githubIncludeAllProviders : "default",
-    [`${prefix}Steam-Include-All-Providers`]: ARGS.hasSteamIncludeAllProviders ? ARGS.steamIncludeAllProviders : "default",
-    [`${prefix}Dev-Include-All-Providers`]: ARGS.hasDevIncludeAllProviders ? ARGS.devIncludeAllProviders : "default",
-    [`${prefix}GitHub-Group-Strategy`]: ARGS.hasGithubGroupStrategy ? ARGS.githubGroupStrategy : "default",
-    [`${prefix}Steam-Group-Strategy`]: ARGS.hasSteamGroupStrategy ? ARGS.steamGroupStrategy : "default",
-    [`${prefix}GitHub-Hidden`]: ARGS.hasGithubHidden ? ARGS.githubHidden : "default",
-    [`${prefix}Steam-Hidden`]: ARGS.hasSteamHidden ? ARGS.steamHidden : "default",
-    [`${prefix}GitHub-Disable-UDP`]: ARGS.hasGithubDisableUdp ? ARGS.githubDisableUdp : "default",
-    [`${prefix}Steam-Disable-UDP`]: ARGS.hasSteamDisableUdp ? ARGS.steamDisableUdp : "default",
-    [`${prefix}GitHub-Icon`]: ARGS.hasGithubIcon ? ARGS.githubIcon : "default",
-    [`${prefix}Steam-Icon`]: ARGS.hasSteamIcon ? ARGS.steamIcon : "default",
-    [`${prefix}GitHub-Interface-Name`]: ARGS.hasGithubInterfaceName ? ARGS.githubInterfaceName : "default",
-    [`${prefix}Steam-Interface-Name`]: ARGS.hasSteamInterfaceName ? ARGS.steamInterfaceName : "default",
-    [`${prefix}GitHub-Routing-Mark`]: ARGS.hasGithubRoutingMark ? ARGS.githubRoutingMark : "default",
-    [`${prefix}Steam-Routing-Mark`]: ARGS.hasSteamRoutingMark ? ARGS.steamRoutingMark : "default",
-    [`${prefix}Dev-Rule-Order`]: buildRuleOrderSummary(ARGS.devRuleAnchor, ARGS.devRulePosition),
-    [`${prefix}GitHub-Rule-Order`]: buildRuleOrderSummary(ARGS.githubRuleAnchor, ARGS.githubRulePosition),
-    [`${prefix}Steam-Rule-Order`]: buildRuleOrderSummary(ARGS.steamRuleAnchor, ARGS.steamRulePosition),
-    [`${prefix}SteamCN-Rule-Order`]: buildRuleOrderSummary(ARGS.steamCnRuleAnchor, ARGS.steamCnRulePosition),
-    [`${prefix}Custom-Rule-Order`]: buildRuleOrderSummary(ARGS.customRuleAnchor, ARGS.customRulePosition),
-    [`${prefix}Dev-Rule-Target`]: ARGS.hasDevRuleTarget ? ARGS.devRuleTarget : "default",
-    [`${prefix}GitHub-Rule-Target`]: ARGS.hasGithubRuleTarget ? ARGS.githubRuleTarget : "default",
-    [`${prefix}Steam-Rule-Target`]: ARGS.hasSteamRuleTarget ? ARGS.steamRuleTarget : "default",
-    [`${prefix}SteamCN-Rule-Target`]: ARGS.hasSteamCnRuleTarget ? ARGS.steamCnRuleTarget : "default",
-    [`${prefix}Rule-Target-Summary`]: diagnostics.ruleTargetMappingSummary || "none",
-    [`${prefix}Rule-Target-Preview`]: diagnostics.ruleTargetMappingPreview || "none",
-    [`${prefix}Rule-Priority-Risk-Summary`]: diagnostics.rulePriorityRiskSummary || "none",
-    [`${prefix}Rule-Priority-Risk-Preview`]: diagnostics.rulePriorityRiskPreview || "none",
-    [`${prefix}Proxy-Group-Priority-Risk-Summary`]: diagnostics.proxyGroupPriorityRiskSummary || "none",
-    [`${prefix}Proxy-Group-Priority-Risk-Preview`]: diagnostics.proxyGroupPriorityRiskPreview || "none",
-    [`${prefix}Proxy-Group-Order`]: diagnostics.proxyGroupOrderSummary || "none",
-    [`${prefix}Proxy-Group-Priority`]: diagnostics.proxyGroupPrioritySummary || "none",
-    [`${prefix}Traffic-Priority-Summary`]: diagnostics.trafficPrioritySummary || "none",
-    [`${prefix}Rule-Layer-Summary`]: diagnostics.ruleLayerSummary || "none",
-    [`${prefix}Rule-Layer-Preview`]: diagnostics.ruleLayerPreview || "none",
-    [`${prefix}Custom-Rule-Summary`]: diagnostics.customRuleSummary || "none",
-    [`${prefix}Custom-Rule-Preview`]: diagnostics.customRulePreview || "none",
-    [`${prefix}Key-Rule-Window-Summary`]: diagnostics.keyRuleWindowSummary || "none",
-    [`${prefix}Key-Rule-Window-Preview`]: diagnostics.keyRuleWindowPreview || "none",
-    [`${prefix}Rule-Layer-Target-Summary`]: diagnostics.ruleLayerTargetSummary || "none",
-    [`${prefix}Rule-Layer-Target-Preview`]: diagnostics.ruleLayerTargetPreview || "none",
-    [`${prefix}Service-Rule-Window-Summary`]: diagnostics.serviceRuleWindowSummary || "none",
-    [`${prefix}Service-Rule-Window-Preview`]: diagnostics.serviceRuleWindowPreview || "none",
-    [`${prefix}Service-Routing-Summary`]: diagnostics.serviceRoutingSummary || "none",
-    [`${prefix}Service-Routing-Preview`]: diagnostics.serviceRoutingPreview || "none",
-    [`${prefix}Routing-Chain-Summary`]: diagnostics.routingChainSummary || "none",
-    [`${prefix}Routing-Chain-Preview`]: diagnostics.routingChainPreview || "none",
-    [`${prefix}GitHub-Auto-Proxies`]: ARGS.hasGithubNodeFilter || ARGS.hasGithubNodeExcludeFilter || ARGS.hasGithubNodeExcludeType || ARGS.hasGithubIncludeAllProxies ? "configured" : "default",
-    [`${prefix}Steam-Auto-Proxies`]: ARGS.hasSteamNodeFilter || ARGS.hasSteamNodeExcludeFilter || ARGS.hasSteamNodeExcludeType || ARGS.hasSteamIncludeAllProxies ? "configured" : "default",
-    [`${prefix}Dev-Auto-Proxies`]: ARGS.hasDevNodeFilter || ARGS.hasDevNodeExcludeFilter || ARGS.hasDevNodeExcludeType || ARGS.hasDevIncludeAllProxies ? "configured" : "default",
-    [`${prefix}Query-Args`]: Object.keys(RUNTIME_QUERY_ARGS).length,
-    [`${prefix}Diagnostic-Issues`]: countDiagnosticIssues(diagnostics)
-  };
+  return buildRuntimeResponseHeaderSections(
+    buildRuntimeResponseHeaderContext(diagnostics),
+    RUNTIME_RESPONSE_HEADER_SECTION_DEFINITIONS
+  );
 }
 
 // 构建完整的策略组列表。
@@ -11037,448 +14178,46 @@ function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, ex
     console.time("buildProxyGroups");
   }
 
+  const proxyGroupBaseContext = buildProxyGroupBaseContext({
+    proxies,
+    countryConfigs,
+    regionConfigs,
+    existingGroups,
+    existingProxyProviders
+  });
   // 只提取国家组名称，便于后面组装候选列表。
-  const countryGroupNames = countryConfigs.map((country) => country.name);
+  const countryGroupNames = proxyGroupBaseContext.countryGroupNames;
   // 区域分组仅作为国家组的聚合层，默认不参与功能组候选链。
-  const resolvedRegionConfigs = Array.isArray(regionConfigs) ? regionConfigs : [];
-  const regionGroupNames = resolvedRegionConfigs.map((region) => region.name);
+  const resolvedRegionConfigs = proxyGroupBaseContext.resolvedRegionConfigs;
+  const regionGroupNames = proxyGroupBaseContext.regionGroupNames;
   // 提前提取用户原配置中已有的策略组名称，供独立组前置组参数解析复用。
-  const existingGroupNames = Array.isArray(existingGroups)
-    ? existingGroups
-      .filter((group) => isObject(group) && typeof group.name === "string" && group.name.trim())
-      .map((group) => group.name.trim())
-    : [];
+  const existingGroupNames = proxyGroupBaseContext.existingGroupNames;
   // 提前提取用户原配置中已有的 proxy-provider 名称，供 GitHub / Steam provider 池参数解析复用。
-  const existingProxyProviderNames = Object.keys(isObject(existingProxyProviders) ? existingProxyProviders : {});
+  const existingProxyProviderNames = proxyGroupBaseContext.existingProxyProviderNames;
   // 提前提取当前所有可见节点名称，供独立组点名节点参数解析复用。
-  const proxyNames = Array.isArray(proxies)
-    ? proxies
-      .filter((proxy) => isObject(proxy) && typeof proxy.name === "string" && proxy.name.trim())
-      .map((proxy) => proxy.name.trim())
-    : [];
+  const proxyNames = proxyGroupBaseContext.proxyNames;
   // 同时提取国家过滤表达式，给“兜底节点”组排除这些国家用。
-  const countryFilters = countryConfigs.map((country) => country.filter);
+  const countryFilters = proxyGroupBaseContext.countryFilters;
   // 一个国家组都没识别出来时，打个提醒。
   if (!countryGroupNames.length) {
     console.warn("⚠️ 警告: 未检测到有效的国家分组，将使用兜底节点组");
   }
+  // buildProxyGroups 前半段的候选链/优先链/服务组中间产物统一在这里串行装配，减少函数体里的平行模板。
+  const proxyGroupRuntimeContext = buildProxyGroupRuntimeContext({
+    hasLowCost,
+    countryConfigs,
+    resolvedRegionConfigs,
+    countryGroupNames,
+    regionGroupNames,
+    existingGroupNames,
+    existingProxyProviderNames,
+    proxyNames,
+    countryFilters
+  });
+  const generatedGroups = proxyGroupRuntimeContext.generatedGroups;
 
-  // 国家组的统一排除条件：至少排除低倍率，landing=true 时再额外排除落地节点。
-  const countryExcludeFilter = composeCaseInsensitivePattern([
-    REGEX_LOW_COST.source,
-    ARGS.landing ? REGEX_LANDING_ISOLATE.source : ""
-  ]);
-
-  // 兜底组的排除条件：排除低倍率、排除落地（可选）、排除所有已识别国家组节点。
-  const otherExcludeFilter = composeCaseInsensitivePattern([
-    hasLowCost ? REGEX_LOW_COST.source : "",
-    ARGS.landing ? REGEX_LANDING_ISOLATE.source : "",
-    ...countryFilters
-  ]);
-
-  // 所有“功能类总池”候选：落地组（可选）+ 国家组 + 兜底组 + 低倍率组（可选）。
-  const functionalPool = uniqueStrings([
-    ARGS.landing ? GROUPS.LANDING : "",
-    ...countryGroupNames,
-    GROUPS.OTHER,
-    hasLowCost ? GROUPS.LOW_COST : ""
-  ]);
-
-  // 主选择 / AI / Google 等大多数策略组共用的基础候选顺序。
-  const baseProxies = uniqueStrings([
-    GROUPS.FALLBACK,
-    ...functionalPool,
-    GROUPS.MANUAL,
-    BUILTIN_DIRECT
-  ]);
-
-  // 自动切换组的候选池，不需要再把自己塞进去，所以只从功能池里选。
-  const fallbackProxies = uniqueStrings(functionalPool.length ? functionalPool : [BUILTIN_DIRECT]);
-  // 直连优先的服务组候选顺序：DIRECT -> 主选择 -> 其他。
-  const directFirstProxies = uniqueStrings([BUILTIN_DIRECT, GROUPS.SELECT, ...baseProxies]);
-  // 主选择优先的服务组候选顺序：主选择 -> 其他。
-  const selectFirstProxies = uniqueStrings([GROUPS.SELECT, ...baseProxies]);
-  // 开发生态组默认优先沿用 GitHub 独立组，其次回落到主选择链；也允许切成直连优先或更纯粹的代理优先。
-  const developerModeBaseProxies = ARGS.devMode === "direct"
-    ? uniqueStrings([BUILTIN_DIRECT, GROUPS.GITHUB, ...selectFirstProxies])
-    : (ARGS.devMode === "proxy"
-      ? uniqueStrings([GROUPS.GITHUB, ...baseProxies])
-      : uniqueStrings([GROUPS.GITHUB, ...selectFirstProxies]));
-  // 媒体类服务候选顺序：主选择 -> 国家组 -> 兜底 -> 手动。
-  const mediaProxies = uniqueStrings([GROUPS.SELECT, ...countryGroupNames, GROUPS.OTHER, GROUPS.MANUAL]);
-
-  // AI / Crypto 的国家优先链统一复用同一套解析 helper，避免默认链与诊断链各自漂移。
-  const aiPreferredGroups = buildPreferredCountryGroups(countryConfigs, ARGS.aiPreferCountries, DEFAULT_AI_PREFERRED_COUNTRY_MARKERS);
-  const cryptoPreferredGroups = buildPreferredCountryGroups(countryConfigs, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS);
-  // 若用户传入 GitHub 优先链参数，则按参数解析；否则保持原有固定顺序。
-  const githubPreferredGroups = ARGS.hasGithubPreferCountries
-    ? resolvePreferredCountryGroups(countryConfigs, ARGS.githubPreferCountries)
-    : [];
-  // 若用户传入 Steam 优先链参数，则按参数解析；否则保持原有固定顺序。
-  const steamPreferredGroups = ARGS.hasSteamPreferCountries
-    ? resolvePreferredCountryGroups(countryConfigs, ARGS.steamPreferCountries)
-    : [];
-  // 若用户传入开发服务组优先国家参数，则按参数解析；否则继续保持 GitHub 优先的基础链。
-  const devPreferredGroups = ARGS.hasDevPreferCountries
-    ? resolvePreferredCountryGroups(countryConfigs, ARGS.devPreferCountries)
-    : [];
-  // 当前这次构建中“稳定会生成”的内置组名集合。
-  const alwaysGeneratedGroupNames = [
-    GROUPS.SELECT,
-    GROUPS.MANUAL,
-    GROUPS.FALLBACK,
-    GROUPS.DIRECT,
-    GROUPS.OTHER,
-    GROUPS.AI,
-    GROUPS.CRYPTO,
-    GROUPS.APPLE,
-    GROUPS.MICROSOFT,
-    GROUPS.GOOGLE,
-    GROUPS.GITHUB,
-    GROUPS.DEV,
-    GROUPS.BING,
-    GROUPS.ONEDRIVE,
-    GROUPS.TELEGRAM,
-    GROUPS.YOUTUBE,
-    GROUPS.NETFLIX,
-    GROUPS.DISNEY,
-    GROUPS.SPOTIFY,
-    GROUPS.TIKTOK,
-    GROUPS.STEAM,
-    GROUPS.GAMES,
-    GROUPS.PT,
-    GROUPS.SPEEDTEST,
-    GROUPS.ADS
-  ];
-  // 汇总当前可引用的组名/内置策略，供 GitHub / Steam 前置组参数解析。
-  const availableGroupNames = uniqueStrings(
-    countryGroupNames
-      .concat(regionGroupNames)
-      .concat(
-        alwaysGeneratedGroupNames,
-        ARGS.landing ? [GROUPS.LANDING] : [],
-        hasLowCost ? [GROUPS.LOW_COST] : [],
-        existingGroupNames,
-        BUILTIN_POLICY_NAMES
-      )
-  );
-  // 若用户传入 GitHub 前置组参数，则把它解析成真实可引用的组名/内置策略。
-  const githubPreferredReferences = ARGS.hasGithubPreferGroups
-    ? resolvePreferredGroupReferences(availableGroupNames, ARGS.githubPreferGroups, [GROUPS.GITHUB])
-    : [];
-  // 若用户传入 Steam 前置组参数，则把它解析成真实可引用的组名/内置策略。
-  const steamPreferredReferences = ARGS.hasSteamPreferGroups
-    ? resolvePreferredGroupReferences(availableGroupNames, ARGS.steamPreferGroups, [GROUPS.STEAM])
-    : [];
-  // 若用户传入开发服务组前置组参数，则把它解析成真实可引用的组名/内置策略。
-  const devPreferredReferences = ARGS.hasDevPreferGroups
-    ? resolvePreferredGroupReferences(availableGroupNames, ARGS.devPreferGroups, [GROUPS.DEV])
-    : [];
-  // 若用户传入 GitHub 点名节点参数，则把它解析成真实节点名。
-  const githubPreferredNodes = ARGS.hasGithubPreferNodes
-    ? resolvePreferredProxyReferences(proxyNames, ARGS.githubPreferNodes)
-    : [];
-  // 若用户传入 Steam 点名节点参数，则把它解析成真实节点名。
-  const steamPreferredNodes = ARGS.hasSteamPreferNodes
-    ? resolvePreferredProxyReferences(proxyNames, ARGS.steamPreferNodes)
-    : [];
-  // 若用户传入开发服务组点名节点参数，则把它解析成真实节点名。
-  const devPreferredNodes = ARGS.hasDevPreferNodes
-    ? resolvePreferredProxyReferences(proxyNames, ARGS.devPreferNodes)
-    : [];
-  // 若用户传入 GitHub proxy-provider 参数，则把它解析成真实 provider 名称。
-  const githubProviderReferences = ARGS.hasGithubUseProviders
-    ? resolvePreferredProxyProviderReferences(existingProxyProviderNames, ARGS.githubUseProviders)
-    : [];
-  // 若用户传入 Steam proxy-provider 参数，则把它解析成真实 provider 名称。
-  const steamProviderReferences = ARGS.hasSteamUseProviders
-    ? resolvePreferredProxyProviderReferences(existingProxyProviderNames, ARGS.steamUseProviders)
-    : [];
-  // 若用户传入开发服务组 proxy-provider 参数，则把它解析成真实 provider 名称。
-  const devProviderReferences = ARGS.hasDevUseProviders
-    ? resolvePreferredProxyProviderReferences(existingProxyProviderNames, ARGS.devUseProviders)
-    : [];
-  // 根据模式挑选 GitHub 独立组的基础候选顺序。
-  const githubModeBaseProxies = ARGS.githubMode === "direct"
-    ? directFirstProxies
-    : (ARGS.githubMode === "proxy" ? baseProxies : selectFirstProxies);
-  // 根据模式挑选 Steam 独立组的基础候选顺序。
-  const steamModeBaseProxies = ARGS.steamMode === "direct"
-    ? directFirstProxies
-    : (ARGS.steamMode === "proxy" ? baseProxies : selectFirstProxies);
-
-  // 加密货币组：优先日本，其次新加坡，再次香港；也允许用户通过参数自定义优先链。
-  const cryptoProxies = prependPreferredGroups(cryptoPreferredGroups, baseProxies);
-  // AI 组：优先新加坡、日本、美国、香港；也允许用户通过参数自定义优先链。
-  const aiProxies = prependPreferredGroups(aiPreferredGroups, baseProxies);
-  // GitHub 组默认采用主选择优先；也允许用户切换为直连优先或纯代理优先。
-  const githubBaseProxies = ARGS.hasGithubPreferCountries
-    ? (ARGS.githubMode === "direct"
-      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(githubPreferredGroups, selectFirstProxies)))
-      : prependPreferredGroups(githubPreferredGroups, githubModeBaseProxies))
-    : githubModeBaseProxies;
-  // Steam 组默认采用直连优先；也允许用户切换为主选择优先或纯代理优先。
-  const steamBaseProxies = ARGS.hasSteamPreferCountries
-    ? (ARGS.steamMode === "direct"
-      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(steamPreferredGroups, selectFirstProxies)))
-      : prependPreferredGroups(steamPreferredGroups, steamModeBaseProxies))
-    : steamModeBaseProxies;
-  // 开发服务组默认优先沿用 GitHub；若显式设置国家优先链，则把对应国家组插到 GitHub 前面，并在 direct 模式下继续固定 DIRECT 第一位。
-  const developerBaseProxies = ARGS.hasDevPreferCountries
-    ? (ARGS.devMode === "direct"
-      ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(devPreferredGroups, uniqueStrings([GROUPS.GITHUB, ...selectFirstProxies]))))
-      : prependPreferredGroups(devPreferredGroups, developerModeBaseProxies))
-    : developerModeBaseProxies;
-  // GitHub 组额外支持用“前置组参数”插入任意已有组/内置策略。
-  const githubStructuredProxies = ARGS.hasGithubPreferGroups
-    ? prependPreferredNames(githubPreferredReferences, githubBaseProxies, ARGS.githubMode === "direct")
-    : githubBaseProxies;
-  const githubProxies = ARGS.hasGithubPreferNodes
-    ? prependPreferredNames(githubPreferredNodes, githubStructuredProxies, ARGS.githubMode === "direct")
-    : githubStructuredProxies;
-  // Steam 组同样支持额外前置组，并在 direct 模式下继续固定 DIRECT 在最前。
-  const steamStructuredProxies = ARGS.hasSteamPreferGroups
-    ? prependPreferredNames(steamPreferredReferences, steamBaseProxies, ARGS.steamMode === "direct")
-    : steamBaseProxies;
-  const steamProxies = ARGS.hasSteamPreferNodes
-    ? prependPreferredNames(steamPreferredNodes, steamStructuredProxies, ARGS.steamMode === "direct")
-    : steamStructuredProxies;
-  // 开发服务组也支持额外前置组与点名节点，并在 direct 模式下继续固定 DIRECT 在最前。
-  const developerStructuredProxies = ARGS.hasDevPreferGroups
-    ? prependPreferredNames(devPreferredReferences, developerModeBaseProxies, ARGS.devMode === "direct")
-    : developerModeBaseProxies;
-  const developerProxies = ARGS.hasDevPreferNodes
-    ? prependPreferredNames(devPreferredNodes, developerStructuredProxies, ARGS.devMode === "direct")
-    : developerStructuredProxies;
-  // GitHub 独立组专属测速覆盖，只影响 GitHub 组自身。
-  const githubLatencyOverrides = {
-    testUrl: ARGS.githubTestUrl,
-    hasTestUrl: ARGS.hasGithubTestUrl,
-    groupInterval: ARGS.githubGroupInterval,
-    hasGroupInterval: ARGS.hasGithubGroupInterval,
-    groupTolerance: ARGS.githubGroupTolerance,
-    hasGroupTolerance: ARGS.hasGithubGroupTolerance,
-    groupTimeout: ARGS.githubGroupTimeout,
-    hasGroupTimeout: ARGS.hasGithubGroupTimeout,
-    groupLazy: ARGS.githubGroupLazy,
-    hasGroupLazy: ARGS.hasGithubGroupLazy,
-    groupMaxFailedTimes: ARGS.githubGroupMaxFailedTimes,
-    hasGroupMaxFailedTimes: ARGS.hasGithubGroupMaxFailedTimes,
-    groupExpectedStatus: ARGS.githubGroupExpectedStatus,
-    hasGroupExpectedStatus: ARGS.hasGithubGroupExpectedStatus,
-    groupStrategy: ARGS.githubGroupStrategy,
-    hasGroupStrategy: ARGS.hasGithubGroupStrategy
-  };
-  // Steam 独立组专属测速覆盖，只影响 Steam 组自身。
-  const steamLatencyOverrides = {
-    testUrl: ARGS.steamTestUrl,
-    hasTestUrl: ARGS.hasSteamTestUrl,
-    groupInterval: ARGS.steamGroupInterval,
-    hasGroupInterval: ARGS.hasSteamGroupInterval,
-    groupTolerance: ARGS.steamGroupTolerance,
-    hasGroupTolerance: ARGS.hasSteamGroupTolerance,
-    groupTimeout: ARGS.steamGroupTimeout,
-    hasGroupTimeout: ARGS.hasSteamGroupTimeout,
-    groupLazy: ARGS.steamGroupLazy,
-    hasGroupLazy: ARGS.hasSteamGroupLazy,
-    groupMaxFailedTimes: ARGS.steamGroupMaxFailedTimes,
-    hasGroupMaxFailedTimes: ARGS.hasSteamGroupMaxFailedTimes,
-    groupExpectedStatus: ARGS.steamGroupExpectedStatus,
-    hasGroupExpectedStatus: ARGS.hasSteamGroupExpectedStatus,
-    groupStrategy: ARGS.steamGroupStrategy,
-    hasGroupStrategy: ARGS.hasSteamGroupStrategy
-  };
-  // 开发服务组专属测速覆盖，只影响开发服务组自身。
-  const devLatencyOverrides = {
-    testUrl: ARGS.devTestUrl,
-    hasTestUrl: ARGS.hasDevTestUrl,
-    groupInterval: ARGS.devGroupInterval,
-    hasGroupInterval: ARGS.hasDevGroupInterval,
-    groupTolerance: ARGS.devGroupTolerance,
-    hasGroupTolerance: ARGS.hasDevGroupTolerance,
-    groupTimeout: ARGS.devGroupTimeout,
-    hasGroupTimeout: ARGS.hasDevGroupTimeout,
-    groupLazy: ARGS.devGroupLazy,
-    hasGroupLazy: ARGS.hasDevGroupLazy,
-    groupMaxFailedTimes: ARGS.devGroupMaxFailedTimes,
-    hasGroupMaxFailedTimes: ARGS.hasDevGroupMaxFailedTimes,
-    groupExpectedStatus: ARGS.devGroupExpectedStatus,
-    hasGroupExpectedStatus: ARGS.hasDevGroupExpectedStatus,
-    groupStrategy: ARGS.devGroupStrategy,
-    hasGroupStrategy: ARGS.hasDevGroupStrategy
-  };
-  // GitHub 独立组可选开启原始节点自动收集，用于按节点名 / 协议类型做更细粒度的专用池。
-  const githubAutoCollectionOptions = {
-    filter: ARGS.githubNodeFilter,
-    excludeFilter: ARGS.githubNodeExcludeFilter,
-    excludeType: ARGS.githubNodeExcludeType,
-    includeAllProxies: ARGS.githubIncludeAllProxies
-  };
-  // Steam 独立组同样支持原始节点自动收集。
-  const steamAutoCollectionOptions = {
-    filter: ARGS.steamNodeFilter,
-    excludeFilter: ARGS.steamNodeExcludeFilter,
-    excludeType: ARGS.steamNodeExcludeType,
-    includeAllProxies: ARGS.steamIncludeAllProxies
-  };
-  // 开发服务组也支持按节点名 / 协议类型自动收集原始节点。
-  const devAutoCollectionOptions = {
-    filter: ARGS.devNodeFilter,
-    excludeFilter: ARGS.devNodeExcludeFilter,
-    excludeType: ARGS.devNodeExcludeType,
-    includeAllProxies: ARGS.devIncludeAllProxies
-  };
-  // GitHub 独立组支持额外引用 proxy-providers；若开启 include-all-providers，则 use 列表自动失效。
-  const githubProviderCollectionOptions = {
-    includeAll: ARGS.githubIncludeAll,
-    use: githubProviderReferences,
-    includeAllProviders: ARGS.githubIncludeAllProviders
-  };
-  // Steam 独立组同样支持额外引用 proxy-providers。
-  const steamProviderCollectionOptions = {
-    includeAll: ARGS.steamIncludeAll,
-    use: steamProviderReferences,
-    includeAllProviders: ARGS.steamIncludeAllProviders
-  };
-  // 开发服务组同样支持额外引用 proxy-providers，并兼容 include-all / include-all-providers。
-  const devProviderCollectionOptions = {
-    includeAll: ARGS.devIncludeAll,
-    use: devProviderReferences,
-    includeAllProviders: ARGS.devIncludeAllProviders
-  };
-  // GitHub 独立组展示/传输高级项：支持按需隐藏、挂图标、关闭 UDP。
-  const githubAdvancedOptions = {
-    hidden: ARGS.githubHidden,
-    hasHidden: ARGS.hasGithubHidden,
-    disableUdp: ARGS.githubDisableUdp,
-    hasDisableUdp: ARGS.hasGithubDisableUdp,
-    icon: ARGS.githubIcon,
-    hasIcon: ARGS.hasGithubIcon,
-    interfaceName: ARGS.githubInterfaceName,
-    hasInterfaceName: ARGS.hasGithubInterfaceName,
-    routingMark: ARGS.githubRoutingMark,
-    hasRoutingMark: ARGS.hasGithubRoutingMark
-  };
-  // Steam 独立组展示/传输高级项：支持按需隐藏、挂图标、关闭 UDP。
-  const steamAdvancedOptions = {
-    hidden: ARGS.steamHidden,
-    hasHidden: ARGS.hasSteamHidden,
-    disableUdp: ARGS.steamDisableUdp,
-    hasDisableUdp: ARGS.hasSteamDisableUdp,
-    icon: ARGS.steamIcon,
-    hasIcon: ARGS.hasSteamIcon,
-    interfaceName: ARGS.steamInterfaceName,
-    hasInterfaceName: ARGS.hasSteamInterfaceName,
-    routingMark: ARGS.steamRoutingMark,
-    hasRoutingMark: ARGS.hasSteamRoutingMark
-  };
-  // 开发服务组展示/传输高级项：支持按需隐藏、挂图标、关闭 UDP。
-  const devAdvancedOptions = {
-    hidden: ARGS.devHidden,
-    hasHidden: ARGS.hasDevHidden,
-    disableUdp: ARGS.devDisableUdp,
-    hasDisableUdp: ARGS.hasDevDisableUdp,
-    icon: ARGS.devIcon,
-    hasIcon: ARGS.hasDevIcon,
-    interfaceName: ARGS.devInterfaceName,
-    hasInterfaceName: ARGS.hasDevInterfaceName,
-    routingMark: ARGS.devRoutingMark,
-    hasRoutingMark: ARGS.hasDevRoutingMark
-  };
-
-  // 先构造固定功能组。
-  const generatedGroups = [
-    // 主选择组。
-    createSelectGroup(GROUPS.SELECT, baseProxies),
-    // 手动切换组，自动吸收所有节点。
-    createIncludeAllSelectGroup(GROUPS.MANUAL),
-    // 自动切换组，基于候选池做测速优选。
-    createProxyListLatencyGroup(GROUPS.FALLBACK, fallbackProxies),
-
-    // AI 组，优先新加坡 / 日本 / 美国 / 香港。
-    createSelectGroup(GROUPS.AI, aiProxies),
-    // Telegram 组。
-    createSelectGroup(GROUPS.TELEGRAM, baseProxies),
-    // Google 组。
-    createSelectGroup(GROUPS.GOOGLE, baseProxies),
-    // GitHub 组。
-    createServiceGroup(GROUPS.GITHUB, githubProxies, ARGS.githubType, githubLatencyOverrides, githubAutoCollectionOptions, githubAdvancedOptions, githubProviderCollectionOptions),
-    // 开发生态组，默认优先沿用 GitHub 独立组，也允许独立切换组类型与候选顺序。
-    createServiceGroup(GROUPS.DEV, developerProxies, ARGS.devType, devLatencyOverrides, devAutoCollectionOptions, devAdvancedOptions, devProviderCollectionOptions),
-    // 微软服务组。
-    createSelectGroup(GROUPS.MICROSOFT, baseProxies),
-    // OneDrive 组。
-    createSelectGroup(GROUPS.ONEDRIVE, baseProxies),
-    // 泛游戏组。
-    createSelectGroup(GROUPS.GAMES, baseProxies),
-
-    // Bing 组，优先直连。
-    createSelectGroup(GROUPS.BING, directFirstProxies),
-    // Apple 组，优先直连。
-    createSelectGroup(GROUPS.APPLE, directFirstProxies),
-    // Steam 组，默认优先直连，也允许切换为测速/故障转移类组。
-    createServiceGroup(GROUPS.STEAM, steamProxies, ARGS.steamType, steamLatencyOverrides, steamAutoCollectionOptions, steamAdvancedOptions, steamProviderCollectionOptions),
-    // PT 组，优先直连。
-    createSelectGroup(GROUPS.PT, directFirstProxies),
-    // Speedtest 组，优先直连。
-    createSelectGroup(GROUPS.SPEEDTEST, directFirstProxies),
-
-    // YouTube 组，走媒体类候选顺序。
-    createSelectGroup(GROUPS.YOUTUBE, mediaProxies),
-    // Netflix 组。
-    createSelectGroup(GROUPS.NETFLIX, mediaProxies),
-    // Disney+ 组。
-    createSelectGroup(GROUPS.DISNEY, mediaProxies),
-    // Spotify 组。
-    createSelectGroup(GROUPS.SPOTIFY, mediaProxies),
-    // TikTok 组。
-    createSelectGroup(GROUPS.TIKTOK, mediaProxies),
-
-    // 加密货币组，优先日本 / 新加坡 / 香港。
-    createSelectGroup(GROUPS.CRYPTO, cryptoProxies),
-    // 广告组，优先 REJECT，其次 REJECT-DROP，再次允许直连。
-    createSelectGroup(GROUPS.ADS, ["REJECT", "REJECT-DROP", GROUPS.DIRECT]),
-    // 全局直连组，本质上是在 DIRECT 和 主选择 之间切换。
-    createSelectGroup(GROUPS.DIRECT, [BUILTIN_DIRECT, GROUPS.SELECT])
-  ];
-
-  // 如果启用了落地隔离，则额外生成落地节点专用组。
-  if (ARGS.landing) {
-    generatedGroups.push(
-      createIncludeAllSelectGroup(GROUPS.LANDING, composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]))
-    );
-  }
-
-  // 如果确实检测到低倍率节点，则额外生成低倍率测速组。
-  if (hasLowCost) {
-    generatedGroups.push(
-      createIncludeAllLatencyGroup(GROUPS.LOW_COST, composeCaseInsensitivePattern([REGEX_LOW_COST.source]), "", "url-test")
-    );
-  }
-
-  // 为每个识别出来的国家生成单独国家组。
-  for (const country of countryConfigs) {
-    generatedGroups.push(
-      createIncludeAllLatencyGroup(country.name, country.filter, countryExcludeFilter, ARGS.lb ? "load-balance" : "url-test")
-    );
-  }
-
-  // 若启用了区域分组，则基于已生成的国家组再聚合出区域级 select 组，方便做面板布局与快速切换。
-  for (const region of resolvedRegionConfigs) {
-    generatedGroups.push(
-      createSelectGroup(region.name, region.proxies)
-    );
-  }
-
-  // 最后生成真正的兜底节点组，吸收所有未被国家组等主分组吃掉的节点。
-  generatedGroups.push(
-    createIncludeAllSelectGroup(GROUPS.OTHER, "", otherExcludeFilter)
-  );
-
-  // 再把生成组和用户原配置里的额外组做合并。
-  const mergedGroups = mergeProxyGroups(generatedGroups, existingGroups);
-  // 最后按布局预设或显式 group-order 对最终策略组顺序做一次重排。
-  const orderedGroups = resolveConfiguredProxyGroupOrder(mergedGroups, countryGroupNames, regionGroupNames).groups;
+  // 再把生成组和用户原配置里的额外组做合并，并按布局预设/显式 group-order 做最终重排。
+  const orderedGroups = finalizeProxyGroupGeneration(generatedGroups, existingGroups, countryGroupNames, regionGroupNames);
 
   // full 模式下输出构建耗时。
   if (ARGS.full) {
@@ -11491,43 +14230,12 @@ function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, ex
 
 // 构建 DNS 配置，同时尽量保留用户原配置中的扩展项。
 function buildDnsConfig(existingDns) {
-  // 把传入值规范成普通对象，便于后续安全合并。
-  const currentDns = isObject(existingDns) ? existingDns : {};
-  // 允许脚本参数覆盖 DNS cache-algorithm。
-  const cacheAlgorithm = ARGS.hasDnsCacheAlgorithm ? ARGS.dnsCacheAlgorithm : (typeof currentDns["cache-algorithm"] === "string" && currentDns["cache-algorithm"] ? currentDns["cache-algorithm"] : "arc");
-  // 允许脚本参数覆盖 DNS prefer-h3。
-  const preferH3 = ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : parseBool(currentDns["prefer-h3"], false);
-  // 允许脚本参数覆盖 DNS respect-rules。
-  const respectRules = ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : parseBool(currentDns["respect-rules"], false);
-  // 允许脚本参数覆盖 use-system-hosts。
-  const useSystemHosts = ARGS.hasDnsUseSystemHosts ? ARGS.dnsUseSystemHosts : parseBool(currentDns["use-system-hosts"], true);
-  // 允许脚本参数覆盖 DNS listen。
-  const listen = ARGS.hasDnsListen ? ARGS.dnsListen : (typeof currentDns.listen === "string" && currentDns.listen ? currentDns.listen : ":1053");
-  // 允许脚本参数覆盖 fake-ip-filter-mode。
-  const fakeIpFilterMode = ARGS.hasFakeIpFilterMode ? ARGS.fakeIpFilterMode : (typeof currentDns["fake-ip-filter-mode"] === "string" && currentDns["fake-ip-filter-mode"] ? currentDns["fake-ip-filter-mode"] : "blacklist");
-  // 允许脚本参数覆盖 fake-ip-range。
-  const fakeIpRange = ARGS.hasFakeIpRange ? ARGS.fakeIpRange : (typeof currentDns["fake-ip-range"] === "string" && currentDns["fake-ip-range"] ? currentDns["fake-ip-range"] : "198.18.0.1/16");
-  // 国内主 DNS 列表，优先阿里和腾讯 DoH。
-  const domesticNameservers = [
-    "https://dns.alidns.com/dns-query",
-    "https://doh.pub/dns-query"
-  ];
-  // 国际回退 DNS 列表，优先 Cloudflare 和 Google。
-  const fallbackNameservers = [
-    "https://1.1.1.1/dns-query",
-    "https://8.8.8.8/dns-query"
-  ];
-  // 代理节点域名解析优先走国际 DNS，同时保留国内 DNS 作为兜底。
-  const proxyServerNameservers = uniqueStrings([
-    ...fallbackNameservers,
-    ...domesticNameservers,
-    ...toStringArray(currentDns["proxy-server-nameserver"])
-  ]);
-  // 直连流量域名解析优先走国内 DNS，降低国内直连场景的解析绕路概率。
-  const directNameservers = uniqueStrings([
-    ...domesticNameservers,
-    ...toStringArray(currentDns["direct-nameserver"])
-  ]);
+  const dnsRuntimeContext = buildDnsRuntimeContext(existingDns);
+  const currentDns = dnsRuntimeContext.currentDns;
+  const scalarOptions = dnsRuntimeContext.scalarOptions;
+  const optionalScalarOptions = dnsRuntimeContext.optionalScalarOptions;
+  const domesticNameservers = dnsRuntimeContext.domesticNameservers;
+  const fallbackNameservers = dnsRuntimeContext.fallbackNameservers;
   // Fake-IP 排除列表，这些域名强制返回真实 IP。
   const fakeIpFilter = [
     "dns.msftncsi.com",
@@ -11542,16 +14250,6 @@ function buildDnsConfig(existingDns) {
     "geosite:microsoft",
     "geosite:steam@cn"
   ];
-  // 按域名类别分流 DNS 服务器。
-  const nameserverPolicy = {
-    "geosite:cn,private,apple,steam@cn,microsoft": domesticNameservers,
-    "geosite:geolocation-!cn,gfw,google,youtube,telegram,openai,anthropic,google-gemini": fallbackNameservers
-  };
-  // 专供“节点服务器域名解析”使用的 policy，默认和主 nameserver-policy 保持一致。
-  const proxyServerNameserverPolicy = {
-    "geosite:cn,private,apple,steam@cn,microsoft": domesticNameservers,
-    "geosite:geolocation-!cn,gfw,google,youtube,telegram,openai,anthropic,google-gemini": fallbackNameservers
-  };
 
   // 先合并基础 DNS 开关和全局行为。
   const dns = mergeObjects(currentDns, {
@@ -11560,95 +14258,42 @@ function buildDnsConfig(existingDns) {
     // 是否启用 IPv6 跟随脚本参数。
     ipv6: ARGS.ipv6,
     // 显式启用更适合长时间运行场景的 ARC 缓存算法。
-    "cache-algorithm": cacheAlgorithm,
+    "cache-algorithm": scalarOptions.cacheAlgorithm,
     // prefer-h3 允许用户显式打开，但默认仍保守关闭。
-    "prefer-h3": preferH3,
+    "prefer-h3": scalarOptions.preferH3,
     // 按参数决定走 fake-ip 还是 redir-host。
     "enhanced-mode": ARGS.fakeip ? "fake-ip" : "redir-host",
     // listen 支持参数化，没传参数时优先保留原配置。
-    listen,
+    listen: scalarOptions.listen,
     // 保留 hosts 支持。
-    "use-hosts": parseBool(currentDns["use-hosts"], true),
+    "use-hosts": scalarOptions.useHosts,
     // 额外启用系统 hosts，方便桌面端/路由端把静态 hosts 一并纳入解析流程。
-    "use-system-hosts": useSystemHosts,
+    "use-system-hosts": scalarOptions.useSystemHosts,
     // fake-ip-filter-mode 支持 blacklist / whitelist / rule，默认仍为 blacklist。
-    "fake-ip-filter-mode": fakeIpFilterMode,
+    "fake-ip-filter-mode": scalarOptions.fakeIpFilterMode,
     // 若用户自己开启 respect-rules，则这里沿用用户配置；否则默认关闭，减少 DNS 自身依赖规则造成的复杂度。
-    "respect-rules": respectRules,
+    "respect-rules": scalarOptions.respectRules,
     // fake-ip 地址池优先保留用户原值，否则回落到标准保留网段。
-    "fake-ip-range": fakeIpRange
+    "fake-ip-range": scalarOptions.fakeIpRange
   });
 
-  // 如果启用了 IPv6，则尽量补齐官方示例风格的 fake-ip IPv6 地址池。
-  if (ARGS.hasFakeIpRange6) {
-    dns["fake-ip-range6"] = ARGS.fakeIpRange6;
-  } else if (typeof currentDns["fake-ip-range6"] === "string" && currentDns["fake-ip-range6"]) {
-    dns["fake-ip-range6"] = currentDns["fake-ip-range6"];
-  } else if (ARGS.ipv6) {
-    dns["fake-ip-range6"] = "fdfe:dcba:9876::1/64";
-  }
-
-  // fake-ip-ttl 只在用户显式配置或参数传入时才写入，避免无意义覆盖宿主默认值。
-  if (ARGS.hasFakeIpTtl || hasOwn(currentDns, "fake-ip-ttl")) {
-    dns["fake-ip-ttl"] = ARGS.hasFakeIpTtl ? ARGS.fakeIpTtl : currentDns["fake-ip-ttl"];
-  }
-
-  // 默认 DNS 服务器：脚本默认值 + 用户原值，最后做去重。
-  dns["default-nameserver"] = uniqueStrings([
-    "223.5.5.5",
-    "119.29.29.29",
-    ...toStringArray(currentDns["default-nameserver"])
-  ]);
-
-  // 主 nameserver 列表：国内 DoH 优先，再补上用户自定义项。
-  dns.nameserver = uniqueStrings([...domesticNameservers, ...toStringArray(currentDns.nameserver)]);
-  // fallback 列表：国际 DNS 优先，再补上用户自定义项。
-  dns.fallback = uniqueStrings([...fallbackNameservers, ...toStringArray(currentDns.fallback)]);
-  // 代理服务器域名解析单独指定解析器，避免“节点域名也被策略路由”时出现环依赖。
-  dns["proxy-server-nameserver"] = proxyServerNameservers;
-  // 直连流量也单独指定解析器，配合 follow-policy 让直连域名尽量就近解析。
-  dns["direct-nameserver"] = directNameservers;
+  Object.assign(dns, optionalScalarOptions);
+  // nameserver / fallback / direct / proxy-server 这批默认列表统一按 definitions 批量装配。
+  Object.assign(dns, buildDnsDefaultStringListPayload({
+    currentDns,
+    domesticNameservers,
+    fallbackNameservers
+  }));
   // 允许 direct-nameserver 跟随 nameserver-policy，兼顾国内直连与自定义策略。
-  dns["direct-nameserver-follow-policy"] = parseBool(currentDns["direct-nameserver-follow-policy"], true);
+  dns["direct-nameserver-follow-policy"] = scalarOptions.directNameserverFollowPolicy;
   // fake-ip-filter：按当前 fake-ip-filter-mode 生成；rule 模式下会自动转为规则语法。
-  dns["fake-ip-filter"] = buildFakeIpFilter(fakeIpFilter, currentDns["fake-ip-filter"], fakeIpFilterMode);
+  dns["fake-ip-filter"] = buildFakeIpFilter(fakeIpFilter, currentDns["fake-ip-filter"], scalarOptions.fakeIpFilterMode);
 
-  // fallback-filter：先给默认值，再允许用户覆盖/补充。
-  dns["fallback-filter"] = mergeObjects(
-    {
-      geoip: true,
-      "geoip-code": "CN",
-      geosite: ["gfw"],
-      domain: ["+.google.com", "+.facebook.com", "+.youtube.com"],
-      ipcidr: ["240.0.0.0/4"]
-    },
-    currentDns["fallback-filter"]
-  );
-  // geosite 规则也做去重合并，默认至少保留 gfw。
-  dns["fallback-filter"].geosite = uniqueStrings([
-    "gfw",
-    ...toStringArray(dns["fallback-filter"].geosite)
-  ]);
-  // domain 规则也做去重合并，兼容官方示例中的兜底域名。
-  dns["fallback-filter"].domain = uniqueStrings([
-    "+.google.com",
-    "+.facebook.com",
-    "+.youtube.com",
-    ...toStringArray(dns["fallback-filter"].domain)
-  ]);
-  // fallback-filter 里的 ipcidr 也做去重合并。
-  dns["fallback-filter"].ipcidr = uniqueStrings([
-    "240.0.0.0/4",
-    ...toStringArray(dns["fallback-filter"].ipcidr)
-  ]);
+  // fallback-filter：先给默认值，再按 geosite/domain/ipcidr 三段补齐默认数组。
+  dns["fallback-filter"] = buildDnsFallbackFilter(currentDns["fallback-filter"]);
 
-  // nameserver-policy 也是默认策略优先，再叠加用户自定义，并合并数组值。
-  dns["nameserver-policy"] = mergeDnsPolicyMaps(nameserverPolicy, currentDns["nameserver-policy"]);
-  // 节点域名解析策略也单独补齐，避免代理服务器域名始终走单一 DNS。
-  dns["proxy-server-nameserver-policy"] = mergeDnsPolicyMaps(
-    proxyServerNameserverPolicy,
-    currentDns["proxy-server-nameserver-policy"]
-  );
+  // 两组 policy 也统一走 definitions 批量装配，保持默认 policy 优先、用户 policy 追加合并的顺序不变。
+  Object.assign(dns, buildDnsPolicyPayload(dnsRuntimeContext));
   // 返回最终 DNS 配置。
   return dns;
 }
@@ -11663,46 +14308,89 @@ function mergeSniffProtocol(baseProtocol, existingProtocol) {
   return protocol;
 }
 
+// Sniffer 协议段只是协议名与默认协议体不同，这里收成 definitions，方便继续扩展更多协议类型。
+const SNIFFER_PROTOCOL_DEFINITIONS = Object.freeze([
+  { key: "TLS", value: (currentSniff) => mergeSniffProtocol({ ports: [443, 8443] }, currentSniff.TLS) },
+  { key: "HTTP", value: (currentSniff) => mergeSniffProtocol({ ports: [80, 8080, 8880], "override-destination": true }, currentSniff.HTTP) },
+  { key: "QUIC", value: (currentSniff) => mergeSniffProtocol({ ports: [443, 8443] }, currentSniff.QUIC) }
+]);
+
+// 构造 sniff 协议表，并保留 HTTP 的后置 override 逻辑，避免 buildSnifferConfig 里继续平铺三段近似模板。
+function buildSnifferProtocolTable(currentSniff) {
+  const protocols = mergeObjects(currentSniff, buildDefinitionDrivenPayload(SNIFFER_PROTOCOL_DEFINITIONS, currentSniff));
+
+  if (ARGS.hasSnifferHttpOverrideDestination) {
+    protocols.HTTP["override-destination"] = ARGS.snifferHttpOverrideDestination;
+  }
+
+  return protocols;
+}
+
+// 统一判断配置值是否是 string / string[]，便于 Sniffer 这类列表字段按条件保留用户原值。
+function hasStringArrayLikeValue(value) {
+  return Array.isArray(value) || typeof value === "string";
+}
+
+// Sniffer 列表字段统一按“默认值 + 原配置 + 参数”合并，避免每个字段都手写 uniqueStrings 模板。
+function buildSnifferMergedStringList(defaultEntries, currentEntries, argEntries) {
+  return uniqueStrings(toStringArray(defaultEntries).concat(toStringArray(currentEntries), toStringArray(argEntries)));
+}
+
+// Sniffer 这些字符串列表字段只是默认值 / 参数来源 / 是否写回条件不同，这里集中维护。
+const SNIFFER_STRING_LIST_OPTION_DEFINITIONS = Object.freeze([
+  {
+    key: "skip-domain",
+    defaultEntries: ["Mijia Cloud", "+.push.apple.com"],
+    argKey: "snifferSkipDomains",
+    shouldAssign: () => true
+  },
+  {
+    key: "force-domain",
+    defaultEntries: ["+.openai.com", "+.anthropic.com"],
+    argKey: "snifferForceDomains",
+    shouldAssign: (currentSniffer, definition) => hasStringArrayLikeValue(currentSniffer["force-domain"]) || toStringArray(definition.defaultEntries).length > 0
+  },
+  {
+    key: "skip-src-address",
+    defaultEntries: [],
+    shouldAssign: (currentSniffer) => hasStringArrayLikeValue(currentSniffer["skip-src-address"])
+  },
+  {
+    key: "skip-dst-address",
+    defaultEntries: [],
+    shouldAssign: (currentSniffer) => hasStringArrayLikeValue(currentSniffer["skip-dst-address"])
+  }
+]);
+
+// 按 definitions 批量写回 Sniffer 字符串列表字段，只在满足条件时输出对应字段。
+function applySnifferStringListOptions(sniffer, currentSniffer) {
+  const target = isObject(sniffer) ? sniffer : {};
+  const source = isObject(currentSniffer) ? currentSniffer : {};
+
+  for (const definition of SNIFFER_STRING_LIST_OPTION_DEFINITIONS) {
+    const key = normalizeStringArg(definition && definition.key);
+    const shouldAssign = definition && typeof definition.shouldAssign === "function"
+      ? definition.shouldAssign(source, definition)
+      : false;
+
+    if (!key || !shouldAssign) {
+      continue;
+    }
+
+    const argEntries = definition && definition.argKey ? ARGS[definition.argKey] : [];
+    target[key] = buildSnifferMergedStringList(definition && definition.defaultEntries, source[key], argEntries);
+  }
+
+  return target;
+}
+
 // 构建 Mihomo 通用内核默认项，尽量给出稳妥默认值，同时保留用户显式配置。
 function buildKernelDefaults(config) {
   const currentConfig = isObject(config) ? config : {};
   const currentGeoxUrl = isObject(currentConfig["geox-url"]) ? currentConfig["geox-url"] : {};
   const geoxUrl = mergeObjects(GEOX_URLS, currentGeoxUrl);
-  const globalUa = ARGS.hasGlobalUa ? ARGS.globalUa : (typeof currentConfig["global-ua"] === "string" && currentConfig["global-ua"] ? currentConfig["global-ua"] : "clash.meta");
-  const geoAutoUpdate = ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : parseBool(currentConfig["geo-auto-update"], false);
-  const geoUpdateInterval = ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : (hasOwn(currentConfig, "geo-update-interval") ? currentConfig["geo-update-interval"] : 24);
-  const processMode = ARGS.hasProcessMode ? ARGS.processMode : (typeof currentConfig["find-process-mode"] === "string" && currentConfig["find-process-mode"] ? currentConfig["find-process-mode"] : "strict");
-  const geodataMode = ARGS.hasGeodataMode ? ARGS.geodataMode : parseBool(currentConfig["geodata-mode"], true);
-  const geodataLoader = ARGS.hasGeodataLoader ? ARGS.geodataLoader : (typeof currentConfig["geodata-loader"] === "string" && currentConfig["geodata-loader"] ? currentConfig["geodata-loader"] : "memconservative");
-
-  return {
-    // 绝大多数规则配置都以 rule 模式为主，但若用户已指定则完全保留。
-    mode: typeof currentConfig.mode === "string" && currentConfig.mode ? currentConfig.mode : "rule",
-    // 统一设置 Mihomo 远程资源下载使用的 User-Agent，便于命中兼容性更好的服务端分支。
-    "global-ua": globalUa,
-    // 官方推荐的严格进程匹配模式，便于桌面端分应用识别。
-    "find-process-mode": processMode,
-    // geosite / geoip 相关特性依赖 geodata-mode，脚本既然大量使用 geosite，就尽量显式开启。
-    "geodata-mode": geodataMode,
-    // 大规则集场景更省内存的 geodata 加载方式。
-    "geodata-loader": geodataLoader,
-    // 允许 Mihomo 自动更新 GeoX 数据；若用户已有配置则完全保留。
-    "geo-auto-update": geoAutoUpdate,
-    // GeoX 自动更新间隔按小时计，这里采用官方常见示例值 24 小时。
-    "geo-update-interval": geoUpdateInterval,
-    // GeoX 下载地址沿用 Mihomo 官方 General 文档推荐值，但允许用户局部覆盖。
-    "geox-url": geoxUrl,
-    // 启用 ETag 支持，减少规则文件重复下载。
-    "etag-support": parseBool(currentConfig["etag-support"], true),
-    // 按当前 Mihomo General 文档推荐值，保活空闲时间默认 15 秒。
-    "keep-alive-idle": hasOwn(currentConfig, "keep-alive-idle") ? currentConfig["keep-alive-idle"] : 15,
-    // 给保活探测一个较温和的默认间隔。
-    "keep-alive-interval": hasOwn(currentConfig, "keep-alive-interval") ? currentConfig["keep-alive-interval"] : 15,
-    // 默认不关闭 keep-alive，但允许用户手动覆盖。
-    "disable-keep-alive": hasOwn(currentConfig, "disable-keep-alive") ? currentConfig["disable-keep-alive"] : false,
-    // 按官方文档推荐默认开启 TCP 并发建连，加快多路候选链路握手。
-    "tcp-concurrent": hasOwn(currentConfig, "tcp-concurrent") ? currentConfig["tcp-concurrent"] : true
-  };
+  const scalarOptions = buildKernelDefaultScalarOptions(currentConfig);
+  return buildKernelDefaultOutputPayload(mergeObjects(scalarOptions, { geoxUrl }));
 }
 
 // 构建 Sniffer 配置，同时保留用户原有的扩展设置。
@@ -11711,64 +14399,20 @@ function buildSnifferConfig(existingSniffer) {
   const currentSniffer = isObject(existingSniffer) ? existingSniffer : {};
   // 规范化 sniff 子对象。
   const currentSniff = isObject(currentSniffer.sniff) ? currentSniffer.sniff : {};
-  // force-dns-mapping 支持参数优先，其次保留用户原值，最后回落脚本默认。
-  const forceDnsMapping = ARGS.hasSnifferForceDnsMapping ? ARGS.snifferForceDnsMapping : parseBool(currentSniffer["force-dns-mapping"], true);
-  // parse-pure-ip 支持参数优先，其次保留用户原值，最后回落脚本默认。
-  const parsePureIp = ARGS.hasSnifferParsePureIp ? ARGS.snifferParsePureIp : parseBool(currentSniffer["parse-pure-ip"], true);
-  // 全局 override-destination 支持参数优先，其次保留用户原值，最后回落脚本默认 false。
-  const overrideDestination = ARGS.hasSnifferOverrideDestination ? ARGS.snifferOverrideDestination : parseBool(currentSniffer["override-destination"], false);
-  // 参考 Mihomo 官方示例，给少数容易被 Sniffer 干扰的域名做默认豁免。
-  const defaultSkipDomains = [
-    "Mijia Cloud",
-    "+.push.apple.com"
-  ];
-  // 参考你现有 Nikki 配置，把 OpenAI / Anthropic 加入默认强制嗅探域名，提升 AI 分流命中率。
-  const defaultForceDomains = [
-    "+.openai.com",
-    "+.anthropic.com"
-  ];
+  const scalarOptions = buildSnifferScalarOptions(currentSniffer);
 
   // 先合并全局 Sniffer 开关和默认行为。
   const sniffer = mergeObjects(currentSniffer, {
     enable: true,
-    "force-dns-mapping": forceDnsMapping,
-    "parse-pure-ip": parsePureIp,
-    "override-destination": overrideDestination
+    "force-dns-mapping": scalarOptions.forceDnsMapping,
+    "parse-pure-ip": scalarOptions.parsePureIp,
+    "override-destination": scalarOptions.overrideDestination
   });
 
-  // 复制出 sniff 协议表，后续分别处理 TLS / HTTP / QUIC。
-  const protocols = mergeObjects(currentSniff, {});
-  // 合并 TLS 嗅探端口。
-  protocols.TLS = mergeSniffProtocol({ ports: [443, 8443] }, currentSniff.TLS);
-  // 合并 HTTP 嗅探端口，并默认开启目标覆写，提升基于 Host 的分流命中率。
-  protocols.HTTP = mergeSniffProtocol({ ports: [80, 8080, 8880], "override-destination": true }, currentSniff.HTTP);
-  // 合并 QUIC 嗅探端口。
-  protocols.QUIC = mergeSniffProtocol({ ports: [443, 8443] }, currentSniff.QUIC);
-
-  // 如果用户显式传入 HTTP 覆写参数，则强制覆盖协议级设置。
-  if (ARGS.hasSnifferHttpOverrideDestination) {
-    protocols.HTTP["override-destination"] = ARGS.snifferHttpOverrideDestination;
-  }
-
   // 把协议表挂回 sniffer。
-  sniffer.sniff = protocols;
-
-  // skip-domain 默认合并官方示例中的保底域名，再叠加用户自定义值。
-  sniffer["skip-domain"] = uniqueStrings(defaultSkipDomains.concat(toStringArray(currentSniffer["skip-domain"]), ARGS.snifferSkipDomains));
-
-  // force-domain 默认补上 AI 服务常见主域名，再叠加用户原值，提升域名嗅探命中率。
-  if (Array.isArray(currentSniffer["force-domain"]) || typeof currentSniffer["force-domain"] === "string" || defaultForceDomains.length) {
-    sniffer["force-domain"] = uniqueStrings(defaultForceDomains.concat(toStringArray(currentSniffer["force-domain"]), ARGS.snifferForceDomains));
-  }
-
-  // 如果用户原配置中已经定义了基于源地址/目标地址的嗅探豁免，也一并保留。
-  if (Array.isArray(currentSniffer["skip-src-address"]) || typeof currentSniffer["skip-src-address"] === "string") {
-    sniffer["skip-src-address"] = uniqueStrings(toStringArray(currentSniffer["skip-src-address"]));
-  }
-
-  if (Array.isArray(currentSniffer["skip-dst-address"]) || typeof currentSniffer["skip-dst-address"] === "string") {
-    sniffer["skip-dst-address"] = uniqueStrings(toStringArray(currentSniffer["skip-dst-address"]));
-  }
+  sniffer.sniff = buildSnifferProtocolTable(currentSniff);
+  // 其余列表字段按统一 definitions 批量写回，保留默认值、原配置和参数追加顺序。
+  applySnifferStringListOptions(sniffer, currentSniffer);
 
   // 返回最终 Sniffer 配置。
   return sniffer;
@@ -11858,6 +14502,239 @@ function formatPreferredCountryUnmatchedSummary(tokens) {
   return names.length ? `${names.length}:${formatProviderPreviewNames(names, 8, 18)}` : "none";
 }
 
+// logDiagnostics 里的大部分告警都遵循“统计数量 + full 模式输出前 N 条样本”的模板，这里抽成统一定义表。
+const DIAGNOSTIC_WARNING_BLOCK_DEFINITIONS = Object.freeze([
+  {
+    key: "renamedProxies",
+    message: (items) => `⚠️ 检测到 ${items.length} 个节点名称被自动规范化或重命名`,
+    previewLimit: 8,
+    formatItem: (item) => `${item.from} => ${item.to}`
+  },
+  { key: "deprecatedSettings", message: (items) => `⚠️ 检测到 ${items.length} 个已弃用配置项`, previewLimit: 10 },
+  { key: "invalidRuleProviderUrls", message: (items) => `⚠️ 检测到 ${items.length} 个 rule-provider URL 异常`, previewLimit: 10 },
+  { key: "ruleProviderWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个 rule-provider 语义异常`, previewLimit: 10 },
+  { key: "proxyProviderWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个 proxy-provider 参数异常`, previewLimit: 10 },
+  { key: "dnsRiskWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个 DNS 风险组合`, previewLimit: 10 },
+  { key: "dnsOptionWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个 DNS 选项风险`, previewLimit: 10 },
+  { key: "latencyGroupWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个测速组参数异常`, previewLimit: 10 },
+  { key: "providerHealthWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个 provider 型健康检查提醒`, previewLimit: 10 },
+  { key: "preferredCountryWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个国家优先链标记未命中`, previewLimit: 10 },
+  { key: "preferredGroupWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个独立组前置组标记异常`, previewLimit: 10 },
+  { key: "preferredNodeWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个独立组点名节点标记异常`, previewLimit: 10 },
+  { key: "preferredProviderWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个独立组 provider 池参数异常`, previewLimit: 10 },
+  { key: "regionVisibilityWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个区域组可见性提醒`, previewLimit: 10 },
+  { key: "groupOrderWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个策略组布局参数异常`, previewLimit: 10 },
+  { key: "ruleOrderWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个规则顺序参数异常`, previewLimit: 10 },
+  { key: "customRuleOrderWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个自定义规则编排异常`, previewLimit: 10 },
+  { key: "ruleTargetWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个规则入口目标参数异常`, previewLimit: 10 },
+  { key: "rulePriorityWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个规则优先级风险`, previewLimit: 10 },
+  { key: "proxyGroupPriorityWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个策略组候选链风险`, previewLimit: 10 },
+  { key: "customRuleWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个自定义规则提醒`, previewLimit: 10 },
+  { key: "serviceRoutingWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个业务链路提醒`, previewLimit: 10 },
+  { key: "targetPlatformWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个目标平台兼容性提醒`, previewLimit: 5 },
+  { key: "runtimeArgWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个参数诊断提醒`, previewLimit: 5 },
+  { key: "runtimeResponseWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个响应调试链路提醒`, previewLimit: 5 },
+  { key: "runtimeLinkWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个下载链路参数提醒`, previewLimit: 5 },
+  { key: "geoConfigWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个 GEO 配置风险`, previewLimit: 10 },
+  { key: "kernelOptionWarnings", message: (items) => `⚠️ 检测到 ${items.length} 个核心内核项风险`, previewLimit: 10 },
+  { key: "duplicateRuleProviderPaths", message: (items) => `⚠️ 检测到 ${items.length} 个 rule-provider path 冲突`, previewLimit: 10 },
+  { key: "unresolvedGroupReferences", message: (items) => `⚠️ 检测到 ${items.length} 个策略组引用无法解析`, previewLimit: 10 },
+  { key: "unresolvedProviderReferences", message: (items) => `⚠️ 检测到 ${items.length} 个 proxy-provider 引用无法解析`, previewLimit: 10 },
+  { key: "invalidGroupPatterns", message: (items) => `⚠️ 检测到 ${items.length} 个自动分组的过滤正则无效`, previewLimit: 10 },
+  { key: "emptyAutoGroups", message: (items) => `⚠️ 检测到 ${items.length} 个自动分组当前为空`, previewLimit: 12 }
+]);
+// 剩余少量 diagnostics 告警不完全符合“数组数量 + 样本预览”模板，这里也补成定义表，避免 logDiagnostics 里残留零散 if。
+function createDiagnosticSpecialWarningDefinition(countKey, options) {
+  return Object.assign({ countKey }, isObject(options) ? options : {});
+}
+
+const DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS = Object.freeze([
+  createDiagnosticSpecialWarningDefinition("missingProviders", {
+    shouldLog: (diagnostics) => Array.isArray(diagnostics.missingProviders) && diagnostics.missingProviders.length > 0,
+    message: (diagnostics) => `⚠️ 规则定义引用了不存在的 rule-provider: ${diagnostics.missingProviders.join(", ")}`
+  }),
+  createDiagnosticSpecialWarningDefinition("missingRuleTargets", {
+    shouldLog: (diagnostics) => Array.isArray(diagnostics.missingRuleTargets) && diagnostics.missingRuleTargets.length > 0,
+    message: (diagnostics) => `⚠️ 规则目标策略组缺失: ${diagnostics.missingRuleTargets.join(", ")}`
+  }),
+  createDiagnosticSpecialWarningDefinition("unclassifiedCountryProxies", {
+    countType: "number",
+    shouldLog: (diagnostics) => typeof diagnostics.unclassifiedCountryProxies === "number" && diagnostics.unclassifiedCountryProxies > 0,
+    message: (diagnostics) => `⚠️ 检测到 ${diagnostics.unclassifiedCountryProxies} 个节点未命中任何国家识别规则`,
+    previewItems: (diagnostics) => Array.isArray(diagnostics.unclassifiedCountryExamples) ? diagnostics.unclassifiedCountryExamples : [],
+    previewLimit: 10
+  })
+]);
+
+// diagnostics issue 计数统一从 definitions 派生，避免响应头里的总数和 logDiagnostics 实际处理的条目逐步漂移。
+function countDiagnosticIssueDefinitions(diagnostics, definitions) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  let total = 0;
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const countKey = normalizeStringArg((definition && definition.countKey) || (definition && definition.key));
+    const countType = normalizeStringArg((definition && definition.countType) || "array");
+
+    if (!countKey) {
+      continue;
+    }
+
+    if (countType === "number") {
+      total += typeof current[countKey] === "number" && current[countKey] > 0
+        ? current[countKey]
+        : 0;
+      continue;
+    }
+
+    if (Array.isArray(current[countKey])) {
+      total += current[countKey].length;
+    }
+  }
+
+  return total;
+}
+
+// diagnostics warning/special-warning 的运行态解析都遵循同一套默认值回退，这里统一收敛成单一 state resolver。
+function resolveDiagnosticLogState(definition, diagnostics, payload) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const context = isObject(payload) ? payload : {};
+  const items = Array.isArray(context.items) ? context.items : [];
+  return {
+    items,
+    previewLimit: clampNumber(Number(definition && definition.previewLimit) || 10, 1, 20),
+    formatItem: definition && typeof definition.formatItem === "function"
+      ? definition.formatItem
+      : (item) => `${item}`,
+    messageBuilder: definition && typeof definition.message === "function"
+      ? definition.message
+      : null,
+    shouldLog: definition && typeof definition.shouldLog === "function"
+      ? definition.shouldLog(current)
+      : !!context.defaultShouldLog
+  };
+}
+
+// diagnostics 在 full 模式下的样本预览都遵循同一套 limit/format/打印模板，这里统一收口。
+function logDiagnosticPreviewItems(logState, diagnostics) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const state = isObject(logState) ? logState : {};
+  if (!ARGS.full || !Array.isArray(state.items) || !state.items.length) {
+    return;
+  }
+
+  for (const item of state.items.slice(0, state.previewLimit)) {
+    console.warn(`   · ${state.formatItem(item, current)}`);
+  }
+}
+
+// diagnostics 各类告警最终都落成“可选 message + 可选 preview”两步，这里统一执行壳层，避免 warning/special-warning 各写一遍。
+function emitDiagnosticLogState(logState, diagnostics, message) {
+  if (message) {
+    console.warn(message);
+  }
+
+  logDiagnosticPreviewItems(logState, diagnostics);
+}
+
+// warning/special-warning 最终都能收敛成“解析当前 definition 的 items/logState/message”这一层，这里统一生成执行载荷。
+function buildDiagnosticDefinitionLogPayload(diagnostics, definition) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const key = normalizeStringArg(definition && definition.key);
+
+  if (key) {
+    const items = Array.isArray(current[key]) ? current[key] : [];
+
+    if (!items.length) {
+      return null;
+    }
+
+    const logState = resolveDiagnosticLogState(definition, current, {
+      items,
+      defaultShouldLog: true
+    });
+    return {
+      diagnostics: current,
+      logState,
+      message: (logState.messageBuilder || ((list) => `⚠️ 检测到 ${list.length} 个 ${key} 告警`))(items, current)
+    };
+  }
+
+  const previewItems = definition && typeof definition.previewItems === "function"
+    ? definition.previewItems(current)
+    : [];
+  const logState = resolveDiagnosticLogState(definition, current, {
+    items: previewItems
+  });
+
+  if (!logState.shouldLog) {
+    return null;
+  }
+
+  return {
+    diagnostics: current,
+    logState,
+    message: logState.messageBuilder
+      ? logState.messageBuilder(current)
+      : ""
+  };
+}
+
+// diagnostics 两类 definition 现在统一走同一个 handler：按 definition 解析载荷，再按共享壳层输出。
+function logDiagnosticDefinition(diagnostics, definition) {
+  const payload = buildDiagnosticDefinitionLogPayload(diagnostics, definition);
+  if (!isObject(payload)) {
+    return;
+  }
+
+  emitDiagnosticLogState(payload.logState, payload.diagnostics, payload.message);
+}
+
+// diagnostics 各类 handler 当前只是在固定顺序下批量执行，这里也整理成计划表，避免 logDiagnostics 主体再保留平铺调用。
+const DIAGNOSTIC_LOG_HANDLER_SECTIONS = Object.freeze([
+  { definitions: DIAGNOSTIC_WARNING_BLOCK_DEFINITIONS, handler: logDiagnosticDefinition },
+  { definitions: DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS, handler: logDiagnosticDefinition }
+]);
+
+// diagnostics / build-summary 都有“section -> definitions -> handler”的同构调度层，这里统一 section runner。
+function runDefinitionHandlerSections(sections, context, phase) {
+  const source = Array.isArray(sections) ? sections : [];
+  const currentPhase = normalizeStringArg(phase);
+
+  for (const section of source) {
+    if (currentPhase && normalizeStringArg(section && section.phase) !== currentPhase) {
+      continue;
+    }
+
+    const handler = section && section.handler;
+    if (typeof handler !== "function") {
+      continue;
+    }
+
+    for (const definition of Array.isArray(section && section.definitions) ? section.definitions : []) {
+      handler(context, definition);
+    }
+  }
+}
+
+// logBuildSummary 里这几段“遍历 definitions -> 调不同 logger”也整理成计划表，避免主体继续出现多段近似循环。
+const BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS = Object.freeze([
+  {
+    phase: "pre-lookup",
+    definitions: BUILD_SUMMARY_OPTIONAL_VALUE_LINE_DEFINITIONS,
+    handler: (stats, definition) => logBuildSummaryOptionalValueLine(definition, stats)
+  },
+  {
+    phase: "pre-lookup",
+    definitions: BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS,
+    handler: (stats, definition) => logBuildSummaryArgLine(definition, stats)
+  },
+  {
+    phase: "post-lookup",
+    definitions: BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS,
+    handler: (stats, definition) => logBuildSummaryArgLine(definition, stats)
+  }
+]);
+
 // 输出构建过程中的诊断信息，例如自动重命名和一致性校验告警。
 function logDiagnostics(diagnostics) {
   // 没有诊断对象就直接跳过。
@@ -11865,620 +14742,26 @@ function logDiagnostics(diagnostics) {
     return;
   }
 
-  // 节点名称发生自动规范化/重命名时，输出提醒。
-  if (Array.isArray(diagnostics.renamedProxies) && diagnostics.renamedProxies.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.renamedProxies.length} 个节点名称被自动规范化或重命名`);
-
-    // full 模式下额外输出前几个示例，方便定位。
-    if (ARGS.full) {
-      for (const item of diagnostics.renamedProxies.slice(0, 8)) {
-        console.warn(`   · ${item.from} => ${item.to}`);
-      }
-    }
-  }
-
-  // 如果规则引用了不存在的 provider，输出告警。
-  if (Array.isArray(diagnostics.missingProviders) && diagnostics.missingProviders.length) {
-    console.warn(`⚠️ 规则定义引用了不存在的 rule-provider: ${diagnostics.missingProviders.join(", ")}`);
-  }
-
-  // 如果检测到已弃用的配置项，也输出提醒。
-  if (Array.isArray(diagnostics.deprecatedSettings) && diagnostics.deprecatedSettings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.deprecatedSettings.length} 个已弃用配置项`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.deprecatedSettings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 rule-provider 的远程链接不合法，也输出提醒。
-  if (Array.isArray(diagnostics.invalidRuleProviderUrls) && diagnostics.invalidRuleProviderUrls.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.invalidRuleProviderUrls.length} 个 rule-provider URL 异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.invalidRuleProviderUrls.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 rule-provider 官方结构语义存在异常，也输出提醒。
-  if (Array.isArray(diagnostics.ruleProviderWarnings) && diagnostics.ruleProviderWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.ruleProviderWarnings.length} 个 rule-provider 语义异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.ruleProviderWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 proxy-provider 下载控制或健康检查存在异常，也输出提醒。
-  if (Array.isArray(diagnostics.proxyProviderWarnings) && diagnostics.proxyProviderWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.proxyProviderWarnings.length} 个 proxy-provider 参数异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.proxyProviderWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果命中 DNS 风险组合，也输出提醒。
-  if (Array.isArray(diagnostics.dnsRiskWarnings) && diagnostics.dnsRiskWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.dnsRiskWarnings.length} 个 DNS 风险组合`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.dnsRiskWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 DNS 高级项落在非常规取值，也输出提醒。
-  if (Array.isArray(diagnostics.dnsOptionWarnings) && diagnostics.dnsOptionWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.dnsOptionWarnings.length} 个 DNS 选项风险`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.dnsOptionWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果测速组健康检查参数存在异常，也输出提醒。
-  if (Array.isArray(diagnostics.latencyGroupWarnings) && diagnostics.latencyGroupWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.latencyGroupWarnings.length} 个测速组参数异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.latencyGroupWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果某些 latency/load-balance 组主要通过 provider 池引入节点，也输出官方语义提醒。
-  if (Array.isArray(diagnostics.providerHealthWarnings) && diagnostics.providerHealthWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.providerHealthWarnings.length} 个 provider 型健康检查提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.providerHealthWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 AI / Crypto 国家优先链里有未匹配的国家标记，也输出提醒。
-  if (Array.isArray(diagnostics.preferredCountryWarnings) && diagnostics.preferredCountryWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.preferredCountryWarnings.length} 个国家优先链标记未命中`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.preferredCountryWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 GitHub / Steam 前置组标记未命中或错误引用自身，也输出提醒。
-  if (Array.isArray(diagnostics.preferredGroupWarnings) && diagnostics.preferredGroupWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.preferredGroupWarnings.length} 个独立组前置组标记异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.preferredGroupWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 GitHub / Steam 点名节点标记未命中或存在歧义，也输出提醒。
-  if (Array.isArray(diagnostics.preferredNodeWarnings) && diagnostics.preferredNodeWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.preferredNodeWarnings.length} 个独立组点名节点标记异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.preferredNodeWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 GitHub / Steam provider 池标记未命中，也输出提醒。
-  if (Array.isArray(diagnostics.preferredProviderWarnings) && diagnostics.preferredProviderWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.preferredProviderWarnings.length} 个独立组 provider 池参数异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.preferredProviderWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果开启了区域分组，但区域组没生成或排得太后，也显式提醒。
-  if (Array.isArray(diagnostics.regionVisibilityWarnings) && diagnostics.regionVisibilityWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.regionVisibilityWarnings.length} 个区域组可见性提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.regionVisibilityWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果显式 group-order 有未命中的条目，也输出提醒。
-  if (Array.isArray(diagnostics.groupOrderWarnings) && diagnostics.groupOrderWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.groupOrderWarnings.length} 个策略组布局参数异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.groupOrderWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 GitHub / Steam / SteamCN 规则顺序锚点参数未命中或引用自身，也输出提醒。
-  if (Array.isArray(diagnostics.ruleOrderWarnings) && diagnostics.ruleOrderWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.ruleOrderWarnings.length} 个规则顺序参数异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.ruleOrderWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 custom-rule-anchor 未命中，也输出提醒。
-  if (Array.isArray(diagnostics.customRuleOrderWarnings) && diagnostics.customRuleOrderWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.customRuleOrderWarnings.length} 个自定义规则编排异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.customRuleOrderWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 GitHub / Steam / SteamCN 规则入口目标参数未命中，也输出提醒。
-  if (Array.isArray(diagnostics.ruleTargetWarnings) && diagnostics.ruleTargetWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.ruleTargetWarnings.length} 个规则入口目标参数异常`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.ruleTargetWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果某些宽泛规则排在特定业务规则前面，也输出风险提醒。
-  if (Array.isArray(diagnostics.rulePriorityWarnings) && diagnostics.rulePriorityWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.rulePriorityWarnings.length} 个规则优先级风险`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.rulePriorityWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果关键策略组的候选链顺序异常，也输出风险提醒。
-  if (Array.isArray(diagnostics.proxyGroupPriorityWarnings) && diagnostics.proxyGroupPriorityWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.proxyGroupPriorityWarnings.length} 个策略组候选链风险`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.proxyGroupPriorityWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果自定义规则区间存在明显异常，也输出提醒。
-  if (Array.isArray(diagnostics.customRuleWarnings) && diagnostics.customRuleWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.customRuleWarnings.length} 个自定义规则提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.customRuleWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果关键业务的专属链路出现明显偏离，也输出提醒。
-  if (Array.isArray(diagnostics.serviceRoutingWarnings) && diagnostics.serviceRoutingWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.serviceRoutingWarnings.length} 个业务链路提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.serviceRoutingWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果当前目标平台看起来不是 Clash / Mihomo，也输出提醒。
-  if (Array.isArray(diagnostics.targetPlatformWarnings) && diagnostics.targetPlatformWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.targetPlatformWarnings.length} 个目标平台兼容性提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.targetPlatformWarnings.slice(0, 5)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果存在未消费脚本参数，也输出提醒，便于尽快发现拼写错误或未支持参数。
-  if (Array.isArray(diagnostics.runtimeArgWarnings) && diagnostics.runtimeArgWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.runtimeArgWarnings.length} 个参数诊断提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.runtimeArgWarnings.slice(0, 5)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果当前环境不支持写入官方 `_res.headers`，也输出提醒。
-  if (Array.isArray(diagnostics.runtimeResponseWarnings) && diagnostics.runtimeResponseWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.runtimeResponseWarnings.length} 个响应调试链路提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.runtimeResponseWarnings.slice(0, 5)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果官方保留下载参数存在潜在歧义，也输出提醒。
-  if (Array.isArray(diagnostics.runtimeLinkWarnings) && diagnostics.runtimeLinkWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.runtimeLinkWarnings.length} 个下载链路参数提醒`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.runtimeLinkWarnings.slice(0, 5)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 GEO 配置不完整，也输出提醒。
-  if (Array.isArray(diagnostics.geoConfigWarnings) && diagnostics.geoConfigWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.geoConfigWarnings.length} 个 GEO 配置风险`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.geoConfigWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果核心内核项落在非常规取值，也输出提醒。
-  if (Array.isArray(diagnostics.kernelOptionWarnings) && diagnostics.kernelOptionWarnings.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.kernelOptionWarnings.length} 个核心内核项风险`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.kernelOptionWarnings.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果 provider 本地缓存路径发生冲突，也输出告警。
-  if (Array.isArray(diagnostics.duplicateRuleProviderPaths) && diagnostics.duplicateRuleProviderPaths.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.duplicateRuleProviderPaths.length} 个 rule-provider path 冲突`);
-
-    // full 模式下输出部分明细。
-    if (ARGS.full) {
-      for (const item of diagnostics.duplicateRuleProviderPaths.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果规则目标组缺失，输出告警。
-  if (Array.isArray(diagnostics.missingRuleTargets) && diagnostics.missingRuleTargets.length) {
-    console.warn(`⚠️ 规则目标策略组缺失: ${diagnostics.missingRuleTargets.join(", ")}`);
-  }
-
-  // 如果策略组引用了解析不到的组名/节点名，也输出告警。
-  if (Array.isArray(diagnostics.unresolvedGroupReferences) && diagnostics.unresolvedGroupReferences.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.unresolvedGroupReferences.length} 个策略组引用无法解析`);
-
-    // full 模式下输出部分明细。
-    if (ARGS.full) {
-      for (const item of diagnostics.unresolvedGroupReferences.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果某些策略组里的 use 引用无法解析到 proxy-providers，也输出告警。
-  if (Array.isArray(diagnostics.unresolvedProviderReferences) && diagnostics.unresolvedProviderReferences.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.unresolvedProviderReferences.length} 个 proxy-provider 引用无法解析`);
-
-    if (ARGS.full) {
-      for (const item of diagnostics.unresolvedProviderReferences.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果某些自动分组的正则无法编译，输出告警。
-  if (Array.isArray(diagnostics.invalidGroupPatterns) && diagnostics.invalidGroupPatterns.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.invalidGroupPatterns.length} 个自动分组的过滤正则无效`);
-
-    // full 模式下输出部分明细。
-    if (ARGS.full) {
-      for (const item of diagnostics.invalidGroupPatterns.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果某些 include-all 自动分组实际上一个节点都匹配不到，也输出告警。
-  if (Array.isArray(diagnostics.emptyAutoGroups) && diagnostics.emptyAutoGroups.length) {
-    console.warn(`⚠️ 检测到 ${diagnostics.emptyAutoGroups.length} 个自动分组当前为空`);
-
-    // full 模式下输出部分明细。
-    if (ARGS.full) {
-      for (const item of diagnostics.emptyAutoGroups.slice(0, 12)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
-
-  // 如果存在未被国家体系识别的节点，也输出提醒，便于后续扩充国家别名。
-  if (typeof diagnostics.unclassifiedCountryProxies === "number" && diagnostics.unclassifiedCountryProxies > 0) {
-    console.warn(`⚠️ 检测到 ${diagnostics.unclassifiedCountryProxies} 个节点未命中任何国家识别规则`);
-
-    // full 模式下输出部分样本。
-    if (ARGS.full && Array.isArray(diagnostics.unclassifiedCountryExamples)) {
-      for (const item of diagnostics.unclassifiedCountryExamples.slice(0, 10)) {
-        console.warn(`   · ${item}`);
-      }
-    }
-  }
+  // diagnostics 各类输出按计划批量执行，保持原顺序不变，同时减少主函数里的平铺 handler 调用。
+  runDefinitionHandlerSections(DIAGNOSTIC_LOG_HANDLER_SECTIONS, diagnostics);
 }
 
 // 输出 full 模式下的构建统计信息。
 function logBuildSummary(stats) {
+  const lookupRegistry = buildBuildSummaryLookupRegistry(BUILD_SUMMARY_LOOKUP_REGISTRY_DEFINITIONS);
+
   // 输出主标题并带上脚本版本。
   console.log(`📊 配置生成完毕 (Sub-Store.js v${SCRIPT_VERSION})`);
-  // 输出代理节点总数。
-  console.log(`   ✓ 代理节点: ${stats.totalProxies} 个`);
-  // 输出有效节点数。
-  console.log(`   ✓ 有效节点: ${stats.validProxies} 个`);
-  // 输出低倍率节点数。
-  console.log(`   ✓ 低倍率节点: ${stats.lowCostProxies} 个`);
-  // 输出落地节点数。
-  console.log(`   ✓ 落地节点: ${stats.landingProxies} 个`);
-  // 输出国家分组数量。
-  console.log(`   ✓ 国家分组: ${stats.countryGroups} 个`);
-  // 输出区域分组数量。
-  console.log(`   ✓ 区域分组: ${stats.regionGroups} 个`);
-  // 输出策略组总数。
-  console.log(`   ✓ 策略组: ${stats.proxyGroups} 个`);
-  // 输出规则总数。
-  console.log(`   ✓ 规则数: ${stats.rules} 条`);
-  // 输出国家识别覆盖数。
-  console.log(`   ✓ 国家识别节点: ${stats.classifiedCountryProxies} 个`);
-  // 输出国家未识别节点数。
-  console.log(`   ✓ 国家未识别节点: ${stats.unclassifiedCountryProxies} 个`);
-  // 输出自动规范化/重命名节点数量。
-  console.log(`   ✓ 自动改名节点: ${stats.renamedProxies} 个`);
-  // 输出 provider 缺失告警数。
-  console.log(`   ✓ Provider告警: ${stats.missingProviders} 条`);
-  // 输出 provider URL 异常数。
-  console.log(`   ✓ Provider链接告警: ${stats.invalidRuleProviderUrls} 条`);
-  // 输出 rule-provider 官方语义异常数。
-  console.log(`   ✓ 规则源语义告警: ${stats.ruleProviderWarnings} 条`);
-  // 输出 proxy-provider 参数异常数。
-  console.log(`   ✓ 代理集合告警: ${stats.proxyProviderWarnings} 条`);
-  // 输出已弃用配置项告警数。
-  console.log(`   ✓ 弃用项告警: ${stats.deprecatedSettings} 条`);
-  // 输出 DNS 风险组合告警数。
-  console.log(`   ✓ DNS风险告警: ${stats.dnsRiskWarnings} 条`);
-  // 输出 DNS 选项风险告警数。
-  console.log(`   ✓ DNS选项告警: ${stats.dnsOptionWarnings} 条`);
-  // 输出测速组参数告警数。
-  console.log(`   ✓ 测速组告警: ${stats.latencyGroupWarnings} 条`);
-  // 输出 provider 型健康检查提醒数。
-  console.log(`   ✓ Provider健康提醒: ${stats.providerHealthWarnings} 条`);
-  // 输出国家优先链未命中告警数。
-  console.log(`   ✓ 优先链告警: ${stats.preferredCountryWarnings} 条`);
-  // 输出独立组前置组标记告警数。
-  console.log(`   ✓ 前置组告警: ${stats.preferredGroupWarnings} 条`);
-  // 输出独立组点名节点标记告警数。
-  console.log(`   ✓ 点名节点告警: ${stats.preferredNodeWarnings} 条`);
-  // 输出独立组 provider 池参数告警数。
-  console.log(`   ✓ Provider池告警: ${stats.preferredProviderWarnings} 条`);
-  // 输出区域组可见性提醒数。
-  console.log(`   ✓ 区域可见性提醒: ${stats.regionVisibilityWarnings} 条`);
-  // 输出策略组布局参数告警数。
-  console.log(`   ✓ 策略组布局告警: ${stats.groupOrderWarnings} 条`);
-  // 输出规则顺序参数告警数。
-  console.log(`   ✓ 规则顺序告警: ${stats.ruleOrderWarnings} 条`);
-  // 输出自定义规则编排参数告警数。
-  console.log(`   ✓ 自定义规则编排告警: ${stats.customRuleOrderWarnings} 条`);
-  // 输出规则入口目标参数告警数。
-  console.log(`   ✓ 规则入口告警: ${stats.ruleTargetWarnings} 条`);
-  // 输出规则优先级风险告警数。
-  console.log(`   ✓ 规则优先级风险: ${stats.rulePriorityWarnings} 条`);
-  // 输出策略组候选链风险告警数。
-  console.log(`   ✓ 候选链风险: ${stats.proxyGroupPriorityWarnings} 条`);
-  // 输出自定义规则提醒数。
-  console.log(`   ✓ 自定义规则提醒: ${stats.customRuleWarnings} 条`);
-  // 输出关键业务链路提醒数。
-  console.log(`   ✓ 业务链路提醒: ${stats.serviceRoutingWarnings} 条`);
-  // 输出目标平台兼容性提醒数。
-  console.log(`   ✓ 平台提醒: ${stats.targetPlatformWarnings} 条`);
-  // 输出未消费参数诊断提醒数。
-  console.log(`   ✓ 参数诊断提醒: ${stats.runtimeArgWarnings} 条`);
-  // 输出响应调试链路提醒数。
-  console.log(`   ✓ 响应头提醒: ${stats.runtimeResponseWarnings} 条`);
-  // 输出下载链路参数提醒数。
-  console.log(`   ✓ 链路参数提醒: ${stats.runtimeLinkWarnings} 条`);
-  // 输出 GEO 配置风险告警数。
-  console.log(`   ✓ GEO风险告警: ${stats.geoConfigWarnings} 条`);
-  // 输出核心内核项风险告警数。
-  console.log(`   ✓ 核心项告警: ${stats.kernelOptionWarnings} 条`);
-  // 输出 provider path 冲突告警数。
-  console.log(`   ✓ Provider路径告警: ${stats.duplicateRuleProviderPaths} 条`);
-  // 输出规则目标缺失告警数。
-  console.log(`   ✓ 规则目标告警: ${stats.missingRuleTargets} 条`);
-  // 输出策略组引用异常数量。
-  console.log(`   ✓ 引用异常告警: ${stats.unresolvedGroupReferences} 条`);
-  // 输出 proxy-provider 引用异常数量。
-  console.log(`   ✓ Provider引用告警: ${stats.unresolvedProviderReferences} 条`);
-  // 输出自动分组正则异常数量。
-  console.log(`   ✓ 分组正则告警: ${stats.invalidGroupPatterns} 条`);
-  // 输出空自动分组数量。
-  console.log(`   ✓ 空自动分组告警: ${stats.emptyAutoGroups} 条`);
-
-  // 如果有国家统计摘要，则补充输出。
-  if (stats.countrySummary) {
-    console.log(`   ✓ 国家统计: ${stats.countrySummary}`);
-  }
-
-  // 如果有区域统计摘要，则补充输出。
-  if (stats.regionGroupSummary) {
-    console.log(`   ✓ 区域统计: ${stats.regionGroupSummary}`);
-  }
-
-  // 如果有国家优先链来源追踪，则补充输出，便于直接区分 preset / region / country 的展开来源。
-  if (stats.aiPreferCountryTraceSummary || stats.cryptoPreferCountryTraceSummary || stats.githubPreferCountryTraceSummary || stats.steamPreferCountryTraceSummary || stats.devPreferCountryTraceSummary) {
-    console.log(`   ✓ 国家优先链来源: AI=${stats.aiPreferCountryTraceSummary || "none"}, Crypto=${stats.cryptoPreferCountryTraceSummary || "none"}, GitHub=${stats.githubPreferCountryTraceSummary || "none"}, Steam=${stats.steamPreferCountryTraceSummary || "none"}, Dev=${stats.devPreferCountryTraceSummary || "none"}`);
-  }
-
-  // 如果有逐 token 解析说明，则输出每条链的 explain 摘要，便于直接定位是哪个标记没命中。
-  if (stats.aiPreferCountryExplainSummary || stats.cryptoPreferCountryExplainSummary || stats.githubPreferCountryExplainSummary || stats.steamPreferCountryExplainSummary || stats.devPreferCountryExplainSummary) {
-    console.log(`   ✓ 国家优先链解析: AI=${stats.aiPreferCountryExplainSummary || "none"}, Crypto=${stats.cryptoPreferCountryExplainSummary || "none"}, GitHub=${stats.githubPreferCountryExplainSummary || "none"}, Steam=${stats.steamPreferCountryExplainSummary || "none"}, Dev=${stats.devPreferCountryExplainSummary || "none"}`);
-  }
-
-  // 如果有未命中的 token，则再单独给一行更紧凑的未命中摘要。
-  if (stats.aiPreferCountryUnmatchedSummary || stats.cryptoPreferCountryUnmatchedSummary || stats.githubPreferCountryUnmatchedSummary || stats.steamPreferCountryUnmatchedSummary || stats.devPreferCountryUnmatchedSummary) {
-    console.log(`   ✓ 国家优先链未命中: AI=${stats.aiPreferCountryUnmatchedSummary || "none"}, Crypto=${stats.cryptoPreferCountryUnmatchedSummary || "none"}, GitHub=${stats.githubPreferCountryUnmatchedSummary || "none"}, Steam=${stats.steamPreferCountryUnmatchedSummary || "none"}, Dev=${stats.devPreferCountryUnmatchedSummary || "none"}`);
-  }
-
-  // 输出国家组 / 区域组排序模式，便于直接确认当前面板顺序和部分候选链顺序是按什么口径生成。
-  console.log(`   ✓ 分组排序: countries=${ARGS.countryGroupSort}${ARGS.hasCountryGroupSort ? "" : " (default)"}, regions=${ARGS.regionGroupSort}${ARGS.hasRegionGroupSort ? "" : " (default)"}`);
-
-  // 最后输出本次运行采用的参数组合，便于排查。
-  console.log(`   ✓ 参数: ipv6=${ARGS.ipv6}, landing=${ARGS.landing}, hidden=${ARGS.hidden}, load-balance=${ARGS.lb}, fakeip=${ARGS.fakeip}, quic=${ARGS.quic}, unified-delay=${ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : "config"}, tcp-concurrent=${ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : "config"}, dns-respect-rules=${ARGS.hasDnsRespectRules ? ARGS.dnsRespectRules : "config"}, dns-prefer-h3=${ARGS.hasDnsPreferH3 ? ARGS.dnsPreferH3 : "config"}, profile-cache=${ARGS.hasProfileCache ? ARGS.profileCache : "auto"}, geo-auto-update=${ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : "config"}, geo-update-interval=${ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : "config"}, threshold=${ARGS.threshold}`);
-  // 额外输出本轮新增的测速组参数覆盖情况。
-  console.log(`   ✓ 测速参数: test-url=${ARGS.hasTestUrl ? ARGS.testUrl : "default"}, group-interval=${ARGS.hasGroupInterval ? ARGS.groupInterval : "default"}, group-tolerance=${ARGS.hasGroupTolerance ? ARGS.groupTolerance : "default"}, group-timeout=${ARGS.hasGroupTimeout ? ARGS.groupTimeout : "default"}, group-max-failed-times=${ARGS.hasGroupMaxFailedTimes ? ARGS.groupMaxFailedTimes : "default"}, group-expected-status=${ARGS.hasGroupExpectedStatus ? ARGS.groupExpectedStatus : "default"}, group-lazy=${ARGS.hasGroupLazy ? ARGS.groupLazy : "default"}, group-strategy=${ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default"}`);
-  // 输出 Sniffer 参数覆盖情况。
-  console.log(`   ✓ Sniffer参数: force-dns-mapping=${ARGS.hasSnifferForceDnsMapping ? ARGS.snifferForceDnsMapping : "default"}, parse-pure-ip=${ARGS.hasSnifferParsePureIp ? ARGS.snifferParsePureIp : "default"}, override-destination=${ARGS.hasSnifferOverrideDestination ? ARGS.snifferOverrideDestination : "default"}, http-override-destination=${ARGS.hasSnifferHttpOverrideDestination ? ARGS.snifferHttpOverrideDestination : "default"}`);
-  // 输出 Sniffer 域名追加参数覆盖情况。
-  console.log(`   ✓ Sniffer域名: force-domain+=${ARGS.hasSnifferForceDomains ? ARGS.snifferForceDomains.join(" | ") : "default"}, skip-domain+=${ARGS.hasSnifferSkipDomains ? ARGS.snifferSkipDomains.join(" | ") : "default"}`);
-  // 输出 DNS listen / fake-ip 地址池覆盖情况。
-  console.log(`   ✓ DNS池参数: listen=${ARGS.hasDnsListen ? ARGS.dnsListen : "config/default"}, fake-ip-range=${ARGS.hasFakeIpRange ? ARGS.fakeIpRange : "config/default"}, fake-ip-range6=${ARGS.hasFakeIpRange6 ? ARGS.fakeIpRange6 : (ARGS.ipv6 ? "auto/default" : "off")}`);
-  // 输出自定义规则源覆盖情况。
-  console.log(`   ✓ 规则源参数: preset=${ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET}, steam-fix=${ARGS.hasSteamFix ? ARGS.steamFix : false}, steam-fix-url=${ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled"}, direct-list-url=${ARGS.hasDirectListUrl ? ARGS.directListUrl : "default"}, crypto-list-url=${ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default"}, chatgpt-list-url=${ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default"}, ai-extra-list-url=${ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default"}, dev-list-url=${ARGS.hasDevListUrl ? ARGS.devListUrl : "default"}, grok-rule-url=${accademiaAdditionalRule("Grok")}, apple-ai-rule-url=${accademiaAdditionalRule("AppleAI")}, provider-path-dir=${ARGS.ruleProviderPathDir}, provider-interval=${ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL}, provider-proxy=${ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default"}, provider-size-limit=${ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default"}, provider-ua=${ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default"}, provider-auth=${ARGS.hasRuleProviderAuthorization ? "configured" : "default"}, provider-headers=${ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default"}, provider-payload=${ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default"}, scope=${(ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default"}, payload-scope=${ARGS.hasRuleProviderPayload ? "inline-only" : "default"}, apply-scope=${buildRuleProviderApplyScopeSummary()}, apply-stats=${stats.ruleProviderApplyStatsSummary}, apply-preview=${stats.ruleProviderApplyPreviewSummary}, mutation-stats=${stats.ruleProviderMutationStatsSummary}, mutation-preview=${stats.ruleProviderMutationPreviewSummary}`);
-  // 输出 rule-provider 官方语义自检开关，便于确认本轮自检已启用。
-  console.log("   ✓ 规则源语义: official-type/behavior/format/path/payload-check=on, safe-path-hint=on");
-  // 输出 proxy-provider 下载控制、节点池筛选与 health-check 覆盖情况。
-  console.log(`   ✓ 代理集合参数: interval=${ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default"}, proxy=${ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default"}, size-limit=${ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default"}, ua=${ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default"}, auth=${ARGS.hasProxyProviderAuthorization ? "configured" : "default"}, headers=${ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeaderEntryCount : "default"}, payload=${ARGS.hasProxyProviderPayload ? ARGS.proxyProviderPayloadCount : "default"}, path-dir=${ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged"}, filter=${ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default"}, exclude-filter=${ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default"}, exclude-type=${ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default"}, hc-enable=${ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default"}, hc-url=${ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default"}, hc-interval=${ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default"}, hc-timeout=${ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default"}, hc-lazy=${ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default"}, hc-expected-status=${ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default"}, apply-scope=${buildProxyProviderApplyScopeSummary()}, apply-stats=${stats.proxyProviderApplyStatsSummary}, apply-preview=${stats.proxyProviderApplyPreviewSummary}, mutation-stats=${stats.proxyProviderMutationStatsSummary}, mutation-preview=${stats.proxyProviderMutationPreviewSummary}`);
-  // 输出这一轮补强的官方语义自检开关，便于确认是否已走到新逻辑。
-  console.log("   ✓ 代理集合语义: official-type/url/path/payload-check=on, safe-path-hint=on");
-  // 输出 proxy-provider override 批量改写参数覆盖情况。
-  console.log(`   ✓ 代理集合Override: prefix=${ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default"}, suffix=${ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default"}, udp=${ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default"}, udp-over-tcp=${ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default"}, down=${ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default"}, up=${ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default"}, tfo=${ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default"}, mptcp=${ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default"}, skip-cert-verify=${ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default"}, dialer-proxy=${ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default"}, interface-name=${ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default"}, routing-mark=${ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default"}, ip-version=${ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default"}, proxy-name-rules=${ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default"}`);
-  // 输出 AI / Crypto / GitHub / Steam / Dev 国家优先链参数覆盖情况。
-  console.log(`   ✓ 国家优先链: ai=${ARGS.hasAiPreferCountries ? ARGS.aiPreferCountries.join(" > ") : "default"}, crypto=${ARGS.hasCryptoPreferCountries ? ARGS.cryptoPreferCountries.join(" > ") : "default"}, github=${ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries.join(" > ") : "default"} (${ARGS.githubMode}, ${ARGS.githubType}), steam=${ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries.join(" > ") : "default"} (${ARGS.steamMode}, ${ARGS.steamType}), dev=${ARGS.hasDevPreferCountries ? ARGS.devPreferCountries.join(" > ") : "default"} (${ARGS.devMode}, ${ARGS.devType})`);
-  // 输出国家优先链最终命中的国家组摘要，便于直接确认区域 token / 国家 token / 自定义别名最终到底展开成了什么。
-  console.log(`   ✓ 国家优先链命中: ai=${stats.aiPreferCountryResolvedSummary || "none"}, crypto=${stats.cryptoPreferCountryResolvedSummary || "none"}, github=${stats.githubPreferCountryResolvedSummary || "none"}, steam=${stats.steamPreferCountryResolvedSummary || "none"}, dev=${stats.devPreferCountryResolvedSummary || "none"}`);
-  // 输出 country-extra-aliases 参数覆盖情况，便于确认这轮自定义国家别名是否真正生效。
-  console.log(`   ✓ 国家附加别名: ${ARGS.hasCountryExtraAliases ? `configured,countries=${ARGS.countryExtraAliasCountryCount},aliases=${ARGS.countryExtraAliasEntryCount},conflicts=${ARGS.countryExtraAliasConflictCount},preview=${ARGS.countryExtraAliasPreview},conflict-preview=${ARGS.countryExtraAliasConflictPreview}` : "default"}`);
-  // 输出区域分组参数覆盖情况，便于确认这轮 GitHub 社区常见“区域聚合面板”玩法是否真正生效。
-  console.log(`   ✓ 区域分组参数: ${ARGS.hasRegionGroups ? `configured,preview=${ARGS.regionGroupPreview},generated=${stats.regionGroups},summary=${stats.regionGroupSummary || "none"}` : (ARGS.hasRegionGroupsArg ? "configured:off" : "default/off")}`);
-  // 输出区域组可见性摘要，便于直接判断 Clash Verge 里为什么看不见区域组。
-  console.log(`   ✓ 区域可见性: ${stats.regionVisibilitySummary || "disabled"}, preview=${stats.regionVisibilityPreview || "none"}`);
-  // 输出国家组 / 区域组排序参数覆盖情况，便于确认本轮“哪些国家/区域排前面”到底按什么规则走。
-  console.log(`   ✓ 分组排序参数: country-sort=${ARGS.hasCountryGroupSort ? ARGS.countryGroupSort : "definition/default"}, region-sort=${ARGS.hasRegionGroupSort ? ARGS.regionGroupSort : "definition/default"}`);
-  // 输出开发服务组参数覆盖情况。
-  console.log(`   ✓ 开发服务组: mode=${ARGS.hasDevMode ? ARGS.devMode : "default"}, type=${ARGS.hasDevType ? ARGS.devType : "default"}, prefer-groups=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}, prefer-nodes=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
-  // 输出开发服务组高级项覆盖情况。
-  console.log(`   ✓ 开发服务组高级项: test-url=${ARGS.hasDevTestUrl ? ARGS.devTestUrl : "default"}, strategy=${ARGS.hasDevGroupStrategy ? ARGS.devGroupStrategy : "default"}, hidden=${ARGS.hasDevHidden ? ARGS.devHidden : "default"}, disable-udp=${ARGS.hasDevDisableUdp ? ARGS.devDisableUdp : "default"}, icon=${ARGS.hasDevIcon ? ARGS.devIcon : "default"}, interface-name=${ARGS.hasDevInterfaceName ? ARGS.devInterfaceName : "default"}, routing-mark=${ARGS.hasDevRoutingMark ? ARGS.devRoutingMark : "default"}`);
-  // 输出 GitHub / Steam 独立组额外前置组覆盖情况。
-  console.log(`   ✓ 独立组前置组: github=${ARGS.hasGithubPreferGroups ? ARGS.githubPreferGroups.join(" > ") : "default"}, steam=${ARGS.hasSteamPreferGroups ? ARGS.steamPreferGroups.join(" > ") : "default"}, dev=${ARGS.hasDevPreferGroups ? ARGS.devPreferGroups.join(" > ") : "default"}`);
-  // 输出 GitHub / Steam / Dev 独立组点名节点覆盖情况。
-  console.log(`   ✓ 独立组点名节点: github=${ARGS.hasGithubPreferNodes ? ARGS.githubPreferNodes.join(" > ") : "default"}, steam=${ARGS.hasSteamPreferNodes ? ARGS.steamPreferNodes.join(" > ") : "default"}, dev=${ARGS.hasDevPreferNodes ? ARGS.devPreferNodes.join(" > ") : "default"}`);
-  // 输出 GitHub / Steam 独立组 provider 池覆盖情况。
-  console.log(`   ✓ 独立组Provider池: github=${ARGS.hasGithubIncludeAll ? (ARGS.githubIncludeAll ? "include-all" : "off") : (ARGS.hasGithubIncludeAllProviders ? (ARGS.githubIncludeAllProviders ? "include-all-providers" : "off") : (ARGS.hasGithubUseProviders ? ARGS.githubUseProviders.join(" > ") : "default"))}, steam=${ARGS.hasSteamIncludeAll ? (ARGS.steamIncludeAll ? "include-all" : "off") : (ARGS.hasSteamIncludeAllProviders ? (ARGS.steamIncludeAllProviders ? "include-all-providers" : "off") : (ARGS.hasSteamUseProviders ? ARGS.steamUseProviders.join(" > ") : "default"))}, dev=${ARGS.hasDevIncludeAll ? (ARGS.devIncludeAll ? "include-all" : "off") : (ARGS.hasDevIncludeAllProviders ? (ARGS.devIncludeAllProviders ? "include-all-providers" : "off") : (ARGS.hasDevUseProviders ? ARGS.devUseProviders.join(" > ") : "default"))}`);
-  // 输出策略组布局预设 / 显式顺序覆盖情况。
-  console.log(`   ✓ 策略组编排: preset=${ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET)}, order=${ARGS.hasGroupOrder ? ARGS.groupOrder.join(" > ") : "preset-only"}`);
-  // 输出 GitHub / Steam / SteamCN / Dev 规则顺序覆盖情况。
-  console.log(`   ✓ 规则顺序编排: github=${buildRuleOrderSummary(ARGS.githubRuleAnchor, ARGS.githubRulePosition)}, steam=${buildRuleOrderSummary(ARGS.steamRuleAnchor, ARGS.steamRulePosition)}, steam-cn=${buildRuleOrderSummary(ARGS.steamCnRuleAnchor, ARGS.steamCnRulePosition)}, dev=${buildRuleOrderSummary(ARGS.devRuleAnchor, ARGS.devRulePosition)}`);
-  // 输出 config.rules 自定义规则插入位置覆盖情况。
-  console.log(`   ✓ 自定义规则编排: ${buildRuleOrderSummary(ARGS.customRuleAnchor, ARGS.customRulePosition)}`);
-  // 输出最终策略组在配置中的排列顺序，便于直接观察面板展示顺序。
-  console.log(`   ✓ 策略组顺序: ${stats.proxyGroupOrderSummary}`);
-  // 输出关键策略组内部的候选优先级，便于查看各业务流量组默认会先尝试谁。
-  console.log(`   ✓ 策略组优先级: ${stats.proxyGroupPrioritySummary}`);
-  // 输出最终规则链的优先级摘要，便于判断哪些流量会先命中、最后由谁兜底。
-  console.log(`   ✓ 流量优先级: ${stats.trafficPrioritySummary}`);
-  // 输出最终 rules 的层级拆分，便于比 head/tail 更直观看出拦截层、业务层、地区层和兜底层的先后。
-  console.log(`   ✓ 规则层级总览: ${stats.ruleLayerSummary}, preview=${stats.ruleLayerPreview}`);
-  // 输出 config.rules 在最终规则链里的实际插入区间，便于直接判断外部自定义规则到底插在什么位置。
-  console.log(`   ✓ 自定义规则区间: ${stats.customRuleSummary}, preview=${stats.customRulePreview}`);
-  // 输出关键规则及其前后邻居窗口，便于直接看出 Geo_Not_CN / DirectList / CN / CN_IP 与 GitHub / Steam / SteamCN / MATCH 的相对位置。
-  console.log(`   ✓ 关键命中窗口: ${stats.keyRuleWindowSummary}, preview=${stats.keyRuleWindowPreview}`);
-  // 输出规则层级与目标组的交叉映射，便于直接看出每一层主要把流量送到哪里。
-  console.log(`   ✓ 规则层级目标映射: ${stats.ruleLayerTargetSummary}, preview=${stats.ruleLayerTargetPreview}`);
-  // 输出业务规则的前后 2 跳窗口，便于直接看出 AI / Crypto / GitHub / Steam / SteamCN 被谁夹在中间。
-  console.log(`   ✓ 业务规则窗口: ${stats.serviceRuleWindowSummary}, preview=${stats.serviceRuleWindowPreview}`);
-  // 输出 GitHub / Steam / SteamCN / Dev 规则入口目标覆盖情况。
-  console.log(`   ✓ 规则入口目标: github=${ARGS.hasGithubRuleTarget ? ARGS.githubRuleTarget : "default"}, steam=${ARGS.hasSteamRuleTarget ? ARGS.steamRuleTarget : "default"}, steam-cn=${ARGS.hasSteamCnRuleTarget ? ARGS.steamCnRuleTarget : "default"}, dev=${ARGS.hasDevRuleTarget ? ARGS.devRuleTarget : "default"}`);
-  // 输出规则入口最终映射与目标分布，便于直接看出每条业务规则最终被送进了哪个组。
-  console.log(`   ✓ 规则入口映射: ${stats.ruleTargetMappingSummary}, preview=${stats.ruleTargetMappingPreview}`);
-  // 输出宽泛规则抢先命中的风险摘要，便于快速发现 GitHub / Steam / SteamCN 被前置规则吃掉。
-  console.log(`   ✓ 规则优先级风险: ${stats.rulePriorityRiskSummary}, preview=${stats.rulePriorityRiskPreview}`);
-  // 输出关键策略组候选链的顺序风险，便于快速发现 DIRECT / REJECT / FALLBACK / SELECT 排位异常。
-  console.log(`   ✓ 策略组候选链风险: ${stats.proxyGroupPriorityRiskSummary}, preview=${stats.proxyGroupPriorityRiskPreview}`);
-  // 输出关键业务的规则入口、目标组、组类型与头部候选链，便于单独观察 GitHub / Steam / AI / Crypto 的实际走法。
-  console.log(`   ✓ 业务链路总览: ${stats.serviceRoutingSummary}, preview=${stats.serviceRoutingPreview}`);
-  // 输出“请求 -> 规则 -> 目标组 -> 组内候选链”的总览，便于一眼看完整条分流路径。
-  console.log(`   ✓ 分流链路总览: ${stats.routingChainSummary}, preview=${stats.routingChainPreview}`);
-  // 输出 GitHub / Steam 独立组 hidden / icon 覆盖情况。
-  console.log(`   ✓ 独立组展示: github-hidden=${ARGS.hasGithubHidden ? ARGS.githubHidden : "default"}, github-icon=${ARGS.hasGithubIcon ? ARGS.githubIcon : "default"}, steam-hidden=${ARGS.hasSteamHidden ? ARGS.steamHidden : "default"}, steam-icon=${ARGS.hasSteamIcon ? ARGS.steamIcon : "default"}`);
-  // 输出 GitHub / Steam 独立组 disable-udp 覆盖情况。
-  console.log(`   ✓ 独立组UDP: github-disable-udp=${ARGS.hasGithubDisableUdp ? ARGS.githubDisableUdp : "default"}, steam-disable-udp=${ARGS.hasSteamDisableUdp ? ARGS.steamDisableUdp : "default"}`);
-  // 输出全局与 GitHub / Steam 独立组的网络字段覆盖情况。
-  console.log(`   ✓ 独立组网络: group-interface-name=${ARGS.hasGroupInterfaceName ? ARGS.groupInterfaceName : "default"}, group-routing-mark=${ARGS.hasGroupRoutingMark ? ARGS.groupRoutingMark : "default"}, github-interface-name=${ARGS.hasGithubInterfaceName ? ARGS.githubInterfaceName : "default"}, github-routing-mark=${ARGS.hasGithubRoutingMark ? ARGS.githubRoutingMark : "default"}, steam-interface-name=${ARGS.hasSteamInterfaceName ? ARGS.steamInterfaceName : "default"}, steam-routing-mark=${ARGS.hasSteamRoutingMark ? ARGS.steamRoutingMark : "default"}`);
-  // 输出 GitHub / Steam 独立组的专属测速覆盖情况。
-  console.log(`   ✓ 独立组测速: github-test-url=${ARGS.hasGithubTestUrl ? ARGS.githubTestUrl : "default"}, github-group-interval=${ARGS.hasGithubGroupInterval ? ARGS.githubGroupInterval : "default"}, github-group-tolerance=${ARGS.hasGithubGroupTolerance ? ARGS.githubGroupTolerance : "default"}, github-group-timeout=${ARGS.hasGithubGroupTimeout ? ARGS.githubGroupTimeout : "default"}, github-group-lazy=${ARGS.hasGithubGroupLazy ? ARGS.githubGroupLazy : "default"}, github-group-max-failed-times=${ARGS.hasGithubGroupMaxFailedTimes ? ARGS.githubGroupMaxFailedTimes : "default"}, github-group-expected-status=${ARGS.hasGithubGroupExpectedStatus ? ARGS.githubGroupExpectedStatus : "default"}, github-group-strategy=${ARGS.hasGithubGroupStrategy ? ARGS.githubGroupStrategy : "default"}, steam-test-url=${ARGS.hasSteamTestUrl ? ARGS.steamTestUrl : "default"}, steam-group-interval=${ARGS.hasSteamGroupInterval ? ARGS.steamGroupInterval : "default"}, steam-group-tolerance=${ARGS.hasSteamGroupTolerance ? ARGS.steamGroupTolerance : "default"}, steam-group-timeout=${ARGS.hasSteamGroupTimeout ? ARGS.steamGroupTimeout : "default"}, steam-group-lazy=${ARGS.hasSteamGroupLazy ? ARGS.steamGroupLazy : "default"}, steam-group-max-failed-times=${ARGS.hasSteamGroupMaxFailedTimes ? ARGS.steamGroupMaxFailedTimes : "default"}, steam-group-expected-status=${ARGS.hasSteamGroupExpectedStatus ? ARGS.steamGroupExpectedStatus : "default"}, steam-group-strategy=${ARGS.hasSteamGroupStrategy ? ARGS.steamGroupStrategy : "default"}`);
-  // 输出 GitHub / Steam 独立组的原始节点自动收集参数覆盖情况。
-  console.log(`   ✓ 独立组节点池: github-include-all-proxies=${ARGS.hasGithubIncludeAllProxies ? ARGS.githubIncludeAllProxies : "default"}, github-filter=${ARGS.hasGithubNodeFilter ? ARGS.githubNodeFilter : "default"}, github-exclude-filter=${ARGS.hasGithubNodeExcludeFilter ? ARGS.githubNodeExcludeFilter : "default"}, github-exclude-type=${ARGS.hasGithubNodeExcludeType ? ARGS.githubNodeExcludeType : "default"}, steam-include-all-proxies=${ARGS.hasSteamIncludeAllProxies ? ARGS.steamIncludeAllProxies : "default"}, steam-filter=${ARGS.hasSteamNodeFilter ? ARGS.steamNodeFilter : "default"}, steam-exclude-filter=${ARGS.hasSteamNodeExcludeFilter ? ARGS.steamNodeExcludeFilter : "default"}, steam-exclude-type=${ARGS.hasSteamNodeExcludeType ? ARGS.steamNodeExcludeType : "default"}, dev-include-all-proxies=${ARGS.hasDevIncludeAllProxies ? ARGS.devIncludeAllProxies : "default"}, dev-filter=${ARGS.hasDevNodeFilter ? ARGS.devNodeFilter : "default"}, dev-exclude-filter=${ARGS.hasDevNodeExcludeFilter ? ARGS.devNodeExcludeFilter : "default"}, dev-exclude-type=${ARGS.hasDevNodeExcludeType ? ARGS.devNodeExcludeType : "default"}`);
-  // 输出响应头调试参数覆盖情况。
-  console.log(`   ✓ 响应头参数: enabled=${ARGS.hasResponseHeaders ? ARGS.responseHeaders : false}, prefix=${ARGS.responseHeaderPrefix}, applied=${stats.responseHeadersApplied ? "yes" : "no"}`);
-  // 输出官方下载链接保留参数摘要，便于排查分享链接 / 文件链接 / 远程覆盖来源。
-  console.log(`   ✓ 下载链路: route-kind=${RUNTIME_CONTEXT.routeKind || "unknown"}, route-name=${RUNTIME_CONTEXT.routeName || "unknown"}, no-cache=${RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default"}, include-unsupported=${RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default"}, ignore-failed=${RUNTIME_LINK_OPTIONS.hasIgnoreFailedRemoteSub ? RUNTIME_LINK_OPTIONS.ignoreFailedRemoteSub : "default"}, merge-sources=${RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default"}, produce-type=${RUNTIME_LINK_OPTIONS.hasProduceType ? RUNTIME_LINK_OPTIONS.produceType : "default"}, url=${RUNTIME_LINK_OPTIONS.hasUrl ? "yes" : "no"}, url-kind=${RUNTIME_LINK_OPTIONS.urlKind || "none"}, content=${RUNTIME_LINK_OPTIONS.hasContent ? "yes" : "no"}, ua=${RUNTIME_LINK_OPTIONS.hasUa ? "yes" : "no"}, proxy=${RUNTIME_LINK_OPTIONS.hasProxy ? "yes" : "no"}`);
-  // 输出这一轮补强的官方链接参数语义摘要，便于确认保留参数是否按官方规则生效。
-  console.log(`   ✓ 下载链路语义: official-link-params-check=on, summary=${buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS)}`);
-  // 输出脚本参数来源摘要，便于排查真实运行环境里参数是从哪一路传进来的。
-  console.log(`   ✓ 参数来源: ${formatRuntimeArgSourceSummary(RUNTIME_ARG_SOURCES)}`);
-  // 输出最终生效参数的赢家来源摘要，便于定位 query / $options / $arguments 冲突时谁覆盖了谁。
-  console.log(`   ✓ 参数生效来源: ${formatRuntimeArgEffectiveSummary(RUNTIME_ARG_EFFECTIVE)}, preview=${formatRuntimeArgEffectivePreview(RUNTIME_ARG_EFFECTIVE)}`);
-  // 输出未消费脚本参数摘要，便于快速发现拼错、写错别名或当前版本尚未支持的参数。
-  console.log(`   ✓ 未消费参数: ${formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS)}, preview=${formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS)}`);
-  // 输出当前运行环境上下文，便于排查 Sub-Store 官方 target / 请求来源是否正确传入。
-  console.log(`   ✓ 运行环境: target=${RUNTIME_CONTEXT.target || "unknown"}, route-target=${RUNTIME_CONTEXT.routeTarget || "none"}, query-target=${RUNTIME_CONTEXT.queryTarget || "none"}, request-url=${RUNTIME_CONTEXT.requestUrl || "unknown"}, request-path=${RUNTIME_CONTEXT.requestPath || "unknown"}, route-path=${RUNTIME_CONTEXT.routePath || "unknown"}, request-params-target=${RUNTIME_CONTEXT.requestParamsTarget || "none"}, ua=${RUNTIME_CONTEXT.userAgent || "unknown"}, query-args=${Object.keys(RUNTIME_QUERY_ARGS).length}`);
+  // 统一输出核心数量指标与各类告警/提醒计数。
+  logBuildSummaryMetricSections(stats);
+  // 这几段 definition logger 都按 phase 计划批量执行，避免继续依赖 slice 下标这种隐式顺序约定。
+  runDefinitionHandlerSections(BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS, stats, "pre-lookup");
+  // 按预先配置好的分段计划批量输出剩余摘要，减少 logBuildSummary 主体里多段重复调用。
+  logBuildSummaryLookupSections(stats, lookupRegistry, BUILD_SUMMARY_LOG_LOOKUP_SECTION_DEFINITIONS);
+  // 这一批链路/规则摘要同时喂给响应头与 full 日志，统一走共享定义，减少两边维护漂移。
+  logBuildSummaryDiagnosticLines(stats, BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS);
+  // 剩余服务参数日志也纳入同一套计划执行。
+  runDefinitionHandlerSections(BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS, stats, "post-lookup");
 }
 
 // 主入口函数。
@@ -12513,369 +14796,44 @@ function main(config) {
       console.warn("⚠️ 警告: 有效代理节点为空，已返回原配置");
       return config;
     }
-
-    // 统计节点概况。
-    const proxyStats = analyzeProxies(proxies);
-    // 分析国家规则覆盖率。
-    const countryCoverage = analyzeCountryCoverage(proxies);
-    // 解析出所有国家分组配置。
-    const countryConfigs = parseCountries(proxies);
-    const countrySummary = buildCountrySummary(countryConfigs);
-    const aiPreferredCountryResolution = buildPreferredCountryResolution(
-      countryConfigs,
-      ARGS.aiPreferCountries,
-      DEFAULT_AI_PREFERRED_COUNTRY_MARKERS,
-      "ai-default"
-    );
-    const cryptoPreferredCountryResolution = buildPreferredCountryResolution(
-      countryConfigs,
-      ARGS.cryptoPreferCountries,
-      DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS,
-      "crypto-default"
-    );
-    const githubPreferredCountryResolution = buildPreferredCountryResolution(
-      countryConfigs,
-      ARGS.hasGithubPreferCountries ? ARGS.githubPreferCountries : [],
-      [],
-      "github-default"
-    );
-    const steamPreferredCountryResolution = buildPreferredCountryResolution(
-      countryConfigs,
-      ARGS.hasSteamPreferCountries ? ARGS.steamPreferCountries : [],
-      [],
-      "steam-default"
-    );
-    const devPreferredCountryResolution = buildPreferredCountryResolution(
-      countryConfigs,
-      ARGS.hasDevPreferCountries ? ARGS.devPreferCountries : [],
-      [],
-      "dev-default"
-    );
-    const aiPreferredCountryResolvedSummary = aiPreferredCountryResolution.summary;
-    const cryptoPreferredCountryResolvedSummary = cryptoPreferredCountryResolution.summary;
-    const githubPreferredCountryResolvedSummary = githubPreferredCountryResolution.summary;
-    const steamPreferredCountryResolvedSummary = steamPreferredCountryResolution.summary;
-    const devPreferredCountryResolvedSummary = devPreferredCountryResolution.summary;
-    const aiPreferredCountryTraceSummary = aiPreferredCountryResolution.trace;
-    const cryptoPreferredCountryTraceSummary = cryptoPreferredCountryResolution.trace;
-    const githubPreferredCountryTraceSummary = githubPreferredCountryResolution.trace;
-    const steamPreferredCountryTraceSummary = steamPreferredCountryResolution.trace;
-    const devPreferredCountryTraceSummary = devPreferredCountryResolution.trace;
-    const aiPreferredCountryExplainSummary = aiPreferredCountryResolution.explain;
-    const cryptoPreferredCountryExplainSummary = cryptoPreferredCountryResolution.explain;
-    const githubPreferredCountryExplainSummary = githubPreferredCountryResolution.explain;
-    const steamPreferredCountryExplainSummary = steamPreferredCountryResolution.explain;
-    const devPreferredCountryExplainSummary = devPreferredCountryResolution.explain;
-    const aiPreferredCountryUnmatchedSummary = aiPreferredCountryResolution.unmatched;
-    const cryptoPreferredCountryUnmatchedSummary = cryptoPreferredCountryResolution.unmatched;
-    const githubPreferredCountryUnmatchedSummary = githubPreferredCountryResolution.unmatched;
-    const steamPreferredCountryUnmatchedSummary = steamPreferredCountryResolution.unmatched;
-    const devPreferredCountryUnmatchedSummary = devPreferredCountryResolution.unmatched;
-    // 按 GitHub 社区常见玩法，把已生成国家组进一步聚合成可选的区域分组。
-    const regionConfigs = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys);
-    const regionGroupSummary = buildRegionGroupSummary(regionConfigs);
-    // 生成并合并策略组。
-    const proxyGroups = buildProxyGroups(proxies, countryConfigs, regionConfigs, proxyStats.lowCost > 0, config["proxy-groups"], config["proxy-providers"]);
-    // 先基于最终可用组名/内置策略解析 GitHub / Steam / SteamCN 的规则入口目标。
-    const resolvedRuleDefinitions = resolveRuleSetDefinitions(
-      uniqueStrings(proxyGroups.map((group) => group.name).concat(BUILTIN_POLICY_NAMES))
-    );
-    // 再按用户提供的锚点把 GitHub / Steam / SteamCN 规则入口重排到指定前后位置。
-    const orderedRuleDefinitions = applyRuleSetDefinitionOrder(resolvedRuleDefinitions);
-    // 这里把最终顺序后的规则定义继续传给规则生成与自检，确保日志/校验和实际产物一致。
-    const finalRuleDefinitions = orderedRuleDefinitions;
-    // 用最终顺序后的规则定义生成 RULE-SET 主体。
-    const generatedRules = buildRules(ARGS.quic, finalRuleDefinitions);
-    const rules = mergeRules(generatedRules, config.rules, finalRuleDefinitions);
-    // 汇总最终策略组展示顺序、关键组候选顺序与规则匹配优先级，便于日志和响应头直接复用。
-    const routingChain = analyzeRoutingChain(RUNTIME_CONTEXT, RUNTIME_QUERY_ARGS, rules, finalRuleDefinitions, proxyGroups);
-    const routingChainSummary = formatRoutingChainSummary(routingChain);
-    const routingChainPreview = formatRoutingChainPreview(routingChain);
-    const serviceRoutingProfiles = analyzeServiceRoutingProfiles(finalRuleDefinitions, proxyGroups, countryConfigs);
-    const serviceRoutingSummary = formatServiceRoutingProfilesSummary(serviceRoutingProfiles);
-    const serviceRoutingPreview = formatServiceRoutingProfilesPreview(serviceRoutingProfiles);
-    // 这些顺序/可见性分析既要写日志，也要喂给 validate 复用；在主流程先统一算一次，避免重复扫描。
-    const regionVisibility = analyzeRegionGroupVisibility(proxyGroups, countryConfigs);
-    const proxyGroupPriorityRisks = analyzeProxyGroupPriorityRisks(proxyGroups);
-    const proxyGroupPriorityRiskSummary = formatProxyGroupPriorityRiskSummary(proxyGroupPriorityRisks);
-    const proxyGroupPriorityRiskPreview = formatProxyGroupPriorityRiskPreview(proxyGroupPriorityRisks);
-    const rulePriorityRisks = analyzeRulePriorityRisks(finalRuleDefinitions);
-    const rulePriorityRiskSummary = formatRulePriorityRiskSummary(rulePriorityRisks);
-    const rulePriorityRiskPreview = formatRulePriorityRiskPreview(rulePriorityRisks);
-    const ruleTargetMapping = analyzeRuleTargetMapping(finalRuleDefinitions, rules);
-    const ruleTargetMappingSummary = formatRuleTargetMappingSummary(ruleTargetMapping);
-    const ruleTargetMappingPreview = formatRuleTargetMappingPreview(ruleTargetMapping);
-    const proxyGroupOrderSummary = buildProxyGroupOrderSummary(proxyGroups);
-    const proxyGroupPrioritySummary = buildProxyGroupPrioritySummary(proxyGroups);
-    const trafficPrioritySummary = buildTrafficPrioritySummary(rules, generatedRules, config.rules);
-    const ruleLayering = analyzeRuleLayering(rules);
-    const ruleLayerSummary = formatRuleLayeringSummary(ruleLayering);
-    const ruleLayerPreview = formatRuleLayeringPreview(ruleLayering);
-    const customRuleWindow = analyzeCustomRuleWindow(generatedRules, config.rules, rules);
-    const customRuleSummary = formatCustomRuleWindowSummary(customRuleWindow);
-    const customRulePreview = formatCustomRuleWindowPreview(customRuleWindow);
-    const keyRuleWindows = analyzeKeyRuleWindows(rules);
-    const keyRuleWindowSummary = formatKeyRuleWindowSummary(keyRuleWindows);
-    const keyRuleWindowPreview = formatKeyRuleWindowPreview(keyRuleWindows);
-    const ruleLayerTargetMapping = analyzeRuleLayerTargetMapping(rules);
-    const ruleLayerTargetSummary = formatRuleLayerTargetMappingSummary(ruleLayerTargetMapping);
-    const ruleLayerTargetPreview = formatRuleLayerTargetMappingPreview(ruleLayerTargetMapping);
-    const serviceRuleWindows = analyzeServiceRuleWindows(rules);
-    const serviceRuleWindowSummary = formatServiceRuleWindowSummary(serviceRuleWindows);
-    const serviceRuleWindowPreview = formatServiceRuleWindowPreview(serviceRuleWindows);
-    // 生成并合并 DNS。
-    const dns = buildDnsConfig(config.dns);
-    // 生成并合并 Sniffer。
-    const sniffer = buildSnifferConfig(config.sniffer);
-    // 统一增强现有 proxy-providers，便于批量注入缓存路径、下载控制与 health-check 参数。
-    const proxyProviders = finalizeProxyProviders(config["proxy-providers"]);
-    // 规则提供器合并：用户自定义 + 脚本内置，并统一补全/去重本地缓存路径。
-    const finalRuleProviders = mergeRuleProviders(config["rule-providers"], ruleProviders);
-    // 统计 provider 本轮到底是新增写入字段，还是覆盖了原有字段。
-    const ruleProviderMutationStats = analyzeRuleProviderMutationStats(config["rule-providers"], finalRuleProviders);
-    const proxyProviderMutationStats = analyzeProxyProviderMutationStats(config["proxy-providers"], proxyProviders);
-    const ruleProviderMutationPreview = analyzeRuleProviderMutationPreview(config["rule-providers"], finalRuleProviders);
-    const proxyProviderMutationPreview = analyzeProxyProviderMutationPreview(config["proxy-providers"], proxyProviders);
-    // 生成通用内核默认项。
-    const kernelDefaults = buildKernelDefaults(config);
+    // 主流程前半段统一完成地理/规则/分析/core/provider 五批阶段产物，保持 main 主体更聚焦。
+    const pipelineArtifacts = buildMainPipelineArtifacts({
+      config,
+      proxies
+    });
+    // result / diagnostics / finalize 三段会反复消费同一批裁剪后的阶段上下文，这里预先装配一次后整轮复用。
+    const assemblyContext = buildMainPayloadAssemblyContext({
+      config,
+      proxies,
+      ...pipelineArtifacts
+    });
 
     // 在原配置基础上覆盖/注入脚本生成的新配置项。
-    const result = {
-      // 先展开原配置，保留用户未冲突的全局键。
-      ...config,
-      // 注入通用内核默认项，但不覆盖用户显式设置。
-      ...kernelDefaults,
-      // 覆盖为清洗后的有效节点列表。
+    const result = buildMainResultConfig(buildMainResultPayload({
+      config,
       proxies,
-      // 注入新生成的策略组。
-      "proxy-groups": proxyGroups,
-      // 保留原有 proxy-providers，并按脚本参数统一补强下载控制与 health-check。
-      ...(hasOwn(config, "proxy-providers") || Object.keys(proxyProviders).length
-        ? { "proxy-providers": proxyProviders }
-        : {}),
-      // 规则提供器合并：用户自定义 + 脚本内置，并统一补全/去重本地缓存路径。
-      "rule-providers": finalRuleProviders,
-      // 覆盖最终规则。
-      rules,
-      // 覆盖最终 DNS。
-      dns,
-      // mixed-port 优先保留用户原配置，否则使用默认端口。
-      "mixed-port": hasOwn(config, "mixed-port") ? config["mixed-port"] : DEFAULT_MIXED_PORT,
-      // IPv6 由脚本参数控制。
-      ipv6: ARGS.ipv6,
-      // allow-lan 优先保留用户原值，否则默认 true。
-      "allow-lan": hasOwn(config, "allow-lan") ? config["allow-lan"] : true,
-      // unified-delay 允许脚本参数优先覆盖，否则保留用户原值，最后回落默认 true。
-      "unified-delay": ARGS.hasUnifiedDelay ? ARGS.unifiedDelay : (hasOwn(config, "unified-delay") ? config["unified-delay"] : true),
-      // tcp-concurrent 允许脚本参数优先覆盖，否则保留用户原值，最后回落默认 true。
-      "tcp-concurrent": ARGS.hasTcpConcurrent ? ARGS.tcpConcurrent : (hasOwn(config, "tcp-concurrent") ? config["tcp-concurrent"] : true),
-      // 注入最终 Sniffer。
-      sniffer
-    };
+      assemblyContext,
+      ...pipelineArtifacts
+    }));
 
-    // 对最终产物做一次一致性自检。
-    const diagnostics = validateGeneratedArtifacts(
+    // diagnostics 阶段统一完成：校验最终产物、补齐派生 diagnostics 字段，并处理响应头/诊断日志副作用。
+    const diagnostics = buildMainDiagnosticsArtifacts(buildMainDiagnosticsPayload({
+      config,
       proxies,
-      proxyGroups,
-      result["rule-providers"],
       result,
-      dns,
-      countryConfigs,
-      finalRuleDefinitions,
-      config.rules,
-      {
-        regionVisibility,
-        rulePriorityRisks,
-        proxyGroupPriorityRisks
-      }
-    );
-    // 补上本轮节点自动改名信息。
-    diagnostics.renamedProxies = normalizedProxyState.renamed;
-    // 补上 provider 改动类型统计，便于区分新增写入与覆盖旧值。
-    diagnostics.ruleProviderMutationStats = ruleProviderMutationStats;
-    diagnostics.proxyProviderMutationStats = proxyProviderMutationStats;
-    diagnostics.ruleProviderMutationPreview = ruleProviderMutationPreview;
-    diagnostics.proxyProviderMutationPreview = proxyProviderMutationPreview;
-    // 补上国家识别覆盖率信息。
-    diagnostics.unclassifiedCountryProxies = countryCoverage.unclassified;
-    diagnostics.unclassifiedCountryExamples = countryCoverage.unclassifiedExamples;
-    diagnostics.countrySummary = countrySummary;
-    diagnostics.aiPreferCountryResolvedSummary = aiPreferredCountryResolvedSummary;
-    diagnostics.cryptoPreferCountryResolvedSummary = cryptoPreferredCountryResolvedSummary;
-    diagnostics.githubPreferCountryResolvedSummary = githubPreferredCountryResolvedSummary;
-    diagnostics.steamPreferCountryResolvedSummary = steamPreferredCountryResolvedSummary;
-    diagnostics.devPreferCountryResolvedSummary = devPreferredCountryResolvedSummary;
-    diagnostics.aiPreferCountryTraceSummary = aiPreferredCountryTraceSummary;
-    diagnostics.cryptoPreferCountryTraceSummary = cryptoPreferredCountryTraceSummary;
-    diagnostics.githubPreferCountryTraceSummary = githubPreferredCountryTraceSummary;
-    diagnostics.steamPreferCountryTraceSummary = steamPreferredCountryTraceSummary;
-    diagnostics.devPreferCountryTraceSummary = devPreferredCountryTraceSummary;
-    diagnostics.aiPreferCountryExplainSummary = aiPreferredCountryExplainSummary;
-    diagnostics.cryptoPreferCountryExplainSummary = cryptoPreferredCountryExplainSummary;
-    diagnostics.githubPreferCountryExplainSummary = githubPreferredCountryExplainSummary;
-    diagnostics.steamPreferCountryExplainSummary = steamPreferredCountryExplainSummary;
-    diagnostics.devPreferCountryExplainSummary = devPreferredCountryExplainSummary;
-    diagnostics.aiPreferCountryUnmatchedSummary = aiPreferredCountryUnmatchedSummary;
-    diagnostics.cryptoPreferCountryUnmatchedSummary = cryptoPreferredCountryUnmatchedSummary;
-    diagnostics.githubPreferCountryUnmatchedSummary = githubPreferredCountryUnmatchedSummary;
-    diagnostics.steamPreferCountryUnmatchedSummary = steamPreferredCountryUnmatchedSummary;
-    diagnostics.devPreferCountryUnmatchedSummary = devPreferredCountryUnmatchedSummary;
-    diagnostics.ruleTargetMappingSummary = ruleTargetMappingSummary;
-    diagnostics.ruleTargetMappingPreview = ruleTargetMappingPreview;
-    diagnostics.rulePriorityRiskSummary = rulePriorityRiskSummary;
-    diagnostics.rulePriorityRiskPreview = rulePriorityRiskPreview;
-    diagnostics.proxyGroupPriorityRiskSummary = proxyGroupPriorityRiskSummary;
-    diagnostics.proxyGroupPriorityRiskPreview = proxyGroupPriorityRiskPreview;
-    diagnostics.serviceRoutingWarnings = serviceRoutingProfiles.warnings;
-    diagnostics.serviceRoutingSummary = serviceRoutingSummary;
-    diagnostics.serviceRoutingPreview = serviceRoutingPreview;
-    diagnostics.regionGroupSummary = regionGroupSummary;
-    diagnostics.proxyGroupOrderSummary = proxyGroupOrderSummary;
-    diagnostics.proxyGroupPrioritySummary = proxyGroupPrioritySummary;
-    diagnostics.trafficPrioritySummary = trafficPrioritySummary;
-    diagnostics.ruleLayerSummary = ruleLayerSummary;
-    diagnostics.ruleLayerPreview = ruleLayerPreview;
-    diagnostics.customRuleWarnings = customRuleWindow.warnings;
-    diagnostics.customRuleSummary = customRuleSummary;
-    diagnostics.customRulePreview = customRulePreview;
-    diagnostics.keyRuleWindowSummary = keyRuleWindowSummary;
-    diagnostics.keyRuleWindowPreview = keyRuleWindowPreview;
-    diagnostics.ruleLayerTargetSummary = ruleLayerTargetSummary;
-    diagnostics.ruleLayerTargetPreview = ruleLayerTargetPreview;
-    diagnostics.serviceRuleWindowSummary = serviceRuleWindowSummary;
-    diagnostics.serviceRuleWindowPreview = serviceRuleWindowPreview;
-    diagnostics.routingChainSummary = routingChainSummary;
-    diagnostics.routingChainPreview = routingChainPreview;
-    // 根据参数决定是否把调试摘要写回下载响应头。
-    const responseHeadersEnabled = ARGS.hasResponseHeaders ? ARGS.responseHeaders : false;
-    const responseHeadersApplied = responseHeadersEnabled
-      ? setRuntimeResponseHeaders(RAW_OPTIONS, buildRuntimeResponseHeaders(diagnostics))
-      : false;
-    // 输出诊断告警。
-    logDiagnostics(diagnostics);
-
-    // 根据参数或 full 模式决定是否注入 profile 缓存配置。
-    if (ARGS.hasProfileCache ? ARGS.profileCache : (ARGS.hasProfileSelected || ARGS.hasProfileFakeIp || ARGS.full)) {
-      // profile 合并默认值和用户原值，保留策略组选择和 fake-ip 映射。
-      result.profile = mergeObjects(
-        {
-          "store-selected": ARGS.hasProfileSelected ? ARGS.profileSelected : true,
-          "store-fake-ip": ARGS.hasProfileFakeIp ? ARGS.profileFakeIp : true
-        },
-        config.profile
-      );
-    }
-
-    // full 模式下补充日志等级和统计日志。
-    if (ARGS.full) {
-      // log-level 优先保留用户原值，否则使用 info。
-      result["log-level"] = typeof config["log-level"] === "string" && config["log-level"] ? config["log-level"] : "info";
-
-      // 输出本次构建的完整摘要日志。
-      logBuildSummary({
-        totalProxies: proxyStats.total,
-        validProxies: proxyStats.valid,
-        lowCostProxies: proxyStats.lowCost,
-        landingProxies: proxyStats.landing,
-        countryGroups: countryConfigs.length,
-        countrySummary,
-        aiPreferCountryResolvedSummary,
-        cryptoPreferCountryResolvedSummary,
-        githubPreferCountryResolvedSummary,
-        steamPreferCountryResolvedSummary,
-        devPreferCountryResolvedSummary,
-        aiPreferCountryTraceSummary,
-        cryptoPreferCountryTraceSummary,
-        githubPreferCountryTraceSummary,
-        steamPreferCountryTraceSummary,
-        devPreferCountryTraceSummary,
-        aiPreferCountryExplainSummary,
-        cryptoPreferCountryExplainSummary,
-        githubPreferCountryExplainSummary,
-        steamPreferCountryExplainSummary,
-        devPreferCountryExplainSummary,
-        aiPreferCountryUnmatchedSummary,
-        cryptoPreferCountryUnmatchedSummary,
-        githubPreferCountryUnmatchedSummary,
-        steamPreferCountryUnmatchedSummary,
-        devPreferCountryUnmatchedSummary,
-        regionGroups: regionConfigs.length,
-        regionGroupSummary,
-        regionVisibilitySummary: diagnostics.regionVisibilitySummary,
-        regionVisibilityPreview: formatProviderPreviewNames(diagnostics.regionVisibilityPreview, 6, 18),
-        proxyGroups: proxyGroups.length,
-        rules: rules.length,
-        routingChainSummary,
-        routingChainPreview,
-        serviceRoutingSummary,
-        serviceRoutingPreview,
-        proxyGroupPriorityRiskSummary,
-        proxyGroupPriorityRiskPreview,
-        rulePriorityRiskSummary,
-        rulePriorityRiskPreview,
-        ruleTargetMappingSummary,
-        ruleTargetMappingPreview,
-        proxyGroupOrderSummary,
-        proxyGroupPrioritySummary,
-        trafficPrioritySummary,
-        ruleLayerSummary,
-        ruleLayerPreview,
-        customRuleSummary,
-        customRulePreview,
-        keyRuleWindowSummary,
-        keyRuleWindowPreview,
-        ruleLayerTargetSummary,
-        ruleLayerTargetPreview,
-        serviceRuleWindowSummary,
-        serviceRuleWindowPreview,
-        classifiedCountryProxies: countryCoverage.classified,
-        unclassifiedCountryProxies: countryCoverage.unclassified,
-        renamedProxies: diagnostics.renamedProxies.length,
-        missingProviders: diagnostics.missingProviders.length,
-        invalidRuleProviderUrls: diagnostics.invalidRuleProviderUrls.length,
-        ruleProviderWarnings: diagnostics.ruleProviderWarnings.length,
-        proxyProviderWarnings: diagnostics.proxyProviderWarnings.length,
-        deprecatedSettings: diagnostics.deprecatedSettings.length,
-        dnsRiskWarnings: diagnostics.dnsRiskWarnings.length,
-        dnsOptionWarnings: diagnostics.dnsOptionWarnings.length,
-        latencyGroupWarnings: diagnostics.latencyGroupWarnings.length,
-        providerHealthWarnings: diagnostics.providerHealthWarnings.length,
-        preferredCountryWarnings: diagnostics.preferredCountryWarnings.length,
-        preferredGroupWarnings: diagnostics.preferredGroupWarnings.length,
-        preferredNodeWarnings: diagnostics.preferredNodeWarnings.length,
-        preferredProviderWarnings: diagnostics.preferredProviderWarnings.length,
-        regionVisibilityWarnings: diagnostics.regionVisibilityWarnings.length,
-        groupOrderWarnings: diagnostics.groupOrderWarnings.length,
-        ruleOrderWarnings: diagnostics.ruleOrderWarnings.length,
-        customRuleOrderWarnings: diagnostics.customRuleOrderWarnings.length,
-        ruleTargetWarnings: diagnostics.ruleTargetWarnings.length,
-        rulePriorityWarnings: diagnostics.rulePriorityWarnings.length,
-        proxyGroupPriorityWarnings: diagnostics.proxyGroupPriorityWarnings.length,
-        customRuleWarnings: diagnostics.customRuleWarnings.length,
-        serviceRoutingWarnings: diagnostics.serviceRoutingWarnings.length,
-        targetPlatformWarnings: diagnostics.targetPlatformWarnings.length,
-        runtimeArgWarnings: diagnostics.runtimeArgWarnings.length,
-        runtimeResponseWarnings: diagnostics.runtimeResponseWarnings.length,
-        runtimeLinkWarnings: diagnostics.runtimeLinkWarnings.length,
-        geoConfigWarnings: diagnostics.geoConfigWarnings.length,
-        kernelOptionWarnings: diagnostics.kernelOptionWarnings.length,
-        duplicateRuleProviderPaths: diagnostics.duplicateRuleProviderPaths.length,
-        missingRuleTargets: diagnostics.missingRuleTargets.length,
-        unresolvedGroupReferences: diagnostics.unresolvedGroupReferences.length,
-        unresolvedProviderReferences: diagnostics.unresolvedProviderReferences.length,
-        invalidGroupPatterns: diagnostics.invalidGroupPatterns.length,
-        emptyAutoGroups: diagnostics.emptyAutoGroups.length,
-        ruleProviderApplyStatsSummary: formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats),
-        ruleProviderApplyPreviewSummary: formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview),
-        proxyProviderApplyStatsSummary: formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats),
-        proxyProviderApplyPreviewSummary: formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview),
-        ruleProviderMutationStatsSummary: formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats),
-        ruleProviderMutationPreviewSummary: formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview),
-        proxyProviderMutationStatsSummary: formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats),
-        proxyProviderMutationPreviewSummary: formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview),
-        responseHeadersApplied
-      });
-    }
+      normalizedProxyState,
+      assemblyContext,
+      ...pipelineArtifacts
+    }));
+    const responseHeadersApplied = finalizeMainDiagnostics(diagnostics);
+    // 收尾阶段统一处理 profile 注入与 full 模式日志输出，保持 main 末尾更聚焦。
+    finalizeMainResultArtifacts(result, buildMainFinalizationPayload({
+      config,
+      diagnostics,
+      responseHeadersApplied,
+      assemblyContext,
+      ...pipelineArtifacts
+    }));
 
     // 一切正常则返回最终生成的完整配置。
     return result;
