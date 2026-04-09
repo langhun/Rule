@@ -3236,6 +3236,7 @@ function getCountryDefinitionMarkers(country, aliasMap) {
     return [];
   }
 
+  // aliasMap 存在时优先用本轮临时映射；否则退回运行态缓存，保证“解析期”和“正式运行期”看到的额外别名都一致。
   return uniqueStrings(getBuiltInCountryDefinitionMarkers(country).concat(getCountryExtraAliases(country.name, aliasMap)));
 }
 
@@ -8907,12 +8908,14 @@ function buildDefinitionBuildList(definitions, context, options) {
 
 // buildProxyGroups 的 generatedGroups 最终都来自“固定组 + 追加组”这同一份生成计划；这里改成按调用时再拼接，避免读取到尚未初始化的 const。
 function getProxyGroupGeneratedGroupDefinitions() {
+  // 这里故意不做顶层 const 缓存：等真正执行到 buildProxyGroups 时，后面的 definitions 才已经全部完成初始化。
   return PROXY_GROUP_FIXED_GROUP_DEFINITIONS.concat(PROXY_GROUP_EXTRA_GROUP_DEFINITIONS);
 }
 
 // buildProxyGroups 的 generatedGroups 统一走单一生成计划，避免主函数尾段继续保留两段 definitions 的手工拼接。
 function buildProxyGroupGeneratedGroups(payload) {
   const context = isObject(payload) ? payload : {};
+  // definitions 在这里现取现用，既复用统一 builder，又规避顶层初始化顺序带来的 TDZ 风险。
   return buildDefinitionBuildList(getProxyGroupGeneratedGroupDefinitions(), context, {
     flatten: true,
     filterFalsy: true
@@ -13942,6 +13945,7 @@ function resolveMainFullLogLevel(config) {
 // full-summary 日志在 summaryPayloadContext 之外只额外依赖这三项字段，这里统一定义化以减少尾段对象模板。
 const MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS = Object.freeze([
   { key: "diagnostics", value: (context) => context.diagnostics },
+  // 诊断摘要指标依赖 diagnostics 的派生统计；保持 definitions 化后，full 日志与响应头就能共享同一批上游产物。
   { key: "diagnosticsSummaryMetrics", value: (context) => buildFullSummaryDiagnosticMetrics(context.diagnostics) },
   { key: "responseHeadersApplied", value: (context) => context.responseHeadersApplied }
 ]);
@@ -14227,6 +14231,7 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
     // buildProxyGroupServiceArtifactMap 已经改成只接收一个 payload 对象；
     // 这里直接传命名字段，避免继续引用已不存在的 definitions 变量。
     value: (context) => buildProxyGroupServiceArtifactMap({
+      // preferredGroups / modeBaseProxies / providerNames 会在内部统一组装成 GitHub/Steam/Dev 三套独立组中间产物。
       githubPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.githubPreferredGroups,
       steamPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.steamPreferredGroups,
       devPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.devPreferredGroups,
