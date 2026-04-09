@@ -6455,6 +6455,7 @@ function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
 function analyzeProxyProviderMutationPreview(beforeProviders, afterProviders) {
   const source = isObject(beforeProviders) ? beforeProviders : {};
   const target = isObject(afterProviders) ? afterProviders : {};
+  // 六个样本桶分别对应 path/download/payload/collection/override/health-check 六类接管面。
   const preview = {
     path: createProviderMutationPreviewEntry(),
     download: createProviderMutationPreviewEntry(),
@@ -6475,6 +6476,7 @@ function analyzeProxyProviderMutationPreview(beforeProviders, afterProviders) {
     const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
     const isHttpProvider = type === "http";
 
+    // path/download 仍只针对 http provider；其余几类可作用于所有 provider 类型。
     if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
       appendProviderMutationPreviewEntry(
         preview.path,
@@ -8753,6 +8755,7 @@ function resolveServicePreferredCountryStates(countryConfigs) {
   const result = Object.create(null);
 
   for (const definition of SERVICE_PREFERRED_COUNTRY_DEFINITIONS) {
+    // 若该业务显式提供了 hasArgKey 且当前未开启，则视为“关闭优先国家链”，不再回落默认值。
     const preferredCountries = definition.hasArgKey && !ARGS[definition.hasArgKey]
       ? []
       : ARGS[definition.argKey];
@@ -8763,6 +8766,7 @@ function resolveServicePreferredCountryStates(countryConfigs) {
       definition.defaultSourceKey
     );
 
+    // 各业务最终统一沉淀为 groups/entries/summary/trace/explain/unmatched 六类字段，便于 diagnostics/full/header 共用。
     result[definition.key] = {
       groups: Array.isArray(resolution.groups) ? resolution.groups : [],
       entries: Array.isArray(resolution.entries) ? resolution.entries : [],
@@ -8883,6 +8887,7 @@ function buildServiceAdvancedOptions(argToken) {
 // 统一解析 GitHub / Steam / Dev 的前置组、点名节点与 provider 引用，避免 buildProxyGroups 里重复写三组相同分支。
 function resolveServicePreferredResources(argToken, availableGroupNames, proxyNames, providerNames, excludedGroupName) {
   return {
+    // 前置组引用会排除自身组名，避免出现 “GitHub 组引用 GitHub 组自己” 的自循环。
     preferredReferences: ARGS[`has${argToken}PreferGroups`]
       ? resolvePreferredGroupReferences(
         availableGroupNames,
@@ -8890,9 +8895,11 @@ function resolveServicePreferredResources(argToken, availableGroupNames, proxyNa
         [excludedGroupName]
       )
       : [],
+    // 点名节点直接从最终节点名列表里解析，优先级高于模式默认链。
     preferredNodes: ARGS[`has${argToken}PreferNodes`]
       ? resolvePreferredProxyReferences(proxyNames, ARGS[buildServiceArgKey(argToken, "PreferNodes")])
       : [],
+    // provider 引用交给后续 service group 的 provider collection 选项去消费。
     providerReferences: ARGS[`has${argToken}UseProviders`]
       ? resolvePreferredProxyProviderReferences(providerNames, ARGS[buildServiceArgKey(argToken, "UseProviders")])
       : []
@@ -8903,6 +8910,7 @@ function resolveServicePreferredResources(argToken, availableGroupNames, proxyNa
 function buildServicePreferredProxies(options) {
   const current = isObject(options) ? options : {};
   const mode = normalizeStringArg(current.mode).toLowerCase();
+  // direct 模式需要确保 DIRECT 被强制顶到最前；其余模式则只是在基础链前 prepend 偏好组。
   const keepDirectFirst = mode === "direct";
   const modeBaseProxies = Array.isArray(current.modeBaseProxies) ? current.modeBaseProxies : [];
   const directPreferBaseProxies = Array.isArray(current.directPreferBaseProxies) ? current.directPreferBaseProxies : modeBaseProxies;
@@ -8910,6 +8918,7 @@ function buildServicePreferredProxies(options) {
   const preferredReferences = Array.isArray(current.preferredReferences) ? current.preferredReferences : [];
   const preferredNodes = Array.isArray(current.preferredNodes) ? current.preferredNodes : [];
 
+  // 先处理国家优先链，再叠加 prefer-groups，最后才叠加点名节点，形成最终优先顺序。
   const countryResolvedProxies = current.hasPreferredCountries
     ? (keepDirectFirst
       ? uniqueStrings([BUILTIN_DIRECT].concat(prependPreferredGroups(preferredGroups, directPreferBaseProxies)))
@@ -8928,6 +8937,7 @@ function buildServicePreferredProxies(options) {
 function buildProxyGroupServiceArtifacts(payload) {
   const context = isObject(payload) ? payload : {};
   const argToken = normalizeStringArg(context.argToken);
+  // 先把 prefer-groups / prefer-nodes / use-providers 三类“显式资源偏好”统一解析出来。
   const preferredResources = resolveServicePreferredResources(
     argToken,
     context.availableGroupNames,
@@ -8938,6 +8948,7 @@ function buildProxyGroupServiceArtifacts(payload) {
 
   return {
     preferredResources,
+    // proxies 是最终给 service group 用的候选链，已经把国家优先链、前置组和点名节点都合并进去了。
     proxies: buildServicePreferredProxies({
       mode: context.mode,
       hasPreferredCountries: context.hasPreferredCountries,
@@ -8993,6 +9004,7 @@ function buildProxyGroupServiceArtifactMap(payload) {
   const current = isObject(payload) ? payload : {};
   const artifacts = Object.create(null);
   for (const definition of PROXY_GROUP_SERVICE_ARTIFACT_INPUTS) {
+    // 每一项 definition 只声明“如何取当前业务的输入”，真正装配逻辑统一交给 buildProxyGroupServiceArtifacts。
     artifacts[definition.key] = buildProxyGroupServiceArtifacts({
       argToken: definition.argToken,
       groupName: definition.groupName,
@@ -9013,6 +9025,7 @@ function buildProxyGroupServiceArtifactMap(payload) {
 // 固定功能组里部分条目虽然组名不同，但最终都落到同一套 createSelectGroup/createServiceGroup 模板，这里统一收口。
 function createProxyGroupServiceArtifactGroup(serviceArtifact) {
   const current = isObject(serviceArtifact) ? serviceArtifact : {};
+  // serviceArtifact 已经预先算好候选链、测速覆盖、节点池筛选和高级项；这里仅负责落成最终 group 对象。
   return createServiceGroup(
     current.groupName,
     Array.isArray(current.proxies) ? current.proxies : [],
@@ -9029,6 +9042,7 @@ function buildDefinitionBuildList(definitions, context, options) {
   const source = Array.isArray(definitions) ? definitions : [];
   const current = isObject(context) ? context : {};
   const currentOptions = isObject(options) ? options : {};
+  // flatten 控制是否打平 build 返回数组；filterFalsy 控制是否去掉 null/undefined/"" 这类空项。
   const flatten = !!currentOptions.flatten;
   const filterFalsy = !!currentOptions.filterFalsy;
   const items = [];
@@ -9501,11 +9515,13 @@ function resolveCustomRuleInsertIndex(bodyRules, ruleDefinitions) {
   const rules = Array.isArray(bodyRules) ? bodyRules : [];
 
   if (!ARGS.hasCustomRuleAnchor) {
+    // 没有显式锚点时，默认仍然把自定义规则插在 MATCH 前。
     return rules.length;
   }
 
   const anchorResult = inspectRuleProviderReference(ruleDefinitions, ARGS.customRuleAnchor);
   if (!anchorResult.match) {
+    // 锚点解析失败时回退默认行为，避免把 config.rules 丢失掉。
     return rules.length;
   }
 
@@ -9522,6 +9538,7 @@ function resolveCustomRuleInsertIndex(bodyRules, ruleDefinitions) {
     return rules.length;
   }
 
+  // 这里把命中的规则定义重新拼成最终 RULE-SET 字符串，再去 bodyRules 中找实际索引。
   const anchorRule = buildRule(anchorDefinition.provider, anchorDefinition.target, anchorDefinition.noResolve);
   const anchorIndex = rules.findIndex((rule) => normalizeStringArg(rule) === anchorRule);
   if (anchorIndex === -1) {
@@ -13097,6 +13114,7 @@ function logBuildSummaryLookupSections(stats, lookups, sections) {
     const loggerKey = normalizeStringArg(section && section.loggerKey);
     const labels = Array.isArray(section && section.labels) ? section.labels : [];
 
+    // lookup/logger 任一缺失都直接跳过，保证计划表可局部裁剪而不用额外防御。
     if (!lookupKey || !loggerKey || !hasOwn(currentLookups, lookupKey) || !hasOwn(BUILD_SUMMARY_LOOKUP_LOGGER_MAP, loggerKey)) {
       continue;
     }
@@ -13118,6 +13136,7 @@ function logBuildSummaryDiagnosticLines(stats, definitions) {
       continue;
     }
 
+    // summary 是必选主内容；previewKey 存在时再额外拼 preview，避免多数行都硬带一个空预览。
     const summary = current[summaryKey] || "none";
     const preview = previewKey ? (current[previewKey] || "none") : "";
     console.log(`   ✓ ${label}: ${summary}${previewKey ? `, preview=${preview}` : ""}`);
@@ -13220,6 +13239,7 @@ function buildPrefixedHeaderPayload(prefix, definitions, entryBuilder) {
   const entries = [];
 
   for (const definition of Array.isArray(definitions) ? definitions : []) {
+    // 一个 definition 可能展开成 0~N 个头字段，所以这里统一按数组接口收集。
     const mappedEntries = typeof entryBuilder === "function" ? entryBuilder(definition) : [];
     entries.push.apply(entries, Array.isArray(mappedEntries) ? mappedEntries : []);
   }
@@ -13376,6 +13396,7 @@ function buildRuntimeResponseHeaderSections(context, sections) {
   const runtimeContext = isObject(context) ? context : {};
 
   for (const definition of Array.isArray(sections) ? sections : []) {
+    // 后面的 section 若产出同名头，会按 Object.assign 语义覆盖前面的值。
     Object.assign(headers, buildRuntimeResponseHeaderSectionPayload(definition, runtimeContext));
   }
 
@@ -13418,6 +13439,7 @@ function buildNormalizedDefinitionPayload(definitions, context, normalizer) {
       continue;
     }
 
+    // normalizer 决定每个字段的默认值/归一化策略，这里只负责按定义表驱动装配。
     payload[key] = normalizer(current, definition);
   }
 
@@ -13911,6 +13933,7 @@ const MAIN_RESULT_RUNTIME_FIELD_DEFINITIONS = Object.freeze([
 function buildDefinitionDrivenPayload(definitions, context) {
   const source = Array.isArray(definitions) ? definitions : [];
   const payload = {};
+  // 从第三个实参开始都视为透传给 definition.value 的附加上下文。
   const args = Array.prototype.slice.call(arguments, 2);
 
   for (const definition of source) {
@@ -13930,6 +13953,7 @@ function buildDefinitionDrivenPayload(definitions, context) {
 function buildSequentialDefinitionPayload(definitions, baseContext, contextBuilder) {
   const source = Array.isArray(definitions) ? definitions : [];
   const currentBaseContext = isObject(baseContext) ? baseContext : {};
+  // 默认上下文构造器会把“基础上下文 + 已生成 payload”浅合并，适合大多数串行派生场景。
   const buildContext = typeof contextBuilder === "function"
     ? contextBuilder
     : ((context, payload) => Object.assign({}, context, payload));
@@ -13941,6 +13965,7 @@ function buildSequentialDefinitionPayload(definitions, baseContext, contextBuild
       continue;
     }
 
+    // 每一步都能读到前序已产出的字段，因此 definitions 的顺序本身就是依赖顺序。
     payload[key] = definition.value(buildContext(currentBaseContext, payload));
   }
 
@@ -14028,6 +14053,7 @@ function buildMainProfileConfig(payload) {
     return null;
   }
 
+  // profile 字段采用“脚本默认值在前，原配置 profile 在后”的 merge 方式，让用户显式配置优先。
   return mergeObjects(buildMainProfileRuntimeFields(), currentConfig.profile);
 }
 
@@ -14082,9 +14108,11 @@ const MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS = Object.freeze([
 // 收尾阶段与 full 日志都会复用同一批 geo/rule/analysis 摘要字段，这里统一裁剪，减少重复装配。
 function buildMainSummaryPayloadContext(payload) {
   const context = isObject(payload) ? payload : {};
+  // 三类 artifacts 都先裁剪成“只保留摘要相关字段”的轻量对象，再交给统一 definitions 装配。
   const geoPayloadArtifacts = buildMainGeoPayloadArtifacts(context.geoArtifacts);
   const rulePayloadArtifacts = buildMainRulePayloadArtifacts(context.ruleArtifacts);
   const analysisPayloadArtifacts = buildMainAnalysisPayloadArtifacts(context.analysisArtifacts);
+  // 允许调用方直接在 context 上覆盖某些摘要字段；definitions 会优先取显式传入值，再回落阶段产物。
   return buildDefinitionDrivenPayload(
     MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS,
     context,
@@ -14309,6 +14337,7 @@ const PROXY_GROUP_EXTRA_GROUP_DEFINITIONS = Object.freeze([
 // 把 diagnostics 里的数量/Provider 摘要打平成 full 日志统计对象，减少 main 中对 length/format 的重复手写。
 function buildFullSummaryDiagnosticMetrics(diagnostics) {
   const current = isObject(diagnostics) ? diagnostics : {};
+  // 一部分指标来自“按 definitions 统计数量”，另一部分来自自定义 extra metric builder，这里合并成单一 stats 片段。
   return Object.assign(
     buildMetricCountDefinitionPayload(BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, current),
     buildDefinitionDrivenPayload(FULL_SUMMARY_DIAGNOSTIC_EXTRA_METRIC_DEFINITIONS, current)
