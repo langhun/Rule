@@ -616,11 +616,14 @@ const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
 // 允许通过参数隐藏的辅助策略组。
 const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST];
 // AI 默认优先国家链：新加坡 -> 日本 -> 美国 -> 香港。
+// 这里的每一项都是“可匹配 marker 列表”，后面会依次尝试命中国家名、旗帜、别名或区域 token。
 const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"], ["🇭🇰", "香港"]];
 // Crypto 默认优先国家链：日本 -> 新加坡 -> 香港。
 const DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS = [["🇯🇵", "日本"], ["🇸🇬", "狮城", "新加坡"], ["🇭🇰", "香港"]];
 // Prefer-Countries 预设包：让 AI / Crypto / GitHub / Steam / Dev 等优先链不用每次手写长串国家/区域标记。
+// 每个 preset 由四部分组成：key（规范名）、name（展示名）、aliases（兼容写法）、markers（最终展开的国家/区域 token）。
 const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
+  // 这一段是“业务导向”的核心预设：直接面向 AI / Crypto / 游戏 / 开发等常见使用场景。
   {
     key: "ai-core",
     name: "🤖 AI核心链",
@@ -645,6 +648,7 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     aliases: ["devcore", "dev-core", "workcore", "work-core", "开发核心"],
     markers: ["eastasia", "northeurope", "centraleurope", "northamerica"]
   },
+  // 这一段是“地理导向”的核心预设：按亚洲/欧洲/美洲/中东/非洲等大区快速展开。
   {
     key: "asia-core",
     name: "🌏 亚洲核心链",
@@ -711,6 +715,7 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     aliases: ["globalcore", "global-core", "worldcore", "world-core", "全球核心"],
     markers: ["eastasia", "southeastasia", "northeurope", "centraleurope", "northamerica", "gulf"]
   },
+  // 这一段继续补充“偏工作流/子区域”的核心预设，用于更细颗粒度的线路选择。
   {
     key: "apac-core",
     name: "🌏 亚太核心链",
@@ -843,6 +848,7 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     aliases: ["southernconecore", "southern-cone-core", "southcone-core", "南锥体核心"],
     markers: ["southerncone"]
   },
+  // 最后一段是社区常见“经典 N 地”快捷组合，主要兼容面板/仓库里常见的 HK/TW/SG/JP/KR/US 连写习惯。
   {
     key: "classic-4",
     name: "✨ 经典四地",
