@@ -12952,6 +12952,7 @@ function logBuildSummaryDiagnosticLines(stats, definitions) {
 function getBuildSummaryArgEntryValue(entry, stats) {
   const current = isObject(entry) ? entry : {};
   if (typeof current.value === "function") {
+    // 动态 value 统一收到当前 stats，这样 definitions 里既能读取 ARGS，也能安全读取 full-summary 派生统计。
     return current.value(isObject(stats) ? stats : {});
   }
 
@@ -12984,6 +12985,7 @@ function emitBuildSummaryLine(label, content) {
 // 把一组参数项按 `key=value` 形式压成单行摘要，供规则入口目标/独立组网络等日志复用。
 function formatBuildSummaryArgEntries(entries, stats) {
   return (Array.isArray(entries) ? entries : [])
+    // 这里把 stats 原样透传给单条 entry，确保 provider apply/mutation 这类“依赖 full 统计”的字段能拿到上下文。
     .map((entry) => `${entry.key}=${getBuildSummaryArgEntryValue(entry, stats)}`)
     .join(", ");
 }
@@ -13735,6 +13737,7 @@ function buildDefinitionDrivenPayload(definitions, context) {
       continue;
     }
 
+    // 后续附加参数按顺序透传给 definition.value，供 geo/rule/summary 这类多阶段 builder 共享同一套装配器。
     payload[key] = definition.value.apply(null, [context].concat(args));
   }
 
@@ -13946,6 +13949,7 @@ const MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS = Object.freeze([
 // finalize 阶段写 full 日志前，统一把需要的上下文裁成 buildFullSummaryPayload 可直接消费的结构。
 function buildMainFullSummaryLogPayload(payload) {
   const context = isObject(payload) ? payload : {};
+  // full 日志阶段仍然要读 geo/rule/analysis/core 等汇总结果，所以这里继续复用 assemblyContext，避免再次手拼上下文字段。
   const assemblyContext = buildMainPayloadAssemblyContext(context);
   return Object.assign(
     {},
@@ -14258,6 +14262,7 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
 
 // buildProxyGroups 运行期上下文里的派生值前后依赖明显，这里统一串行装配，减少主函数前半段的大段平行局部变量。
 function buildProxyGroupRuntimeContext(payload) {
+  // 这里必须走 sequential builder：后面的 serviceArtifacts / generatedGroups 会依赖前面已经算好的候选链与优先链上下文。
   return buildSequentialDefinitionPayload(PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS, isObject(payload) ? payload : {});
 }
 
