@@ -7073,11 +7073,21 @@ const RULE_SET_DEFINITIONS = (() => {
   // Google IP 段交给 Google 组，并关闭解析。
   { provider: "Google_IP", target: GROUPS.GOOGLE, noResolve: true },
 
+  // GitHub 流量必须放在 Microsoft 泛规则前面；否则 github.com / github.io 等域名可能会先命中 Microsoft。
+  {
+    provider: "GitHub",
+    target: GROUPS.GITHUB,
+    overrideKey: "githubRuleTarget",
+    overrideFlagKey: "hasGithubRuleTarget",
+    overrideLabel: "GitHub",
+    ruleOrderAnchorKey: "githubRuleAnchor",
+    ruleOrderPositionKey: "githubRulePosition"
+  },
   // Bing 流量交给 Bing 组。
   { provider: "Bing", target: GROUPS.BING },
   // OneDrive 流量交给 OneDrive 组。
   { provider: "OneDrive", target: GROUPS.ONEDRIVE },
-  // 其他微软流量交给微软服务组。
+  // 其他微软流量交给微软服务组；它比较泛，默认应排在 GitHub / OneDrive / Bing 等细分规则之后。
   { provider: "Microsoft", target: GROUPS.MICROSOFT },
 
   // Apple TV+ 流量交给 Apple 组。
@@ -7129,17 +7139,6 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "PT", target: GROUPS.PT },
   // Speedtest 流量交给测速组。
   { provider: "Speedtest", target: GROUPS.SPEEDTEST },
-  // GitHub 流量交给 GitHub 独立组。
-  {
-    provider: "GitHub",
-    target: GROUPS.GITHUB,
-    overrideKey: "githubRuleTarget",
-    overrideFlagKey: "hasGithubRuleTarget",
-    overrideLabel: "GitHub",
-    ruleOrderAnchorKey: "githubRuleAnchor",
-    ruleOrderPositionKey: "githubRulePosition"
-  },
-
   // 自定义直连列表强制直连。
   { provider: "DirectList", target: GROUPS.DIRECT },
   // 非大陆流量默认交给主选择组。
