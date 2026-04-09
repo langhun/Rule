@@ -7380,6 +7380,7 @@ function resolveRuleSetDefinitions(availableTargets) {
 
 // 根据用户参数把 GitHub / Steam / SteamCN 的规则入口顺序重排到指定锚点前/后；支持 top/start 与 end/match 这种特殊位置。
 function applyRuleSetDefinitionOrder(ruleDefinitions) {
+  // orderedDefinitions 是不断被重排的工作副本；sourceDefinitions 保留原始遍历顺序，避免边遍历边改数组导致行为飘移。
   let orderedDefinitions = Array.isArray(ruleDefinitions) ? ruleDefinitions.slice() : RULE_SET_DEFINITIONS.slice();
   const sourceDefinitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : RULE_SET_DEFINITIONS;
 
@@ -7390,6 +7391,7 @@ function applyRuleSetDefinitionOrder(ruleDefinitions) {
 
     const anchorResult = inspectRuleProviderReference(orderedDefinitions, ARGS[definition.ruleOrderAnchorKey]);
     if (!anchorResult.match || anchorResult.match === definition.provider) {
+      // 锚点不存在，或锚点恰好就是自己时，不做任何移动。
       continue;
     }
 
@@ -7703,6 +7705,7 @@ function describeTrafficRule(rule) {
   const type = normalizeStringArg(parts[0]).toUpperCase();
   let targetIndex = parts.length - 1;
 
+  // 规则尾部可能带 no-resolve / src 这类修饰项，需要跳过后再取真正目标。
   while (targetIndex > 0 && ["no-resolve", "src"].includes(normalizeStringArg(parts[targetIndex]).toLowerCase())) {
     targetIndex -= 1;
   }
@@ -7759,16 +7762,19 @@ function classifyTrafficRuleLayer(rule) {
   const type = normalizeStringArg(parts[0]).toUpperCase();
 
   if (type === "MATCH") {
+    // MATCH 永远是最后兜底层，单独拎出来最容易观察整体闭环。
     return "match";
   }
 
   if (type !== "RULE-SET") {
+    // 非 RULE-SET 的其余条目（如 DOMAIN-SUFFIX / PROCESS-NAME 等）都归为 custom。
     return "custom";
   }
 
   const provider = normalizeStringArg(parts[1]);
 
   if (provider === "ADBlock") {
+    // 广告类规则在语义上仍属于拦截层。
     return "block";
   }
 
@@ -7821,6 +7827,7 @@ function formatTrafficRuleLayerTag(layer) {
 function analyzeRuleLayering(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  // layerEntries 记录“连续同层规则区间”；previewEntries 只保留每个区间的第一条样本。
   const layerEntries = [];
   const previewEntries = [];
   let customCount = 0;
@@ -7842,6 +7849,7 @@ function analyzeRuleLayering(rules, ruleAnalysis) {
 
     let currentLayerEntry = layerEntries[layerEntries.length - 1];
     if (!currentLayerEntry || currentLayerEntry.layer !== layer) {
+      // 只有层级切换时才新开一个区间块，这样更容易看出最终规则链是如何分段的。
       currentLayerEntry = {
         layer,
         tag,
@@ -7912,6 +7920,7 @@ function inspectTrafficRuleShape(rule) {
 // 把整条 rules 链预解析成可复用缓存，避免多个诊断函数反复 split / classify / describe 同一批规则。
 function analyzeRuleCollection(rules) {
   const currentRules = Array.isArray(rules) ? rules : [];
+  // entries 保存逐条解析结果；后两个 lookup 用于快速定位“某个 provider/某条原始规则第一次出现在哪”。
   const entries = [];
   const describedRules = [];
   const firstIndexByKey = Object.create(null);
@@ -7930,6 +7939,7 @@ function analyzeRuleCollection(rules) {
       : (described.includes("->") ? normalizeStringArg(described.split("->")[0]) : "");
 
     if (normalized && !hasOwn(normalizedIndexLookup, normalized)) {
+      // 相同规则可能出现多次；这里只记录第一次出现的位置，方便判断实际插入点。
       normalizedIndexLookup[normalized] = index;
     }
 
@@ -7975,10 +7985,12 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
   const baseRules = Array.isArray(generatedRules) ? uniqueStrings(generatedRules) : [];
   const currentFinalRules = Array.isArray(finalRules) ? finalRules : [];
   const finalRuleAnalysis = getRuleAnalysis(currentFinalRules, ruleAnalysis);
+  // generatedBodyRules 代表脚本自身生成、且不含兜底 MATCH 的规则主体。
   const generatedBodyRules = baseRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const rawConfiguredRuleList = Array.isArray(configuredRules) ? configuredRules.slice() : [];
   const uniqueConfiguredRules = uniqueStrings(rawConfiguredRuleList);
   const rawMatchCount = rawConfiguredRuleList.filter((rule) => /^MATCH,/i.test(normalizeStringArg(rule))).length;
+  // effectiveExtraRules 才是真正“新增插入最终链路”的规则：排除 MATCH、排除与脚本主体重复的项。
   const rawExtraRules = uniqueConfiguredRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const effectiveExtraRules = rawExtraRules.filter((rule) => !generatedBodyRules.includes(rule));
   const effectiveIndexes = effectiveExtraRules
@@ -7994,6 +8006,7 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
 
   for (const rule of effectiveExtraRules) {
     const shape = inspectTrafficRuleShape(rule);
+    // 类型 / 目标组的 top 统计可以快速看出自定义规则主要在干什么。
     if (shape.type) {
       typeCounts[shape.type] = (typeCounts[shape.type] || 0) + 1;
     }
@@ -8076,6 +8089,7 @@ function analyzeKeyRuleWindows(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
   const describedRules = currentRuleAnalysis.describedRules;
+  // SteamFix 只有开启时才纳入关键窗口；其余关键点使用固定常量定义。
   const definitions = []
     .concat(ARGS.steamFix ? [{ key: "SteamFix", label: "SteamFix", kind: "business" }] : [])
     .concat(KEY_RULE_WINDOW_BASE_DEFINITIONS);
@@ -8113,6 +8127,7 @@ function analyzeKeyRuleWindows(rules, ruleAnalysis) {
     const currentRule = describedRules[index] || definition.label;
     const nextRule = index < describedRules.length - 1 ? describedRules[index + 1] : "END";
 
+    // 预览里直接保留前后邻居，方便判断“宽泛规则是否挡在业务规则前面”。
     result.orderEntries.push(`${definition.label}@${index + 1}`);
     result.previewEntries.push(`${definition.label}@${index + 1}[${previousRule} < ${currentRule} < ${nextRule}]`);
   }
@@ -8136,6 +8151,7 @@ function formatKeyRuleWindowPreview(source) {
 function analyzeRuleLayerTargetMapping(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  // 三个计数字典分别观察“层级分布”“目标分布”“层级->目标交叉分布”。
   const layerCounts = Object.create(null);
   const targetCounts = Object.create(null);
   const crossCounts = Object.create(null);
@@ -8197,6 +8213,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
   const describedRules = currentRuleAnalysis.describedRules;
   const definitions = SERVICE_RULE_WINDOW_DEFINITIONS;
+  // firstIndex/lastIndex 用于观察关键业务规则整体集中在哪个区间。
   const result = {
     tracked: definitions.length,
     foundCount: 0,
@@ -8229,6 +8246,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
 
     const previousRules = describedRules.slice(Math.max(0, index - 2), index);
     const nextRules = describedRules.slice(index + 1, index + 3);
+    // 每个业务规则保留前后各 2 跳窗口，足够观察“是谁把它包住了”。
     result.orderEntries.push(`${definition.label}@${index + 1}`);
     result.previewEntries.push(
       `${definition.label}@${index + 1}[prev=${formatProviderPreviewNames(previousRules, 2, 22)},curr=${describedRules[index] || definition.label},next=${formatProviderPreviewNames(nextRules, 2, 22)}]`
@@ -8266,6 +8284,7 @@ function analyzeRuleTargetMapping(ruleDefinitions, rules, ruleAnalysis) {
 
     const provider = normalizeStringArg(definition.provider);
     const target = normalizeStringArg(definition.target);
+    // 预览项直接保留 provider->target 关系，并附带 no-resolve 标记。
     previewEntries.push(`${sanitizeProviderPreviewName(provider)}->${sanitizeProviderPreviewName(target)}${definition.noResolve ? ":NR" : ""}`);
     targetCounts[target] = (targetCounts[target] || 0) + 1;
   }
@@ -8281,6 +8300,7 @@ function analyzeRuleTargetMapping(ruleDefinitions, rules, ruleAnalysis) {
   const matchIndex = hasOwn(currentRuleAnalysis.firstIndexByKey, "MATCH")
     ? currentRuleAnalysis.firstIndexByKey.MATCH
     : -1;
+  // matchTarget 单独取出来，可以快速判断其余未命中流量的最终归宿。
   const matchTarget = matchIndex >= 0
     ? normalizeStringArg((currentRuleAnalysis.describedRules[matchIndex] || "").replace(/^MATCH->/, "")) || GROUPS.SELECT
     : GROUPS.SELECT;
@@ -8338,6 +8358,7 @@ function buildRuleDefinitionIndexLookup(ruleDefinitions) {
 function analyzeRulePriorityRisks(ruleDefinitions) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
   const definitionIndexLookup = buildRuleDefinitionIndexLookup(definitions);
+  // 三类覆盖风险分别对应：Geo_Not_CN、CN/CN_IP、DirectList 抢在业务规则前面。
   const result = {
     total: 0,
     geoOverrideCount: 0,
@@ -8351,6 +8372,7 @@ function analyzeRulePriorityRisks(ruleDefinitions) {
     const blockerIndex = hasOwn(definitionIndexLookup, blockerProvider) ? definitionIndexLookup[blockerProvider] : -1;
     const blockedIndex = hasOwn(definitionIndexLookup, blockedProvider) ? definitionIndexLookup[blockedProvider] : -1;
 
+    // 只有“阻断者”真的排在“被阻断者”前面时才算风险。
     if (blockerIndex === -1 || blockedIndex === -1 || blockerIndex >= blockedIndex) {
       return;
     }
@@ -8432,6 +8454,7 @@ function formatProxyGroupPriorityEntry(group) {
   const proxies = Array.isArray(current.proxies) ? current.proxies : [];
   const extraFlags = [];
 
+  // include-all / use 这类额外标记也带进摘要，方便看出候选列表是静态的还是动态汇聚的。
   if (current["include-all"]) {
     extraFlags.push("all");
   } else {
@@ -8486,6 +8509,7 @@ const PROXY_GROUP_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
 // 分析关键策略组的候选链顺序是否偏离脚本原本意图，避免 DIRECT / REJECT / FALLBACK / SELECT 排位异常。
 function analyzeProxyGroupPriorityRisks(proxyGroups) {
   const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
+  // 每一类风险都既计数也保留样本，便于 full 日志快速定位异常组。
   const result = {
     total: 0,
     directGroupCount: 0,
@@ -8511,6 +8535,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
       return;
     }
 
+    // 这类服务组设计上偏向“直连优先，再考虑主选择”。
     const directIndex = findProxyGroupCandidateIndex(group, BUILTIN_DIRECT);
     const selectIndex = findProxyGroupCandidateIndex(group, GROUPS.SELECT);
 
@@ -8530,6 +8555,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
       return;
     }
 
+    // 开发服务组希望和 GitHub 组联动，GitHub 不在前面通常意味着链路退化。
     const githubIndex = findProxyGroupCandidateIndex(group, GROUPS.GITHUB);
     const selectIndex = findProxyGroupCandidateIndex(group, GROUPS.SELECT);
 
@@ -8549,6 +8575,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
       return;
     }
 
+    // direct/proxy 模式只关心 DIRECT 与 SELECT 的前后顺序是否符合模式语义。
     const currentMode = normalizeStringArg(mode).toLowerCase();
     const directIndex = findProxyGroupCandidateIndex(group, BUILTIN_DIRECT);
     const selectIndex = findProxyGroupCandidateIndex(group, GROUPS.SELECT);
@@ -14852,6 +14879,7 @@ function countDiagnosticIssueDefinitions(diagnostics, definitions) {
       continue;
     }
 
+    // 少数 special warning 直接用数字计数，其余 warning 默认按数组长度统计。
     if (countType === "number") {
       total += typeof current[countKey] === "number" && current[countKey] > 0
         ? current[countKey]
@@ -14872,6 +14900,7 @@ function resolveDiagnosticLogState(definition, diagnostics, payload) {
   const current = isObject(diagnostics) ? diagnostics : {};
   const context = isObject(payload) ? payload : {};
   const items = Array.isArray(context.items) ? context.items : [];
+  // 这里把 preview 上限、格式化器、message builder、shouldLog 全部一次解析好，后面 handler 只管执行。
   return {
     items,
     previewLimit: clampNumber(Number(definition && definition.previewLimit) || 10, 1, 20),
@@ -14915,6 +14944,7 @@ function buildDiagnosticDefinitionLogPayload(diagnostics, definition) {
   const key = normalizeStringArg(definition && definition.key);
 
   if (key) {
+    // 标准 warning 块：直接从 diagnostics[key] 里读取样本数组。
     const items = Array.isArray(current[key]) ? current[key] : [];
 
     if (!items.length) {
@@ -14932,6 +14962,7 @@ function buildDiagnosticDefinitionLogPayload(diagnostics, definition) {
     };
   }
 
+  // special warning：是否打印、预览样本、消息内容都交给 definition 自己决定。
   const previewItems = definition && typeof definition.previewItems === "function"
     ? definition.previewItems(current)
     : [];
@@ -14974,6 +15005,7 @@ function runDefinitionHandlerSections(sections, context, phase) {
   const currentPhase = normalizeStringArg(phase);
 
   for (const section of source) {
+    // 指定 phase 时，只执行当前阶段匹配的 section；未指定时则全跑。
     if (currentPhase && normalizeStringArg(section && section.phase) !== currentPhase) {
       continue;
     }
