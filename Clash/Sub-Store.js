@@ -2254,7 +2254,7 @@ function parseCountryExtraAliasEntries(value) {
       continue;
     }
 
-    const definition = findCountryDefinitionByMarker(countryMarker);
+    const definition = findCountryDefinitionByMarker(countryMarker, result.map);
     if (!definition) {
       result.unknownCountryMarkers.push(countryMarker);
       continue;
@@ -3209,13 +3209,13 @@ function buildCountryPattern(aliases) {
   return composeCaseInsensitivePattern(uniqueStrings(aliases).map(aliasToRegex));
 }
 
-// 读取某个国家定义对应的“用户自定义额外别名”，便于把运行参数也纳入国家识别。
-function getCountryExtraAliases(countryName) {
-  if (typeof ARGS === "undefined" || !ARGS || !ARGS.hasCountryExtraAliases || !isObject(ARGS.countryExtraAliasesMap)) {
-    return [];
-  }
+// country-extra-aliases 需要在 ARGS 完成解析前后都可安全访问，这里单独维护一份运行态别名映射，避免 helper 提前触发 ARGS 的 TDZ。
+let COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = Object.create(null);
 
-  return uniqueStrings(ARGS.countryExtraAliasesMap[countryName]);
+// 读取某个国家定义对应的“用户自定义额外别名”，便于把运行参数也纳入国家识别。
+function getCountryExtraAliases(countryName, aliasMap) {
+  const source = isObject(aliasMap) ? aliasMap : COUNTRY_EXTRA_ALIAS_RUNTIME_MAP;
+  return uniqueStrings(source[countryName]);
 }
 
 // 统一收集某个国家定义里“脚本内置”的可识别标记：旗帜、显示名、内置别名。
@@ -3228,12 +3228,12 @@ function getBuiltInCountryDefinitionMarkers(country) {
 }
 
 // 统一收集某个国家定义的全部可识别标记：旗帜、显示名、内置别名、运行参数追加别名。
-function getCountryDefinitionMarkers(country) {
+function getCountryDefinitionMarkers(country, aliasMap) {
   if (!isObject(country)) {
     return [];
   }
 
-  return uniqueStrings(getBuiltInCountryDefinitionMarkers(country).concat(getCountryExtraAliases(country.name)));
+  return uniqueStrings(getBuiltInCountryDefinitionMarkers(country).concat(getCountryExtraAliases(country.name, aliasMap)));
 }
 
 // 分析 country-extra-aliases 是否存在“一个别名指向多个国家”或“撞到别的内置国家标记”的冲突。
@@ -3301,14 +3301,14 @@ function analyzeCountryExtraAliasMap(aliasMap) {
 }
 
 // 按标记查找某个国家定义，兼容显示名、旗帜、内置别名与运行参数追加别名。
-function findCountryDefinitionByMarker(marker) {
+function findCountryDefinitionByMarker(marker, aliasMap) {
   const token = normalizeGroupMarkerToken(marker);
   if (!token) {
     return null;
   }
 
   for (const definition of COUNTRY_DEFINITIONS) {
-    const markers = getCountryDefinitionMarkers(definition);
+    const markers = getCountryDefinitionMarkers(definition, aliasMap);
     if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
       return definition;
     }
@@ -4162,6 +4162,7 @@ function resolveArgs(rawArgs) {
   const devPreferCountries = toStringList(rawDevPreferCountries);
   const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
   const countryExtraAliasesMap = parsedCountryExtraAliases.map;
+  COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = isObject(countryExtraAliasesMap) ? countryExtraAliasesMap : Object.create(null);
   const countryExtraAliasAnalysis = analyzeCountryExtraAliasMap(countryExtraAliasesMap);
   const countryExtraAliasCountryCount = Object.keys(countryExtraAliasesMap).length;
   const countryExtraAliasEntryCount = Object.keys(countryExtraAliasesMap).reduce((total, key) => total + countryExtraAliasesMap[key].length, 0);
@@ -8899,15 +8900,15 @@ function buildDefinitionBuildList(definitions, context, options) {
   return items;
 }
 
-// buildProxyGroups 的 generatedGroups 最终都来自“固定组 + 追加组”这同一份生成计划，这里合并 definitions 以减少尾段数组拼接模板。
-const PROXY_GROUP_GENERATED_GROUP_DEFINITIONS = Object.freeze(
-  PROXY_GROUP_FIXED_GROUP_DEFINITIONS.concat(PROXY_GROUP_EXTRA_GROUP_DEFINITIONS)
-);
+// buildProxyGroups 的 generatedGroups 最终都来自“固定组 + 追加组”这同一份生成计划；这里改成按调用时再拼接，避免读取到尚未初始化的 const。
+function getProxyGroupGeneratedGroupDefinitions() {
+  return PROXY_GROUP_FIXED_GROUP_DEFINITIONS.concat(PROXY_GROUP_EXTRA_GROUP_DEFINITIONS);
+}
 
 // buildProxyGroups 的 generatedGroups 统一走单一生成计划，避免主函数尾段继续保留两段 definitions 的手工拼接。
 function buildProxyGroupGeneratedGroups(payload) {
   const context = isObject(payload) ? payload : {};
-  return buildDefinitionBuildList(PROXY_GROUP_GENERATED_GROUP_DEFINITIONS, context, {
+  return buildDefinitionBuildList(getProxyGroupGeneratedGroupDefinitions(), context, {
     flatten: true,
     filterFalsy: true
   });
@@ -12292,10 +12293,10 @@ const BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS = Object.freeze([
       { key: "scope", value: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default" },
       { key: "payload-scope", value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" },
       { key: "apply-scope", value: () => buildRuleProviderApplyScopeSummary() },
-      { key: "apply-stats", value: () => stats.ruleProviderApplyStatsSummary },
-      { key: "apply-preview", value: () => stats.ruleProviderApplyPreviewSummary },
-      { key: "mutation-stats", value: () => stats.ruleProviderMutationStatsSummary },
-      { key: "mutation-preview", value: () => stats.ruleProviderMutationPreviewSummary }
+      { key: "apply-stats", value: (stats) => stats.ruleProviderApplyStatsSummary },
+      { key: "apply-preview", value: (stats) => stats.ruleProviderApplyPreviewSummary },
+      { key: "mutation-stats", value: (stats) => stats.ruleProviderMutationStatsSummary },
+      { key: "mutation-preview", value: (stats) => stats.ruleProviderMutationPreviewSummary }
     ]
   },
   {
@@ -12319,10 +12320,10 @@ const BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS = Object.freeze([
       { key: "hc-lazy", value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" },
       { key: "hc-expected-status", value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" },
       { key: "apply-scope", value: () => buildProxyProviderApplyScopeSummary() },
-      { key: "apply-stats", value: () => stats.proxyProviderApplyStatsSummary },
-      { key: "apply-preview", value: () => stats.proxyProviderApplyPreviewSummary },
-      { key: "mutation-stats", value: () => stats.proxyProviderMutationStatsSummary },
-      { key: "mutation-preview", value: () => stats.proxyProviderMutationPreviewSummary }
+      { key: "apply-stats", value: (stats) => stats.proxyProviderApplyStatsSummary },
+      { key: "apply-preview", value: (stats) => stats.proxyProviderApplyPreviewSummary },
+      { key: "mutation-stats", value: (stats) => stats.proxyProviderMutationStatsSummary },
+      { key: "mutation-preview", value: (stats) => stats.proxyProviderMutationPreviewSummary }
     ]
   },
   {
@@ -13563,6 +13564,7 @@ function buildMainDiagnosticsPayload(payload) {
   const assemblyContext = buildMainPayloadAssemblyContext(context);
 
   return Object.assign({
+    assemblyContext,
     proxies: assemblyContext.proxies,
     proxyGroups: assemblyContext.summaryPayloadContext.proxyGroups,
     result: context.result,
@@ -13910,6 +13912,7 @@ function buildMainFinalizationPayload(payload) {
   const context = isObject(payload) ? payload : {};
   const assemblyContext = buildMainPayloadAssemblyContext(context);
   return Object.assign(
+    { assemblyContext },
     buildDefinitionDrivenPayload(MAIN_FINALIZATION_PAYLOAD_DEFINITIONS, context),
     assemblyContext.summaryPayloadContext
   );
@@ -14207,7 +14210,7 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
   },
   {
     key: "serviceArtifacts",
-    value: (context) => buildProxyGroupServiceArtifactMap(PROXY_GROUP_SERVICE_ARTIFACT_DEFINITIONS, {
+    value: (context) => buildProxyGroupServiceArtifactMap({
       githubPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.githubPreferredGroups,
       steamPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.steamPreferredGroups,
       devPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.devPreferredGroups,
@@ -14258,7 +14261,7 @@ function buildRuntimeResponseHeaders(diagnostics) {
 // 这里会把国家组、功能组、优先级组、兜底组全部拼出来。
 function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, existingGroups, existingProxyProviders) {
   // full 模式下统计构建耗时，方便后续优化。
-  if (ARGS.full) {
+  if (ARGS.full && typeof console.time === "function") {
     console.time("buildProxyGroups");
   }
 
@@ -14304,7 +14307,7 @@ function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, ex
   const orderedGroups = finalizeProxyGroupGeneration(generatedGroups, existingGroups, countryGroupNames, regionGroupNames);
 
   // full 模式下输出构建耗时。
-  if (ARGS.full) {
+  if (ARGS.full && typeof console.timeEnd === "function") {
     console.timeEnd("buildProxyGroups");
   }
 
