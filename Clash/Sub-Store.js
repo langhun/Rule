@@ -2858,6 +2858,7 @@ function analyzeRuntimeArgEffectiveSources(queryArgs, optionArgs, argumentArgs, 
   const options = isObject(optionArgs) ? optionArgs : {};
   const argumentsSource = isObject(argumentArgs) ? argumentArgs : {};
   const merged = isObject(mergedArgs) ? mergedArgs : {};
+  // win 表示“最终值来自哪一路”；override 表示“更高优先级覆盖了较低优先级的同名键”。
   const result = {
     total: 0,
     queryWin: 0,
@@ -2874,6 +2875,7 @@ function analyzeRuntimeArgEffectiveSources(queryArgs, optionArgs, argumentArgs, 
   for (const key of Object.keys(merged)) {
     result.total += 1;
 
+    // 按最终合并优先级判断赢家：$arguments > $options > query。
     if (hasOwn(argumentsSource, key)) {
       result.argumentsWin += 1;
       result.argumentsKeys.push(key);
@@ -2885,6 +2887,7 @@ function analyzeRuntimeArgEffectiveSources(queryArgs, optionArgs, argumentArgs, 
       result.queryKeys.push(key);
     }
 
+    // 下列计数只关心“多路同时声明同名键”这种覆盖关系，与赢家是谁分开统计。
     if (hasOwn(options, key) && hasOwn(query, key)) {
       result.optionsOverrideQuery += 1;
     }
@@ -5831,6 +5834,7 @@ function finalizeRuleProviders(providers) {
     const isHttpProvider = type === "http";
     const isInlineProvider = type === "inline";
 
+    // http provider 优先按 path-dir 重新分配缓存路径；非 http 则尽量保留原 path。
     if (isHttpProvider && ARGS.hasRuleProviderPathDir) {
       provider.path = buildRuleProviderPath(name, provider, usedPaths);
     } else if (currentPath && !usedPaths[currentPath]) {
@@ -5853,6 +5857,7 @@ function finalizeRuleProviders(providers) {
     }
 
     if (isHttpProvider && hasDownloadConfiguredOptions) {
+      // 下载相关 header 统一通过 mergeProviderHeaders 合并，避免把原 header 全部抹掉。
       const headers = mergeProviderHeaders(
         provider.header,
         ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "",
@@ -5866,6 +5871,7 @@ function finalizeRuleProviders(providers) {
     }
 
     if (isInlineProvider && hasPayloadConfiguredOption) {
+      // inline provider 的 payload 直接由脚本参数接管，避免复用外部对象引用。
       provider.payload = cloneJsonCompatibleValue(ARGS.ruleProviderPayload, []);
     }
 
@@ -6584,10 +6590,12 @@ function finalizeProxyProviders(existingProviders) {
     const type = normalizeStringArg(provider.type).toLowerCase();
     const isHttpProvider = type === "http";
 
+    // http provider 的缓存 path 可以由脚本统一接管；其余类型保留原状。
     if (isHttpProvider && ARGS.hasProxyProviderPathDir) {
       provider.path = buildProxyProviderPath(name, provider, usedPaths);
     }
 
+    // payload/collection/override/health-check 这几类能力不完全依赖 http，因此可作用于更多 provider 类型。
     if (ARGS.hasProxyProviderPayload) {
       provider.payload = cloneJsonCompatibleValue(ARGS.proxyProviderPayload, []);
     }
@@ -6629,6 +6637,7 @@ function finalizeProxyProviders(existingProviders) {
     }
 
     if (hasOverrideOptions) {
+      // override 先在原 override 基础上做浅合并，再按脚本参数逐项覆写。
       const override = mergeObjects(provider.override, {});
 
       if (ARGS.hasProxyProviderOverrideAdditionalPrefix) {
@@ -6691,6 +6700,7 @@ function finalizeProxyProviders(existingProviders) {
     }
 
     if (hasHealthCheckOptions) {
+      // health-check 同样保留原对象，再把脚本参数覆盖进去。
       const healthCheck = mergeObjects(provider["health-check"], {});
 
       if (ARGS.hasProxyProviderHealthCheckEnable) {
@@ -10049,6 +10059,7 @@ function inspectRuleProviderReference(ruleDefinitions, marker) {
     return { match: token, reason: "exact" };
   }
 
+  // 第二层：大小写无关的精确匹配，兼容 github / GitHub 这类写法。
   const lowerLookup = Object.create(null);
   for (const provider of providers) {
     const key = String(provider || "").toLowerCase();
@@ -10062,6 +10073,7 @@ function inspectRuleProviderReference(ruleDefinitions, marker) {
     return { match: exactIgnoreCase, reason: "exactIgnoreCase" };
   }
 
+  // 第三层：脚本内置 alias，如 top/start/end/cn/cnip 之类缩写标记。
   const aliasTarget = createRuleProviderAliasMap()[normalizeGroupMarkerToken(token)];
   if (aliasTarget === RULE_ORDER_START || aliasTarget === RULE_ORDER_END) {
     return { match: aliasTarget, reason: "alias" };
@@ -10071,6 +10083,7 @@ function inspectRuleProviderReference(ruleDefinitions, marker) {
     return { match: aliasTarget, reason: "alias" };
   }
 
+  // 最后一层只接受“唯一模糊命中”；多个模糊命中会返回 ambiguous，交给上游报错。
   const fuzzyMatches = providers.filter((provider) => String(provider || "").toLowerCase().indexOf(token.toLowerCase()) !== -1);
   if (fuzzyMatches.length === 1) {
     return { match: fuzzyMatches[0], reason: "fuzzy" };
@@ -11350,6 +11363,7 @@ function validateRuleProviderOptions(providers) {
   const hasPathConfiguredOption = ARGS.hasRuleProviderPathDir;
   const hasPayloadConfiguredOption = ARGS.hasRuleProviderPayload;
   const hasDownloadConfiguredOptions = hasRuleProviderDownloadConfiguredOptions();
+  // 用于在循环结束后判断“虽然配置了 payload 参数，但当前根本没有 inline provider 可以承接”。
   let inlineProviderCount = 0;
 
   for (const name of Object.keys(source)) {
@@ -11366,6 +11380,7 @@ function validateRuleProviderOptions(providers) {
     const url = normalizeStringArg(provider.url);
     const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
 
+    // 先校验 type/behavior/format 这些官方枚举语义。
     if (!isOfficialRuleProviderType(type)) {
       warnings.push(`${name}: type=${provider.type || "unknown"} 不在 Mihomo 官方 rule-provider 类型范围内，仅支持 http/file/inline`);
     }
@@ -11379,6 +11394,7 @@ function validateRuleProviderOptions(providers) {
     }
 
     if (type === "http") {
+      // http provider 重点检查 url、interval、size-limit 等下载侧字段。
       if (!url) {
         warnings.push(`${name}: type=http 时必须配置 url`);
       } else if (!looksLikeHttpUrl(url)) {
@@ -11401,6 +11417,7 @@ function validateRuleProviderOptions(providers) {
     } else {
       const skippedHttpOnlyOptions = [];
 
+      // 对非 http provider，明确提示哪些脚本参数不会生效。
       if (hasPathConfiguredOption) {
         skippedHttpOnlyOptions.push("rule-provider-path-dir");
       }
@@ -11429,6 +11446,7 @@ function validateRuleProviderOptions(providers) {
     }
 
     if (hasOwn(provider, "payload")) {
+      // payload 的每一项都应该是最终 RULE 文本字符串。
       if (!Array.isArray(provider.payload)) {
         warnings.push(`${name}: payload 必须为数组`);
       } else if (!provider.payload.length) {
@@ -11459,6 +11477,7 @@ function validateRuleProviderOptions(providers) {
     }
 
     if (hasOwn(provider, "header")) {
+      // header 允许单值或数组值，但最终都要能归一化成非空 header 列表。
       if (!isObject(provider.header)) {
         warnings.push(`${name}: header 必须为对象`);
       } else {
@@ -11521,6 +11540,7 @@ function validateProxyProviderOptions(proxyProviders) {
     hasHealthCheckConfiguredOptions
   );
 
+  // 用户配了大量 proxy-provider 参数，但当前根本没有 provider 时，直接给总提示。
   if (!Object.keys(source).length) {
     if (hasConfiguredOptions) {
       warnings.push("已配置 proxy-provider 参数，但当前配置中不存在 proxy-providers");
@@ -11539,6 +11559,7 @@ function validateProxyProviderOptions(proxyProviders) {
     const url = normalizeStringArg(provider.url);
     const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
 
+    // 先校验最基础的官方 type/url/path 语义。
     if (!isOfficialProxyProviderType(type)) {
       warnings.push(`${name}: type=${provider.type || "unknown"} 不在 Mihomo 官方 proxy-provider 类型范围内，仅支持 http/file/inline`);
     }
@@ -11566,6 +11587,7 @@ function validateProxyProviderOptions(proxyProviders) {
     } else {
       const skippedHttpOnlyOptions = [];
 
+      // 非 http provider 对下载控制/缓存目录参数不敏感，这里统一提醒。
       if (hasPathConfiguredOption) {
         skippedHttpOnlyOptions.push("proxy-provider-path-dir");
       }
@@ -11588,6 +11610,7 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     if (hasOwn(provider, "payload")) {
+      // proxy-provider payload 的每一项都应该是完整节点对象，而不是规则字符串。
       if (!Array.isArray(provider.payload)) {
         warnings.push(`${name}: payload 必须为数组`);
       } else if (!provider.payload.length) {
@@ -11631,6 +11654,7 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     if (hasOwn(provider, "path")) {
+      // path 既要合法，也要避免多个 provider 撞到同一个缓存文件。
       if (!path) {
         warnings.push(`${name}: path 不能为空字符串`);
       } else {
@@ -11691,6 +11715,7 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     if (hasOwn(provider, "override")) {
+      // override 属于代理节点级别的二次改写，字段种类多，逐项做轻量语义校验。
       if (!isObject(provider.override)) {
         warnings.push(`${name}: override 必须为对象`);
       } else {
@@ -11792,6 +11817,7 @@ function validateProxyProviderOptions(proxyProviders) {
 
     const healthCheck = provider["health-check"];
 
+    // health-check 继续沿用测速组同类字段的数值/URL/expected-status 校验逻辑。
     if (hasOwn(healthCheck, "url") && !looksLikeHttpUrl(healthCheck.url)) {
       warnings.push(`${name}: health-check.url=${healthCheck.url} 看起来不像合法 http(s) 地址`);
     }
@@ -11862,6 +11888,7 @@ function validateDnsOptionWarnings(dns) {
   const cacheAlgorithm = typeof currentDns["cache-algorithm"] === "string" ? currentDns["cache-algorithm"].trim().toLowerCase() : "";
   const fakeIpFilterMode = typeof currentDns["fake-ip-filter-mode"] === "string" ? currentDns["fake-ip-filter-mode"].trim().toLowerCase() : "";
 
+  // 先校验枚举型高级项，避免明显超出官方常见取值。
   if (cacheAlgorithm && !["arc", "lru"].includes(cacheAlgorithm)) {
     warnings.push(`cache-algorithm=${currentDns["cache-algorithm"]} 不在常见取值 arc/lru 内`);
   }
@@ -11893,6 +11920,7 @@ function validateDnsOptionWarnings(dns) {
     warnings.push(`fake-ip-range6=${currentDns["fake-ip-range6"]} 看起来不像合法 CIDR 网段`);
   }
 
+  // rule 模式下建议显式以 MATCH,fake-ip 收尾，否则 fake-ip-filter 语义通常不完整。
   if (fakeIpFilterMode === "rule") {
     const filters = toStringArray(currentDns["fake-ip-filter"]);
     if (!filters.some((item) => /^MATCH,\s*fake-ip$/i.test(item))) {
@@ -11965,6 +11993,7 @@ function validateLatencyGroupOptions(proxyGroups) {
     const timeout = Number(group.timeout);
     const maxFailedTimes = Number(group["max-failed-times"]);
 
+    // 测速组三件套：url、interval、timeout 必须完整且数值合法。
     if (typeof group.url !== "string" || !group.url.trim()) {
       warnings.push(`${name}: url 不能为空`);
     }
@@ -11986,6 +12015,7 @@ function validateLatencyGroupOptions(proxyGroups) {
     }
 
     if (hasOwn(group, "expected-status")) {
+      // expected-status 复用统一语法校验，兼容 * / 单码 / 范围表达式。
       const expectedStatus = normalizeExpectedStatusArg(group["expected-status"]);
       if (!expectedStatus) {
         warnings.push(`${name}: expected-status 不能为空字符串`);
@@ -11995,6 +12025,7 @@ function validateLatencyGroupOptions(proxyGroups) {
     }
 
     if (type === "load-balance" && hasOwn(group, "strategy")) {
+      // 只有 load-balance 组才需要额外检查 strategy。
       const strategy = normalizeLoadBalanceStrategy(group.strategy, "");
       if (!strategy) {
         warnings.push(`${name}: strategy 仅支持 round-robin / consistent-hashing / sticky-sessions`);
