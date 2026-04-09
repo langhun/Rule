@@ -7208,6 +7208,36 @@ const SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS = Object.freeze([
 // 规则优先级风险采用数据表驱动，避免分析函数里重复堆一长串 addRisk 调用。
 const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
   {
+    category: "platform",
+    blockerProvider: "Google",
+    blockedProvider: "YouTube",
+    message: "YouTube 规则当前排在 Google 之后；Google 是更宽泛的 Google 生态规则，YouTube 流量可能会先命中 Google 组而不是 YouTube 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Apple",
+    blockedProvider: "AppleTV",
+    message: "AppleTV 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，Apple TV+ 流量可能会先命中 Apple 组而不是 AppleTV 专属入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Microsoft",
+    blockedProvider: "GitHub",
+    message: "GitHub 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，GitHub 流量可能会先命中微软服务组而不是 GitHub 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Microsoft",
+    blockedProvider: "OneDrive",
+    message: "OneDrive 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，OneDrive 流量可能会先命中微软服务组而不是 OneDrive 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Microsoft",
+    blockedProvider: "Bing",
+    message: "Bing 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，Bing 流量可能会先命中微软服务组而不是 Bing 独立组"
+  },
+  {
     category: "geo",
     blockerProvider: "Geo_Not_CN",
     blockedProvider: "GitHub",
@@ -7252,6 +7282,7 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
 ]);
 // 规则优先级风险里的分类计数统一走映射，避免 addRisk 内重复 category 分支模板。
 const RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
+  platform: "platformOverrideCount",
   geo: "geoOverrideCount",
   cn: "cnOverrideCount",
   directlist: "directListOverrideCount"
@@ -7426,7 +7457,8 @@ function applyRuleSetDefinitionOrder(ruleDefinitions) {
     }
   }
 
-  return orderedDefinitions;
+  // 用户自定义锚点应用完后，再统一跑一轮关键优先级护栏，避免宽泛规则重新压到专用规则前面。
+  return applyRulePriorityGuardOrder(orderedDefinitions);
 }
 
 // 校验 GitHub / Steam / SteamCN 规则目标参数是否真的能匹配到当前可用的策略组/内置策略。
@@ -8369,9 +8401,10 @@ function buildRuleDefinitionIndexLookup(ruleDefinitions) {
 function analyzeRulePriorityRisks(ruleDefinitions) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
   const definitionIndexLookup = buildRuleDefinitionIndexLookup(definitions);
-  // 三类覆盖风险分别对应：Geo_Not_CN、CN/CN_IP、DirectList 抢在业务规则前面。
+  // 各类覆盖风险分别对应：平台大类规则、Geo_Not_CN、CN/CN_IP、DirectList 抢在业务规则前面。
   const result = {
     total: 0,
+    platformOverrideCount: 0,
     geoOverrideCount: 0,
     cnOverrideCount: 0,
     directListOverrideCount: 0,
@@ -8407,7 +8440,7 @@ function analyzeRulePriorityRisks(ruleDefinitions) {
 // 把规则优先级风险统计压成紧凑摘要，便于响应调试头与 full 日志直接复用。
 function formatRulePriorityRiskSummary(source) {
   const current = isObject(source) ? source : {};
-  return `total=${Number(current.total) || 0},geo-overrides=${Number(current.geoOverrideCount) || 0},cn-overrides=${Number(current.cnOverrideCount) || 0},directlist-overrides=${Number(current.directListOverrideCount) || 0}`;
+  return `total=${Number(current.total) || 0},platform-overrides=${Number(current.platformOverrideCount) || 0},geo-overrides=${Number(current.geoOverrideCount) || 0},cn-overrides=${Number(current.cnOverrideCount) || 0},directlist-overrides=${Number(current.directListOverrideCount) || 0}`;
 }
 
 // 把规则优先级风险样本压成预览字符串，便于快速确认是哪几条宽泛规则抢先了。
@@ -10152,6 +10185,31 @@ function moveRuleDefinitionBlockByAnchor(ruleDefinitions, providers, anchor, pos
 
   remainingDefinitions.splice(insertIndex, 0, ...blockDefinitions);
   return remainingDefinitions;
+}
+
+// 对关键“专用规则必须排在宽泛规则前面”的关系加一层自动护栏，避免用户重排后再次被大类规则抢先命中。
+function applyRulePriorityGuardOrder(ruleDefinitions) {
+  let definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions.slice() : [];
+
+  for (const item of RULE_PRIORITY_RISK_DEFINITIONS) {
+    const blockerProvider = normalizeStringArg(item && item.blockerProvider);
+    const blockedProvider = normalizeStringArg(item && item.blockedProvider);
+    if (!blockerProvider || !blockedProvider) {
+      continue;
+    }
+
+    const blockerIndex = definitions.findIndex((definition) => definition && definition.provider === blockerProvider);
+    const blockedIndex = definitions.findIndex((definition) => definition && definition.provider === blockedProvider);
+
+    // 只有在“宽泛规则真的排在专用规则前面”时，才把专用规则提到它前面。
+    if (blockerIndex === -1 || blockedIndex === -1 || blockerIndex > blockedIndex) {
+      continue;
+    }
+
+    definitions = moveRuleDefinitionByAnchor(definitions, blockedProvider, blockerProvider, "before");
+  }
+
+  return definitions;
 }
 
 // 从“当前可用组名 + 内置策略”里解析用户传入的前置组标记。
