@@ -2249,18 +2249,23 @@ function toExplicitNameList(value) {
 
 // 解析“国家: 别名1|别名2”的自定义国家别名参数，便于在不改脚本源码时继续扩展节点命名兼容。
 function parseCountryExtraAliasEntries(value) {
+  // 统一把解析结果拆成“成功映射 / 非法输入 / 未知国家标记”三部分，方便后续日志直接消费。
   const result = {
     map: Object.create(null),
     invalidEntries: [],
     unknownCountryMarkers: []
   };
+  // 先把各种输入形态摊平成原始文本条目，再走统一解析流程。
   const rawEntries = [];
 
   if (typeof value === "string") {
+    // 字符串支持换行、分号与双竖线分隔，兼容 URL 参数和多行配置。
     rawEntries.push(...value.split(/(?:\r?\n|;|；|\|\|)+/));
   } else if (Array.isArray(value)) {
+    // 数组模式直接逐项转字符串。
     rawEntries.push(...value.map((item) => String(item || "")));
   } else if (isObject(value)) {
+    // 对象模式会把 { 国家: [别名] } 重新拼回统一的 `国家:别名1|别名2` 语法。
     for (const key of Object.keys(value)) {
       const aliases = Array.isArray(value[key]) ? value[key].join("|") : String(value[key] || "");
       rawEntries.push(`${key}:${aliases}`);
@@ -2273,6 +2278,7 @@ function parseCountryExtraAliasEntries(value) {
       continue;
     }
 
+    // 允许 `:` / `：` / `=` 作为国家与别名列表的分隔符。
     const match = text.match(/^([^:：=]+)\s*[:：=]\s*(.+)$/);
     if (!match) {
       result.invalidEntries.push(text);
@@ -2294,9 +2300,11 @@ function parseCountryExtraAliasEntries(value) {
       continue;
     }
 
+    // 映射时统一收敛到国家定义的标准 name，避免同一国家被多种 marker 拆成多份配置。
     result.map[definition.name] = uniqueStrings((result.map[definition.name] || []).concat(aliases));
   }
 
+  // 最终再做一次去重，保证日志与响应头输出稳定。
   result.invalidEntries = uniqueStrings(result.invalidEntries);
   result.unknownCountryMarkers = uniqueStrings(result.unknownCountryMarkers);
   return result;
@@ -2311,6 +2319,7 @@ function formatCountryExtraAliasPreview(aliasMap, maxCountries, maxAliasesPerCou
     return "none";
   }
 
+  // 这些上限主要用于 full 日志与响应头预览，默认偏保守，避免输出过长。
   const countryLimit = Number.isFinite(maxCountries) && maxCountries > 0 ? Math.floor(maxCountries) : 4;
   const aliasLimit = Number.isFinite(maxAliasesPerCountry) && maxAliasesPerCountry > 0 ? Math.floor(maxAliasesPerCountry) : 2;
   const aliasNameLimit = Number.isFinite(maxAliasLength) && maxAliasLength > 4 ? Math.floor(maxAliasLength) : 18;
@@ -2320,6 +2329,7 @@ function formatCountryExtraAliasPreview(aliasMap, maxCountries, maxAliasesPerCou
         .map((item) => String(item || "").trim())
         .filter(Boolean)
     );
+    // 每个国家只展示前若干个别名，并对超长别名做截断。
     const visibleAliases = aliases
       .slice(0, aliasLimit)
       .map((alias) => (alias.length > aliasNameLimit ? `${alias.slice(0, aliasNameLimit - 3)}...` : alias));
@@ -2345,6 +2355,7 @@ function formatCountryExtraAliasConflictPreview(conflicts, maxItems, maxLength) 
 
   const itemLimit = Number.isFinite(maxItems) && maxItems > 0 ? Math.floor(maxItems) : 4;
   const textLimit = Number.isFinite(maxLength) && maxLength > 6 ? Math.floor(maxLength) : 28;
+  // 冲突预览同样只展示少量样本，避免调试头被长文本撑爆。
   const visibleItems = source
     .slice(0, itemLimit)
     .map((item) => (item.length > textLimit ? `${item.slice(0, textLimit - 3)}...` : item));
@@ -2367,6 +2378,7 @@ function parseTypeList(value) {
 function parseProxyNameOverrideRules(value) {
   const result = [];
   const seen = Object.create(null);
+  // 先统一收集候选条目，再逐条解析成 pattern/target。
   const items = [];
 
   if (typeof value === "string") {
@@ -2382,6 +2394,7 @@ function parseProxyNameOverrideRules(value) {
     let target = "";
 
     if (isObject(item)) {
+      // 对象模式直接读取字段，更适合脚本内结构化传参。
       pattern = normalizeStringArg(item.pattern);
       target = normalizeStringArg(item.target);
     } else {
@@ -2399,6 +2412,7 @@ function parseProxyNameOverrideRules(value) {
       continue;
     }
 
+    // 用 `pattern=>target` 作为去重键，避免重复规则多次命中。
     const key = `${pattern}=>${target}`;
     if (seen[key]) {
       continue;
@@ -2996,6 +3010,7 @@ function extractRequestPathname(location) {
 // 从请求路径中识别当前访问的是 download / share / file 哪类路由，以及对应名称。
 function extractRouteInfoFromLocation(location) {
   const pathname = extractRequestPathname(location);
+  // 先把路径切成已解码的段，后续所有路由识别都基于它。
   const segments = pathname
     .split("/")
     .map((segment) => safeDecodeUriComponent(segment).trim())
@@ -3006,6 +3021,7 @@ function extractRouteInfoFromLocation(location) {
   }
 
   if (/^download$/i.test(segments[0]) && segments[1]) {
+    // `/download/<name>`：最常见的下载路由。
     return {
       routeKind: "download",
       routeName: segments[1],
@@ -3014,6 +3030,7 @@ function extractRouteInfoFromLocation(location) {
   }
 
   if (/^share$/i.test(segments[0]) && segments[1]) {
+    // `/share/<name>`：分享页路由。
     return {
       routeKind: "share",
       routeName: segments[1],
@@ -3022,6 +3039,7 @@ function extractRouteInfoFromLocation(location) {
   }
 
   if (/^api$/i.test(segments[0]) && /^file$/i.test(segments[1] || "") && segments[2]) {
+    // `/api/file/<name>`：API 文件导出路由。
     return {
       routeKind: "file",
       routeName: segments[2],
@@ -3039,6 +3057,7 @@ function extractRouteInfoFromLocation(location) {
 // 读取官方链接上的保留 query 参数，给日志 / 诊断 / 响应头复用。
 function resolveRuntimeLinkOptions(rawOptions) {
   const query = getRuntimeRequestQuery(rawOptions);
+  // 这些字段对应 Sub-Store 官方下载链接里常见的保留参数。
   const url = normalizeQueryValue(query.url);
   const content = normalizeQueryValue(query.content);
   const ua = normalizeQueryValue(query.ua);
@@ -3053,6 +3072,7 @@ function resolveRuntimeLinkOptions(rawOptions) {
   const urlKind = resolveRuntimeLinkUrlKind(url);
 
   return {
+    // hasXxx 代表“用户是否显式传了该参数”，与最终标准化结果分开保存，方便做诊断。
     hasUrl: hasUsableArgValue(url),
     hasContent: hasUsableArgValue(content),
     hasUa: hasUsableArgValue(ua),
@@ -3077,6 +3097,7 @@ function resolveRuntimeLinkOptions(rawOptions) {
 function validateRuntimeLinkOptionWarnings(linkOptions) {
   const source = isObject(linkOptions) ? linkOptions : {};
   const warnings = [];
+  // 很多 query 参数只有在存在远程订阅源时才真正有意义。
   const hasRemoteSource = hasRemoteRuntimeLinkSource(source);
 
   if (source.hasUrl && source.urlKind === "local-node") {
@@ -3088,6 +3109,7 @@ function validateRuntimeLinkOptionWarnings(linkOptions) {
       warnings.push(`mergeSources=${source.mergeSources} 仅支持 ${RUNTIME_LINK_MERGE_SOURCE_VALUES.join(" / ")}`);
     }
 
+    // mergeSources 只有在 url 与 content 同时存在时才需要参与决策。
     if (!(source.hasUrl && source.hasContent)) {
       warnings.push("mergeSources 仅在同时传入 url 与 content 时才有实际意义");
     }
@@ -3098,6 +3120,7 @@ function validateRuntimeLinkOptionWarnings(linkOptions) {
   }
 
   if (source.hasUrl && source.hasContent && !source.hasMergeSources) {
+    // 双源同时存在但没声明合并策略时，最容易造成“结果与预期不一致”。
     warnings.push("当前链接同时携带了 url 与 content，但未显式声明 mergeSources；请确认是否符合预期");
   }
 
@@ -3117,24 +3140,28 @@ function validateRuntimeLinkOptionWarnings(linkOptions) {
     warnings.push("proxy 主要用于获取远程订阅；当前链接里没有可识别的远程订阅地址");
   }
 
+  // 最终去重，避免同一语义问题从多个分支重复报出。
   return uniqueStrings(warnings);
 }
 
 // 解析当前运行环境里的目标平台信息，优先使用官方上下文字段。
 function resolveRuntimeContext(rawOptions) {
   const options = isObject(rawOptions) ? rawOptions : {};
+  // 官方运行时通常把请求信息挂在 `_req` 上；这里全部兜底成对象，避免宿主差异导致报错。
   const request = isObject(options._req) ? options._req : {};
   const requestQuery = getRuntimeRequestQuery(options);
   const requestHeaders = isObject(request.headers) ? request.headers : {};
   const requestParams = isObject(request.params) ? request.params : {};
   const requestUrl = normalizeStringArg(request.url);
   const requestPath = normalizeStringArg(request.path);
+  // path 和完整 url 都可能包含有效路由信息，这里两边都尝试识别，再优先采用 path 结果。
   const routeInfoFromPath = extractRouteInfoFromLocation(requestPath);
   const routeInfoFromUrl = extractRouteInfoFromLocation(requestUrl);
   const routeInfo = routeInfoFromPath.routeKind ? routeInfoFromPath : routeInfoFromUrl;
   const requestParamsTarget = normalizeStringArg(requestParams.target || requestParams.platform || "");
   const routeTarget = getRuntimeRouteTarget(request);
   const queryTarget = normalizeStringArg(requestQuery.target || requestQuery.platform || "");
+  // target 优先级：宿主显式 targetPlatform > 运行 options > 路由 > query。
   const target = normalizeStringArg(
     typeof targetPlatform !== "undefined"
       ? targetPlatform
@@ -3145,6 +3172,7 @@ function resolveRuntimeContext(rawOptions) {
         ""
       )
   );
+  // UA 主要用于日志与链路语义诊断，不参与策略逻辑。
   const userAgent = normalizeStringArg(
     requestHeaders["user-agent"] ||
     requestHeaders["User-Agent"] ||
@@ -3276,8 +3304,10 @@ function getCountryDefinitionMarkers(country, aliasMap) {
 // 分析 country-extra-aliases 是否存在“一个别名指向多个国家”或“撞到别的内置国家标记”的冲突。
 function analyzeCountryExtraAliasMap(aliasMap) {
   const source = isObject(aliasMap) ? aliasMap : {};
+  // 第一类冲突：多个国家同时声明了同一个自定义别名。
   const customTokenOwners = Object.create(null);
   const customDuplicateConflicts = [];
+  // 第二类冲突：用户自定义别名撞上了其他国家定义里已内置的 marker。
   const builtInMarkerConflicts = [];
 
   for (const countryName of Object.keys(source)) {
@@ -3294,6 +3324,7 @@ function analyzeCountryExtraAliasMap(aliasMap) {
         alias: normalizedAlias,
         countries: []
       };
+      // 这里先记 owner，不立即报错，方便后面统一做去重与汇总。
       customTokenOwners[token].countries.push(countryName);
     }
   }
@@ -3321,6 +3352,7 @@ function analyzeCountryExtraAliasMap(aliasMap) {
           continue;
         }
 
+        // 只要命中“别的国家”的任一内置 marker，就视为潜在识别冲突。
         const markers = getBuiltInCountryDefinitionMarkers(definition);
         if (markers.some((item) => normalizeGroupMarkerToken(item) === token)) {
           builtInMarkerConflicts.push(`${normalizedAlias}=>${countryName}~${definition.name}`);
@@ -3438,11 +3470,13 @@ function createRegionGroupAliasMap() {
 
 // 解析 region-groups / continent-groups 参数，支持布尔、字符串、数组、对象与 JSON 字符串。
 function parseRegionGroupKeys(value) {
+  // allKeys 表示“默认自动启用”的全部区域组；includeInAuto=false 的定义不会自动进入这里。
   const allKeys = REGION_GROUP_DEFINITIONS
     .filter((definition) => definition && definition.includeInAuto !== false)
     .map((definition) => definition.key);
   const enabledKeys = [];
   const invalidTokens = [];
+  // 布尔语义关键字用于兼容 `region-groups=true/all/default` 这类简写。
   const truthyTokens = ["true", "1", "yes", "y", "on", "all", "auto", "default"];
   const falsyTokens = ["false", "0", "no", "n", "off", "none", "disable", "disabled"];
   const pushByToken = (token) => {
@@ -3453,6 +3487,7 @@ function parseRegionGroupKeys(value) {
 
     const definition = findRegionGroupDefinitionByToken(normalized);
     if (definition) {
+      // 一旦命中定义，统一收敛到标准 key，便于后面稳定去重。
       enabledKeys.push(definition.key);
       return;
     }
@@ -3467,16 +3502,19 @@ function parseRegionGroupKeys(value) {
 
     const normalized = normalizeGroupMarkerToken(source);
     if (truthyTokens.includes(normalized)) {
+      // true/all/default 等价于启用所有自动区域组。
       enabledKeys.push.apply(enabledKeys, allKeys);
       return;
     }
 
     if (falsyTokens.includes(normalized)) {
+      // false/off/none 直接表示禁用，不记为错误输入。
       return;
     }
 
     if (/^[\[{]/.test(source)) {
       try {
+        // 字符串里若看起来像 JSON，就递归复用本函数解析。
         const parsed = JSON.parse(source);
         const nested = parseRegionGroupKeys(parsed);
         enabledKeys.push.apply(enabledKeys, nested.keys);
@@ -3487,6 +3525,7 @@ function parseRegionGroupKeys(value) {
       }
     }
 
+    // 普通字符串则按常见分隔符拆开逐项解析。
     for (const token of source.split(/[,;|\n]/)) {
       pushByToken(token);
     }
@@ -3509,6 +3548,7 @@ function parseRegionGroupKeys(value) {
   }
 
   if (Array.isArray(value)) {
+    // 数组允许混合“整段字符串”和“单个 token”两类输入。
     for (const item of value) {
       if (typeof item === "string") {
         collectFromString(item);
@@ -3525,6 +3565,7 @@ function parseRegionGroupKeys(value) {
   }
 
   if (isObject(value)) {
+    // 对象模式仅采纳值为 truthy 的键，便于写成 `{ asia: true, europe: false }`。
     for (const key of Object.keys(value)) {
       if (parseBool(value[key], false)) {
         pushByToken(key);
@@ -5842,6 +5883,7 @@ function parseRuleProviderPayload(value) {
   let source = value;
 
   if (typeof source === "string") {
+    // 字符串优先尝试按 JSON 解析；失败后再退回到“纯文本规则列表”模式。
     const text = normalizeStringArg(source);
     if (!text) {
       return { items: [], invalidItems: [], parseFailed: false };
@@ -5872,6 +5914,7 @@ function parseRuleProviderPayload(value) {
     const item = rawItems[index];
 
     if (typeof item !== "string") {
+      // rule-provider payload 每一项都必须是规则字符串。
       invalidItems.push(`payload[${index}] 不是字符串`);
       continue;
     }
@@ -5896,6 +5939,7 @@ function parseProxyProviderPayload(value) {
   let source = value;
 
   if (typeof source === "string") {
+    // proxy-provider payload 必须能解析成 JSON；纯文本模式在这里没有意义。
     const text = normalizeStringArg(source);
     if (!text) {
       return { items: [], invalidItems: [], parseFailed: false };
@@ -5918,6 +5962,7 @@ function parseProxyProviderPayload(value) {
     const item = rawItems[index];
 
     if (!isObject(item)) {
+      // 单个节点必须是对象结构，否则后面无法做字段校验与直传。
       invalidItems.push(`payload[${index}] 不是对象`);
       continue;
     }
@@ -5926,10 +5971,12 @@ function parseProxyProviderPayload(value) {
     const type = normalizeStringArg(item.type);
 
     if (!name || !type) {
+      // name/type 是最小必需字段，缺任一都无法构成合法节点定义。
       invalidItems.push(`payload[${index}] 缺少有效的 name/type`);
       continue;
     }
 
+    // 深拷贝一份，避免外部对象被后续 mutate 时反向污染 ARGS。
     items.push(cloneJsonCompatibleValue(item, Object.assign({}, item)));
   }
 
@@ -5948,6 +5995,7 @@ function parseProviderHeaderEntries(value) {
   const invalidLines = [];
 
   for (const sourceItem of sourceList) {
+    // 支持数组、多行文本与 `||` 串联三种常见传参方式。
     const lines = String(sourceItem == null ? "" : sourceItem).replace(/\r/g, "").split(/\n|\|\|/);
 
     for (const rawLine of lines) {
@@ -5959,6 +6007,7 @@ function parseProviderHeaderEntries(value) {
 
       const arrowIndex = line.indexOf("=>");
       const colonIndex = line.indexOf(":");
+      // 同时兼容 `Header: value` 与 `Header=>value` 两套写法。
       const splitIndex = arrowIndex > 0 ? arrowIndex : colonIndex;
       const separatorLength = arrowIndex > 0 ? 2 : 1;
 
@@ -5979,6 +6028,7 @@ function parseProviderHeaderEntries(value) {
         headers[name] = [];
       }
 
+      // 同名 header 保留多个值，交给下游 provider 自己决定是否接受多值头。
       headers[name].push(headerValue);
       entries.push({ name, value: headerValue });
     }
