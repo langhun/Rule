@@ -884,6 +884,8 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
 // 国家/地区识别配置表。
 // 这里不只放国家名，还放旗帜和别名，用于后续自动识别节点归属。
 const COUNTRY_DEFINITIONS = [
+  // 这一大段的每一项都遵循同一结构：name 用作最终组名显示，flag 用于界面与日志展示，aliases 则负责命中机场节点里的各种写法。
+  // 对容易与普通英文单词冲突的两位缩写（如 IT / IN / NO / CH / IE / PT），尽量只保留中文名、三位缩写和主要城市名，减少误判。
   // 香港常见命名方式。
   { name: "香港", flag: "🇭🇰", aliases: ["香港", "HK", "HKG", "Hong Kong", "HongKong"] },
   // 澳门常见命名方式。
@@ -1089,6 +1091,8 @@ const COUNTRY_DEFINITIONS = [
 
 // 区域分组定义：参考 GitHub 社区常见的“按亚洲/欧洲/美洲聚合国家组”玩法，但仅在用户显式开启 region-groups 时生成。
 const REGION_GROUP_DEFINITIONS = Object.freeze([
+  // key 是规范 token，name 是最终展示名，aliases 用于兼容 region-groups / prefer-countries 中的多种写法。
+  // countryKeys 必须对应上面 COUNTRY_DEFINITIONS 里的 name；includeInAuto=false 表示它是“显式点名才生成”的细分区域，不会混进默认 all/auto 面板。
   {
     key: "asia",
     name: "🌏 亚洲节点",
@@ -1099,6 +1103,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "greaterchina",
     name: "🀄 华语节点",
     aliases: ["greaterchina", "greater-china", "greatercn", "sinosphere", "华语", "大中华"],
+    // 华语区这类细分区域默认不自动展开，避免旧布局在开启 region-groups 时突然膨胀。
     includeInAuto: false,
     countryKeys: ["香港", "澳门", "台湾"]
   },
@@ -1141,6 +1146,7 @@ const REGION_GROUP_DEFINITIONS = Object.freeze([
     key: "europe",
     name: "🌍 欧洲节点",
     aliases: ["europe", "eu", "eur", "欧洲"],
+    // 这里把“毛熊”也归到欧洲大区，方便延续多数机场面板把 RU 视作欧线的常见习惯。
     countryKeys: ["英国", "德国", "法国", "荷兰", "意大利", "西班牙", "瑞士", "瑞典", "挪威", "芬兰", "丹麦", "葡萄牙", "爱尔兰", "比利时", "奥地利", "波兰", "卢森堡", "爱沙尼亚", "拉脱维亚", "立陶宛", "保加利亚", "克罗地亚", "斯洛伐克", "斯洛文尼亚", "捷克", "匈牙利", "罗马尼亚", "希腊", "乌克兰", "白俄罗斯", "冰岛", "塞尔维亚", "阿尔巴尼亚", "波黑", "黑山", "北马其顿", "摩尔多瓦", "塞浦路斯", "马耳他", "毛熊"]
   },
   {
