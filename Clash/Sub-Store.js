@@ -2254,6 +2254,8 @@ function parseCountryExtraAliasEntries(value) {
       continue;
     }
 
+    // 解析 country-extra-aliases 时 ARGS 还没初始化完成，所以这里显式把“本轮已解析出的别名映射”传进去，
+    // 既能避免触发 ARGS 的 TDZ，也能让同一批配置里的前序别名立即参与后续国家匹配。
     const definition = findCountryDefinitionByMarker(countryMarker, result.map);
     if (!definition) {
       result.unknownCountryMarkers.push(countryMarker);
@@ -3213,6 +3215,7 @@ function buildCountryPattern(aliases) {
 let COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = Object.create(null);
 
 // 读取某个国家定义对应的“用户自定义额外别名”，便于把运行参数也纳入国家识别。
+// aliasMap 可选：解析阶段传入临时映射，运行阶段则回落到全局缓存。
 function getCountryExtraAliases(countryName, aliasMap) {
   const source = isObject(aliasMap) ? aliasMap : COUNTRY_EXTRA_ALIAS_RUNTIME_MAP;
   return uniqueStrings(source[countryName]);
@@ -3301,6 +3304,7 @@ function analyzeCountryExtraAliasMap(aliasMap) {
 }
 
 // 按标记查找某个国家定义，兼容显示名、旗帜、内置别名与运行参数追加别名。
+// aliasMap 可选：用于 country-extra-aliases 解析早期，把“尚未落到 ARGS 上的临时别名”一并纳入匹配。
 function findCountryDefinitionByMarker(marker, aliasMap) {
   const token = normalizeGroupMarkerToken(marker);
   if (!token) {
@@ -4162,6 +4166,7 @@ function resolveArgs(rawArgs) {
   const devPreferCountries = toStringList(rawDevPreferCountries);
   const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
   const countryExtraAliasesMap = parsedCountryExtraAliases.map;
+  // 解析完成后立刻刷新运行态缓存，确保后续 parseCountries / preferred-country 等流程读取到的是本轮最新别名。
   COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = isObject(countryExtraAliasesMap) ? countryExtraAliasesMap : Object.create(null);
   const countryExtraAliasAnalysis = analyzeCountryExtraAliasMap(countryExtraAliasesMap);
   const countryExtraAliasCountryCount = Object.keys(countryExtraAliasesMap).length;
@@ -12293,6 +12298,7 @@ const BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS = Object.freeze([
       { key: "scope", value: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default" },
       { key: "payload-scope", value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" },
       { key: "apply-scope", value: () => buildRuleProviderApplyScopeSummary() },
+      // value 回调会由 getBuildSummaryArgEntryValue(stats) 注入 stats；这里必须显式接参，不能闭包引用不存在的局部变量。
       { key: "apply-stats", value: (stats) => stats.ruleProviderApplyStatsSummary },
       { key: "apply-preview", value: (stats) => stats.ruleProviderApplyPreviewSummary },
       { key: "mutation-stats", value: (stats) => stats.ruleProviderMutationStatsSummary },
@@ -12320,6 +12326,7 @@ const BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS = Object.freeze([
       { key: "hc-lazy", value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" },
       { key: "hc-expected-status", value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" },
       { key: "apply-scope", value: () => buildProxyProviderApplyScopeSummary() },
+      // 这里同样直接消费 full-summary 统计对象，避免 full 模式下引用未定义的 stats 局部变量。
       { key: "apply-stats", value: (stats) => stats.proxyProviderApplyStatsSummary },
       { key: "apply-preview", value: (stats) => stats.proxyProviderApplyPreviewSummary },
       { key: "mutation-stats", value: (stats) => stats.proxyProviderMutationStatsSummary },
@@ -13564,6 +13571,8 @@ function buildMainDiagnosticsPayload(payload) {
   const assemblyContext = buildMainPayloadAssemblyContext(context);
 
   return Object.assign({
+    // diagnostics supplement / response header / full-summary 都还会继续复用 assemblyContext；
+    // 这里直接带下去，避免后续阶段再二次装配时丢字段。
     assemblyContext,
     proxies: assemblyContext.proxies,
     proxyGroups: assemblyContext.summaryPayloadContext.proxyGroups,
@@ -13912,6 +13921,7 @@ function buildMainFinalizationPayload(payload) {
   const context = isObject(payload) ? payload : {};
   const assemblyContext = buildMainPayloadAssemblyContext(context);
   return Object.assign(
+    // full 日志阶段还会回头读取 summary/geo/rule 的聚合上下文，这里显式挂上 assemblyContext 供收尾链路复用。
     { assemblyContext },
     buildDefinitionDrivenPayload(MAIN_FINALIZATION_PAYLOAD_DEFINITIONS, context),
     assemblyContext.summaryPayloadContext
@@ -14210,6 +14220,8 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
   },
   {
     key: "serviceArtifacts",
+    // buildProxyGroupServiceArtifactMap 已经改成只接收一个 payload 对象；
+    // 这里直接传命名字段，避免继续引用已不存在的 definitions 变量。
     value: (context) => buildProxyGroupServiceArtifactMap({
       githubPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.githubPreferredGroups,
       steamPreferredGroups: context.preferredCountryGroups && context.preferredCountryGroups.steamPreferredGroups,
@@ -14261,6 +14273,7 @@ function buildRuntimeResponseHeaders(diagnostics) {
 // 这里会把国家组、功能组、优先级组、兜底组全部拼出来。
 function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, existingGroups, existingProxyProviders) {
   // full 模式下统计构建耗时，方便后续优化。
+  // 部分脚本运行环境只提供 log/warn/error，没有 time/timeEnd，所以这里先做能力检测再调用。
   if (ARGS.full && typeof console.time === "function") {
     console.time("buildProxyGroups");
   }
@@ -14307,6 +14320,7 @@ function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, ex
   const orderedGroups = finalizeProxyGroupGeneration(generatedGroups, existingGroups, countryGroupNames, regionGroupNames);
 
   // full 模式下输出构建耗时。
+  // 同样兼容缺少 console.timeEnd 的运行环境，避免 full 模式只因日志能力不足而中断主流程。
   if (ARGS.full && typeof console.timeEnd === "function") {
     console.timeEnd("buildProxyGroups");
   }
