@@ -429,6 +429,7 @@ const REGEX_LANDING_ISOLATE = /落地|Relay|To-user|中转/i;
 const BUILTIN_POLICY_NAMES = ["DIRECT", "REJECT", "REJECT-DROP", "PASS", "GLOBAL", "COMPATIBLE"];
 // 规则顺序编排时，用这两个哨兵值表示“移到最前 / 移到最后（MATCH 之前）”。
 const RULE_ORDER_START = "__RULE_ORDER_START__";
+// RULE_ORDER_END 表示规则项应尽量后置，但仍会排在最终 MATCH 规则之前。
 const RULE_ORDER_END = "__RULE_ORDER_END__";
 // 策略组布局预设的默认模式。
 const DEFAULT_GROUP_ORDER_PRESET = "balanced";
@@ -1749,6 +1750,7 @@ const DNS_DEFAULT_DOMESTIC_NAMESERVERS = Object.freeze([
   "https://doh.pub/dns-query"
 ]);
 
+// fallback nameserver 面向非中国/被墙场景，默认采用公共 DoH 服务。
 const DNS_DEFAULT_FALLBACK_NAMESERVERS = Object.freeze([
   "https://1.1.1.1/dns-query",
   "https://8.8.8.8/dns-query"
@@ -6748,11 +6750,17 @@ function createDeveloperRuleProvider(name) {
 
 // 统一合并官方 `$options` 与 `$arguments`，并让显式 `$arguments` 保持更高优先级。
 const RAW_OPTIONS = typeof $options !== "undefined" ? $options : {};
+// 某些宿主会把用户参数挂到 `$arguments`，这里单独兜底读取。
 const RAW_ARGUMENTS = typeof $arguments !== "undefined" ? $arguments : {};
+// 查询字符串中的参数会额外影响下载链接语义与运行态诊断。
 const RUNTIME_QUERY_ARGS = parseRuntimeQueryArgs(RAW_OPTIONS);
+// 下载链接相关的官方查询参数单独抽出来，方便后面做语义摘要。
 const RUNTIME_LINK_OPTIONS = resolveRuntimeLinkOptions(RAW_OPTIONS);
+// `$options` 统一标准化成脚本内部使用的 kebab/camel 兼容参数对象。
 const NORMALIZED_OPTION_ARGS = normalizeScriptArgs(RAW_OPTIONS);
+// `$arguments` 同样走一遍标准化，保证两个入口合并前结构一致。
 const NORMALIZED_ARGUMENT_ARGS = normalizeScriptArgs(RAW_ARGUMENTS);
+// 最终参数按“查询参数 < `$options` < `$arguments`”优先级合并，供后续 ARGS 解析复用。
 const MERGED_SCRIPT_ARGS = Object.assign(
   {},
   RUNTIME_QUERY_ARGS,
@@ -7172,6 +7180,7 @@ const NON_DEV_SERVICE_DEFINITIONS = Object.freeze(
 );
 // 响应头/校验两个阶段都直接复用这份基础定义，避免 label/argToken/groupName 在多处手动保持一致。
 const SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS = SERVICE_DEFINITIONS;
+// 资源校验阶段复用同一批服务定义，确保“谁需要校验”与“谁需要响应头展示”保持一致。
 const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS;
 // 独立组响应头字段定义：configured-only 表示只关心“是否配置”，value 表示输出实际生效值，custom 走自定义计算。
 const SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS = Object.freeze([
@@ -7196,6 +7205,7 @@ const SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS = Object.freeze([
   { headerSuffix: "Auto-Proxies", valueType: "custom", customValue: (service) => buildServiceAutoProxyHeaderValue(service.argToken) }
 ]);
 
+// 解析单个独立组响应头字段的最终值，统一兼容 configured / value / custom 三种字段类型。
 function resolveServiceResponseHeaderFieldValue(service, field) {
   const currentService = isObject(service) ? service : {};
   const currentField = isObject(field) ? field : {};
@@ -7212,6 +7222,7 @@ function resolveServiceResponseHeaderFieldValue(service, field) {
   return typeof currentField.customValue === "function" ? currentField.customValue(currentService) : "default";
 }
 
+// 把“服务 + 字段”适配成最终响应头 definition，供批量展开 helper 直接复用。
 function createServiceResponseHeaderDefinition(service, field) {
   return {
     headerSuffix: `${service.label}-${field.headerSuffix}`,
@@ -7241,6 +7252,7 @@ function buildServiceResponseHeaderDefinitions(services, fields) {
   return entries;
 }
 
+// 所有独立组响应头 definitions 在这里一次性展开，后续 runtime response-header 直接消费成品。
 const SERVICE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
   buildServiceResponseHeaderDefinitions(
     SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS,
@@ -7248,6 +7260,7 @@ const SERVICE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
   )
 );
 
+// 把 prefer-countries 的 diagnostics 摘要映射成具体响应头 definition。
 function createServicePreferredCountryResponseHeaderDefinition(definition, field) {
   return {
     headerSuffix: `${definition.label}-Prefer-Countries-${field.headerSuffix}`,
@@ -7258,6 +7271,7 @@ function createServicePreferredCountryResponseHeaderDefinition(definition, field
   };
 }
 
+// 各业务组 Prefer-Countries 相关响应头在这里统一展开，避免 definitions 区域继续手写 reduce 模板。
 const SERVICE_PREFERRED_COUNTRY_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
   SERVICE_PREFERRED_COUNTRY_DEFINITIONS.reduce((entries, definition) => {
     for (const field of SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS) {
@@ -9093,12 +9107,14 @@ const SERVICE_LATENCY_LOG_FIELD_DEFINITIONS = Object.freeze([
   { label: "group-expected-status", suffix: "GroupExpectedStatus" },
   { label: "group-strategy", suffix: "GroupStrategy" }
 ]);
+// 节点池相关日志字段统一收成 definitions，便于 GitHub / Steam / Dev 共用同一套输出模板。
 const SERVICE_NODE_POOL_LOG_FIELD_DEFINITIONS = Object.freeze([
   { label: "include-all-proxies", suffix: "IncludeAllProxies" },
   { label: "filter", suffix: "NodeFilter" },
   { label: "exclude-filter", suffix: "NodeExcludeFilter" },
   { label: "exclude-type", suffix: "NodeExcludeType" }
 ]);
+// Dev 组额外支持 mode/type/test-url 等高级项，所以这里单独维护它的专属日志字段集合。
 const DEV_SERVICE_ADVANCED_LOG_FIELD_DEFINITIONS = Object.freeze([
   { label: "test-url", suffix: "TestUrl" },
   { label: "strategy", suffix: "GroupStrategy" },
@@ -9109,6 +9125,7 @@ const DEV_SERVICE_ADVANCED_LOG_FIELD_DEFINITIONS = Object.freeze([
   { label: "routing-mark", suffix: "RoutingMark" }
 ]);
 
+// 统一格式化独立组测速/健康检查相关参数摘要。
 function formatServiceLatencyLogValue(argToken) {
   return formatServiceArgFieldsLogValue(argToken, SERVICE_LATENCY_LOG_FIELD_DEFINITIONS);
 }
@@ -12156,6 +12173,7 @@ const BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS = Object.freeze([
   { key: "invalidGroupPatterns", label: "分组正则告警" },
   { key: "emptyAutoGroups", label: "空自动分组告警" }
 ]);
+// full 日志数量指标也拆成 section 计划：先打核心数量，再打告警数量，避免主流程里写两轮几乎相同的循环。
 const BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS = Object.freeze([
   { definitions: BUILD_SUMMARY_PRIMARY_METRIC_DEFINITIONS, defaultUnit: "" },
   { definitions: BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, defaultUnit: "条" }
@@ -12204,13 +12222,16 @@ function createServiceBuildSummaryArgEntries(services, fields, options) {
   return entries;
 }
 
+// 独立组展示参数摘要字段：当前只关心 hidden / icon 这两类面板展示项。
 const BUILD_SUMMARY_SERVICE_DISPLAY_FIELD_DEFINITIONS = Object.freeze([
   { keySuffix: "hidden", argSuffix: "Hidden" },
   { keySuffix: "icon", argSuffix: "Icon" }
 ]);
+// 独立组 UDP 参数摘要字段：目前只需要输出 disable-udp。
 const BUILD_SUMMARY_SERVICE_UDP_FIELD_DEFINITIONS = Object.freeze([
   { keySuffix: "disable-udp", argSuffix: "DisableUdp" }
 ]);
+// 独立组网络参数摘要字段：统一输出 interface-name / routing-mark 这两类网络绑定配置。
 const BUILD_SUMMARY_SERVICE_NETWORK_FIELD_DEFINITIONS = Object.freeze([
   { keySuffix: "interface-name", argSuffix: "InterfaceName" },
   { keySuffix: "routing-mark", argSuffix: "RoutingMark" }
@@ -12771,15 +12792,18 @@ const BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINE_DEFINITIONS = Object.freeze([
   }
 ]);
 
+// 把“服务资源摘要定义”统一转成 build summary 可直接消费的 value-line 定义表。
 function buildServiceSummaryValueLines(definitions) {
   return (Array.isArray(definitions) ? definitions : [])
     .map((definition) => createServiceSummaryValueLineDefinition(definition.label, definition.services, definition.formatter));
 }
 
+// 预先把服务资源摘要定义映射成固定 value-line，减少 full summary 阶段重复构造。
 const BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINES = Object.freeze(
   buildServiceSummaryValueLines(BUILD_SUMMARY_SERVICE_RESOURCE_VALUE_LINE_DEFINITIONS)
 );
 
+// 这里集中定义 full build summary 中的“值类”输出项，便于统一检索、复用与响应头映射。
 const BUILD_SUMMARY_VALUE_LINE_DEFINITIONS = Object.freeze([
   {
     label: "国家附加别名",
@@ -12878,12 +12902,14 @@ function emitBuildSummaryMetricLine(definition, stats, defaultUnit) {
   console.log(`   ✓ ${label}: ${value}${unit ? ` ${unit}` : ""}`);
 }
 
+// 按定义表顺序输出某一节中的全部数量型指标。
 function logBuildSummaryMetricLines(stats, definitions, defaultUnit) {
   for (const definition of Array.isArray(definitions) ? definitions : []) {
     emitBuildSummaryMetricLine(definition, stats, defaultUnit);
   }
 }
 
+// 顺序遍历所有指标节定义，并逐节输出统计摘要。
 function logBuildSummaryMetricSections(stats) {
   for (const section of BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS) {
     logBuildSummaryMetricLines(stats, section.definitions, section.defaultUnit);
@@ -12913,6 +12939,7 @@ const BUILD_SUMMARY_LOOKUP_REGISTRY_DEFINITIONS = Object.freeze([
   { key: "providerArg", definitions: BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS }
 ]);
 
+// 把多套 summary 定义表预编译成 lookup registry，供 full 模式按标签快速检索。
 function buildBuildSummaryLookupRegistry(definitions) {
   const registry = Object.create(null);
 
@@ -12943,6 +12970,7 @@ function logBuildSummaryDefinitionLabels(stats, lookup, labels, logger) {
   }
 }
 
+// 不同 lookup 分区对应不同的输出函数，这里固定映射，避免调用方再写条件分派。
 const BUILD_SUMMARY_LOOKUP_LOGGER_MAP = Object.freeze({
   arg: logBuildSummaryArgLine,
   value: logBuildSummaryValueLine
@@ -13127,6 +13155,7 @@ function buildDiagnosticSummaryResponseHeaderEntryList(definition, diagnostics) 
     .concat(previewKey && previewHeaderSuffix ? buildSingleResponseHeaderEntryList(previewHeaderSuffix, current[previewKey] || "none") : []);
 }
 
+// diagnostics 中“summary + preview”结构的字段统一借由该 helper 生成响应头。
 function buildDiagnosticSummaryResponseHeaders(prefix, diagnostics, definitions) {
   return buildMappedResponseHeaders(prefix, diagnostics, definitions, buildDiagnosticSummaryResponseHeaderEntryList);
 }
@@ -13147,6 +13176,7 @@ function buildRuntimeResponseHeaderDefinitionEntryList(definition, diagnostics) 
   );
 }
 
+// 普通 definitions 形式的运行时响应头走这条批量装配通路。
 function buildRuntimeResponseHeaderEntries(prefix, definitions, diagnostics) {
   return buildMappedResponseHeaders(prefix, diagnostics, definitions, buildRuntimeResponseHeaderDefinitionEntryList);
 }
@@ -13158,10 +13188,12 @@ function createRuntimeResponseHeaderSection(kind, payload) {
     : { kind, definitions: payload };
 }
 
+// mapped section 只是对 createRuntimeResponseHeaderSection 的语义化包装。
 function createRuntimeResponseHeaderMappedSection(kind, definitions) {
   return createRuntimeResponseHeaderSection(kind, definitions);
 }
 
+// 最常见的 definitions section 直接用该 helper 包装成标准 section 结构。
 function createRuntimeResponseHeaderDefinitionSection(definitions) {
   return createRuntimeResponseHeaderMappedSection("definition", definitions);
 }
@@ -13177,6 +13209,7 @@ const RUNTIME_RESPONSE_HEADER_TRAILING_DEFINITIONS = Object.freeze([
   { headerSuffix: "Diagnostic-Issues", value: (diagnostics) => countDiagnosticIssues(diagnostics) }
 ]);
 
+// 运行时响应头的完整装配顺序定义；各 section 会按这里的次序依次展开。
 const RUNTIME_RESPONSE_HEADER_SECTION_DEFINITIONS = Object.freeze([
   createRuntimeResponseHeaderDefinitionSection(RUNTIME_CONTEXT_RESPONSE_HEADER_DEFINITIONS),
   createRuntimeResponseHeaderDefinitionSection(RULE_SOURCE_RESPONSE_HEADER_DEFINITIONS),
@@ -13225,6 +13258,7 @@ function buildRuntimeResponseHeaderSectionPayload(section, context) {
     : {};
 }
 
+// 把 section 计划表依次归并成最终响应头对象。
 function buildRuntimeResponseHeaderSections(context, sections) {
   const headers = {};
   const runtimeContext = isObject(context) ? context : {};
@@ -14066,24 +14100,28 @@ function createContextSelectGroupBuildDefinition(groupName, contextKey) {
   };
 }
 
+// 静态 select 组直接复用预先给定的代理列表，不再读取运行时 context。
 function createStaticSelectGroupBuildDefinition(groupName, proxies) {
   return {
     build: () => createSelectGroup(groupName, proxies)
   };
 }
 
+// latency 组从 context 读取指定代理列表，再包装成 URLTest/Fallback 风格策略组。
 function createContextLatencyGroupBuildDefinition(groupName, contextKey) {
   return {
     build: (context) => createProxyListLatencyGroup(groupName, context[contextKey])
   };
 }
 
+// 服务型策略组直接消费前面生成好的 service artifact，避免这里重复解析服务参数。
 function createServiceArtifactGroupBuildDefinition(serviceKey) {
   return {
     build: (context) => createProxyGroupServiceArtifactGroup(isObject(context.serviceArtifacts) ? context.serviceArtifacts[serviceKey] : null)
   };
 }
 
+// 条件策略组只有在 predicate 命中时才真正生成，适合开关型/按需型分组。
 function createConditionalProxyGroupBuildDefinition(predicate, builder) {
   return {
     build: (context) => {
@@ -14095,6 +14133,7 @@ function createConditionalProxyGroupBuildDefinition(predicate, builder) {
   };
 }
 
+// 某些策略组需要对 context 中的一组条目逐个映射生成，这里统一封装批量映射逻辑。
 function createMappedContextProxyGroupBuildDefinition(contextKey, builder) {
   return {
     build: (context) => {
@@ -14105,6 +14144,7 @@ function createMappedContextProxyGroupBuildDefinition(contextKey, builder) {
   };
 }
 
+// 固定策略组生成计划表：无论节点分布如何，这批核心组都会优先尝试生成。
 const PROXY_GROUP_FIXED_GROUP_DEFINITIONS = Object.freeze([
   createContextSelectGroupBuildDefinition(GROUPS.SELECT, "baseProxies"),
   { build: () => createIncludeAllSelectGroup(GROUPS.MANUAL) },
@@ -14695,6 +14735,7 @@ function createDiagnosticSpecialWarningDefinition(countKey, options) {
   return Object.assign({ countKey }, isObject(options) ? options : {});
 }
 
+// 非通用模板类 diagnostics 告警统一登记在此，方便 logDiagnostics 按定义表逐项输出。
 const DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS = Object.freeze([
   createDiagnosticSpecialWarningDefinition("missingProviders", {
     shouldLog: (diagnostics) => Array.isArray(diagnostics.missingProviders) && diagnostics.missingProviders.length > 0,
