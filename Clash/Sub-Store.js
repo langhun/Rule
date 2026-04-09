@@ -436,20 +436,25 @@ const DEFAULT_GROUP_ORDER_PRESET = "balanced";
 const DEFAULT_RULE_SOURCE_PRESET = "meta";
 // 统一把 group-order-preset 的社区别名折叠到固定枚举，避免每次规范化都临时造一份 alias map。
 const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
+  // balanced 是默认均衡布局；没有显式传参时最终会回落到它。
   balanced: "balanced",
+  // core/main 一组别名都表示“核心功能组优先”的面板布局。
   core: "core",
   corefirst: "core",
   main: "core",
   mainfirst: "core",
+  // service/business 一组别名都表示把业务分组整体前移。
   service: "service",
   services: "service",
   servicefirst: "service",
   business: "service",
   businessfirst: "service",
+  // media/streaming 别名收敛到“媒体分组优先”布局。
   media: "media",
   mediafirst: "media",
   streaming: "media",
   streamingfirst: "media",
+  // region/regional/geography 这批都表示“区域组优先”的地理布局。
   region: "region",
   regions: "region",
   regionfirst: "region",
@@ -458,6 +463,7 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   regionalfirst: "region",
   geofirst: "region",
   geography: "region",
+  // country/national 这一批都落到“国家组优先”布局。
   country: "national",
   countries: "national",
   countryfirst: "national",
@@ -466,6 +472,7 @@ const GROUP_ORDER_PRESET_ALIAS_MAP = Object.freeze({
   nationfirst: "national",
   countrygroupsfirst: "national",
   countriesfirst: "national",
+  // workspace/dashboard/compact/geo-compact 则分别对应工作流优先、日常面板、紧凑面板、地理紧凑面板。
   workspace: "workspace",
   work: "workspace",
   office: "workspace",
@@ -495,6 +502,7 @@ const VALID_GROUP_ORDER_PRESET_TOKENS = Object.freeze(["default", "script"].conc
 
 // 统一维护所有策略组的展示名称，后面所有规则和分组都从这里取值。
 const GROUPS = {
+  // 下面先放基础功能组，再放业务组；这样后续阅读规则目标、布局预设和固定组定义时更顺手。
   // 主入口，用户最终在客户端里最常选择的总开关。
   SELECT: "🚀 节点选择",
   // 手动切换组，直接列出所有节点供用户人工挑选。
@@ -556,6 +564,7 @@ const GROUPS = {
 
 // 这批功能组在脚本正常构建时始终会生成，可供规则目标解析与前置组引用直接复用。
 const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
+  // 这里只放“稳定生成”的功能组；像 LANDING / LOW_COST 会按条件生成，所以不放进这份稳定名单。
   GROUPS.SELECT,
   GROUPS.MANUAL,
   GROUPS.FALLBACK,
@@ -589,6 +598,7 @@ const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs"
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
+  // token 列表里不是最终组名，而是布局阶段使用的抽象槽位；后面会再解析成实际 groups / region / country / helper 区块。
   balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "regions", "countries", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
   service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
