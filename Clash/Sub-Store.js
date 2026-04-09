@@ -328,6 +328,7 @@ const BUILTIN_DIRECT = "DIRECT";
 const NODE_SUFFIX = "节点";
 // 统一维护国家组 / 区域组排序模式别名，避免规范化逻辑和参数校验各写一份后逐步漂移。
 const GEO_GROUP_SORT_MODE_ALIAS_MAP = Object.freeze({
+  // default / script / builtin / order 这一批都收敛到脚本内置定义顺序。
   default: "definition",
   script: "definition",
   builtin: "definition",
@@ -336,6 +337,7 @@ const GEO_GROUP_SORT_MODE_ALIAS_MAP = Object.freeze({
   definition: "definition",
   definitions: "definition",
   manual: "definition",
+  // count / hot / popular 这批都表示按命中数量从高到低排序。
   count: "count-desc",
   hot: "count-desc",
   popular: "count-desc",
@@ -343,13 +345,16 @@ const GEO_GROUP_SORT_MODE_ALIAS_MAP = Object.freeze({
   countdesc: "count-desc",
   desc: "count-desc",
   descending: "count-desc",
+  // asc / countasc 则是按命中数量从低到高，方便把冷门国家组顶到前面。
   countasc: "count-asc",
   asc: "count-asc",
   ascending: "count-asc",
+  // name / alpha 统一映射到按显示名正序排列。
   name: "name",
   names: "name",
   alpha: "name",
   alphabetical: "name",
+  // name-desc / reversealpha 用于按显示名倒序排列。
   namedesc: "name-desc",
   alphadesc: "name-desc",
   reversealpha: "name-desc",
@@ -379,6 +384,7 @@ const GROUP_EXPECTED_STATUS = "204";
 const MAX_THRESHOLD = 100;
 // 如果原配置没有 mixed-port，则回落到这个默认端口。
 const DEFAULT_MIXED_PORT = 7890;
+// 下面这组 URL/path 常量分别服务于：本地规则缓存目录、社区规则源、Geo 数据下载与脚本内置补丁规则。
 // rule-provider 本地缓存目录。
 const RULE_PROVIDER_PATH_DIR = "./providers/rules";
 // MetaCubeX 标准 geo 规则仓库根地址。
@@ -407,12 +413,14 @@ const DEV_LIST_URL = `${RULESET_REPO_BASE_URL}/Dev.list`;
 const STEAM_FIX_LIST_URL = `${POWERFULLZ_RULESET_BASE_URL}/SteamFix.list`;
 // Mihomo 官方 General 配置文档中的推荐 GeoX 下载地址。
 const GEOX_URLS = {
+  // geoip / geosite / mmdb / asn 都按 Mihomo 常见字段名保存，后面写回 geox-url 时可直接复用。
   geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat",
   geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat",
   mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb",
   asn: "https://github.com/xishang0128/geoip/releases/download/latest/GeoLite2-ASN.mmdb"
 };
 
+// 下面这批正则/保留名常量会被国家识别、落地节点隔离、策略组过滤与组名去重等多个流程反复复用。
 // 用于识别低倍率、公益、实验性等不适合参与主国家分组统计的节点。
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
 // 用于识别“落地 / 中转 / Relay”等需要单独隔离的节点。
