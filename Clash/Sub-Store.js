@@ -5407,6 +5407,7 @@ function buildRuleProviderApplyScopeSummary() {
 // 统计 rule-provider 在当前参数组合下的实际命中数量，便于把“作用范围”进一步落到真实条目数上。
 function analyzeRuleProviderApplyStats(providers) {
   const source = isObject(providers) ? providers : {};
+  // total/type 分布描述 provider 基础盘子；xxxHit 描述“当前参数是否真的打到了这些条目”。
   const stats = {
     total: 0,
     http: 0,
@@ -5424,6 +5425,7 @@ function analyzeRuleProviderApplyStats(providers) {
     stats.total += 1;
 
     if (!isObject(provider)) {
+      // 非对象 provider 记为 invalid，后续不再参与分类。
       stats.invalid += 1;
       continue;
     }
@@ -5431,6 +5433,7 @@ function analyzeRuleProviderApplyStats(providers) {
     const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
 
     if (type === "http") {
+      // path/download 接管都只对 http 类型有效。
       stats.http += 1;
       if (ARGS.hasRuleProviderPathDir) {
         stats.pathHit += 1;
@@ -5447,6 +5450,7 @@ function analyzeRuleProviderApplyStats(providers) {
     }
 
     if (type === "inline") {
+      // payload 只会命中 inline provider。
       stats.inline += 1;
       if (ARGS.hasRuleProviderPayload) {
         stats.payloadHit += 1;
@@ -5504,6 +5508,7 @@ function formatProviderPreviewEntry(label, names, enabled) {
 // 汇总 rule-provider 实际命中的名称样本，便于在统计之外快速定位具体条目。
 function analyzeRuleProviderApplyPreview(providers) {
   const source = isObject(providers) ? providers : {};
+  // 这里不存计数，只保留命中样本名称，后面统一压成短预览。
   const preview = {
     path: [],
     download: [],
@@ -5520,6 +5525,7 @@ function analyzeRuleProviderApplyPreview(providers) {
     const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
 
     if (type === "http") {
+      // 与统计逻辑保持同口径：http provider 同时承担 path/download 两类接管。
       if (ARGS.hasRuleProviderPathDir) {
         preview.path.push(name);
       }
@@ -5576,24 +5582,29 @@ function analyzeProviderMutationByKeys(beforeProvider, afterProvider, keys) {
     const afterHas = hasOwn(target, key);
 
     if (!afterHas) {
+      // 最终对象里都没有该字段，说明本次无需比较。
       continue;
     }
 
     compared = true;
 
     if (beforeHas && areJsonValuesEqual(source[key], target[key])) {
+      // 字段存在且值相同，说明这一项属于 noop。
       continue;
     }
 
     if (!beforeHas) {
+      // 原来没有、现在有，记为新增写入。
       result.added = true;
       continue;
     }
 
+    // 原来就有且值变化，记为覆盖旧值。
     result.overrode = true;
   }
 
   if (compared && !result.added && !result.overrode) {
+    // 所有参与比较的字段都未变化，整体标记为 noop。
     result.noop = true;
   }
 
@@ -5642,6 +5653,7 @@ function formatProviderMutationPreviewEntry(label, entry, enabled) {
 function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
   const source = isObject(beforeProviders) ? beforeProviders : {};
   const target = isObject(afterProviders) ? afterProviders : {};
+  // added / overrode / noop 三元组用于区分“新增补全”“覆盖原值”“保持原样”。
   const stats = {
     total: 0,
     pathAdded: 0,
@@ -5669,6 +5681,7 @@ function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
     const isInlineProvider = type === "inline";
 
     if (ARGS.hasRuleProviderPathDir && isHttpProvider) {
+      // path 只看 `path` 字段本身有没有被补写或改写。
       const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"]);
       if (mutation.added) {
         stats.pathAdded += 1;
@@ -5682,6 +5695,7 @@ function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
     }
 
     if (hasRuleProviderDownloadConfiguredOptions() && isHttpProvider) {
+      // 下载控制是一组字段的组合改写，统一打包分析。
       const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"]);
       if (mutation.added) {
         stats.downloadAdded += 1;
@@ -5695,6 +5709,7 @@ function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
     }
 
     if (ARGS.hasRuleProviderPayload && isInlineProvider) {
+      // inline payload 的变化只看 payload 本身。
       const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"]);
       if (mutation.added) {
         stats.payloadAdded += 1;
@@ -5715,6 +5730,7 @@ function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
 function analyzeRuleProviderMutationPreview(beforeProviders, afterProviders) {
   const source = isObject(beforeProviders) ? beforeProviders : {};
   const target = isObject(afterProviders) ? afterProviders : {};
+  // 每类改动都保留 added / overrode / noop 三个样本桶。
   const preview = {
     path: createProviderMutationPreviewEntry(),
     download: createProviderMutationPreviewEntry(),
@@ -5734,6 +5750,7 @@ function analyzeRuleProviderMutationPreview(beforeProviders, afterProviders) {
     const isInlineProvider = type === "inline";
 
     if (ARGS.hasRuleProviderPathDir && isHttpProvider) {
+      // 样本预览与统计同口径，确保日志里的数量和样本能对上。
       appendProviderMutationPreviewEntry(
         preview.path,
         name,
@@ -6173,6 +6190,7 @@ function buildProxyProviderApplyScopeSummary() {
 // 统计 proxy-provider 在当前参数组合下的实际命中数量，便于确认每类接管到底打到了多少 provider。
 function analyzeProxyProviderApplyStats(proxyProviders) {
   const source = isObject(proxyProviders) ? proxyProviders : {};
+  // proxy-provider 的接管面更广，所以除了 path/download 外，还要跟踪 payload/collection/override/health-check。
   const stats = {
     total: 0,
     http: 0,
@@ -6193,6 +6211,7 @@ function analyzeProxyProviderApplyStats(proxyProviders) {
     stats.total += 1;
 
     if (!isObject(provider)) {
+      // 保持和 rule-provider 一致：非法 provider 单独记 invalid。
       stats.invalid += 1;
       continue;
     }
@@ -6200,6 +6219,7 @@ function analyzeProxyProviderApplyStats(proxyProviders) {
     const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
 
     if (type === "http") {
+      // 只有 http provider 受 path/download 两类下载侧参数影响。
       stats.http += 1;
       if (ARGS.hasProxyProviderPathDir) {
         stats.pathHit += 1;
@@ -6215,6 +6235,7 @@ function analyzeProxyProviderApplyStats(proxyProviders) {
       stats.other += 1;
     }
 
+    // 下列四类参数对 provider 类型不敏感，只要 provider 合法就视为命中。
     if (ARGS.hasProxyProviderPayload) {
       stats.payloadHit += 1;
     }
@@ -6244,6 +6265,7 @@ function formatProxyProviderApplyStats(stats) {
 // 汇总 proxy-provider 实际命中的名称样本，便于快速定位具体 provider。
 function analyzeProxyProviderApplyPreview(proxyProviders) {
   const source = isObject(proxyProviders) ? proxyProviders : {};
+  // 预览桶命名与 stats 的 hit 字段一一对应，方便摘要对照。
   const preview = {
     path: [],
     download: [],
@@ -6263,6 +6285,7 @@ function analyzeProxyProviderApplyPreview(proxyProviders) {
     const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
     const isHttpProvider = type === "http";
 
+    // 先处理只对 http 生效的项。
     if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
       preview.path.push(name);
     }
@@ -6308,6 +6331,7 @@ function formatProxyProviderApplyPreview(preview) {
 function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
   const source = isObject(beforeProviders) ? beforeProviders : {};
   const target = isObject(afterProviders) ? afterProviders : {};
+  // 结构和 rule-provider mutation stats 平行，只是覆盖面更大。
   const stats = {
     total: 0,
     pathAdded: 0,
@@ -6343,6 +6367,7 @@ function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
     const isHttpProvider = type === "http";
 
     if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
+      // path 仍然只看 `path` 这个单字段。
       const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"]);
       if (mutation.added) {
         stats.pathAdded += 1;
@@ -6356,6 +6381,7 @@ function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
     }
 
     if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
+      // 下载控制仍然是 interval/proxy/size-limit/header 四字段组合。
       const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"]);
       if (mutation.added) {
         stats.downloadAdded += 1;
@@ -6369,6 +6395,7 @@ function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
     }
 
     if (ARGS.hasProxyProviderPayload) {
+      // payload / collection / override / health-check 不区分 provider 类型。
       const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"]);
       if (mutation.added) {
         stats.payloadAdded += 1;
@@ -9264,9 +9291,11 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   const context = isObject(runtimeContext) ? runtimeContext : {};
   const currentRules = Array.isArray(rules) ? rules : [];
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  // 先把规则与策略组都建成 lookup，后面按 provider/group 名检索会更轻。
   const definitionLookup = buildRuleDefinitionLookup(definitions);
   const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   const query = isObject(queryArgs) ? queryArgs : {};
+  // 这里只挑一批最关键的 provider 观察其规则落点，避免预览过长。
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
     .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
@@ -9280,6 +9309,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
     .map((groupName) => buildTrafficChainGroupEntry(proxyGroupLookup[groupName] || null))
     .filter(Boolean);
   const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
+  // MATCH 是最后兜底规则，能直接看出“其余流量最终会被送到哪里”。
   const matchTarget = matchRule ? describeTrafficRule(matchRule).replace(/^MATCH->/, "") : GROUPS.SELECT;
   const firstRule = currentRules.length ? describeTrafficRule(currentRules[0]) : "none";
   const routeMarker = `${sanitizeProviderPreviewName(context.routeKind || "unknown")}:${sanitizeProviderPreviewName(context.routeName || "unknown")}`;
@@ -9317,6 +9347,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
   const definitionIndexLookup = buildRuleDefinitionIndexLookup(definitions);
   const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   const preferredStates = isObject(preferredCountryStates) ? preferredCountryStates : {};
+  // Crypto / Dev 可能会引用“当前解析出的优先国家状态”，如果上游没传，就按 ARGS 即席重建。
   const cryptoPreferredGroups = isObject(preferredStates.crypto)
     ? preferredStates.crypto.groups
     : buildPreferredCountryGroups(countries, ARGS.cryptoPreferCountries, DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS);
@@ -9335,6 +9366,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
   const expectedDeveloperFirstProxy = ARGS.devMode === "direct"
     ? BUILTIN_DIRECT
     : (hasDeveloperLeadingOverrides ? "" : GROUPS.GITHUB);
+  // total/expected/... 是摘要计数；previewEntries/warnings 是排查具体问题的样本。
   const result = {
     total: 0,
     expectedTargetCount: 0,
@@ -9349,6 +9381,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
 
   for (const profile of SERVICE_ROUTING_PROFILE_DEFINITIONS) {
     const definition = definitionLookup[profile.provider];
+    // 若规则缺失则退回 profile 自带的期望目标，便于同时观察“实际值”和“预期值”。
     const target = normalizeStringArg(definition && definition.target) || profile.expectedTarget;
     const targetGroup = proxyGroupLookup[target] || null;
     const groupType = targetGroup
@@ -9359,6 +9392,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
     const ruleIndex = hasOwn(definitionIndexLookup, profile.provider) ? definitionIndexLookup[profile.provider] : -1;
 
     result.total += 1;
+    // 下面这些计数是为了快速看出关键业务链路是否大量偏离预期。
     if (target === profile.expectedTarget) {
       result.expectedTargetCount += 1;
     }
@@ -9382,6 +9416,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
       `${profile.label}@${ruleIndex === -1 ? "?" : ruleIndex + 1}->${sanitizeProviderPreviewName(target || "none")}[${sanitizeProviderPreviewName(groupType)}]=${formatProviderPreviewNames(groupProxies.length ? groupProxies : [target], 3, 14)}`
     );
 
+    // 以下 warning 都是“虽然配置能跑，但流量行为可能偏离直觉”的高价值提示。
     if (profile.provider === "GitHub" && [BUILTIN_DIRECT, GROUPS.DIRECT].includes(target)) {
       result.warnings.push(`GitHub 规则当前直接打到 ${target}；这会绕过 GitHub 独立组，相关流量会更偏向直连而不是 GitHub 专属候选链`);
     }
