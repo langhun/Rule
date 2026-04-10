@@ -351,11 +351,12 @@
  * 346. 国内创作者付费规则继续审计：参考 blackmatrix7 当前目录，把 Afdian 并入直连规则，补上 afdian.net / afdiancdn.com，避免爱发电这类国内创作者赞助链路误走代理；AcFun / Clubhouse 暂不纳入，避免把低收益国内视频站或低频社交服务硬塞进现有分组。
  * 347. PC 游戏平台规则继续审计：参考 blackmatrix7 当前目录，把 GOG 并入游戏加速组，补上 gog.com / gog-statics.com / gog.qtlglb.com；Origin / DiabloIII 等当前目录虽然存在，但已被 EA / Blizzard 现有规则覆盖或高度重叠，暂不重复纳入。
  * 348. 国内支付规则继续审计：参考 blackmatrix7 当前目录，把 UnionPay 并入直连规则，补上 unionpay.com / chinaunionpay.com / chinapay.com 等银联链路；Bestbuy / MOMOShop / VipShop 仍暂不纳入，避免把电商站点硬塞进现有支付分组。
+ * 349. 加密货币规则继续审计：参考 blackmatrix7 当前目录，把 Binance / OKX 并入加密货币组，补上 binance.cloud / binancefuture.com / oklink.com 等交易所生态域名；其余电商/社交站点仍暂不纳入，继续避免把不同业务硬塞进现有分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.29";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.29。
+const SCRIPT_VERSION = "9.14.30";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.30。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7115,6 +7116,9 @@ const ruleProviders = finalizeRuleProviders({
   AIExtra: createRuleProvider("classical", ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : AI_EXTRA_LIST_URL, "text"),
   // 自定义加密货币规则。
   Crypto: createRuleProvider("classical", ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : CRYPTO_LIST_URL, "text"),
+  // Binance / OKX 交易所规则继续并入加密货币组，补足 Crypto.list 之外的交易平台域名。
+  Binance: createCommunityClashRuleProvider("Binance"),
+  OKX: createCommunityClashRuleProvider("OKX"),
 
   // YouTube 规则。
   YouTube: createRuleProvider("domain", metaGeoSite("youtube")),
@@ -7373,6 +7377,9 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "AI", target: GROUPS.AI },
   // 加密货币域名交给加密货币组。
   { provider: "Crypto", target: GROUPS.CRYPTO },
+  // Binance / OKX 交易所规则也交给加密货币组，补足 Crypto.list 之外的交易平台域名。
+  { provider: "Binance", target: GROUPS.CRYPTO },
+  { provider: "OKX", target: GROUPS.CRYPTO },
 
   // YouTube 流量交给 YouTube 组。
   { provider: "YouTube", target: GROUPS.YOUTUBE },
@@ -7742,7 +7749,9 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Grok", label: "Grok", expectedTarget: GROUPS.AI },
   { provider: "AppleAI", label: "AppleAI", expectedTarget: GROUPS.AI },
   { provider: "AI", label: "AI", expectedTarget: GROUPS.AI },
-  { provider: "Crypto", label: "Crypto", expectedTarget: GROUPS.CRYPTO }
+  { provider: "Crypto", label: "Crypto", expectedTarget: GROUPS.CRYPTO },
+  { provider: "Binance", label: "Binance", expectedTarget: GROUPS.CRYPTO },
+  { provider: "OKX", label: "OKX", expectedTarget: GROUPS.CRYPTO }
 ];
 
 // 统一维护 AI / Crypto / GitHub / Steam / Dev 的国家优先链配置，避免主流程、日志和响应头各写一套。
@@ -8329,6 +8338,8 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "AppleAI", label: "AppleAI", category: "ai" },
   { key: "AI", label: "AI", category: "ai" },
   { key: "Crypto", label: "Crypto", category: "trade" },
+  { key: "Binance", label: "Binance", category: "trade" },
+  { key: "OKX", label: "OKX", category: "trade" },
   { key: "GitHub", label: "GitHub", category: "dev" },
   { key: "DevList", label: "DevList", category: "dev" },
   { key: "GitLab", label: "GitLab", category: "dev" },
@@ -10839,6 +10850,10 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   pcc: "AppleAI",
   ai: "AI",
   crypto: "Crypto",
+  binance: "Binance",
+  okx: "OKX",
+  okex: "OKX",
+  oklink: "OKX",
   youtube: "YouTube",
   applemusic: "AppleMusic",
   proxymedia: "ProxyMedia",
