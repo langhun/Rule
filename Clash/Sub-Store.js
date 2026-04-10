@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.13.2
+ * Sub-Store 终极策略增强脚本 V9.14.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -321,11 +321,12 @@
  * 316. 社区高频社交分组继续补齐：继续参考 blackmatrix7 当前规则目录，把 Twitter / Reddit 提升为独立组；Threads / Twitch / LinkedIn 暂不单拆，避免和既有 Meta / 媒体 / 开发生态重复堆叠。
  * 317. 分组必要性继续审计：按“能并入现有大组就不再单拆”的原则，把 Threads 并入 Facebook、LinkedIn 并入微软服务，并把 Riot / Battle / Blizzard / EA / Nintendo / PlayStation / Xbox / Ubisoft 统一补进游戏加速组。
  * 318. 分组审计继续收尾：继续参考 blackmatrix7 的 Teams / Twitch 规则，把 Teams 并入微软服务、Twitch 并入游戏加速；Pinterest / PrimeVideo / HBO / Hulu 这类当前没有合适现成组的条目先不硬塞。
+ * 319. 媒体分组继续收敛：新增通用“流媒体”组承接 PrimeVideo / HBO / Hulu / Paramount+ / Peacock / Discovery+，并把 YouTube Music 明确并入 YouTube，避免继续为每个平台单拆一整排面板。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.13.2";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.13.2。
+const SCRIPT_VERSION = "9.14.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -570,6 +571,8 @@ const GROUPS = {
   SPOTIFY: "🎧 Spotify",
   // TikTok 专用策略组。
   TIKTOK: "🎵 TikTok",
+  // 兜住额外国际视频平台的通用流媒体组。
+  STREAMING: "🎬 流媒体",
 
   // Steam 专用策略组。
   STEAM: "🚂 Steam",
@@ -614,6 +617,7 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.DISNEY,
   GROUPS.SPOTIFY,
   GROUPS.TIKTOK,
+  GROUPS.STREAMING,
   GROUPS.STEAM,
   GROUPS.GAMES,
   GROUPS.PT,
@@ -7144,6 +7148,8 @@ const ruleProviders = finalizeRuleProviders({
   Reddit: createCommunityClashRuleProvider("Reddit"),
   // Threads 归并进 Facebook 组，避免和 Instagram / Facebook 再额外拆出一个低收益面板组。
   Threads: createCommunityClashRuleProvider("Threads"),
+  // YouTube Music 归并进 YouTube 组，保持影音平台的面板数量稳定。
+  YouTubeMusic: createCommunityClashRuleProvider("YouTubeMusic"),
   // Netflix 规则。
   Netflix: createRuleProvider("domain", metaGeoSite("netflix")),
   // Disney 规则。
@@ -7152,6 +7158,19 @@ const ruleProviders = finalizeRuleProviders({
   Spotify: createRuleProvider("domain", metaGeoSite("spotify")),
   // TikTok 规则。
   TikTok: createRuleProvider("domain", metaGeoSite("tiktok")),
+  // 额外国际视频平台统一并入“流媒体”组，避免单服务继续膨胀面板。
+  AmazonPrimeVideo: createCommunityClashRuleProvider("AmazonPrimeVideo"),
+  PrimeVideo: createCommunityClashRuleProvider("PrimeVideo"),
+  HBO: createCommunityClashRuleProvider("HBO"),
+  HBOAsia: createCommunityClashRuleProvider("HBOAsia"),
+  HBOHK: createCommunityClashRuleProvider("HBOHK"),
+  HBOUSA: createCommunityClashRuleProvider("HBOUSA"),
+  Hulu: createCommunityClashRuleProvider("Hulu"),
+  HuluJP: createCommunityClashRuleProvider("HuluJP"),
+  HuluUSA: createCommunityClashRuleProvider("HuluUSA"),
+  ParamountPlus: createCommunityClashRuleProvider("ParamountPlus"),
+  Peacock: createCommunityClashRuleProvider("Peacock"),
+  DiscoveryPlus: createCommunityClashRuleProvider("DiscoveryPlus"),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
 
@@ -7246,6 +7265,8 @@ const RULE_SET_DEFINITIONS = (() => {
 
   // YouTube 流量交给 YouTube 组。
   { provider: "YouTube", target: GROUPS.YOUTUBE },
+  // YouTube Music 归并到 YouTube 组，避免继续新增一个低频影音独立面板。
+  { provider: "YouTubeMusic", target: GROUPS.YOUTUBE },
   // Google 域名交给 Google 组。
   { provider: "Google", target: GROUPS.GOOGLE },
   // 本地开发补充规则流量交给开发服务组。
@@ -7339,6 +7360,19 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "PayPal", target: GROUPS.PAYPAL },
   // TikTok 流量交给 TikTok 组。
   { provider: "TikTok", target: GROUPS.TIKTOK },
+  // 额外国际视频平台统一交给流媒体组，避免继续拆出 PrimeVideo/HBO/Hulu 等单独组。
+  { provider: "AmazonPrimeVideo", target: GROUPS.STREAMING },
+  { provider: "PrimeVideo", target: GROUPS.STREAMING },
+  { provider: "HBO", target: GROUPS.STREAMING },
+  { provider: "HBOAsia", target: GROUPS.STREAMING },
+  { provider: "HBOHK", target: GROUPS.STREAMING },
+  { provider: "HBOUSA", target: GROUPS.STREAMING },
+  { provider: "Hulu", target: GROUPS.STREAMING },
+  { provider: "HuluJP", target: GROUPS.STREAMING },
+  { provider: "HuluUSA", target: GROUPS.STREAMING },
+  { provider: "ParamountPlus", target: GROUPS.STREAMING },
+  { provider: "Peacock", target: GROUPS.STREAMING },
+  { provider: "DiscoveryPlus", target: GROUPS.STREAMING },
 
   // Netflix 域名交给 Netflix 组。
   { provider: "Netflix", target: GROUPS.NETFLIX },
@@ -7438,6 +7472,24 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
+  { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
+  { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
+  { provider: "Netflix", label: "Netflix", expectedTarget: GROUPS.NETFLIX },
+  { provider: "Disney", label: "Disney", expectedTarget: GROUPS.DISNEY },
+  { provider: "Spotify", label: "Spotify", expectedTarget: GROUPS.SPOTIFY },
+  { provider: "TikTok", label: "TikTok", expectedTarget: GROUPS.TIKTOK },
+  { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", expectedTarget: GROUPS.STREAMING },
+  { provider: "PrimeVideo", label: "PrimeVideo", expectedTarget: GROUPS.STREAMING },
+  { provider: "HBO", label: "HBO", expectedTarget: GROUPS.STREAMING },
+  { provider: "HBOAsia", label: "HBOAsia", expectedTarget: GROUPS.STREAMING },
+  { provider: "HBOHK", label: "HBOHK", expectedTarget: GROUPS.STREAMING },
+  { provider: "HBOUSA", label: "HBOUSA", expectedTarget: GROUPS.STREAMING },
+  { provider: "Hulu", label: "Hulu", expectedTarget: GROUPS.STREAMING },
+  { provider: "HuluJP", label: "HuluJP", expectedTarget: GROUPS.STREAMING },
+  { provider: "HuluUSA", label: "HuluUSA", expectedTarget: GROUPS.STREAMING },
+  { provider: "ParamountPlus", label: "ParamountPlus", expectedTarget: GROUPS.STREAMING },
+  { provider: "Peacock", label: "Peacock", expectedTarget: GROUPS.STREAMING },
+  { provider: "DiscoveryPlus", label: "DiscoveryPlus", expectedTarget: GROUPS.STREAMING },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
   { provider: "Riot", label: "Riot", expectedTarget: GROUPS.GAMES },
@@ -8054,6 +8106,24 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Facebook", label: "Facebook", category: "social" },
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "PayPal", label: "PayPal", category: "trade" },
+  { key: "YouTube", label: "YouTube", category: "media" },
+  { key: "YouTubeMusic", label: "YouTubeMusic", category: "media" },
+  { key: "Netflix", label: "Netflix", category: "media" },
+  { key: "Disney", label: "Disney", category: "media" },
+  { key: "Spotify", label: "Spotify", category: "media" },
+  { key: "TikTok", label: "TikTok", category: "media" },
+  { key: "AmazonPrimeVideo", label: "AmazonPrimeVideo", category: "media" },
+  { key: "PrimeVideo", label: "PrimeVideo", category: "media" },
+  { key: "HBO", label: "HBO", category: "media" },
+  { key: "HBOAsia", label: "HBOAsia", category: "media" },
+  { key: "HBOHK", label: "HBOHK", category: "media" },
+  { key: "HBOUSA", label: "HBOUSA", category: "media" },
+  { key: "Hulu", label: "Hulu", category: "media" },
+  { key: "HuluJP", label: "HuluJP", category: "media" },
+  { key: "HuluUSA", label: "HuluUSA", category: "media" },
+  { key: "ParamountPlus", label: "ParamountPlus", category: "media" },
+  { key: "Peacock", label: "Peacock", category: "media" },
+  { key: "DiscoveryPlus", label: "DiscoveryPlus", category: "media" },
   { key: "Steam", label: "Steam", category: "game" },
   { key: "SteamCN", label: "SteamCN", category: "game" },
   { key: "Riot", label: "Riot", category: "game" },
@@ -8072,6 +8142,7 @@ const SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY = Object.freeze({
   ai: "aiCount",
   dev: "devCount",
   social: "socialCount",
+  media: "mediaCount",
   trade: "tradeCount",
   game: "gameCount"
 });
@@ -8607,6 +8678,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
     aiCount: 0,
     devCount: 0,
     socialCount: 0,
+    mediaCount: 0,
     tradeCount: 0,
     gameCount: 0,
     missingCount: 0,
@@ -8650,7 +8722,7 @@ function formatServiceRuleWindowSummary(source) {
   const spanStart = Number(current.firstIndex);
   const spanEnd = Number(current.lastIndex);
   const span = spanStart >= 0 && spanEnd >= 0 ? `${spanStart + 1}-${spanEnd + 1}` : "0-0";
-  return `tracked=${Number(current.tracked) || 0},found=${Number(current.foundCount) || 0},ai=${Number(current.aiCount) || 0},dev=${Number(current.devCount) || 0},social=${Number(current.socialCount) || 0},trade=${Number(current.tradeCount) || 0},game=${Number(current.gameCount) || 0},missing=${Number(current.missingCount) || 0},span=${span},order=${formatProviderPreviewNames(current.orderEntries, 6, 14)}`;
+  return `tracked=${Number(current.tracked) || 0},found=${Number(current.foundCount) || 0},ai=${Number(current.aiCount) || 0},dev=${Number(current.devCount) || 0},social=${Number(current.socialCount) || 0},media=${Number(current.mediaCount) || 0},trade=${Number(current.tradeCount) || 0},game=${Number(current.gameCount) || 0},missing=${Number(current.missingCount) || 0},span=${span},order=${formatProviderPreviewNames(current.orderEntries, 6, 14)}`;
 }
 
 // 把业务规则窗口样本压成预览字符串，便于直接看出这些业务规则的前后 2 跳邻居。
@@ -10134,6 +10206,9 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   fb: GROUPS.FACEBOOK,
   reddit: GROUPS.REDDIT,
   youtube: GROUPS.YOUTUBE,
+  streaming: GROUPS.STREAMING,
+  stream: GROUPS.STREAMING,
+  vod: GROUPS.STREAMING,
   netflix: GROUPS.NETFLIX,
   disney: GROUPS.DISNEY,
   disneyplus: GROUPS.DISNEY,
@@ -10243,7 +10318,7 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupN
     // services 把高频业务组打包成一桶，方便 preset 用一个 token 拉整段。
     services: pickAvailable([GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GOOGLE, GROUPS.TELEGRAM, GROUPS.DISCORD, GROUPS.WHATSAPP, GROUPS.LINE, GROUPS.TWITTER, GROUPS.INSTAGRAM, GROUPS.FACEBOOK, GROUPS.REDDIT, GROUPS.STEAM, GROUPS.BING, GROUPS.APPLE, GROUPS.GAMES, GROUPS.PAYPAL, GROUPS.CRYPTO, GROUPS.PT, GROUPS.SPEEDTEST]),
     // media 单独收流媒体服务，避免和普通业务组混在一起。
-    media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK]),
+    media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK, GROUPS.STREAMING]),
     // regions / countries 则分别对应地理聚合组和国家组。
     regions: pickAvailable(regionGroupNames),
     countries: pickAvailable(countryGroupNames),
@@ -10385,6 +10460,9 @@ const PREFERRED_GROUP_ALIAS_MAP = Object.freeze(Object.assign({
   fb: GROUPS.FACEBOOK,
   reddit: GROUPS.REDDIT,
   youtube: GROUPS.YOUTUBE,
+  streaming: GROUPS.STREAMING,
+  stream: GROUPS.STREAMING,
+  vod: GROUPS.STREAMING,
   netflix: GROUPS.NETFLIX,
   disney: GROUPS.DISNEY,
   disneyplus: GROUPS.DISNEY,
@@ -10487,6 +10565,20 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   fb: "Facebook",
   reddit: "Reddit",
   threads: "Threads",
+  youtubemusic: "YouTubeMusic",
+  ytmusic: "YouTubeMusic",
+  amazonprimevideo: "AmazonPrimeVideo",
+  primevideo: "PrimeVideo",
+  hbo: "HBO",
+  hboasia: "HBOAsia",
+  hbohk: "HBOHK",
+  hbousa: "HBOUSA",
+  hulu: "Hulu",
+  hulujp: "HuluJP",
+  huluusa: "HuluUSA",
+  paramountplus: "ParamountPlus",
+  peacock: "Peacock",
+  discoveryplus: "DiscoveryPlus",
   linkedin: "LinkedIn",
   teams: "Teams",
   riot: "Riot",
@@ -15532,6 +15624,7 @@ const PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS = Object.freeze([
     createContextSelectGroupBuildDefinition(GROUPS.DISNEY, "mediaProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.SPOTIFY, "mediaProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.TIKTOK, "mediaProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.STREAMING, "mediaProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.CRYPTO, "cryptoProxies")
   ]),
   Object.freeze([
