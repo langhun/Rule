@@ -354,11 +354,12 @@
  * 349. 加密货币规则继续审计：参考 blackmatrix7 当前目录，把 Binance / OKX 并入加密货币组，补上 binance.cloud / binancefuture.com / oklink.com 等交易所生态域名；其余电商/社交站点仍暂不纳入，继续避免把不同业务硬塞进现有分组。
  * 350. 国内银行规则继续审计：参考 blackmatrix7 当前目录，把 ABC / BOCOM / CCB 并入直连规则，补上 abchina.com / bankcomm.com / ccb.com 等银行链路；BOC / CMB / ICBC 仍暂不纳入，避免把更宽的海外子品牌或夹带的混合域名一起卷入。
  * 351. 国内音乐规则继续审计：参考 blackmatrix7 当前目录，把 NetEaseMusic 并入直连规则，补上 music.163.com / music.126.com / 163yun.com 等网易云音乐链路；NetEase 总规则仍暂不纳入，避免把邮箱、LOFTER 与更多网易泛业务一起卷入。
+ * 352. 下载规则继续审计：参考 blackmatrix7 当前目录，把 PikPak 并入 PT 下载组，补上 mypikpak 与 sandai 下载链路；TelegramNL / TelegramSG / TelegramUS 仍暂不纳入，避免和现有 Telegram_IP IP 段规则重复。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.32";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.32。
+const SCRIPT_VERSION = "9.14.33";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.33。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7335,6 +7336,8 @@ const ruleProviders = finalizeRuleProviders({
 
   // Ookla Speedtest 规则。
   Speedtest: createRuleProvider("domain", metaGeoSite("ookla-speedtest")),
+  // PikPak 下载/离线取回规则并入 PT 组，补足 mypikpak 与 sandai 下载域名。
+  PikPak: createCommunityClashRuleProvider("PikPak"),
   // PT 下载规则。
   PT: createRuleProvider("domain", metaGeoSite("category-pt")),
   // 自定义直连列表。
@@ -7625,6 +7628,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Twitch", target: GROUPS.GAMES },
   // Epic Games 流量交给游戏组。
   { provider: "Epic", target: GROUPS.GAMES },
+  // PikPak 下载/离线取回流量也交给 PT 组，补足通用 PT geosite 之外的下载链路。
+  { provider: "PikPak", target: GROUPS.PT },
   // PT 下载流量交给 PT 组。
   { provider: "PT", target: GROUPS.PT },
   // Speedtest 流量交给测速组。
@@ -11012,6 +11017,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   steam: "Steam",
   steamcn: "SteamCN",
   epic: "Epic",
+  pikpak: "PikPak",
+  mypikpak: "PikPak",
   pt: "PT",
   speedtest: "Speedtest",
   github: "GitHub",
