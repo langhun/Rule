@@ -345,11 +345,12 @@
  * 340. 港区公营媒体规则继续审计：参考 blackmatrix7 当前目录，把 RTHK 并入流媒体组，补上 rthk.hk / rthk.org.hk 与电台电视直播域名；ViuTV / EncoreTVB 仍暂不纳入，避免把更宽的 AWS / Brightcove / JWPlatform 域名一起卷入。
  * 341. 无损音乐规则继续审计：参考 blackmatrix7 当前目录，把 TIDAL 并入流媒体组，补上 tidal.com / tidalhifi.com / wimpmusic.com；TuneIn 当前目录下未见对应 Clash 规则，先不额外引入。
  * 342. 区域/无损媒体规则继续审计：参考 blackmatrix7 当前目录，把 LiTV / VidolTV / MeWatch / Qobuz 统一并入流媒体组，补上 litv.tv / vidol.tv / mewatch.sg / qobuz.com；JOOX / MOOV / friDay / Viki 仍暂不纳入，避免把 sanook / now.com / fetnet / maxcdn 等更宽或共享域名一起卷入。
+ * 343. 亚洲/韩区流媒体规则继续审计：参考 blackmatrix7 当前目录，把 WeTV / iQIYIIntl / PandoraTV 并入流媒体组，补上 wetv.qq.com / wetv.vip / iq.com / inter.iqiyi.com / pandora.tv；iQIYI 国内版 / FOXNOW / DAZN 仍暂不纳入，避免把更宽的大陆域名、fox.com 或第三方统计域名一起卷入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.23";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.23。
+const SCRIPT_VERSION = "9.14.24";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.24。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7191,12 +7192,18 @@ const ruleProviders = finalizeRuleProviders({
   TikTok: createRuleProvider("domain", metaGeoSite("tiktok")),
   // BiliBili 国际版 / Bstar 统一并入流媒体组；规则仅覆盖 bilibili.tv，避免和国内站点混淆。
   BiliBiliIntl: createCommunityClashRuleProvider("BiliBiliIntl"),
+  // WeTV / 腾讯视频国际版归并到流媒体组，补充国际华语视频平台。
+  WeTV: createCommunityClashRuleProvider("WeTV"),
+  // iQIYI 国际版归并到流媒体组，补充 iq.com / inter.iqiyi.com 等海外视频入口。
+  iQIYIIntl: createCommunityClashRuleProvider("iQIYIIntl"),
   // All4 / Channel 4 规则归并到流媒体组，补上英国地区点播服务。
   All4: createCommunityClashRuleProvider("All4"),
   // Vimeo / Livestream / VHX 统一并入流媒体组，补充创作者视频托管平台。
   Vimeo: createCommunityClashRuleProvider("Vimeo"),
   // Niconico / NicoVideo / NicoSeiga 统一并入流媒体组，补充日系视频社区。
   Niconico: createCommunityClashRuleProvider("Niconico"),
+  // PandoraTV 归并到流媒体组，补充韩区视频平台。
+  PandoraTV: createCommunityClashRuleProvider("PandoraTV"),
   // FuboTV 归并到流媒体组，补充体育直播/点播平台。
   FuboTV: createCommunityClashRuleProvider("FuboTV"),
   // NowE 归并到流媒体组，补充港区视频平台。
@@ -7464,12 +7471,17 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "TikTok", target: GROUPS.TIKTOK },
   // BiliBili 国际版 / Bstar 归并到流媒体组，继续保持“补覆盖、不加面板”。
   { provider: "BiliBiliIntl", target: GROUPS.STREAMING },
+  // WeTV / iQIYIIntl 也归并到流媒体组，不额外拆国际华语视频面板。
+  { provider: "WeTV", target: GROUPS.STREAMING },
+  { provider: "iQIYIIntl", target: GROUPS.STREAMING },
   // All4 / Channel 4 归并到流媒体组，不额外拆英国电视面板。
   { provider: "All4", target: GROUPS.STREAMING },
   // Vimeo / Livestream / VHX 归并到流媒体组，继续用通用媒体组承接视频平台。
   { provider: "Vimeo", target: GROUPS.STREAMING },
   // Niconico / NicoVideo / NicoSeiga 也归并到流媒体组，不再额外拆日系视频面板。
   { provider: "Niconico", target: GROUPS.STREAMING },
+  // PandoraTV 也归并到流媒体组，不额外拆韩区视频面板。
+  { provider: "PandoraTV", target: GROUPS.STREAMING },
   // FuboTV 也归并到流媒体组，不额外拆体育视频面板。
   { provider: "FuboTV", target: GROUPS.STREAMING },
   // NowE 也归并到流媒体组，不额外拆港区视频面板。
@@ -7632,9 +7644,12 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Spotify", label: "Spotify", expectedTarget: GROUPS.SPOTIFY },
   { provider: "TikTok", label: "TikTok", expectedTarget: GROUPS.TIKTOK },
   { provider: "BiliBiliIntl", label: "BiliBiliIntl", expectedTarget: GROUPS.STREAMING },
+  { provider: "WeTV", label: "WeTV", expectedTarget: GROUPS.STREAMING },
+  { provider: "iQIYIIntl", label: "iQIYIIntl", expectedTarget: GROUPS.STREAMING },
   { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
   { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
   { provider: "Niconico", label: "Niconico", expectedTarget: GROUPS.STREAMING },
+  { provider: "PandoraTV", label: "PandoraTV", expectedTarget: GROUPS.STREAMING },
   { provider: "FuboTV", label: "FuboTV", expectedTarget: GROUPS.STREAMING },
   { provider: "NowE", label: "NowE", expectedTarget: GROUPS.STREAMING },
   { provider: "KKTV", label: "KKTV", expectedTarget: GROUPS.STREAMING },
@@ -8318,9 +8333,12 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Spotify", label: "Spotify", category: "media" },
   { key: "TikTok", label: "TikTok", category: "media" },
   { key: "BiliBiliIntl", label: "BiliBiliIntl", category: "media" },
+  { key: "WeTV", label: "WeTV", category: "media" },
+  { key: "iQIYIIntl", label: "iQIYIIntl", category: "media" },
   { key: "All4", label: "All4", category: "media" },
   { key: "Vimeo", label: "Vimeo", category: "media" },
   { key: "Niconico", label: "Niconico", category: "media" },
+  { key: "PandoraTV", label: "PandoraTV", category: "media" },
   { key: "FuboTV", label: "FuboTV", category: "media" },
   { key: "NowE", label: "NowE", category: "media" },
   { key: "KKTV", label: "KKTV", category: "media" },
@@ -10843,11 +10861,14 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   tiktok: "TikTok",
   bilibiliintl: "BiliBiliIntl",
   bstar: "BiliBiliIntl",
+  wetv: "WeTV",
+  iqiyiintl: "iQIYIIntl",
   all4: "All4",
   channel4: "All4",
   vimeo: "Vimeo",
   niconico: "Niconico",
   nicovideo: "Niconico",
+  pandoratv: "PandoraTV",
   fubotv: "FuboTV",
   nowe: "NowE",
   kktv: "KKTV",
