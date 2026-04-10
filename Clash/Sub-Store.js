@@ -344,11 +344,12 @@
  * 339. 日区电视聚合规则继续审计：参考 blackmatrix7 当前目录，把 TVer 并入流媒体组，补上 tver.jp / tver.co.jp / gorin.jp；HamiVideo 仍暂不纳入，避免把更宽的 Hinet / OTT 域名一起卷入。
  * 340. 港区公营媒体规则继续审计：参考 blackmatrix7 当前目录，把 RTHK 并入流媒体组，补上 rthk.hk / rthk.org.hk 与电台电视直播域名；ViuTV / EncoreTVB 仍暂不纳入，避免把更宽的 AWS / Brightcove / JWPlatform 域名一起卷入。
  * 341. 无损音乐规则继续审计：参考 blackmatrix7 当前目录，把 TIDAL 并入流媒体组，补上 tidal.com / tidalhifi.com / wimpmusic.com；TuneIn 当前目录下未见对应 Clash 规则，先不额外引入。
+ * 342. 区域/无损媒体规则继续审计：参考 blackmatrix7 当前目录，把 LiTV / VidolTV / MeWatch / Qobuz 统一并入流媒体组，补上 litv.tv / vidol.tv / mewatch.sg / qobuz.com；JOOX / MOOV / friDay / Viki 仍暂不纳入，避免把 sanook / now.com / fetnet / maxcdn 等更宽或共享域名一起卷入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.22";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.22。
+const SCRIPT_VERSION = "9.14.23";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.23。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7202,12 +7203,18 @@ const ruleProviders = finalizeRuleProviders({
   NowE: createCommunityClashRuleProvider("NowE"),
   // KKTV 归并到流媒体组，补充台区视频平台。
   KKTV: createCommunityClashRuleProvider("KKTV"),
+  // LiTV 归并到流媒体组，补充台区视频平台。
+  LiTV: createCommunityClashRuleProvider("LiTV"),
+  // VidolTV 归并到流媒体组，补充台区视频平台。
+  VidolTV: createCommunityClashRuleProvider("VidolTV"),
   // My5 归并到流媒体组，补充英国地区点播平台。
   My5: createCommunityClashRuleProvider("My5"),
   // TVer 归并到流媒体组，补充日区电视聚合平台。
   TVer: createCommunityClashRuleProvider("TVer"),
   // RTHK 归并到流媒体组，补充港区公营广播电视平台。
   RTHK: createCommunityClashRuleProvider("RTHK"),
+  // MeWatch 归并到流媒体组，补充新加坡地区视频平台。
+  MeWatch: createCommunityClashRuleProvider("MeWatch"),
   // 额外国际视频平台统一并入“流媒体”组，避免单服务继续膨胀面板。
   AmazonPrimeVideo: createCommunityClashRuleProvider("AmazonPrimeVideo"),
   PrimeVideo: createCommunityClashRuleProvider("PrimeVideo"),
@@ -7227,6 +7234,8 @@ const ruleProviders = finalizeRuleProviders({
   KKBOX: createCommunityClashRuleProvider("KKBOX"),
   Pandora: createCommunityClashRuleProvider("Pandora"),
   TIDAL: createCommunityClashRuleProvider("TIDAL"),
+  // Qobuz 归并到流媒体组，补充无损音乐平台。
+  Qobuz: createCommunityClashRuleProvider("Qobuz"),
   // MetaCubeX 的 ProxyMedia geosite 用来补齐尚未单独列出的海外媒体站点。
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // AliPay / 支付宝及其跨境收银域名统一直连，避免国内支付链路误走代理。
@@ -7467,12 +7476,17 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "NowE", target: GROUPS.STREAMING },
   // KKTV 也归并到流媒体组，不额外拆台区视频面板。
   { provider: "KKTV", target: GROUPS.STREAMING },
+  // LiTV / VidolTV 也归并到流媒体组，不额外拆台区视频面板。
+  { provider: "LiTV", target: GROUPS.STREAMING },
+  { provider: "VidolTV", target: GROUPS.STREAMING },
   // My5 也归并到流媒体组，不额外拆英国点播面板。
   { provider: "My5", target: GROUPS.STREAMING },
   // TVer 也归并到流媒体组，不额外拆日本电视聚合面板。
   { provider: "TVer", target: GROUPS.STREAMING },
   // RTHK 也归并到流媒体组，不额外拆港区公营媒体面板。
   { provider: "RTHK", target: GROUPS.STREAMING },
+  // MeWatch 也归并到流媒体组，不额外拆新加坡视频面板。
+  { provider: "MeWatch", target: GROUPS.STREAMING },
   // 额外国际视频平台统一交给流媒体组，避免继续拆出 PrimeVideo/HBO/Hulu 等单独组。
   { provider: "AmazonPrimeVideo", target: GROUPS.STREAMING },
   { provider: "PrimeVideo", target: GROUPS.STREAMING },
@@ -7491,6 +7505,7 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "KKBOX", target: GROUPS.STREAMING },
   { provider: "Pandora", target: GROUPS.STREAMING },
   { provider: "TIDAL", target: GROUPS.STREAMING },
+  { provider: "Qobuz", target: GROUPS.STREAMING },
   // Amazon 系交易规则放在 PrimeVideo / 流媒体块之后，避免更宽泛的 Amazon 规则抢先命中。
   { provider: "Amazon", target: GROUPS.PAYPAL },
   { provider: "AmazonCN", target: GROUPS.PAYPAL },
@@ -7623,9 +7638,12 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "FuboTV", label: "FuboTV", expectedTarget: GROUPS.STREAMING },
   { provider: "NowE", label: "NowE", expectedTarget: GROUPS.STREAMING },
   { provider: "KKTV", label: "KKTV", expectedTarget: GROUPS.STREAMING },
+  { provider: "LiTV", label: "LiTV", expectedTarget: GROUPS.STREAMING },
+  { provider: "VidolTV", label: "VidolTV", expectedTarget: GROUPS.STREAMING },
   { provider: "My5", label: "My5", expectedTarget: GROUPS.STREAMING },
   { provider: "TVer", label: "TVer", expectedTarget: GROUPS.STREAMING },
   { provider: "RTHK", label: "RTHK", expectedTarget: GROUPS.STREAMING },
+  { provider: "MeWatch", label: "MeWatch", expectedTarget: GROUPS.STREAMING },
   { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "PrimeVideo", label: "PrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "HBO", label: "HBO", expectedTarget: GROUPS.STREAMING },
@@ -7643,6 +7661,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "KKBOX", label: "KKBOX", expectedTarget: GROUPS.STREAMING },
   { provider: "Pandora", label: "Pandora", expectedTarget: GROUPS.STREAMING },
   { provider: "TIDAL", label: "TIDAL", expectedTarget: GROUPS.STREAMING },
+  { provider: "Qobuz", label: "Qobuz", expectedTarget: GROUPS.STREAMING },
   { provider: "ProxyMedia", label: "ProxyMedia", expectedTarget: GROUPS.STREAMING },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
@@ -8305,9 +8324,12 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "FuboTV", label: "FuboTV", category: "media" },
   { key: "NowE", label: "NowE", category: "media" },
   { key: "KKTV", label: "KKTV", category: "media" },
+  { key: "LiTV", label: "LiTV", category: "media" },
+  { key: "VidolTV", label: "VidolTV", category: "media" },
   { key: "My5", label: "My5", category: "media" },
   { key: "TVer", label: "TVer", category: "media" },
   { key: "RTHK", label: "RTHK", category: "media" },
+  { key: "MeWatch", label: "MeWatch", category: "media" },
   { key: "AmazonPrimeVideo", label: "AmazonPrimeVideo", category: "media" },
   { key: "PrimeVideo", label: "PrimeVideo", category: "media" },
   { key: "HBO", label: "HBO", category: "media" },
@@ -8325,6 +8347,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "KKBOX", label: "KKBOX", category: "media" },
   { key: "Pandora", label: "Pandora", category: "media" },
   { key: "TIDAL", label: "TIDAL", category: "media" },
+  { key: "Qobuz", label: "Qobuz", category: "media" },
   { key: "ProxyMedia", label: "ProxyMedia", category: "media" },
   { key: "Steam", label: "Steam", category: "game" },
   { key: "SteamCN", label: "SteamCN", category: "game" },
@@ -10803,6 +10826,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   kkbox: "KKBOX",
   pandora: "Pandora",
   tidal: "TIDAL",
+  qobuz: "Qobuz",
   linkedin: "LinkedIn",
   teams: "Teams",
   riot: "Riot",
@@ -10827,9 +10851,12 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   fubotv: "FuboTV",
   nowe: "NowE",
   kktv: "KKTV",
+  litv: "LiTV",
+  vidoltv: "VidolTV",
   my5: "My5",
   tver: "TVer",
   rthk: "RTHK",
+  mewatch: "MeWatch",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
   disney: "Disney",
