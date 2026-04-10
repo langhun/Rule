@@ -357,11 +357,12 @@
  * 352. 下载规则继续审计：参考 blackmatrix7 当前目录，把 PikPak 并入 PT 下载组，补上 mypikpak 与 sandai 下载链路；TelegramNL / TelegramSG / TelegramUS 仍暂不纳入，避免和现有 Telegram_IP IP 段规则重复。
  * 353. 英美点播规则继续审计：参考 blackmatrix7 当前目录，把 CWSeed 并入流媒体组，补上 cwseed.com / cwtv.com / thecwvideo.com；BBC / CBS 仍暂不纳入，避免把新闻/集团站点与更宽的媒体域名一起卷入。
  * 354. 下载规则继续审计：参考 blackmatrix7 当前目录，把 Download 并入 PT 下载组，补上 qbittorrent / aria2 / xunlei / 迅雷与常见下载器进程匹配；AppStore / AppleID 仍暂不纳入，避免和现有 Apple 总规则堆叠重复。
+ * 355. 开发生态规则继续审计：参考 blackmatrix7 当前目录，把 Contentful 并入开发服务组，补上 contentful.com / ctfassets.net；Apifox / AppleDev 这轮仍暂不纳入，避免把国内服务或更混合的苹果开发基础设施过早并入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.35";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.35。
+const SCRIPT_VERSION = "9.14.36";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.36。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7152,6 +7153,8 @@ const ruleProviders = finalizeRuleProviders({
   Heroku: createDeveloperRuleProvider("Heroku"),
   // GitBook 文档平台规则。
   GitBook: createDeveloperRuleProvider("GitBook"),
+  // Contentful Headless CMS / 静态资源托管规则。
+  Contentful: createDeveloperRuleProvider("Contentful"),
   // SourceForge 开源下载/分发平台规则。
   SourceForge: createDeveloperRuleProvider("SourceForge"),
   // DigitalOcean 云平台/对象存储规则。
@@ -7424,6 +7427,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Heroku", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // GitBook 文档平台流量交给开发服务组。
   { provider: "GitBook", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Contentful Headless CMS / 资源托管流量交给开发服务组。
+  { provider: "Contentful", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // SourceForge 下载/分发平台流量交给开发服务组。
   { provider: "SourceForge", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // DigitalOcean 云平台流量交给开发服务组。
@@ -7676,6 +7681,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Jfrog", label: "Jfrog", expectedTarget: GROUPS.DEV },
   { provider: "Heroku", label: "Heroku", expectedTarget: GROUPS.DEV },
   { provider: "GitBook", label: "GitBook", expectedTarget: GROUPS.DEV },
+  { provider: "Contentful", label: "Contentful", expectedTarget: GROUPS.DEV },
   { provider: "SourceForge", label: "SourceForge", expectedTarget: GROUPS.DEV },
   { provider: "DigitalOcean", label: "DigitalOcean", expectedTarget: GROUPS.DEV },
   { provider: "Anaconda", label: "Anaconda", expectedTarget: GROUPS.DEV },
@@ -8385,6 +8391,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Jfrog", label: "Jfrog", category: "dev" },
   { key: "Heroku", label: "Heroku", category: "dev" },
   { key: "GitBook", label: "GitBook", category: "dev" },
+  { key: "Contentful", label: "Contentful", category: "dev" },
   { key: "SourceForge", label: "SourceForge", category: "dev" },
   { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
   { key: "Anaconda", label: "Anaconda", category: "dev" },
@@ -11059,6 +11066,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   heroku: "Heroku",
   herokuapp: "Heroku",
   gitbook: "GitBook",
+  contentful: "Contentful",
+  ctfassets: "Contentful",
   sourceforge: "SourceForge",
   sf: "SourceForge",
   fsdn: "SourceForge",
