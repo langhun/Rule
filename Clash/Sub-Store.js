@@ -347,11 +347,12 @@
  * 342. 区域/无损媒体规则继续审计：参考 blackmatrix7 当前目录，把 LiTV / VidolTV / MeWatch / Qobuz 统一并入流媒体组，补上 litv.tv / vidol.tv / mewatch.sg / qobuz.com；JOOX / MOOV / friDay / Viki 仍暂不纳入，避免把 sanook / now.com / fetnet / maxcdn 等更宽或共享域名一起卷入。
  * 343. 亚洲/韩区流媒体规则继续审计：参考 blackmatrix7 当前目录，把 WeTV / iQIYIIntl / PandoraTV 并入流媒体组，补上 wetv.qq.com / wetv.vip / iq.com / inter.iqiyi.com / pandora.tv；iQIYI 国内版 / FOXNOW / DAZN 仍暂不纳入，避免把更宽的大陆域名、fox.com 或第三方统计域名一起卷入。
  * 344. 游戏分组继续审计：参考 blackmatrix7 当前目录，把 2KGames / Supercell / Rockstar / HoYoverse 并入游戏加速组，补上 2k.com / brawlstars.com / rockstargames.com / hoyoverse.com 等游戏生态域名；Garena 仍暂不纳入，避免把 seagroup.com 这类更宽的集团站点一起卷入。
+ * 345. 苹果/视频规则继续审计：参考 blackmatrix7 当前目录，把 AppleNews 并入 Apple 组、Dailymotion / FOXPlus 并入流媒体组，补上 news-client-search.apple.com / dailymotion.com / foxplus.com；ATTWatchTV / Clubhouse 暂不纳入，避免把 directv.com 这类更宽电视站点或低频社交服务硬塞进现有分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.25";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.25。
+const SCRIPT_VERSION = "9.14.26";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.26。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7199,12 +7200,16 @@ const ruleProviders = finalizeRuleProviders({
   iQIYIIntl: createCommunityClashRuleProvider("iQIYIIntl"),
   // All4 / Channel 4 规则归并到流媒体组，补上英国地区点播服务。
   All4: createCommunityClashRuleProvider("All4"),
+  // Dailymotion 归并到流媒体组，补充国际视频平台。
+  Dailymotion: createCommunityClashRuleProvider("Dailymotion"),
   // Vimeo / Livestream / VHX 统一并入流媒体组，补充创作者视频托管平台。
   Vimeo: createCommunityClashRuleProvider("Vimeo"),
   // Niconico / NicoVideo / NicoSeiga 统一并入流媒体组，补充日系视频社区。
   Niconico: createCommunityClashRuleProvider("Niconico"),
   // PandoraTV 归并到流媒体组，补充韩区视频平台。
   PandoraTV: createCommunityClashRuleProvider("PandoraTV"),
+  // FOXPlus 归并到流媒体组，补充亚洲地区电视/体育流媒体。
+  FOXPlus: createCommunityClashRuleProvider("FOXPlus"),
   // FuboTV 归并到流媒体组，补充体育直播/点播平台。
   FuboTV: createCommunityClashRuleProvider("FuboTV"),
   // NowE 归并到流媒体组，补充港区视频平台。
@@ -7278,6 +7283,8 @@ const ruleProviders = finalizeRuleProviders({
   TestFlight: createCommunityClashRuleProvider("TestFlight"),
   // Apple TV+ 规则。
   AppleTV: createRuleProvider("domain", metaGeoSite("apple-tvplus")),
+  // Apple News / News+ 规则继续并入 Apple 组，补足苹果内容分发链路。
+  AppleNews: createCommunityClashRuleProvider("AppleNews"),
   // Steam 之外的高频游戏平台统一补到“游戏加速”组，避免继续膨胀一排独立游戏面板。
   Riot: createCommunityClashRuleProvider("Riot"),
   Battle: createCommunityClashRuleProvider("Battle"),
@@ -7428,6 +7435,8 @@ const RULE_SET_DEFINITIONS = (() => {
 
   // Apple TV+ 流量交给 Apple 组。
   { provider: "AppleTV", target: GROUPS.APPLE },
+  // Apple News / News+ 也交给 Apple 组，和其它苹果生态统一出口。
+  { provider: "AppleNews", target: GROUPS.APPLE },
   // Apple Music 继续交给 Apple 组，和其它苹果生态保持一致。
   { provider: "AppleMusic", target: GROUPS.APPLE },
   // TestFlight / beta.apple.com 继续交给 Apple 组，和苹果生态统一出口。
@@ -7482,12 +7491,16 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "iQIYIIntl", target: GROUPS.STREAMING },
   // All4 / Channel 4 归并到流媒体组，不额外拆英国电视面板。
   { provider: "All4", target: GROUPS.STREAMING },
+  // Dailymotion 也归并到流媒体组，不额外拆国际视频平台面板。
+  { provider: "Dailymotion", target: GROUPS.STREAMING },
   // Vimeo / Livestream / VHX 归并到流媒体组，继续用通用媒体组承接视频平台。
   { provider: "Vimeo", target: GROUPS.STREAMING },
   // Niconico / NicoVideo / NicoSeiga 也归并到流媒体组，不再额外拆日系视频面板。
   { provider: "Niconico", target: GROUPS.STREAMING },
   // PandoraTV 也归并到流媒体组，不额外拆韩区视频面板。
   { provider: "PandoraTV", target: GROUPS.STREAMING },
+  // FOXPlus 也归并到流媒体组，不额外拆亚洲电视/体育流媒体面板。
+  { provider: "FOXPlus", target: GROUPS.STREAMING },
   // FuboTV 也归并到流媒体组，不额外拆体育视频面板。
   { provider: "FuboTV", target: GROUPS.STREAMING },
   // NowE 也归并到流媒体组，不额外拆港区视频面板。
@@ -7647,6 +7660,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "AmazonTrust", label: "AmazonTrust", expectedTarget: GROUPS.PAYPAL },
   { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
   { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
+  { provider: "AppleNews", label: "AppleNews", expectedTarget: GROUPS.APPLE },
   { provider: "AppleMusic", label: "AppleMusic", expectedTarget: GROUPS.APPLE },
   { provider: "TestFlight", label: "TestFlight", expectedTarget: GROUPS.APPLE },
   { provider: "Netflix", label: "Netflix", expectedTarget: GROUPS.NETFLIX },
@@ -7657,9 +7671,11 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "WeTV", label: "WeTV", expectedTarget: GROUPS.STREAMING },
   { provider: "iQIYIIntl", label: "iQIYIIntl", expectedTarget: GROUPS.STREAMING },
   { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
+  { provider: "Dailymotion", label: "Dailymotion", expectedTarget: GROUPS.STREAMING },
   { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
   { provider: "Niconico", label: "Niconico", expectedTarget: GROUPS.STREAMING },
   { provider: "PandoraTV", label: "PandoraTV", expectedTarget: GROUPS.STREAMING },
+  { provider: "FOXPlus", label: "FOXPlus", expectedTarget: GROUPS.STREAMING },
   { provider: "FuboTV", label: "FuboTV", expectedTarget: GROUPS.STREAMING },
   { provider: "NowE", label: "NowE", expectedTarget: GROUPS.STREAMING },
   { provider: "KKTV", label: "KKTV", expectedTarget: GROUPS.STREAMING },
@@ -8340,6 +8356,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "AmazonTrust", label: "AmazonTrust", category: "trade" },
   { key: "YouTube", label: "YouTube", category: "media" },
   { key: "YouTubeMusic", label: "YouTubeMusic", category: "media" },
+  { key: "AppleNews", label: "AppleNews", category: "media" },
   { key: "AppleMusic", label: "AppleMusic", category: "media" },
   { key: "TestFlight", label: "TestFlight", category: "dev" },
   { key: "Netflix", label: "Netflix", category: "media" },
@@ -8350,9 +8367,11 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "WeTV", label: "WeTV", category: "media" },
   { key: "iQIYIIntl", label: "iQIYIIntl", category: "media" },
   { key: "All4", label: "All4", category: "media" },
+  { key: "Dailymotion", label: "Dailymotion", category: "media" },
   { key: "Vimeo", label: "Vimeo", category: "media" },
   { key: "Niconico", label: "Niconico", category: "media" },
   { key: "PandoraTV", label: "PandoraTV", category: "media" },
+  { key: "FOXPlus", label: "FOXPlus", category: "media" },
   { key: "FuboTV", label: "FuboTV", category: "media" },
   { key: "NowE", label: "NowE", category: "media" },
   { key: "KKTV", label: "KKTV", category: "media" },
@@ -10814,6 +10833,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   microsoft: "Microsoft",
   ms: "Microsoft",
   appletv: "AppleTV",
+  applenews: "AppleNews",
   testflight: "TestFlight",
   apple: "Apple",
   appleip: "Apple_IP",
@@ -10891,11 +10911,13 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   wetv: "WeTV",
   iqiyiintl: "iQIYIIntl",
   all4: "All4",
+  dailymotion: "Dailymotion",
   channel4: "All4",
   vimeo: "Vimeo",
   niconico: "Niconico",
   nicovideo: "Niconico",
   pandoratv: "PandoraTV",
+  foxplus: "FOXPlus",
   fubotv: "FuboTV",
   nowe: "NowE",
   kktv: "KKTV",
