@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.0
+ * Sub-Store 终极策略增强脚本 V9.14.1
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -322,11 +322,12 @@
  * 317. 分组必要性继续审计：按“能并入现有大组就不再单拆”的原则，把 Threads 并入 Facebook、LinkedIn 并入微软服务，并把 Riot / Battle / Blizzard / EA / Nintendo / PlayStation / Xbox / Ubisoft 统一补进游戏加速组。
  * 318. 分组审计继续收尾：继续参考 blackmatrix7 的 Teams / Twitch 规则，把 Teams 并入微软服务、Twitch 并入游戏加速；Pinterest / PrimeVideo / HBO / Hulu 这类当前没有合适现成组的条目先不硬塞。
  * 319. 媒体分组继续收敛：新增通用“流媒体”组承接 PrimeVideo / HBO / Hulu / Paramount+ / Peacock / Discovery+，并把 YouTube Music 明确并入 YouTube，避免继续为每个平台单拆一整排面板。
+ * 320. 媒体规则继续补漏：参考 MetaCubeX 的 geosite，把 AppleMusic 并入 Apple、ProxyMedia 并入流媒体组，继续用“补覆盖而不膨胀面板”的方式收尾。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.0。
+const SCRIPT_VERSION = "9.14.1";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.1。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7171,6 +7172,8 @@ const ruleProviders = finalizeRuleProviders({
   ParamountPlus: createCommunityClashRuleProvider("ParamountPlus"),
   Peacock: createCommunityClashRuleProvider("Peacock"),
   DiscoveryPlus: createCommunityClashRuleProvider("DiscoveryPlus"),
+  // MetaCubeX 的 ProxyMedia geosite 用来补齐尚未单独列出的海外媒体站点。
+  ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
 
@@ -7186,6 +7189,8 @@ const ruleProviders = finalizeRuleProviders({
   OneDrive: createPresetAwareRuleProvider("OneDrive", "domain", metaGeoSite("onedrive")),
   // Apple 规则。
   Apple: createRuleProvider("domain", metaGeoSite("apple")),
+  // Apple Music 规则继续并入 Apple 组，不额外拆音乐面板。
+  AppleMusic: createRuleProvider("domain", metaGeoSite("applemusic")),
   // Apple TV+ 规则。
   AppleTV: createRuleProvider("domain", metaGeoSite("apple-tvplus")),
   // Steam 之外的高频游戏平台统一补到“游戏加速”组，避免继续膨胀一排独立游戏面板。
@@ -7333,6 +7338,8 @@ const RULE_SET_DEFINITIONS = (() => {
 
   // Apple TV+ 流量交给 Apple 组。
   { provider: "AppleTV", target: GROUPS.APPLE },
+  // Apple Music 继续交给 Apple 组，和其它苹果生态保持一致。
+  { provider: "AppleMusic", target: GROUPS.APPLE },
   // Apple 域名交给 Apple 组。
   { provider: "Apple", target: GROUPS.APPLE },
   // Apple IP 段交给 Apple 组，并关闭解析。
@@ -7382,6 +7389,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Disney", target: GROUPS.DISNEY },
   // Spotify 流量交给 Spotify 组。
   { provider: "Spotify", target: GROUPS.SPOTIFY },
+  // ProxyMedia 作为通用海外媒体补充规则，统一并入流媒体组。
+  { provider: "ProxyMedia", target: GROUPS.STREAMING },
 
   // Steam 全球流量交给 Steam 独立组。
   {
@@ -7474,6 +7483,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
   { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
+  { provider: "AppleMusic", label: "AppleMusic", expectedTarget: GROUPS.APPLE },
   { provider: "Netflix", label: "Netflix", expectedTarget: GROUPS.NETFLIX },
   { provider: "Disney", label: "Disney", expectedTarget: GROUPS.DISNEY },
   { provider: "Spotify", label: "Spotify", expectedTarget: GROUPS.SPOTIFY },
@@ -7490,6 +7500,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "ParamountPlus", label: "ParamountPlus", expectedTarget: GROUPS.STREAMING },
   { provider: "Peacock", label: "Peacock", expectedTarget: GROUPS.STREAMING },
   { provider: "DiscoveryPlus", label: "DiscoveryPlus", expectedTarget: GROUPS.STREAMING },
+  { provider: "ProxyMedia", label: "ProxyMedia", expectedTarget: GROUPS.STREAMING },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
   { provider: "Riot", label: "Riot", expectedTarget: GROUPS.GAMES },
@@ -8108,6 +8119,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "YouTube", label: "YouTube", category: "media" },
   { key: "YouTubeMusic", label: "YouTubeMusic", category: "media" },
+  { key: "AppleMusic", label: "AppleMusic", category: "media" },
   { key: "Netflix", label: "Netflix", category: "media" },
   { key: "Disney", label: "Disney", category: "media" },
   { key: "Spotify", label: "Spotify", category: "media" },
@@ -8124,6 +8136,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "ParamountPlus", label: "ParamountPlus", category: "media" },
   { key: "Peacock", label: "Peacock", category: "media" },
   { key: "DiscoveryPlus", label: "DiscoveryPlus", category: "media" },
+  { key: "ProxyMedia", label: "ProxyMedia", category: "media" },
   { key: "Steam", label: "Steam", category: "game" },
   { key: "SteamCN", label: "SteamCN", category: "game" },
   { key: "Riot", label: "Riot", category: "game" },
@@ -10539,6 +10552,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   ai: "AI",
   crypto: "Crypto",
   youtube: "YouTube",
+  applemusic: "AppleMusic",
+  proxymedia: "ProxyMedia",
   google: "Google",
   googleip: "Google_IP",
   discord: "Discord",
