@@ -4206,6 +4206,161 @@ function buildResolveArgProviderResultPayload(ruleProviderState, proxyProviderSt
   };
 }
 
+// 全局测速组选项也有一整套数值归一化 / 语法校验 / 返回字段展开流程，这里统一收口成状态对象。
+function buildResolveArgGroupState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const rawNormalizedExpectedStatus = normalizeExpectedStatusArg(current.rawGroupExpectedStatus);
+  const parsedGroupInterval = parseNumber(current.rawGroupInterval, GROUP_INTERVAL);
+  const parsedGroupTolerance = parseNumber(current.rawGroupTolerance, GROUP_TOLERANCE);
+  const parsedGroupTimeout = parseNumber(current.rawGroupTimeout, GROUP_TIMEOUT);
+  const parsedGroupMaxFailedTimes = parseNumber(current.rawGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
+
+  return {
+    rawTestUrl: current.rawTestUrl,
+    testUrl: normalizeStringArg(current.rawTestUrl),
+    rawGroupInterval: current.rawGroupInterval,
+    parsedGroupInterval,
+    groupInterval: Math.max(1, parsedGroupInterval),
+    rawGroupTolerance: current.rawGroupTolerance,
+    parsedGroupTolerance,
+    groupTolerance: Math.max(0, parsedGroupTolerance),
+    rawGroupTimeout: current.rawGroupTimeout,
+    parsedGroupTimeout,
+    groupTimeout: Math.max(1, parsedGroupTimeout),
+    rawGroupLazy: current.rawGroupLazy,
+    groupLazy: parseBool(current.rawGroupLazy, true),
+    rawGroupMaxFailedTimes: current.rawGroupMaxFailedTimes,
+    parsedGroupMaxFailedTimes,
+    groupMaxFailedTimes: Math.max(1, parsedGroupMaxFailedTimes),
+    rawGroupExpectedStatus: current.rawGroupExpectedStatus,
+    normalizedExpectedStatus: rawNormalizedExpectedStatus,
+    groupExpectedStatus: isValidExpectedStatusValue(rawNormalizedExpectedStatus) ? rawNormalizedExpectedStatus : "",
+    rawGroupStrategy: current.rawGroupStrategy,
+    groupStrategy: normalizeLoadBalanceStrategy(current.rawGroupStrategy, ""),
+    rawInterfaceName: current.rawInterfaceName,
+    interfaceName: normalizeInterfaceNameArg(current.rawInterfaceName),
+    rawRoutingMark: current.rawRoutingMark,
+    routingMark: normalizeRoutingMarkArg(current.rawRoutingMark)
+  };
+}
+
+// 策略组布局参数属于另一块高频重复字段，这里也统一收口成状态对象。
+function buildResolveArgGroupLayoutState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const parsedRegionGroups = parseRegionGroupKeys(current.rawRegionGroups);
+  const regionGroupKeys = parsedRegionGroups.keys;
+
+  return {
+    rawGroupOrderPreset: current.rawGroupOrderPreset,
+    groupOrderPreset: normalizeGroupOrderPreset(current.rawGroupOrderPreset, DEFAULT_GROUP_ORDER_PRESET),
+    rawGroupOrder: current.rawGroupOrder,
+    groupOrder: toStringList(current.rawGroupOrder),
+    rawCountryGroupSort: current.rawCountryGroupSort,
+    countryGroupSort: normalizeGeoGroupSortMode(current.rawCountryGroupSort, "definition"),
+    rawRegionGroupSort: current.rawRegionGroupSort,
+    regionGroupSort: normalizeGeoGroupSortMode(current.rawRegionGroupSort, "definition"),
+    rawRegionGroups: current.rawRegionGroups,
+    parsedRegionGroups,
+    regionGroupKeys,
+    regionGroupPreview: formatRegionGroupPreview(regionGroupKeys)
+  };
+}
+
+// 全局测速组告警与服务组告警高度同构，这里收口后减少 resolveArgs 主体里的样板判断。
+function warnResolveArgGroupState(groupState) {
+  const current = isObject(groupState) ? groupState : buildResolveArgGroupState();
+  warnAdjustedNumericArg(current.rawGroupInterval, current.parsedGroupInterval, current.groupInterval, "group-interval");
+  warnAdjustedNumericArg(current.rawGroupTolerance, current.parsedGroupTolerance, current.groupTolerance, "group-tolerance");
+  warnAdjustedNumericArg(current.rawGroupTimeout, current.parsedGroupTimeout, current.groupTimeout, "group-timeout");
+  warnAdjustedNumericArg(current.rawGroupMaxFailedTimes, current.parsedGroupMaxFailedTimes, current.groupMaxFailedTimes, "group-max-failed-times");
+  warnInvalidStrategyArg(current.rawGroupStrategy, current.groupStrategy, "group-strategy");
+  warnIgnoredEmptyStringArg(current.rawInterfaceName, current.interfaceName, "group-interface-name");
+  warnIgnoredRoutingMarkArg(current.rawRoutingMark, current.routingMark, "group-routing-mark");
+  warnInvalidExpectedStatusArg(
+    current.rawGroupExpectedStatus,
+    current.normalizedExpectedStatus,
+    current.groupExpectedStatus,
+    "group-expected-status"
+  );
+}
+
+// 布局类参数的提示文案也集中处理，避免 resolveArgs 主体继续堆积 if/for 模板。
+function warnResolveArgGroupLayoutState(layoutState) {
+  const current = isObject(layoutState) ? layoutState : buildResolveArgGroupLayoutState();
+
+  if (current.rawGroupOrderPreset !== undefined && !VALID_GROUP_ORDER_PRESET_TOKENS.includes(normalizeGroupMarkerToken(current.rawGroupOrderPreset))) {
+    console.warn(`⚠️ 警告: group-order-preset 无效，已重置为 ${current.groupOrderPreset}`);
+  }
+
+  if (current.rawGroupOrder !== undefined && !current.groupOrder.length) {
+    console.warn("⚠️ 警告: group-order 为空，已忽略");
+  }
+
+  if (current.rawGroupOrderPreset !== undefined && current.rawGroupOrder !== undefined && current.groupOrder.length) {
+    console.warn("⚠️ 提醒: 已同时配置 group-order-preset 与 group-order；当前以显式 group-order 为准");
+  }
+
+  if (current.rawCountryGroupSort !== undefined && !isValidGeoGroupSortMode(current.rawCountryGroupSort)) {
+    console.warn(`⚠️ 警告: country-group-sort 无效，已重置为 ${current.countryGroupSort}`);
+  }
+
+  if (current.rawRegionGroupSort !== undefined && !isValidGeoGroupSortMode(current.rawRegionGroupSort)) {
+    console.warn(`⚠️ 警告: region-group-sort 无效，已重置为 ${current.regionGroupSort}`);
+  }
+
+  for (const item of current.parsedRegionGroups.invalidTokens) {
+    console.warn(`⚠️ 警告: region-groups 未匹配到内置区域定义，已忽略: ${item}`);
+  }
+}
+
+// 把全局测速组状态拍平成 resolveArgs 返回对象里的字段。
+function buildResolveArgGroupResultPayload(groupState) {
+  const current = isObject(groupState) ? groupState : buildResolveArgGroupState();
+
+  return {
+    testUrl: current.testUrl,
+    hasTestUrl: !!current.testUrl,
+    groupInterval: current.groupInterval,
+    hasGroupInterval: current.rawGroupInterval !== undefined,
+    groupTolerance: current.groupTolerance,
+    hasGroupTolerance: current.rawGroupTolerance !== undefined,
+    groupTimeout: current.groupTimeout,
+    hasGroupTimeout: current.rawGroupTimeout !== undefined,
+    groupMaxFailedTimes: current.groupMaxFailedTimes,
+    hasGroupMaxFailedTimes: current.rawGroupMaxFailedTimes !== undefined,
+    groupExpectedStatus: current.groupExpectedStatus,
+    hasGroupExpectedStatus: !!current.groupExpectedStatus,
+    groupStrategy: current.groupStrategy,
+    hasGroupStrategy: !!current.groupStrategy,
+    groupInterfaceName: current.interfaceName,
+    hasGroupInterfaceName: !!current.interfaceName,
+    groupRoutingMark: current.routingMark,
+    hasGroupRoutingMark: current.routingMark !== null,
+    groupLazy: current.groupLazy,
+    hasGroupLazy: current.rawGroupLazy !== undefined
+  };
+}
+
+// 把布局状态拍平成 resolveArgs 返回对象里的字段。
+function buildResolveArgGroupLayoutResultPayload(layoutState) {
+  const current = isObject(layoutState) ? layoutState : buildResolveArgGroupLayoutState();
+
+  return {
+    groupOrderPreset: current.groupOrderPreset,
+    hasGroupOrderPreset: current.rawGroupOrderPreset !== undefined,
+    groupOrder: current.groupOrder,
+    hasGroupOrder: !!current.groupOrder.length,
+    countryGroupSort: current.countryGroupSort,
+    hasCountryGroupSort: current.rawCountryGroupSort !== undefined,
+    regionGroupSort: current.regionGroupSort,
+    hasRegionGroupSort: current.rawRegionGroupSort !== undefined,
+    regionGroupKeys: current.regionGroupKeys,
+    hasRegionGroups: !!current.regionGroupKeys.length,
+    hasRegionGroupsArg: current.rawRegionGroups !== undefined,
+    regionGroupPreview: current.regionGroupPreview
+  };
+}
+
 // 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
 function resolveArgs(rawArgs) {
   // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
@@ -4578,39 +4733,17 @@ function resolveArgs(rawArgs) {
   const rawSnifferSkipDomains = pickArg(args, ["snifferSkipDomains", "sniffer-skip-domains", "skipDomains", "skip-domains"]);
   // 尝试把 threshold 转成数字。
   const parsedThreshold = parseNumber(rawThreshold, 0);
-  // 尝试把测速组 interval 转成数字。
-  const parsedGroupInterval = parseNumber(rawGroupInterval, GROUP_INTERVAL);
-  // 尝试把测速组 tolerance 转成数字。
-  const parsedGroupTolerance = parseNumber(rawGroupTolerance, GROUP_TOLERANCE);
-  // 尝试把测速组 timeout 转成数字。
-  const parsedGroupTimeout = parseNumber(rawGroupTimeout, GROUP_TIMEOUT);
-  // 尝试把测速组最大失败次数转成数字。
-  const parsedGroupMaxFailedTimes = parseNumber(rawGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
   // 尝试把 geo 更新间隔转成数字。
   const parsedGeoUpdateInterval = parseNumber(rawGeoUpdateInterval, 24);
   // 尝试把 fake-ip-ttl 转成数字。
   const parsedFakeIpTtl = parseNumber(rawFakeIpTtl, 1);
   // 再把 threshold 限制在允许范围内。
   const threshold = clampNumber(parsedThreshold, 0, MAX_THRESHOLD);
-  // 测速组 interval 至少为 1 秒。
-  const groupInterval = Math.max(1, parsedGroupInterval);
-  // 测速组 tolerance 允许为 0，但不能为负数。
-  const groupTolerance = Math.max(0, parsedGroupTolerance);
-  // 测速组 timeout 至少为 1 毫秒。
-  const groupTimeout = Math.max(1, parsedGroupTimeout);
-  // 健康检查最大失败次数至少为 1。
-  const groupMaxFailedTimes = Math.max(1, parsedGroupMaxFailedTimes);
   // geo 更新间隔至少为 1 小时，避免生成非法配置。
   const geoUpdateInterval = Math.max(1, parsedGeoUpdateInterval);
   // fake-ip-ttl 至少为 1，避免生成非法配置。
   const fakeIpTtl = Math.max(1, parsedFakeIpTtl);
   // 把字符串类参数统一做 trim，后面复用时就不用反复判断。
-  const testUrl = normalizeStringArg(rawTestUrl);
-  const rawNormalizedGroupExpectedStatus = normalizeExpectedStatusArg(rawGroupExpectedStatus);
-  const groupExpectedStatus = isValidExpectedStatusValue(rawNormalizedGroupExpectedStatus) ? rawNormalizedGroupExpectedStatus : "";
-  const groupStrategy = normalizeLoadBalanceStrategy(rawGroupStrategy, "");
-  const groupInterfaceName = normalizeInterfaceNameArg(rawGroupInterfaceName);
-  const groupRoutingMark = normalizeRoutingMarkArg(rawGroupRoutingMark);
   const dnsListen = normalizeStringArg(rawDnsListen);
   const fakeIpRange = normalizeStringArg(rawFakeIpRange);
   const fakeIpRange6 = normalizeStringArg(rawFakeIpRange6);
@@ -4621,6 +4754,18 @@ function resolveArgs(rawArgs) {
   const devListUrl = normalizeStringArg(rawDevListUrl);
   const ruleSourcePreset = normalizeRuleSourcePreset(rawRuleSourcePreset, DEFAULT_RULE_SOURCE_PRESET);
   const steamFixUrl = normalizeStringArg(rawSteamFixUrl);
+  const groupResolveState = buildResolveArgGroupState({
+    rawTestUrl,
+    rawGroupInterval,
+    rawGroupTolerance,
+    rawGroupTimeout,
+    rawGroupLazy,
+    rawGroupMaxFailedTimes,
+    rawGroupExpectedStatus,
+    rawGroupStrategy,
+    rawInterfaceName: rawGroupInterfaceName,
+    rawRoutingMark: rawGroupRoutingMark
+  });
   const ruleProviderResolveState = buildResolveArgRuleProviderState({
     rawPathDir: rawRuleProviderPathDir,
     rawInterval: rawRuleProviderInterval,
@@ -4681,13 +4826,13 @@ function resolveArgs(rawArgs) {
   const steamCnRulePosition = normalizeRuleOrderPosition(rawSteamCnRulePosition, "before");
   const customRuleAnchor = normalizeStringArg(rawCustomRuleAnchor);
   const customRulePosition = normalizeRuleOrderPosition(rawCustomRulePosition, "before");
-  const groupOrderPreset = normalizeGroupOrderPreset(rawGroupOrderPreset, DEFAULT_GROUP_ORDER_PRESET);
-  const groupOrder = toStringList(rawGroupOrder);
-  const countryGroupSort = normalizeGeoGroupSortMode(rawCountryGroupSort, "definition");
-  const regionGroupSort = normalizeGeoGroupSortMode(rawRegionGroupSort, "definition");
-  const parsedRegionGroups = parseRegionGroupKeys(rawRegionGroups);
-  const regionGroupKeys = parsedRegionGroups.keys;
-  const regionGroupPreview = formatRegionGroupPreview(regionGroupKeys);
+  const groupLayoutResolveState = buildResolveArgGroupLayoutState({
+    rawGroupOrderPreset,
+    rawGroupOrder,
+    rawCountryGroupSort,
+    rawRegionGroupSort,
+    rawRegionGroups
+  });
   const snifferForceDomains = toStringList(rawSnifferForceDomains);
   const snifferSkipDomains = toStringList(rawSnifferSkipDomains);
   const responseHeaderPrefix = normalizeHeaderPrefix(rawResponseHeaderPrefix);
@@ -4793,6 +4938,9 @@ function resolveArgs(rawArgs) {
       rawNodeExcludeType: rawDevNodeExcludeType
     })
   ];
+  // 全局测速组与布局字段也提前展开，避免 return 区继续维护成片平铺属性。
+  const resolvedGroupArgPayload = buildResolveArgGroupResultPayload(groupResolveState);
+  const resolvedGroupLayoutArgPayload = buildResolveArgGroupLayoutResultPayload(groupLayoutResolveState);
   // 预先展开服务相关返回字段，避免 return 区继续手写三套近似属性。
   const resolvedServiceArgPayload = buildResolveArgServiceResultPayload(serviceResolveStates);
   // provider 相关字段也提前展开，避免 return 区继续维护大段平铺属性。
@@ -4803,45 +4951,8 @@ function resolveArgs(rawArgs) {
     console.warn(`⚠️ 警告: threshold 超出范围，已重置为 ${threshold}`);
   }
 
-  // 如果测速组 interval 被修正，也打印提示。
-  if (rawGroupInterval !== undefined && parsedGroupInterval !== groupInterval) {
-    console.warn(`⚠️ 警告: group-interval 无效，已重置为 ${groupInterval}`);
-  }
-
-  // 如果测速组 tolerance 被修正，也打印提示。
-  if (rawGroupTolerance !== undefined && parsedGroupTolerance !== groupTolerance) {
-    console.warn(`⚠️ 警告: group-tolerance 无效，已重置为 ${groupTolerance}`);
-  }
-
-  // 如果测速组 timeout 被修正，也打印提示。
-  if (rawGroupTimeout !== undefined && parsedGroupTimeout !== groupTimeout) {
-    console.warn(`⚠️ 警告: group-timeout 无效，已重置为 ${groupTimeout}`);
-  }
-
-  // 如果全局 load-balance strategy 非法，则回退默认值并提示。
-  if (rawGroupStrategy !== undefined && !groupStrategy) {
-    console.warn("⚠️ 警告: group-strategy 无效，已回退为默认策略");
-  }
-
-  // 如果全局 interface-name 传了空值或非法值，则提示已经忽略。
-  if (rawGroupInterfaceName !== undefined && !groupInterfaceName) {
-    console.warn("⚠️ 警告: group-interface-name 为空，已忽略");
-  }
-
-  // 如果全局 routing-mark 非法，则显式提示帮助排查。
-  if (rawGroupRoutingMark !== undefined && groupRoutingMark === null) {
-    console.warn("⚠️ 警告: group-routing-mark 仅支持大于等于 0 的整数，已忽略");
-  }
-
-  // 如果测速组最大失败次数被修正，也打印提示。
-  if (rawGroupMaxFailedTimes !== undefined && parsedGroupMaxFailedTimes !== groupMaxFailedTimes) {
-    console.warn(`⚠️ 警告: group-max-failed-times 无效，已重置为 ${groupMaxFailedTimes}`);
-  }
-
-  // 如果全局 expected-status 语法非法，则回退默认值并提示。
-  if (rawGroupExpectedStatus !== undefined && rawNormalizedGroupExpectedStatus && !groupExpectedStatus) {
-    console.warn("⚠️ 警告: group-expected-status 语法无效，已回退为默认值");
-  }
+  // 全局测速组的规范化与诊断逻辑已收口到状态 helper，这里直接复用。
+  warnResolveArgGroupState(groupResolveState);
 
   // 如果自定义规则源 URL 看起来不像 http(s)，打印提示帮助定位问题。
   if (directListUrl && !looksLikeHttpUrl(directListUrl)) {
@@ -4961,12 +5072,12 @@ function resolveArgs(rawArgs) {
   }
 
   // 官方文档已将 interface-name 标记为 deprecated，这里主动提醒，避免长期依赖。
-  if (groupInterfaceName || serviceResolveStates.some((serviceState) => !!serviceState.interfaceName)) {
+  if (groupResolveState.interfaceName || serviceResolveStates.some((serviceState) => !!serviceState.interfaceName)) {
     console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 interface-name 标记为 deprecated，请仅在必须绑定出口网卡时使用");
   }
 
   // 官方文档已将 routing-mark 标记为 deprecated，这里主动提醒，避免长期依赖。
-  if (groupRoutingMark !== null || serviceResolveStates.some((serviceState) => serviceState.routingMark !== null)) {
+  if (groupResolveState.routingMark !== null || serviceResolveStates.some((serviceState) => serviceState.routingMark !== null)) {
     console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 routing-mark 标记为 deprecated，请仅在必须配合策略路由打标时使用");
   }
 
@@ -4987,35 +5098,8 @@ function resolveArgs(rawArgs) {
     console.warn(`⚠️ 警告: custom-rule-position 无效，已重置为 ${customRulePosition}`);
   }
 
-  // 如果策略组布局预设非法，则回退默认值并提示。
-  if (rawGroupOrderPreset !== undefined && !VALID_GROUP_ORDER_PRESET_TOKENS.includes(normalizeGroupMarkerToken(rawGroupOrderPreset))) {
-    console.warn(`⚠️ 警告: group-order-preset 无效，已重置为 ${groupOrderPreset}`);
-  }
-
-  // 如果显式传了 group-order 但最终一个 token 都没解析出来，则给出提示。
-  if (rawGroupOrder !== undefined && !groupOrder.length) {
-    console.warn("⚠️ 警告: group-order 为空，已忽略");
-  }
-
-  // 如果同时给了 preset 和显式顺序，则以显式顺序优先，并提醒覆盖关系。
-  if (rawGroupOrderPreset !== undefined && rawGroupOrder !== undefined && groupOrder.length) {
-    console.warn("⚠️ 提醒: 已同时配置 group-order-preset 与 group-order；当前以显式 group-order 为准");
-  }
-
-  // 如果国家组排序模式非法，则回退默认值并提示。
-  if (rawCountryGroupSort !== undefined && !isValidGeoGroupSortMode(rawCountryGroupSort)) {
-    console.warn(`⚠️ 警告: country-group-sort 无效，已重置为 ${countryGroupSort}`);
-  }
-
-  // 如果区域组排序模式非法，则回退默认值并提示。
-  if (rawRegionGroupSort !== undefined && !isValidGeoGroupSortMode(rawRegionGroupSort)) {
-    console.warn(`⚠️ 警告: region-group-sort 无效，已重置为 ${regionGroupSort}`);
-  }
-
-  // 逐条提示 region-groups / continent-groups 里未命中的区域标记，避免区域布局写了却静默失效。
-  for (const item of parsedRegionGroups.invalidTokens) {
-    console.warn(`⚠️ 警告: region-groups 未匹配到内置区域定义，已忽略: ${item}`);
-  }
+  // 布局参数告警同样已收口到状态 helper，避免 resolveArgs 主体继续堆积模板。
+  warnResolveArgGroupLayoutState(groupLayoutResolveState);
 
   // 如果规则源预设非法，则回退默认值并提示。
   if (rawRuleSourcePreset !== undefined && !["default", "meta", "metacubex", "official", "builtin", "blackmatrix7", "blackmatrix", "bm7", "iosrulescript"].includes(normalizeGroupMarkerToken(rawRuleSourcePreset))) {
@@ -5078,6 +5162,9 @@ function resolveArgs(rawArgs) {
     countryExtraAliasPreview,
     countryExtraAliasConflictCount,
     countryExtraAliasConflictPreview,
+    // 全局测速组与布局字段也统一由状态表展开，避免 return 区继续堆积重复属性。
+    ...resolvedGroupArgPayload,
+    ...resolvedGroupLayoutArgPayload,
     // GitHub / Steam / Dev 三类独立组的解析字段统一由状态表展开，避免 return 区继续维护三套重复键。
     ...resolvedServiceArgPayload,
     steamCnRuleTarget,
@@ -5140,39 +5227,6 @@ function resolveArgs(rawArgs) {
     hasGeodataMode: rawGeodataMode !== undefined,
     // 使用前面已校验过的 threshold。
     threshold,
-    // 允许用参数覆盖测速组健康检查细节。
-    testUrl,
-    hasTestUrl: !!testUrl,
-    groupInterval,
-    hasGroupInterval: rawGroupInterval !== undefined,
-    groupTolerance,
-    hasGroupTolerance: rawGroupTolerance !== undefined,
-    groupTimeout,
-    hasGroupTimeout: rawGroupTimeout !== undefined,
-    groupMaxFailedTimes,
-    hasGroupMaxFailedTimes: rawGroupMaxFailedTimes !== undefined,
-    groupExpectedStatus,
-    hasGroupExpectedStatus: !!groupExpectedStatus,
-    groupStrategy,
-    hasGroupStrategy: !!groupStrategy,
-    groupInterfaceName,
-    hasGroupInterfaceName: !!groupInterfaceName,
-    groupRoutingMark,
-    hasGroupRoutingMark: groupRoutingMark !== null,
-    groupOrderPreset,
-    hasGroupOrderPreset: rawGroupOrderPreset !== undefined,
-    groupOrder,
-    hasGroupOrder: !!groupOrder.length,
-    countryGroupSort,
-    hasCountryGroupSort: rawCountryGroupSort !== undefined,
-    regionGroupSort,
-    hasRegionGroupSort: rawRegionGroupSort !== undefined,
-    regionGroupKeys,
-    hasRegionGroups: !!regionGroupKeys.length,
-    hasRegionGroupsArg: rawRegionGroups !== undefined,
-    regionGroupPreview,
-    groupLazy: parseBool(rawGroupLazy, true),
-    hasGroupLazy: rawGroupLazy !== undefined,
     // 允许用参数覆盖 DNS 监听地址与 Fake-IP 地址池。
     dnsListen,
     hasDnsListen: !!dnsListen,
