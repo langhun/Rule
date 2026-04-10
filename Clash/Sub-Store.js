@@ -5800,26 +5800,13 @@ function formatRuleProviderMutationPreview(preview) {
 // 把最终 rule-provider 做统一定稿：补本地缓存路径，并把 http 类型的下载控制统一接管。
 function finalizeRuleProviders(providers) {
   const source = isObject(providers) ? providers : {};
-  const usedPaths = Object.create(null);
+  const usedPaths = buildReservedProviderPaths(source, (provider) => {
+    const isHttpProvider = canAutoAssignRuleProviderPath(provider);
+    return !(isHttpProvider && ARGS.hasRuleProviderPathDir);
+  });
   const result = {};
   const hasDownloadConfiguredOptions = hasRuleProviderDownloadConfiguredOptions();
   const hasPayloadConfiguredOption = ARGS.hasRuleProviderPayload;
-
-  // 先登记本轮不会被 path-dir 接管的既有路径，避免后续自动分配时撞上已有缓存文件。
-  for (const name of Object.keys(source)) {
-    const currentProvider = source[name];
-    if (!isObject(currentProvider)) {
-      continue;
-    }
-
-    const isHttpProvider = canAutoAssignRuleProviderPath(currentProvider);
-    const shouldReassignPath = isHttpProvider && ARGS.hasRuleProviderPathDir;
-    const currentPath = normalizeStringArg(currentProvider.path).replace(/\\/g, "/");
-
-    if (currentPath && !shouldReassignPath && !usedPaths[currentPath]) {
-      usedPaths[currentPath] = true;
-    }
-  }
 
   for (const name of Object.keys(source)) {
     const currentProvider = source[name];
@@ -5844,26 +5831,13 @@ function finalizeRuleProviders(providers) {
       provider.path = buildRuleProviderPath(name, provider, usedPaths);
     }
 
-    if (isHttpProvider && ARGS.hasRuleProviderInterval) {
-      provider.interval = ARGS.ruleProviderInterval;
-    }
-
-    if (isHttpProvider && ARGS.hasRuleProviderProxy) {
-      provider.proxy = ARGS.ruleProviderProxy;
-    }
-
-    if (isHttpProvider && ARGS.hasRuleProviderSizeLimit) {
-      provider["size-limit"] = ARGS.ruleProviderSizeLimit;
+    if (isHttpProvider) {
+      applyProviderAssignmentDefinitions(provider, RULE_PROVIDER_HTTP_ASSIGNMENT_DEFINITIONS);
     }
 
     if (isHttpProvider && hasDownloadConfiguredOptions) {
       // 下载相关 header 统一通过 mergeProviderHeaders 合并，避免把原 header 全部抹掉。
-      const headers = mergeProviderHeaders(
-        provider.header,
-        ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "",
-        ARGS.hasRuleProviderAuthorization ? ARGS.ruleProviderAuthorization : "",
-        ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeader : {}
-      );
+      const headers = buildFinalizedRuleProviderHeaders(provider.header);
 
       if (headers) {
         provider.header = headers;
@@ -6155,6 +6129,136 @@ function hasProxyProviderHealthCheckConfiguredOptions() {
       ARGS.hasProxyProviderHealthCheckLazy ||
       ARGS.hasProxyProviderHealthCheckExpectedStatus
     )
+  );
+}
+
+// 一组“参数命中时把值写回对象字段”的赋值逻辑反复出现在 provider finalize 阶段，这里统一成 definitions 驱动。
+function applyProviderAssignmentDefinitions(target, definitions) {
+  const result = isObject(target) ? target : {};
+  if (typeof ARGS === "undefined" || !ARGS) {
+    return result;
+  }
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (!definition || !ARGS[definition.hasArgKey]) {
+      continue;
+    }
+
+    result[definition.key] = typeof definition.getValue === "function"
+      ? definition.getValue(result, definition)
+      : ARGS[definition.valueKey];
+  }
+
+  return result;
+}
+
+// rule-provider 的 http 下载控制只涉及 interval / proxy / size-limit 三个标量字段，统一收成赋值表。
+const RULE_PROVIDER_HTTP_ASSIGNMENT_DEFINITIONS = Object.freeze([
+  { hasArgKey: "hasRuleProviderInterval", key: "interval", valueKey: "ruleProviderInterval" },
+  { hasArgKey: "hasRuleProviderProxy", key: "proxy", valueKey: "ruleProviderProxy" },
+  { hasArgKey: "hasRuleProviderSizeLimit", key: "size-limit", valueKey: "ruleProviderSizeLimit" }
+]);
+
+// proxy-provider 的 http 下载控制与 rule-provider 同构，但参数前缀不同，单独维护定义避免 finalize 中三段 if 平铺。
+const PROXY_PROVIDER_HTTP_ASSIGNMENT_DEFINITIONS = Object.freeze([
+  { hasArgKey: "hasProxyProviderInterval", key: "interval", valueKey: "proxyProviderInterval" },
+  { hasArgKey: "hasProxyProviderProxy", key: "proxy", valueKey: "proxyProviderProxy" },
+  { hasArgKey: "hasProxyProviderSizeLimit", key: "size-limit", valueKey: "proxyProviderSizeLimit" }
+]);
+
+// proxy-provider 节点池筛选字段也统一走 definitions，便于后续继续追加 collection 相关参数。
+const PROXY_PROVIDER_COLLECTION_ASSIGNMENT_DEFINITIONS = Object.freeze([
+  { hasArgKey: "hasProxyProviderFilter", key: "filter", valueKey: "proxyProviderFilter" },
+  { hasArgKey: "hasProxyProviderExcludeFilter", key: "exclude-filter", valueKey: "proxyProviderExcludeFilter" },
+  { hasArgKey: "hasProxyProviderExcludeType", key: "exclude-type", valueKey: "proxyProviderExcludeType" }
+]);
+
+// override 字段较多，统一改成表驱动后，finalizeProxyProviders 就不用再铺十几段 if。
+const PROXY_PROVIDER_OVERRIDE_ASSIGNMENT_DEFINITIONS = Object.freeze([
+  { hasArgKey: "hasProxyProviderOverrideAdditionalPrefix", key: "additional-prefix", valueKey: "proxyProviderOverrideAdditionalPrefix" },
+  { hasArgKey: "hasProxyProviderOverrideAdditionalSuffix", key: "additional-suffix", valueKey: "proxyProviderOverrideAdditionalSuffix" },
+  { hasArgKey: "hasProxyProviderOverrideUdp", key: "udp", valueKey: "proxyProviderOverrideUdp" },
+  { hasArgKey: "hasProxyProviderOverrideUdpOverTcp", key: "udp-over-tcp", valueKey: "proxyProviderOverrideUdpOverTcp" },
+  { hasArgKey: "hasProxyProviderOverrideDown", key: "down", valueKey: "proxyProviderOverrideDown" },
+  { hasArgKey: "hasProxyProviderOverrideUp", key: "up", valueKey: "proxyProviderOverrideUp" },
+  { hasArgKey: "hasProxyProviderOverrideTfo", key: "tfo", valueKey: "proxyProviderOverrideTfo" },
+  { hasArgKey: "hasProxyProviderOverrideMptcp", key: "mptcp", valueKey: "proxyProviderOverrideMptcp" },
+  { hasArgKey: "hasProxyProviderOverrideSkipCertVerify", key: "skip-cert-verify", valueKey: "proxyProviderOverrideSkipCertVerify" },
+  { hasArgKey: "hasProxyProviderOverrideDialerProxy", key: "dialer-proxy", valueKey: "proxyProviderOverrideDialerProxy" },
+  { hasArgKey: "hasProxyProviderOverrideInterfaceName", key: "interface-name", valueKey: "proxyProviderOverrideInterfaceName" },
+  { hasArgKey: "hasProxyProviderOverrideRoutingMark", key: "routing-mark", valueKey: "proxyProviderOverrideRoutingMark" },
+  { hasArgKey: "hasProxyProviderOverrideIpVersion", key: "ip-version", valueKey: "proxyProviderOverrideIpVersion" },
+  {
+    hasArgKey: "hasProxyProviderOverrideProxyNameRules",
+    key: "proxy-name",
+    getValue: () => ARGS.proxyProviderOverrideProxyNameRules.map((rule) => ({ pattern: rule.pattern, target: rule.target }))
+  }
+]);
+
+// health-check 接管字段也统一 definitions 化，和 override 一样保持“保留原对象 + 按配置覆写”的语义。
+const PROXY_PROVIDER_HEALTH_CHECK_ASSIGNMENT_DEFINITIONS = Object.freeze([
+  { hasArgKey: "hasProxyProviderHealthCheckEnable", key: "enable", valueKey: "proxyProviderHealthCheckEnable" },
+  { hasArgKey: "hasProxyProviderHealthCheckUrl", key: "url", valueKey: "proxyProviderHealthCheckUrl" },
+  { hasArgKey: "hasProxyProviderHealthCheckInterval", key: "interval", valueKey: "proxyProviderHealthCheckInterval" },
+  { hasArgKey: "hasProxyProviderHealthCheckTimeout", key: "timeout", valueKey: "proxyProviderHealthCheckTimeout" },
+  { hasArgKey: "hasProxyProviderHealthCheckLazy", key: "lazy", valueKey: "proxyProviderHealthCheckLazy" },
+  { hasArgKey: "hasProxyProviderHealthCheckExpectedStatus", key: "expected-status", valueKey: "proxyProviderHealthCheckExpectedStatus" }
+]);
+
+// 统一预登记“本轮不会重写的 provider path”，避免 finalize 阶段每种 provider 再各写一遍 usedPaths 预扫描。
+function buildReservedProviderPaths(providers, shouldReservePath) {
+  const source = isObject(providers) ? providers : {};
+  const reserved = Object.create(null);
+  const resolveShouldReservePath = typeof shouldReservePath === "function" ? shouldReservePath : (() => false);
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    if (!isObject(provider)) {
+      continue;
+    }
+
+    const currentPath = normalizeStringArg(provider.path).replace(/\\/g, "/");
+    if (!currentPath || !resolveShouldReservePath(provider, name, currentPath) || reserved[currentPath]) {
+      continue;
+    }
+
+    reserved[currentPath] = true;
+  }
+
+  return reserved;
+}
+
+// rule-provider header 合并规则单独收口，保持 finalizeRuleProviders 只关心“何时应用”，不关心“怎么拼 header”。
+function buildFinalizedRuleProviderHeaders(baseHeaders) {
+  return mergeProviderHeaders(
+    baseHeaders,
+    ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "",
+    ARGS.hasRuleProviderAuthorization ? ARGS.ruleProviderAuthorization : "",
+    ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeader : {}
+  );
+}
+
+// proxy-provider header 合并规则和 rule-provider 平行，但参数源不同，拆开后更容易单独维护。
+function buildFinalizedProxyProviderHeaders(baseHeaders) {
+  return mergeProviderHeaders(
+    baseHeaders,
+    ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "",
+    ARGS.hasProxyProviderAuthorization ? ARGS.proxyProviderAuthorization : "",
+    ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeader : {}
+  );
+}
+
+// override 始终在原 override 基础上浅合并，再按 definitions 覆写，保持旧行为不变。
+function buildFinalizedProxyProviderOverride(baseOverride) {
+  return applyProviderAssignmentDefinitions(
+    mergeObjects(baseOverride, {}),
+    PROXY_PROVIDER_OVERRIDE_ASSIGNMENT_DEFINITIONS
+  );
+}
+
+// health-check 同理：保留原对象后再按脚本参数批量接管。
+function buildFinalizedProxyProviderHealthCheck(baseHealthCheck) {
+  return applyProviderAssignmentDefinitions(
+    mergeObjects(baseHealthCheck, {}),
+    PROXY_PROVIDER_HEALTH_CHECK_ASSIGNMENT_DEFINITIONS
   );
 }
 
@@ -6558,26 +6662,12 @@ function formatProxyProviderMutationPreview(preview) {
 function finalizeProxyProviders(existingProviders) {
   const source = isObject(existingProviders) ? existingProviders : {};
   const result = {};
-  const usedPaths = Object.create(null);
+  const usedPaths = buildReservedProviderPaths(source, (provider) => {
+    const type = normalizeStringArg(provider && provider.type).toLowerCase();
+    return !(type === "http" && ARGS.hasProxyProviderPathDir);
+  });
   const hasOverrideOptions = hasProxyProviderOverrideConfiguredOptions();
   const hasHealthCheckOptions = hasProxyProviderHealthCheckConfiguredOptions();
-
-  // 先登记不会被本轮重写的 path，避免后续自动生成目录时撞上原有缓存文件。
-  for (const name of Object.keys(source)) {
-    const currentProvider = source[name];
-    if (!isObject(currentProvider)) {
-      continue;
-    }
-
-    const type = normalizeStringArg(currentProvider.type).toLowerCase();
-    const isHttpProvider = type === "http";
-    const shouldAssignPath = isHttpProvider && ARGS.hasProxyProviderPathDir;
-    const currentPath = normalizeStringArg(currentProvider.path).replace(/\\/g, "/");
-
-    if (currentPath && !shouldAssignPath && !usedPaths[currentPath]) {
-      usedPaths[currentPath] = true;
-    }
-  }
 
   for (const name of Object.keys(source)) {
     const currentProvider = source[name];
@@ -6600,134 +6690,25 @@ function finalizeProxyProviders(existingProviders) {
       provider.payload = cloneJsonCompatibleValue(ARGS.proxyProviderPayload, []);
     }
 
-    if (isHttpProvider && ARGS.hasProxyProviderInterval) {
-      provider.interval = ARGS.proxyProviderInterval;
-    }
-
-    if (isHttpProvider && ARGS.hasProxyProviderProxy) {
-      provider.proxy = ARGS.proxyProviderProxy;
-    }
-
-    if (isHttpProvider && ARGS.hasProxyProviderSizeLimit) {
-      provider["size-limit"] = ARGS.proxyProviderSizeLimit;
+    if (isHttpProvider) {
+      applyProviderAssignmentDefinitions(provider, PROXY_PROVIDER_HTTP_ASSIGNMENT_DEFINITIONS);
     }
 
     if (isHttpProvider && (ARGS.hasProxyProviderHeader || ARGS.hasProxyProviderUserAgent || ARGS.hasProxyProviderAuthorization)) {
-      const headers = mergeProviderHeaders(
-        provider.header,
-        ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "",
-        ARGS.hasProxyProviderAuthorization ? ARGS.proxyProviderAuthorization : "",
-        ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeader : {}
-      );
+      const headers = buildFinalizedProxyProviderHeaders(provider.header);
       if (headers) {
         provider.header = headers;
       }
     }
 
-    if (ARGS.hasProxyProviderFilter) {
-      provider.filter = ARGS.proxyProviderFilter;
-    }
-
-    if (ARGS.hasProxyProviderExcludeFilter) {
-      provider["exclude-filter"] = ARGS.proxyProviderExcludeFilter;
-    }
-
-    if (ARGS.hasProxyProviderExcludeType) {
-      provider["exclude-type"] = ARGS.proxyProviderExcludeType;
-    }
+    applyProviderAssignmentDefinitions(provider, PROXY_PROVIDER_COLLECTION_ASSIGNMENT_DEFINITIONS);
 
     if (hasOverrideOptions) {
-      // override 先在原 override 基础上做浅合并，再按脚本参数逐项覆写。
-      const override = mergeObjects(provider.override, {});
-
-      if (ARGS.hasProxyProviderOverrideAdditionalPrefix) {
-        override["additional-prefix"] = ARGS.proxyProviderOverrideAdditionalPrefix;
-      }
-
-      if (ARGS.hasProxyProviderOverrideAdditionalSuffix) {
-        override["additional-suffix"] = ARGS.proxyProviderOverrideAdditionalSuffix;
-      }
-
-      if (ARGS.hasProxyProviderOverrideUdp) {
-        override.udp = ARGS.proxyProviderOverrideUdp;
-      }
-
-      if (ARGS.hasProxyProviderOverrideUdpOverTcp) {
-        override["udp-over-tcp"] = ARGS.proxyProviderOverrideUdpOverTcp;
-      }
-
-      if (ARGS.hasProxyProviderOverrideDown) {
-        override.down = ARGS.proxyProviderOverrideDown;
-      }
-
-      if (ARGS.hasProxyProviderOverrideUp) {
-        override.up = ARGS.proxyProviderOverrideUp;
-      }
-
-      if (ARGS.hasProxyProviderOverrideTfo) {
-        override.tfo = ARGS.proxyProviderOverrideTfo;
-      }
-
-      if (ARGS.hasProxyProviderOverrideMptcp) {
-        override.mptcp = ARGS.proxyProviderOverrideMptcp;
-      }
-
-      if (ARGS.hasProxyProviderOverrideSkipCertVerify) {
-        override["skip-cert-verify"] = ARGS.proxyProviderOverrideSkipCertVerify;
-      }
-
-      if (ARGS.hasProxyProviderOverrideDialerProxy) {
-        override["dialer-proxy"] = ARGS.proxyProviderOverrideDialerProxy;
-      }
-
-      if (ARGS.hasProxyProviderOverrideInterfaceName) {
-        override["interface-name"] = ARGS.proxyProviderOverrideInterfaceName;
-      }
-
-      if (ARGS.hasProxyProviderOverrideRoutingMark) {
-        override["routing-mark"] = ARGS.proxyProviderOverrideRoutingMark;
-      }
-
-      if (ARGS.hasProxyProviderOverrideIpVersion) {
-        override["ip-version"] = ARGS.proxyProviderOverrideIpVersion;
-      }
-
-      if (ARGS.hasProxyProviderOverrideProxyNameRules) {
-        override["proxy-name"] = ARGS.proxyProviderOverrideProxyNameRules.map((rule) => ({ pattern: rule.pattern, target: rule.target }));
-      }
-
-      provider.override = override;
+      provider.override = buildFinalizedProxyProviderOverride(provider.override);
     }
 
     if (hasHealthCheckOptions) {
-      // health-check 同样保留原对象，再把脚本参数覆盖进去。
-      const healthCheck = mergeObjects(provider["health-check"], {});
-
-      if (ARGS.hasProxyProviderHealthCheckEnable) {
-        healthCheck.enable = ARGS.proxyProviderHealthCheckEnable;
-      }
-
-      if (ARGS.hasProxyProviderHealthCheckUrl) {
-        healthCheck.url = ARGS.proxyProviderHealthCheckUrl;
-      }
-
-      if (ARGS.hasProxyProviderHealthCheckInterval) {
-        healthCheck.interval = ARGS.proxyProviderHealthCheckInterval;
-      }
-
-      if (ARGS.hasProxyProviderHealthCheckTimeout) {
-        healthCheck.timeout = ARGS.proxyProviderHealthCheckTimeout;
-      }
-
-      if (ARGS.hasProxyProviderHealthCheckLazy) {
-        healthCheck.lazy = ARGS.proxyProviderHealthCheckLazy;
-      }
-
-      if (ARGS.hasProxyProviderHealthCheckExpectedStatus) {
-        healthCheck["expected-status"] = ARGS.proxyProviderHealthCheckExpectedStatus;
-      }
-
-      provider["health-check"] = healthCheck;
+      provider["health-check"] = buildFinalizedProxyProviderHealthCheck(provider["health-check"]);
     }
 
     result[name] = provider;
@@ -11456,6 +11437,289 @@ function validateRuleProviderUrls(providers) {
   return uniqueStrings(warnings);
 }
 
+// http/file/inline 这类 provider 在 url / interval / size-limit 上的基础校验完全同构，这里统一收口。
+function collectHttpProviderCoreWarnings(name, provider) {
+  const warnings = [];
+  const current = isObject(provider) ? provider : {};
+  const url = normalizeStringArg(current.url);
+
+  if (!url) {
+    warnings.push(`${name}: type=http 时必须配置 url`);
+  } else if (!looksLikeHttpUrl(url)) {
+    warnings.push(`${name}: url=${current.url} 看起来不像合法 http(s) 地址`);
+  }
+
+  if (hasOwn(current, "interval")) {
+    const interval = Number(current.interval);
+    if (!isFinite(interval) || interval < 1) {
+      warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
+    }
+  }
+
+  if (hasOwn(current, "size-limit")) {
+    const sizeLimit = Number(current["size-limit"]);
+    if (!isFinite(sizeLimit) || sizeLimit < 0) {
+      warnings.push(`${name}: size-limit 必须为大于等于 0 的数字`);
+    }
+  }
+
+  return warnings;
+}
+
+// 非 http provider 面对“仅 http 生效”的脚本参数时，提示文案完全一致，这里统一拼装。
+function collectNonHttpProviderConfiguredOptionWarnings(name, providerType, skippedOptions) {
+  const options = (Array.isArray(skippedOptions) ? skippedOptions : []).filter(Boolean);
+  return options.length
+    ? [`${name}: type=${providerType || "unknown"} 不是 http，${options.join("、")} 不会生效`]
+    : [];
+}
+
+// provider header 校验在 rule-provider / proxy-provider 两条链路里一模一样，这里统一复用。
+function collectProviderHeaderWarnings(name, headers) {
+  const warnings = [];
+  const currentHeaders = isObject(headers) ? headers : null;
+  if (!currentHeaders) {
+    return [`${name}: header 必须为对象`];
+  }
+
+  for (const headerName of Object.keys(currentHeaders)) {
+    const rawHeaderValues = Array.isArray(currentHeaders[headerName]) ? currentHeaders[headerName] : [currentHeaders[headerName]];
+    const headerValues = rawHeaderValues.map((item) => normalizeStringArg(item)).filter(Boolean);
+
+    if (!isValidRequestHeaderName(headerName)) {
+      warnings.push(`${name}: header 名称无效: ${headerName}`);
+    }
+
+    if (!headerValues.length) {
+      warnings.push(`${name}: header.${headerName} 不能为空`);
+    }
+  }
+
+  return warnings;
+}
+
+// rule-provider payload 必须是字符串规则列表；inline provider 还要额外检查 payload/url 的搭配关系。
+function collectRuleProviderPayloadWarnings(name, provider, type, hasPayloadConfiguredOption) {
+  const warnings = [];
+  const current = isObject(provider) ? provider : {};
+  const url = normalizeStringArg(current.url);
+
+  if (type === "inline") {
+    if (!Array.isArray(current.payload) || !current.payload.length) {
+      warnings.push(`${name}: type=inline 时建议提供有效 payload`);
+    }
+    if (url) {
+      warnings.push(`${name}: type=inline 时通常不需要 url`);
+    }
+  }
+
+  if (hasOwn(current, "payload")) {
+    if (!Array.isArray(current.payload)) {
+      warnings.push(`${name}: payload 必须为数组`);
+    } else if (!current.payload.length) {
+      warnings.push(`${name}: payload 不能为空数组`);
+    } else {
+      for (let index = 0; index < current.payload.length; index += 1) {
+        const item = current.payload[index];
+        if (typeof item !== "string") {
+          warnings.push(`${name}: payload[${index}] 必须为字符串规则`);
+          continue;
+        }
+
+        if (!normalizeStringArg(item)) {
+          warnings.push(`${name}: payload[${index}] 不能为空字符串`);
+        }
+      }
+    }
+
+    if (type && type !== "inline") {
+      warnings.push(`${name}: 按 Mihomo 官方语义，payload 只对 type=inline 生效；当前 type=${current.type || "unknown"} 时通常不会生效`);
+    }
+  } else if (type === "inline" && hasPayloadConfiguredOption) {
+    warnings.push(`${name}: 已配置 rule-provider-payload，但当前 payload 仍未生成`);
+  }
+
+  return warnings;
+}
+
+// proxy-provider payload 必须是完整节点对象数组；inline provider 仍然建议至少给出一个有效节点。
+function collectProxyProviderPayloadWarnings(name, provider, type, hasPayloadConfiguredOption) {
+  const warnings = [];
+  const current = isObject(provider) ? provider : {};
+
+  if (type === "inline" && (!Array.isArray(current.payload) || !current.payload.length)) {
+    warnings.push(`${name}: type=inline 时建议提供有效 payload`);
+  }
+
+  if (hasOwn(current, "payload")) {
+    if (!Array.isArray(current.payload)) {
+      warnings.push(`${name}: payload 必须为数组`);
+    } else if (!current.payload.length) {
+      warnings.push(`${name}: payload 不能为空数组`);
+    } else {
+      for (let index = 0; index < current.payload.length; index += 1) {
+        const item = current.payload[index];
+        if (!isObject(item)) {
+          warnings.push(`${name}: payload[${index}] 必须为对象`);
+          continue;
+        }
+
+        if (!normalizeStringArg(item.name) || !normalizeStringArg(item.type)) {
+          warnings.push(`${name}: payload[${index}] 缺少有效的 name/type`);
+        }
+      }
+    }
+  } else if (hasPayloadConfiguredOption) {
+    warnings.push(`${name}: 已配置 proxy-provider-payload，但当前 payload 仍未生成`);
+  }
+
+  return warnings;
+}
+
+// proxy-provider 的 filter / exclude-filter / exclude-type 三类节点池字段放在一起校验，避免主函数里穿插三段重复 try/catch。
+function collectProxyProviderCollectionWarnings(name, provider) {
+  const warnings = [];
+  const current = isObject(provider) ? provider : {};
+
+  for (const field of ["filter", "exclude-filter"]) {
+    if (!hasOwn(current, field)) {
+      continue;
+    }
+
+    const value = normalizeStringArg(current[field]);
+    if (!value) {
+      warnings.push(`${name}: ${field} 不能为空字符串`);
+      continue;
+    }
+
+    try {
+      compilePatternRegExp(value);
+    } catch (error) {
+      warnings.push(`${name}: ${field} 正则无效: ${error.message}`);
+    }
+  }
+
+  if (hasOwn(current, "exclude-type")) {
+    const excludeTypeSource = normalizeStringArg(current["exclude-type"]);
+    const excludeTypes = parseTypeList(current["exclude-type"]);
+    if (/[()[\]{}*+?^$\\]/.test(excludeTypeSource)) {
+      warnings.push(`${name}: exclude-type 不支持正则，请只保留类型名并使用 | 分隔`);
+    }
+    if (excludeTypeSource && !excludeTypes.length) {
+      warnings.push(`${name}: exclude-type 不能为空列表`);
+    }
+  }
+
+  return warnings;
+}
+
+// override 语义复杂，拆成独立 helper 后 validateProxyProviderOptions 就只负责调度。
+function collectProxyProviderOverrideWarnings(name, override) {
+  const warnings = [];
+  if (!isObject(override)) {
+    return [`${name}: override 必须为对象`];
+  }
+
+  if (hasOwn(override, "additional-prefix") && !normalizeStringArg(override["additional-prefix"])) {
+    warnings.push(`${name}: override.additional-prefix 不能为空字符串`);
+  }
+
+  if (hasOwn(override, "additional-suffix") && !normalizeStringArg(override["additional-suffix"])) {
+    warnings.push(`${name}: override.additional-suffix 不能为空字符串`);
+  }
+
+  for (const field of ["udp", "udp-over-tcp", "tfo", "mptcp", "skip-cert-verify"]) {
+    if (hasOwn(override, field) && !isBooleanLike(override[field])) {
+      warnings.push(`${name}: override.${field} 仅支持布尔值`);
+    }
+  }
+
+  for (const field of ["down", "up", "dialer-proxy"]) {
+    if (hasOwn(override, field) && !normalizeStringArg(override[field])) {
+      warnings.push(`${name}: override.${field} 不能为空字符串`);
+    }
+  }
+
+  if (hasOwn(override, "interface-name") && !normalizeInterfaceNameArg(override["interface-name"])) {
+    warnings.push(`${name}: override.interface-name 必须为非空字符串`);
+  }
+
+  if (hasOwn(override, "routing-mark") && normalizeRoutingMarkArg(override["routing-mark"]) === null) {
+    warnings.push(`${name}: override.routing-mark 仅支持大于等于 0 的整数`);
+  }
+
+  if (hasOwn(override, "ip-version")) {
+    const ipVersion = normalizeIpVersionArg(override["ip-version"], "");
+    if (!ipVersion) {
+      warnings.push(`${name}: override.ip-version 仅支持 dual / ipv4 / ipv6 / ipv4-prefer / ipv6-prefer`);
+    }
+  }
+
+  if (hasOwn(override, "proxy-name")) {
+    if (!Array.isArray(override["proxy-name"])) {
+      warnings.push(`${name}: override.proxy-name 必须为数组`);
+    } else if (!override["proxy-name"].length) {
+      warnings.push(`${name}: override.proxy-name 不能为空数组`);
+    } else {
+      for (const item of override["proxy-name"]) {
+        if (!isObject(item)) {
+          warnings.push(`${name}: override.proxy-name 的每一项都必须为对象`);
+          continue;
+        }
+
+        const pattern = normalizeStringArg(item.pattern);
+        const target = normalizeStringArg(item.target);
+        if (!pattern || !target) {
+          warnings.push(`${name}: override.proxy-name 规则必须同时包含 pattern 与 target`);
+          continue;
+        }
+
+        try {
+          compilePatternRegExp(pattern);
+        } catch (error) {
+          warnings.push(`${name}: override.proxy-name 正则无效 (${pattern}): ${error.message}`);
+        }
+      }
+    }
+  }
+
+  return warnings;
+}
+
+// health-check 的字段校验与测速组十分类似，拆出来后主函数更容易看出“先校验 provider，再校验 health-check 子对象”。
+function collectProxyProviderHealthCheckWarnings(name, healthCheck) {
+  const warnings = [];
+  if (!isObject(healthCheck)) {
+    return [`${name}: health-check 必须为对象`];
+  }
+
+  if (hasOwn(healthCheck, "url") && !looksLikeHttpUrl(healthCheck.url)) {
+    warnings.push(`${name}: health-check.url=${healthCheck.url} 看起来不像合法 http(s) 地址`);
+  }
+
+  for (const field of ["interval", "timeout"]) {
+    if (!hasOwn(healthCheck, field)) {
+      continue;
+    }
+
+    const value = Number(healthCheck[field]);
+    if (!isFinite(value) || value < 1) {
+      warnings.push(`${name}: health-check.${field} 必须为大于等于 1 的数字`);
+    }
+  }
+
+  if (hasOwn(healthCheck, "expected-status")) {
+    const expectedStatus = normalizeExpectedStatusArg(healthCheck["expected-status"]);
+    if (!expectedStatus) {
+      warnings.push(`${name}: health-check.expected-status 不能为空字符串`);
+    } else if (!isValidExpectedStatusValue(expectedStatus)) {
+      warnings.push(`${name}: health-check.expected-status 仅支持 *、单个状态码，或 200/302/400-503 这类官方语法`);
+    }
+  }
+
+  return warnings;
+}
+
 // 校验 rule-provider 的官方 type/behavior/format/path/payload 语义，避免“能生成但不符合 Mihomo 官方要求”。
 function validateRuleProviderOptions(providers) {
   const source = isObject(providers) ? providers : {};
@@ -11477,7 +11741,6 @@ function validateRuleProviderOptions(providers) {
     const type = normalizeStringArg(provider.type).toLowerCase();
     const behavior = normalizeStringArg(provider.behavior).toLowerCase();
     const format = normalizeStringArg(provider.format).toLowerCase();
-    const url = normalizeStringArg(provider.url);
     const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
 
     // 先校验 type/behavior/format 这些官方枚举语义。
@@ -11495,25 +11758,7 @@ function validateRuleProviderOptions(providers) {
 
     if (type === "http") {
       // http provider 重点检查 url、interval、size-limit 等下载侧字段。
-      if (!url) {
-        warnings.push(`${name}: type=http 时必须配置 url`);
-      } else if (!looksLikeHttpUrl(url)) {
-        warnings.push(`${name}: url=${provider.url} 看起来不像合法 http(s) 地址`);
-      }
-
-      if (hasOwn(provider, "interval")) {
-        const interval = Number(provider.interval);
-        if (!isFinite(interval) || interval < 1) {
-          warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
-        }
-      }
-
-      if (hasOwn(provider, "size-limit")) {
-        const sizeLimit = Number(provider["size-limit"]);
-        if (!isFinite(sizeLimit) || sizeLimit < 0) {
-          warnings.push(`${name}: size-limit 必须为大于等于 0 的数字`);
-        }
-      }
+      warnings.push.apply(warnings, collectHttpProviderCoreWarnings(name, provider));
     } else {
       const skippedHttpOnlyOptions = [];
 
@@ -11526,9 +11771,7 @@ function validateRuleProviderOptions(providers) {
         skippedHttpOnlyOptions.push("interval/proxy/size-limit/header");
       }
 
-      if (skippedHttpOnlyOptions.length) {
-        warnings.push(`${name}: type=${provider.type || "unknown"} 不是 http，${skippedHttpOnlyOptions.join("、")} 不会生效`);
-      }
+      warnings.push.apply(warnings, collectNonHttpProviderConfiguredOptionWarnings(name, provider.type, skippedHttpOnlyOptions));
     }
 
     if (type === "file" && !path) {
@@ -11537,40 +11780,9 @@ function validateRuleProviderOptions(providers) {
 
     if (type === "inline") {
       inlineProviderCount += 1;
-      if (!Array.isArray(provider.payload) || !provider.payload.length) {
-        warnings.push(`${name}: type=inline 时建议提供有效 payload`);
-      }
-      if (url) {
-        warnings.push(`${name}: type=inline 时通常不需要 url`);
-      }
     }
 
-    if (hasOwn(provider, "payload")) {
-      // payload 的每一项都应该是最终 RULE 文本字符串。
-      if (!Array.isArray(provider.payload)) {
-        warnings.push(`${name}: payload 必须为数组`);
-      } else if (!provider.payload.length) {
-        warnings.push(`${name}: payload 不能为空数组`);
-      } else {
-        for (let index = 0; index < provider.payload.length; index += 1) {
-          const item = provider.payload[index];
-          if (typeof item !== "string") {
-            warnings.push(`${name}: payload[${index}] 必须为字符串规则`);
-            continue;
-          }
-
-          if (!normalizeStringArg(item)) {
-            warnings.push(`${name}: payload[${index}] 不能为空字符串`);
-          }
-        }
-      }
-
-      if (type && type !== "inline") {
-        warnings.push(`${name}: 按 Mihomo 官方语义，payload 只对 type=inline 生效；当前 type=${provider.type || "unknown"} 时通常不会生效`);
-      }
-    } else if (type === "inline" && hasPayloadConfiguredOption) {
-      warnings.push(`${name}: 已配置 rule-provider-payload，但当前 payload 仍未生成`);
-    }
+    warnings.push.apply(warnings, collectRuleProviderPayloadWarnings(name, provider, type, hasPayloadConfiguredOption));
 
     if (format === "mrs" && behavior === "classical") {
       warnings.push(`${name}: 按 Mihomo 官方语义，format=mrs 仅支持 domain/ipcidr，不支持 classical`);
@@ -11578,22 +11790,7 @@ function validateRuleProviderOptions(providers) {
 
     if (hasOwn(provider, "header")) {
       // header 允许单值或数组值，但最终都要能归一化成非空 header 列表。
-      if (!isObject(provider.header)) {
-        warnings.push(`${name}: header 必须为对象`);
-      } else {
-        for (const headerName of Object.keys(provider.header)) {
-          const rawHeaderValues = Array.isArray(provider.header[headerName]) ? provider.header[headerName] : [provider.header[headerName]];
-          const headerValues = rawHeaderValues.map((item) => normalizeStringArg(item)).filter(Boolean);
-
-          if (!isValidRequestHeaderName(headerName)) {
-            warnings.push(`${name}: header 名称无效: ${headerName}`);
-          }
-
-          if (!headerValues.length) {
-            warnings.push(`${name}: header.${headerName} 不能为空`);
-          }
-        }
-      }
+      warnings.push.apply(warnings, collectProviderHeaderWarnings(name, provider.header));
     }
 
     if (hasOwn(provider, "path")) {
@@ -11656,7 +11853,6 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     const type = normalizeStringArg(provider.type).toLowerCase();
-    const url = normalizeStringArg(provider.url);
     const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
 
     // 先校验最基础的官方 type/url/path 语义。
@@ -11665,25 +11861,7 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     if (type === "http") {
-      if (!url) {
-        warnings.push(`${name}: type=http 时必须配置 url`);
-      } else if (!looksLikeHttpUrl(url)) {
-        warnings.push(`${name}: url=${provider.url} 看起来不像合法 http(s) 地址`);
-      }
-
-      if (hasOwn(provider, "interval")) {
-        const interval = Number(provider.interval);
-        if (!isFinite(interval) || interval < 1) {
-          warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
-        }
-      }
-
-      if (hasOwn(provider, "size-limit")) {
-        const sizeLimit = Number(provider["size-limit"]);
-        if (!isFinite(sizeLimit) || sizeLimit < 0) {
-          warnings.push(`${name}: size-limit 必须为大于等于 0 的数字`);
-        }
-      }
+      warnings.push.apply(warnings, collectHttpProviderCoreWarnings(name, provider));
     } else {
       const skippedHttpOnlyOptions = [];
 
@@ -11696,59 +11874,17 @@ function validateProxyProviderOptions(proxyProviders) {
         skippedHttpOnlyOptions.push("interval/proxy/size-limit/header");
       }
 
-      if (skippedHttpOnlyOptions.length) {
-        warnings.push(`${name}: type=${provider.type || "unknown"} 不是 http，${skippedHttpOnlyOptions.join("、")} 不会生效`);
-      }
+      warnings.push.apply(warnings, collectNonHttpProviderConfiguredOptionWarnings(name, provider.type, skippedHttpOnlyOptions));
     }
 
     if (type === "file" && !path) {
       warnings.push(`${name}: type=file 时通常需要有效 path 来定位本地 provider 文件`);
     }
 
-    if (type === "inline" && (!Array.isArray(provider.payload) || !provider.payload.length)) {
-      warnings.push(`${name}: type=inline 时建议提供有效 payload`);
-    }
-
-    if (hasOwn(provider, "payload")) {
-      // proxy-provider payload 的每一项都应该是完整节点对象，而不是规则字符串。
-      if (!Array.isArray(provider.payload)) {
-        warnings.push(`${name}: payload 必须为数组`);
-      } else if (!provider.payload.length) {
-        warnings.push(`${name}: payload 不能为空数组`);
-      } else {
-        for (let index = 0; index < provider.payload.length; index += 1) {
-          const item = provider.payload[index];
-          if (!isObject(item)) {
-            warnings.push(`${name}: payload[${index}] 必须为对象`);
-            continue;
-          }
-
-          if (!normalizeStringArg(item.name) || !normalizeStringArg(item.type)) {
-            warnings.push(`${name}: payload[${index}] 缺少有效的 name/type`);
-          }
-        }
-      }
-    } else if (hasPayloadConfiguredOption) {
-      warnings.push(`${name}: 已配置 proxy-provider-payload，但当前 payload 仍未生成`);
-    }
+    warnings.push.apply(warnings, collectProxyProviderPayloadWarnings(name, provider, type, hasPayloadConfiguredOption));
 
     if (hasOwn(provider, "header")) {
-      if (!isObject(provider.header)) {
-        warnings.push(`${name}: header 必须为对象`);
-      } else {
-        for (const headerName of Object.keys(provider.header)) {
-          const rawHeaderValues = Array.isArray(provider.header[headerName]) ? provider.header[headerName] : [provider.header[headerName]];
-          const headerValues = rawHeaderValues.map((item) => normalizeStringArg(item)).filter(Boolean);
-
-          if (!isValidRequestHeaderName(headerName)) {
-            warnings.push(`${name}: header 名称无效: ${headerName}`);
-          }
-
-          if (!headerValues.length) {
-            warnings.push(`${name}: header.${headerName} 不能为空`);
-          }
-        }
-      }
+      warnings.push.apply(warnings, collectProviderHeaderWarnings(name, provider.header));
     } else if (type === "http" && ARGS.hasProxyProviderHeader) {
       warnings.push(`${name}: 已配置 proxy-provider-header，但当前 header 仍未生成`);
     }
@@ -11777,173 +11913,18 @@ function validateProxyProviderOptions(proxyProviders) {
       warnings.push(`${name}: 已配置 proxy-provider-path-dir，但当前 path 仍未生成`);
     }
 
-    if (hasOwn(provider, "filter")) {
-      const filter = normalizeStringArg(provider.filter);
-      if (!filter) {
-        warnings.push(`${name}: filter 不能为空字符串`);
-      } else {
-        try {
-          compilePatternRegExp(filter);
-        } catch (error) {
-          warnings.push(`${name}: filter 正则无效: ${error.message}`);
-        }
-      }
-    }
-
-    if (hasOwn(provider, "exclude-filter")) {
-      const excludeFilter = normalizeStringArg(provider["exclude-filter"]);
-      if (!excludeFilter) {
-        warnings.push(`${name}: exclude-filter 不能为空字符串`);
-      } else {
-        try {
-          compilePatternRegExp(excludeFilter);
-        } catch (error) {
-          warnings.push(`${name}: exclude-filter 正则无效: ${error.message}`);
-        }
-      }
-    }
-
-    if (hasOwn(provider, "exclude-type")) {
-      const excludeTypeSource = normalizeStringArg(provider["exclude-type"]);
-      const excludeTypes = parseTypeList(provider["exclude-type"]);
-      if (/[()[\]{}*+?^$\\]/.test(excludeTypeSource)) {
-        warnings.push(`${name}: exclude-type 不支持正则，请只保留类型名并使用 | 分隔`);
-      }
-      if (excludeTypeSource && !excludeTypes.length) {
-        warnings.push(`${name}: exclude-type 不能为空列表`);
-      }
-    }
+    warnings.push.apply(warnings, collectProxyProviderCollectionWarnings(name, provider));
 
     if (hasOwn(provider, "override")) {
-      // override 属于代理节点级别的二次改写，字段种类多，逐项做轻量语义校验。
-      if (!isObject(provider.override)) {
-        warnings.push(`${name}: override 必须为对象`);
-      } else {
-        const override = provider.override;
-
-        if (hasOwn(override, "additional-prefix") && !normalizeStringArg(override["additional-prefix"])) {
-          warnings.push(`${name}: override.additional-prefix 不能为空字符串`);
-        }
-
-        if (hasOwn(override, "additional-suffix") && !normalizeStringArg(override["additional-suffix"])) {
-          warnings.push(`${name}: override.additional-suffix 不能为空字符串`);
-        }
-
-        if (hasOwn(override, "udp") && !isBooleanLike(override.udp)) {
-          warnings.push(`${name}: override.udp 仅支持布尔值`);
-        }
-
-        if (hasOwn(override, "udp-over-tcp") && !isBooleanLike(override["udp-over-tcp"])) {
-          warnings.push(`${name}: override.udp-over-tcp 仅支持布尔值`);
-        }
-
-        if (hasOwn(override, "down") && !normalizeStringArg(override.down)) {
-          warnings.push(`${name}: override.down 不能为空字符串`);
-        }
-
-        if (hasOwn(override, "up") && !normalizeStringArg(override.up)) {
-          warnings.push(`${name}: override.up 不能为空字符串`);
-        }
-
-        if (hasOwn(override, "tfo") && !isBooleanLike(override.tfo)) {
-          warnings.push(`${name}: override.tfo 仅支持布尔值`);
-        }
-
-        if (hasOwn(override, "mptcp") && !isBooleanLike(override.mptcp)) {
-          warnings.push(`${name}: override.mptcp 仅支持布尔值`);
-        }
-
-        if (hasOwn(override, "skip-cert-verify") && !isBooleanLike(override["skip-cert-verify"])) {
-          warnings.push(`${name}: override.skip-cert-verify 仅支持布尔值`);
-        }
-
-        if (hasOwn(override, "dialer-proxy") && !normalizeStringArg(override["dialer-proxy"])) {
-          warnings.push(`${name}: override.dialer-proxy 不能为空字符串`);
-        }
-
-        if (hasOwn(override, "interface-name") && !normalizeInterfaceNameArg(override["interface-name"])) {
-          warnings.push(`${name}: override.interface-name 必须为非空字符串`);
-        }
-
-        if (hasOwn(override, "routing-mark") && normalizeRoutingMarkArg(override["routing-mark"]) === null) {
-          warnings.push(`${name}: override.routing-mark 仅支持大于等于 0 的整数`);
-        }
-
-        if (hasOwn(override, "ip-version")) {
-          const ipVersion = normalizeIpVersionArg(override["ip-version"], "");
-          if (!ipVersion) {
-            warnings.push(`${name}: override.ip-version 仅支持 dual / ipv4 / ipv6 / ipv4-prefer / ipv6-prefer`);
-          }
-        }
-
-        if (hasOwn(override, "proxy-name")) {
-          if (!Array.isArray(override["proxy-name"])) {
-            warnings.push(`${name}: override.proxy-name 必须为数组`);
-          } else if (!override["proxy-name"].length) {
-            warnings.push(`${name}: override.proxy-name 不能为空数组`);
-          } else {
-            for (const item of override["proxy-name"]) {
-              if (!isObject(item)) {
-                warnings.push(`${name}: override.proxy-name 的每一项都必须为对象`);
-                continue;
-              }
-
-              const pattern = normalizeStringArg(item.pattern);
-              const target = normalizeStringArg(item.target);
-              if (!pattern || !target) {
-                warnings.push(`${name}: override.proxy-name 规则必须同时包含 pattern 与 target`);
-                continue;
-              }
-
-              try {
-                compilePatternRegExp(pattern);
-              } catch (error) {
-                warnings.push(`${name}: override.proxy-name 正则无效 (${pattern}): ${error.message}`);
-              }
-            }
-          }
-        }
-      }
+      // override 属于代理节点级别的二次改写，字段种类多，独立 helper 负责逐项语义校验。
+      warnings.push.apply(warnings, collectProxyProviderOverrideWarnings(name, provider.override));
     }
 
     if (!hasOwn(provider, "health-check")) {
       continue;
     }
 
-    if (!isObject(provider["health-check"])) {
-      warnings.push(`${name}: health-check 必须为对象`);
-      continue;
-    }
-
-    const healthCheck = provider["health-check"];
-
-    // health-check 继续沿用测速组同类字段的数值/URL/expected-status 校验逻辑。
-    if (hasOwn(healthCheck, "url") && !looksLikeHttpUrl(healthCheck.url)) {
-      warnings.push(`${name}: health-check.url=${healthCheck.url} 看起来不像合法 http(s) 地址`);
-    }
-
-    if (hasOwn(healthCheck, "interval")) {
-      const interval = Number(healthCheck.interval);
-      if (!isFinite(interval) || interval < 1) {
-        warnings.push(`${name}: health-check.interval 必须为大于等于 1 的数字`);
-      }
-    }
-
-    if (hasOwn(healthCheck, "timeout")) {
-      const timeout = Number(healthCheck.timeout);
-      if (!isFinite(timeout) || timeout < 1) {
-        warnings.push(`${name}: health-check.timeout 必须为大于等于 1 的数字`);
-      }
-    }
-
-    if (hasOwn(healthCheck, "expected-status")) {
-      const expectedStatus = normalizeExpectedStatusArg(healthCheck["expected-status"]);
-      if (!expectedStatus) {
-        warnings.push(`${name}: health-check.expected-status 不能为空字符串`);
-      } else if (!isValidExpectedStatusValue(expectedStatus)) {
-        warnings.push(`${name}: health-check.expected-status 仅支持 *、单个状态码，或 200/302/400-503 这类官方语法`);
-      }
-    }
+    warnings.push.apply(warnings, collectProxyProviderHealthCheckWarnings(name, provider["health-check"]));
   }
 
   return uniqueStrings(warnings);
