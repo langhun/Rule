@@ -352,11 +352,12 @@
  * 347. PC 游戏平台规则继续审计：参考 blackmatrix7 当前目录，把 GOG 并入游戏加速组，补上 gog.com / gog-statics.com / gog.qtlglb.com；Origin / DiabloIII 等当前目录虽然存在，但已被 EA / Blizzard 现有规则覆盖或高度重叠，暂不重复纳入。
  * 348. 国内支付规则继续审计：参考 blackmatrix7 当前目录，把 UnionPay 并入直连规则，补上 unionpay.com / chinaunionpay.com / chinapay.com 等银联链路；Bestbuy / MOMOShop / VipShop 仍暂不纳入，避免把电商站点硬塞进现有支付分组。
  * 349. 加密货币规则继续审计：参考 blackmatrix7 当前目录，把 Binance / OKX 并入加密货币组，补上 binance.cloud / binancefuture.com / oklink.com 等交易所生态域名；其余电商/社交站点仍暂不纳入，继续避免把不同业务硬塞进现有分组。
+ * 350. 国内银行规则继续审计：参考 blackmatrix7 当前目录，把 ABC / BOCOM / CCB 并入直连规则，补上 abchina.com / bankcomm.com / ccb.com 等银行链路；BOC / CMB / ICBC 仍暂不纳入，避免把更宽的海外子品牌或夹带的混合域名一起卷入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.30";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.30。
+const SCRIPT_VERSION = "9.14.31";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.31。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7262,6 +7263,10 @@ const ruleProviders = finalizeRuleProviders({
   AliPay: createCommunityClashRuleProvider("AliPay"),
   // UnionPay / ChinaPay / 银联链路也统一直连，避免国内支付链路误走代理。
   UnionPay: createCommunityClashRuleProvider("UnionPay"),
+  // 主要国内银行链路也统一直连，避免银行 App / 网银访问误走代理。
+  ABC: createCommunityClashRuleProvider("ABC"),
+  BOCOM: createCommunityClashRuleProvider("BOCOM"),
+  CCB: createCommunityClashRuleProvider("CCB"),
   // Afdian / 爱发电创作者赞助规则也统一直连，避免国内支付链路误走代理。
   Afdian: createCommunityClashRuleProvider("Afdian"),
   // PayPal 支付规则。
@@ -7492,6 +7497,10 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "AliPay", target: GROUPS.DIRECT },
   // UnionPay / ChinaPay / 银联链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "UnionPay", target: GROUPS.DIRECT },
+  // 主要国内银行链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
+  { provider: "ABC", target: GROUPS.DIRECT },
+  { provider: "BOCOM", target: GROUPS.DIRECT },
+  { provider: "CCB", target: GROUPS.DIRECT },
   // Afdian / 爱发电创作者赞助链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "Afdian", target: GROUPS.DIRECT },
   // PayPal 支付流量交给 PayPal 组。
@@ -7672,6 +7681,9 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
   { provider: "UnionPay", label: "UnionPay", expectedTarget: GROUPS.DIRECT },
+  { provider: "ABC", label: "ABC Bank", expectedTarget: GROUPS.DIRECT },
+  { provider: "BOCOM", label: "BOCOM", expectedTarget: GROUPS.DIRECT },
+  { provider: "CCB", label: "CCB", expectedTarget: GROUPS.DIRECT },
   { provider: "Afdian", label: "Afdian", expectedTarget: GROUPS.DIRECT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Patreon", label: "Patreon", expectedTarget: GROUPS.PAYPAL },
@@ -8375,6 +8387,9 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "AliPay", label: "AliPay", category: "trade" },
   { key: "UnionPay", label: "UnionPay", category: "trade" },
+  { key: "ABC", label: "ABC Bank", category: "trade" },
+  { key: "BOCOM", label: "BOCOM", category: "trade" },
+  { key: "CCB", label: "CCB", category: "trade" },
   { key: "Afdian", label: "Afdian", category: "trade" },
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Patreon", label: "Patreon", category: "trade" },
@@ -10921,6 +10936,14 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   unionpay: "UnionPay",
   chinapay: "UnionPay",
   chinaunionpay: "UnionPay",
+  abchina: "ABC",
+  "95599": "ABC",
+  openaboc: "ABC",
+  bankcomm: "BOCOM",
+  "95559": "BOCOM",
+  bocom: "BOCOM",
+  ccb: "CCB",
+  ccbfund: "CCB",
   afdian: "Afdian",
   afdiancdn: "Afdian",
   linkedin: "LinkedIn",
