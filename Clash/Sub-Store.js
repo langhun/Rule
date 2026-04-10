@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.14
+ * Sub-Store 终极策略增强脚本 V9.14.15
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -336,11 +336,12 @@
  * 331. 图片社区规则继续审计：参考 blackmatrix7 当前目录，把 Imgur 并入 Instagram 组，补上 imgur.com / imgurinc.com；Flickr / Behance 当前目录下无对应 Clash 规则，先不额外引入。
  * 332. 视频平台规则继续审计：参考 blackmatrix7 当前目录，把 Vimeo 并入流媒体组，补上 vimeo.com / livestream.com / vimeoondemand.com；Tumblr / Niconico 这轮先不一起并，避免一次塞太多跨品类站点。
  * 333. 日系视频规则继续审计：参考 blackmatrix7 当前目录，把 Niconico 并入流媒体组，补上 niconico.com / nicovideo.jp / nicoseiga.jp；Tumblr 仍暂不纳入，避免把博客社区与图片/短视频社交混在一组。
+ * 334. 博客社区规则继续审计：参考 blackmatrix7 当前目录，把 Tumblr 并入 Instagram 组，统一承接图片/创作/博客社区流量；仍不额外拆独立博客面板，避免继续膨胀社交分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.14";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.14。
+const SCRIPT_VERSION = "9.14.15";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.15。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7168,6 +7169,8 @@ const ruleProviders = finalizeRuleProviders({
   Pixiv: createCommunityClashRuleProvider("Pixiv"),
   // Imgur 图片社区也并入 Instagram 组，继续收口图片/视觉社交流量。
   Imgur: createCommunityClashRuleProvider("Imgur"),
+  // Tumblr 博客/创作社区也并入 Instagram 组，继续统一图片与内容创作平台入口。
+  Tumblr: createCommunityClashRuleProvider("Tumblr"),
   // YouTube Music 归并进 YouTube 组，保持影音平台的面板数量稳定。
   YouTubeMusic: createCommunityClashRuleProvider("YouTubeMusic"),
   // Netflix 规则。
@@ -7408,6 +7411,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Pixiv", target: GROUPS.INSTAGRAM },
   // Imgur 继续并到 Instagram 组，避免再拆独立图片社区面板。
   { provider: "Imgur", target: GROUPS.INSTAGRAM },
+  // Tumblr 也并到 Instagram 组，统一博客/图片/创作者社区流量。
+  { provider: "Tumblr", target: GROUPS.INSTAGRAM },
   // Instagram 规则默认也放在 Facebook 前面，避免更宽泛的 Meta 规则抢先命中。
   { provider: "Instagram", target: GROUPS.INSTAGRAM },
   // Threads 归并到 Facebook 组，避免为 Meta 生态再拆出一条低收益单独组。
@@ -7556,6 +7561,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Pinterest", label: "Pinterest", expectedTarget: GROUPS.INSTAGRAM },
   { provider: "Pixiv", label: "Pixiv", expectedTarget: GROUPS.INSTAGRAM },
   { provider: "Imgur", label: "Imgur", expectedTarget: GROUPS.INSTAGRAM },
+  { provider: "Tumblr", label: "Tumblr", expectedTarget: GROUPS.INSTAGRAM },
   { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.INSTAGRAM },
   { provider: "Threads", label: "Threads", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
@@ -8230,6 +8236,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Pinterest", label: "Pinterest", category: "social" },
   { key: "Pixiv", label: "Pixiv", category: "social" },
   { key: "Imgur", label: "Imgur", category: "social" },
+  { key: "Tumblr", label: "Tumblr", category: "social" },
   { key: "Instagram", label: "Instagram", category: "social" },
   { key: "Threads", label: "Threads", category: "social" },
   { key: "Facebook", label: "Facebook", category: "social" },
@@ -10715,6 +10722,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   pixiv: "Pixiv",
   fanbox: "Pixiv",
   imgur: "Imgur",
+  tumblr: "Tumblr",
   instagram: "Instagram",
   ig: "Instagram",
   facebook: "Facebook",
