@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.21
+ * Sub-Store 终极策略增强脚本 V9.14.22
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -343,11 +343,12 @@
  * 338. 英区点播规则继续审计：参考 blackmatrix7 当前目录，把 My5 并入流媒体组，补上 my5.tv / channel5.com；TVer / HamiVideo 暂仍不纳入，继续避免更宽的地区媒体域名一起卷入。
  * 339. 日区电视聚合规则继续审计：参考 blackmatrix7 当前目录，把 TVer 并入流媒体组，补上 tver.jp / tver.co.jp / gorin.jp；HamiVideo 仍暂不纳入，避免把更宽的 Hinet / OTT 域名一起卷入。
  * 340. 港区公营媒体规则继续审计：参考 blackmatrix7 当前目录，把 RTHK 并入流媒体组，补上 rthk.hk / rthk.org.hk 与电台电视直播域名；ViuTV / EncoreTVB 仍暂不纳入，避免把更宽的 AWS / Brightcove / JWPlatform 域名一起卷入。
+ * 341. 无损音乐规则继续审计：参考 blackmatrix7 当前目录，把 TIDAL 并入流媒体组，补上 tidal.com / tidalhifi.com / wimpmusic.com；TuneIn 当前目录下未见对应 Clash 规则，先不额外引入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.21";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.21。
+const SCRIPT_VERSION = "9.14.22";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.22。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7225,6 +7226,7 @@ const ruleProviders = finalizeRuleProviders({
   Deezer: createCommunityClashRuleProvider("Deezer"),
   KKBOX: createCommunityClashRuleProvider("KKBOX"),
   Pandora: createCommunityClashRuleProvider("Pandora"),
+  TIDAL: createCommunityClashRuleProvider("TIDAL"),
   // MetaCubeX 的 ProxyMedia geosite 用来补齐尚未单独列出的海外媒体站点。
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // AliPay / 支付宝及其跨境收银域名统一直连，避免国内支付链路误走代理。
@@ -7488,6 +7490,7 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Deezer", target: GROUPS.STREAMING },
   { provider: "KKBOX", target: GROUPS.STREAMING },
   { provider: "Pandora", target: GROUPS.STREAMING },
+  { provider: "TIDAL", target: GROUPS.STREAMING },
   // Amazon 系交易规则放在 PrimeVideo / 流媒体块之后，避免更宽泛的 Amazon 规则抢先命中。
   { provider: "Amazon", target: GROUPS.PAYPAL },
   { provider: "AmazonCN", target: GROUPS.PAYPAL },
@@ -7639,6 +7642,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Deezer", label: "Deezer", expectedTarget: GROUPS.STREAMING },
   { provider: "KKBOX", label: "KKBOX", expectedTarget: GROUPS.STREAMING },
   { provider: "Pandora", label: "Pandora", expectedTarget: GROUPS.STREAMING },
+  { provider: "TIDAL", label: "TIDAL", expectedTarget: GROUPS.STREAMING },
   { provider: "ProxyMedia", label: "ProxyMedia", expectedTarget: GROUPS.STREAMING },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
@@ -8320,6 +8324,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Deezer", label: "Deezer", category: "media" },
   { key: "KKBOX", label: "KKBOX", category: "media" },
   { key: "Pandora", label: "Pandora", category: "media" },
+  { key: "TIDAL", label: "TIDAL", category: "media" },
   { key: "ProxyMedia", label: "ProxyMedia", category: "media" },
   { key: "Steam", label: "Steam", category: "game" },
   { key: "SteamCN", label: "SteamCN", category: "game" },
@@ -10797,6 +10802,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   deezer: "Deezer",
   kkbox: "KKBOX",
   pandora: "Pandora",
+  tidal: "TIDAL",
   linkedin: "LinkedIn",
   teams: "Teams",
   riot: "Riot",
