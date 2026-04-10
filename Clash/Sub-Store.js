@@ -3615,13 +3615,74 @@ function buildCompiledCountries() {
   });
 }
 
+// 统一管理运行期 warning：保留原始文案格式，同时自动去重完全相同的警告，减少单次执行内的重复刷屏。
+let RUNTIME_WARNING_ONCE_MAP = Object.create(null);
+
+function resetRuntimeWarningState() {
+  RUNTIME_WARNING_ONCE_MAP = Object.create(null);
+}
+
+function emitWarning(message, options) {
+  const rawText = message === undefined || message === null
+    ? ""
+    : String(message);
+  const normalizedText = normalizeStringArg(rawText);
+  const currentOptions = isObject(options) ? options : {};
+  const onceKey = normalizeStringArg(currentOptions.onceKey || normalizedText);
+  const shouldDedup = currentOptions.once !== false
+    && !!onceKey
+    && /^⚠️/.test(normalizedText);
+
+  if (!normalizedText) {
+    return;
+  }
+
+  if (shouldDedup && RUNTIME_WARNING_ONCE_MAP[onceKey]) {
+    return;
+  }
+
+  if (shouldDedup) {
+    RUNTIME_WARNING_ONCE_MAP[onceKey] = true;
+  }
+
+  console.warn(rawText);
+}
+
+// 批量 warning 最终都落成“遍历列表 -> 生成文案 -> emitWarning”这同一套流程，这里统一收口。
+function emitWarningList(items, formatter, options) {
+  const source = Array.isArray(items) ? items : [];
+  const formatCurrent = typeof formatter === "function"
+    ? formatter
+    : (item) => `${item}`;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const message = formatCurrent(source[index], index, source);
+    if (!normalizeStringArg(message)) {
+      continue;
+    }
+
+    emitWarning(message, options);
+  }
+}
+
+// 多类“某参数的某些条目无效/冲突”告警都只是描述语不同，这里统一成共享 helper。
+function emitInvalidEntryWarnings(argLabel, items, description) {
+  const normalizedLabel = normalizeStringArg(argLabel);
+  const normalizedDescription = normalizeStringArg(description);
+  if (!normalizedLabel || !normalizedDescription) {
+    return;
+  }
+
+  emitWarningList(items, (item) => `⚠️ 警告: ${normalizedLabel} ${normalizedDescription}: ${item}`);
+}
+
 // 这类“原始值存在且最终被 clamp/兜底修正”的告警模板在 resolveArgs 里大量出现，这里统一成共享 helper。
 function warnAdjustedNumericArg(rawValue, parsedValue, finalValue, argLabel) {
   if (rawValue === undefined || parsedValue === finalValue) {
     return;
   }
 
-  console.warn(`⚠️ 警告: ${argLabel} 无效，已重置为 ${finalValue}`);
+  emitWarning(`⚠️ 警告: ${argLabel} 无效，已重置为 ${finalValue}`);
 }
 
 // 这类“枚举值非法，最终回退到规范值”的告警也统一收口，减少 mode/type/position 这类参数的重复模板。
@@ -3630,7 +3691,7 @@ function warnNormalizedChoiceArg(rawValue, finalValue, argLabel) {
     return;
   }
 
-  console.warn(`⚠️ 警告: ${argLabel} 无效，已重置为 ${finalValue}`);
+  emitWarning(`⚠️ 警告: ${argLabel} 无效，已重置为 ${finalValue}`);
 }
 
 // expected-status 三类提示文案完全同构，只是参数名不同，这里统一收口。
@@ -3639,7 +3700,7 @@ function warnInvalidExpectedStatusArg(rawValue, normalizedValue, finalValue, arg
     return;
   }
 
-  console.warn(`⚠️ 警告: ${argLabel} 语法无效，已回退为默认值`);
+  emitWarning(`⚠️ 警告: ${argLabel} 语法无效，已回退为默认值`);
 }
 
 // icon / interface-name 这种“传了值但规范化后为空”的提示模板一致，也抽成 helper。
@@ -3648,7 +3709,7 @@ function warnIgnoredEmptyStringArg(rawValue, finalValue, argLabel) {
     return;
   }
 
-  console.warn(`⚠️ 警告: ${argLabel} 为空，已忽略`);
+  emitWarning(`⚠️ 警告: ${argLabel} 为空，已忽略`);
 }
 
 // routing-mark 统一只接受 >=0 的整数；各服务提示文案一致，这里复用同一 helper。
@@ -3657,7 +3718,7 @@ function warnIgnoredRoutingMarkArg(rawValue, finalValue, argLabel) {
     return;
   }
 
-  console.warn(`⚠️ 警告: ${argLabel} 仅支持大于等于 0 的整数，已忽略`);
+  emitWarning(`⚠️ 警告: ${argLabel} 仅支持大于等于 0 的整数，已忽略`);
 }
 
 // strategy 参数本身非法时会回退默认值；这类提示在 GitHub / Steam / Dev 三组里完全同构。
@@ -3666,7 +3727,7 @@ function warnInvalidStrategyArg(rawValue, finalValue, argLabel) {
     return;
   }
 
-  console.warn(`⚠️ 警告: ${argLabel} 无效，已回退为默认策略`);
+  emitWarning(`⚠️ 警告: ${argLabel} 无效，已回退为默认策略`);
 }
 
 // strategy 只有 load-balance 组才生效；GitHub / Steam / Dev 三组提示模板一致，这里统一收敛。
@@ -3675,7 +3736,7 @@ function warnIneffectiveStrategyArg(rawValue, finalValue, typeValue, strategyLab
     return;
   }
 
-  console.warn(`⚠️ 警告: ${strategyLabel} 仅在 ${typeLabel}=load-balance 时生效`);
+  emitWarning(`⚠️ 警告: ${strategyLabel} 仅在 ${typeLabel}=load-balance 时生效`);
 }
 
 // GitHub / Steam / Dev 在 resolveArgs 里会经历同一套“原始值 -> 规范化值 -> 告警状态 -> 返回字段”流程，这里统一收口。
@@ -3752,6 +3813,79 @@ function buildResolveArgServiceState(payload) {
     rawNodeExcludeType: current.rawNodeExcludeType,
     nodeExcludeType: normalizeTypeListArg(current.rawNodeExcludeType)
   };
+}
+
+// 单个服务状态的数值/枚举/布尔兼容性告警统一收在这里，避免 resolveArgs 里维护一长段重复 warn helper 调用。
+function warnResolveArgServiceState(serviceState) {
+  const current = isObject(serviceState) ? serviceState : buildResolveArgServiceState();
+  const key = normalizeStringArg(current.key);
+  if (!key) {
+    return;
+  }
+
+  warnAdjustedNumericArg(current.rawGroupInterval, current.parsedGroupInterval, current.groupInterval, `${key}-group-interval`);
+  warnAdjustedNumericArg(current.rawGroupTolerance, current.parsedGroupTolerance, current.groupTolerance, `${key}-group-tolerance`);
+  warnAdjustedNumericArg(current.rawGroupTimeout, current.parsedGroupTimeout, current.groupTimeout, `${key}-group-timeout`);
+  warnAdjustedNumericArg(current.rawGroupMaxFailedTimes, current.parsedGroupMaxFailedTimes, current.groupMaxFailedTimes, `${key}-group-max-failed-times`);
+  warnNormalizedChoiceArg(current.rawMode, current.mode, `${key}-mode`);
+  warnNormalizedChoiceArg(current.rawType, current.type, `${key}-type`);
+  warnInvalidStrategyArg(current.rawGroupStrategy, current.groupStrategy, `${key}-group-strategy`);
+  warnInvalidExpectedStatusArg(current.rawGroupExpectedStatus, current.normalizedExpectedStatus, current.groupExpectedStatus, `${key}-group-expected-status`);
+  warnIgnoredEmptyStringArg(current.rawInterfaceName, current.interfaceName, `${key}-interface-name`);
+  warnIgnoredRoutingMarkArg(current.rawRoutingMark, current.routingMark, `${key}-routing-mark`);
+  warnIneffectiveStrategyArg(current.rawGroupStrategy, current.groupStrategy, current.type, `${key}-group-strategy`, `${key}-type`);
+  warnIgnoredEmptyStringArg(current.rawIcon, current.icon, `${key}-icon`);
+}
+
+// GitHub / Steam / Dev 这一批“跨服务批量提示”的文案模式高度一致，统一改成 definitions 批量派发。
+const RESOLVE_ARG_SERVICE_BATCH_WARNING_DEFINITIONS = Object.freeze([
+  {
+    message: (serviceState) => serviceState.testUrl && !looksLikeHttpUrl(serviceState.testUrl)
+      ? `⚠️ 警告: ${serviceState.key}-test-url 看起来不像合法 http(s) 地址: ${serviceState.testUrl}`
+      : ""
+  },
+  {
+    message: (serviceState) => serviceState.rawIncludeAllProviders !== undefined && serviceState.includeAllProviders && serviceState.useProviders.length
+      ? `⚠️ 警告: ${serviceState.key}-include-all-providers 已开启，${serviceState.key}-use-providers 将被忽略`
+      : ""
+  },
+  {
+    message: (serviceState) => serviceState.rawIncludeAll !== undefined && serviceState.includeAll && (serviceState.useProviders.length || serviceState.includeAllProviders)
+      ? `⚠️ 警告: ${serviceState.key}-include-all 已开启，${serviceState.key}-use-providers / ${serviceState.key}-include-all-providers 将被忽略`
+      : ""
+  },
+  {
+    message: (serviceState) => serviceState.rawIncludeAll !== undefined && serviceState.includeAll && serviceState.includeAllProxies
+      ? `⚠️ 警告: ${serviceState.key}-include-all 已开启，${serviceState.key}-include-all-proxies 将被忽略`
+      : ""
+  },
+  {
+    message: (serviceState) => serviceState.rawRulePosition !== undefined
+      && normalizeStringArg(serviceState.rawRulePosition).toLowerCase() !== serviceState.rulePosition
+      ? `⚠️ 警告: ${serviceState.key}-rule-position 无效，已重置为 ${serviceState.rulePosition}`
+      : ""
+  }
+]);
+
+function emitResolveArgServiceBatchWarnings(serviceStates, definitions) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  for (const definition of source) {
+    emitWarningList(
+      serviceStates,
+      typeof (definition && definition.message) === "function"
+        ? definition.message
+        : (() => "")
+    );
+  }
+}
+
+// 服务参数 warnings 分成“单状态规范化提示 + 跨服务批量提示”两段统一执行，resolveArgs 主体只保留调度。
+function warnResolveArgServiceStates(serviceStates) {
+  for (const serviceState of Array.isArray(serviceStates) ? serviceStates : []) {
+    warnResolveArgServiceState(serviceState);
+  }
+
+  emitResolveArgServiceBatchWarnings(serviceStates, RESOLVE_ARG_SERVICE_BATCH_WARNING_DEFINITIONS);
 }
 
 // 把服务状态重新拍平成 resolveArgs 最终返回对象里的字段，避免 return 区继续手写三套近似属性。
@@ -3958,26 +4092,26 @@ function warnResolveArgRuleProviderState(ruleProviderState) {
   const current = isObject(ruleProviderState) ? ruleProviderState : buildResolveArgRuleProviderState();
 
   if (current.rawPathDir !== undefined && !normalizeStringArg(current.rawPathDir)) {
-    console.warn(`⚠️ 警告: rule-provider-path-dir 为空，已回退为默认目录 ${RULE_PROVIDER_PATH_DIR}`);
+    emitWarning(`⚠️ 警告: rule-provider-path-dir 为空，已回退为默认目录 ${RULE_PROVIDER_PATH_DIR}`);
   }
 
   if (current.rawHeader !== undefined && hasUsableArgValue(current.rawHeader) && !current.parsedHeaderEntries.entries.length) {
-    console.warn("⚠️ 警告: rule-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
+    emitWarning("⚠️ 警告: rule-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
   }
 
-  for (const item of current.parsedHeaderEntries.invalidLines) {
-    console.warn(`⚠️ 警告: rule-provider-header 条目无效，已忽略: ${item}`);
+  if (current.parsedHeaderEntries.entries.length) {
+    emitInvalidEntryWarnings("rule-provider-header", current.parsedHeaderEntries.invalidLines, "条目无效，已忽略");
   }
 
   if (current.rawPayload !== undefined && hasUsableArgValue(current.rawPayload) && !current.payload.length) {
     const reason = current.parsedPayload.parseFailed
       ? "请使用 JSON 数组、换行或 || 分隔的规则列表"
       : "请至少提供一条非空规则字符串";
-    console.warn(`⚠️ 警告: rule-provider-payload 无有效规则，已忽略；${reason}`);
+    emitWarning(`⚠️ 警告: rule-provider-payload 无有效规则，已忽略；${reason}`);
   }
 
-  for (const item of current.parsedPayload.invalidItems) {
-    console.warn(`⚠️ 警告: rule-provider-payload 条目无效，已忽略: ${item}`);
+  if (current.payload.length) {
+    emitInvalidEntryWarnings("rule-provider-payload", current.parsedPayload.invalidItems, "条目无效，已忽略");
   }
 
   warnAdjustedNumericArg(current.rawInterval, current.parsedInterval, current.interval, "rule-provider-interval");
@@ -3989,30 +4123,30 @@ function warnResolveArgProxyProviderState(proxyProviderState) {
   const current = isObject(proxyProviderState) ? proxyProviderState : buildResolveArgProxyProviderState();
 
   if (current.rawPathDir !== undefined && !normalizeStringArg(current.rawPathDir)) {
-    console.warn("⚠️ 警告: proxy-provider-path-dir 为空，已忽略本轮缓存目录接管");
+    emitWarning("⚠️ 警告: proxy-provider-path-dir 为空，已忽略本轮缓存目录接管");
   }
 
   if (current.rawPathDir !== undefined && hasUsableArgValue(current.rawPathDir) && !current.pathDir) {
-    console.warn(`⚠️ 警告: proxy-provider-path-dir 无效，已忽略: ${current.rawPathDir}`);
+    emitWarning(`⚠️ 警告: proxy-provider-path-dir 无效，已忽略: ${current.rawPathDir}`);
   }
 
   if (current.rawHeader !== undefined && hasUsableArgValue(current.rawHeader) && !current.parsedHeaderEntries.entries.length) {
-    console.warn("⚠️ 警告: proxy-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
+    emitWarning("⚠️ 警告: proxy-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
   }
 
-  for (const item of current.parsedHeaderEntries.invalidLines) {
-    console.warn(`⚠️ 警告: proxy-provider-header 条目无效，已忽略: ${item}`);
+  if (current.parsedHeaderEntries.entries.length) {
+    emitInvalidEntryWarnings("proxy-provider-header", current.parsedHeaderEntries.invalidLines, "条目无效，已忽略");
   }
 
   if (current.rawPayload !== undefined && hasUsableArgValue(current.rawPayload) && !current.payload.length) {
     const reason = current.parsedPayload.parseFailed
       ? "请使用 JSON 数组/对象写法"
       : "请至少提供带 name/type 的节点对象";
-    console.warn(`⚠️ 警告: proxy-provider-payload 无有效节点，已忽略；${reason}`);
+    emitWarning(`⚠️ 警告: proxy-provider-payload 无有效节点，已忽略；${reason}`);
   }
 
-  for (const item of current.parsedPayload.invalidItems) {
-    console.warn(`⚠️ 警告: proxy-provider-payload 条目无效，已忽略: ${item}`);
+  if (current.payload.length) {
+    emitInvalidEntryWarnings("proxy-provider-payload", current.parsedPayload.invalidItems, "条目无效，已忽略");
   }
 
   warnAdjustedNumericArg(current.rawInterval, current.parsedInterval, current.interval, "proxy-provider-interval");
@@ -4031,18 +4165,18 @@ function warnResolveArgProxyProviderState(proxyProviderState) {
   );
 
   if (current.healthCheckUrl && !looksLikeHttpUrl(current.healthCheckUrl)) {
-    console.warn(`⚠️ 警告: proxy-provider-health-check-url 看起来不像合法 http(s) 地址: ${current.healthCheckUrl}`);
+    emitWarning(`⚠️ 警告: proxy-provider-health-check-url 看起来不像合法 http(s) 地址: ${current.healthCheckUrl}`);
   }
 
   if (current.rawHealthCheckExpectedStatus !== undefined && current.normalizedHealthCheckExpectedStatus && !current.healthCheckExpectedStatus) {
-    console.warn("⚠️ 警告: proxy-provider-health-check-expected-status 语法无效，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-health-check-expected-status 语法无效，已忽略");
   }
 
   if (current.rawFilter !== undefined && current.filter) {
     try {
       compilePatternRegExp(current.filter);
     } catch (error) {
-      console.warn(`⚠️ 警告: proxy-provider-filter 正则无效: ${error.message}`);
+      emitWarning(`⚠️ 警告: proxy-provider-filter 正则无效: ${error.message}`);
     }
   }
 
@@ -4050,67 +4184,67 @@ function warnResolveArgProxyProviderState(proxyProviderState) {
     try {
       compilePatternRegExp(current.excludeFilter);
     } catch (error) {
-      console.warn(`⚠️ 警告: proxy-provider-exclude-filter 正则无效: ${error.message}`);
+      emitWarning(`⚠️ 警告: proxy-provider-exclude-filter 正则无效: ${error.message}`);
     }
   }
 
   if (current.rawExcludeType !== undefined && normalizeStringArg(current.rawExcludeType) && !current.excludeType) {
-    console.warn("⚠️ 警告: proxy-provider-exclude-type 为空或格式无效，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-exclude-type 为空或格式无效，已忽略");
   }
 
   if (current.rawExcludeType !== undefined && /[()[\]{}*+?^$\\]/.test(normalizeStringArg(current.rawExcludeType))) {
-    console.warn("⚠️ 警告: proxy-provider-exclude-type 不支持正则，请只保留类型名并使用 | 分隔");
+    emitWarning("⚠️ 警告: proxy-provider-exclude-type 不支持正则，请只保留类型名并使用 | 分隔");
   }
 
   if (current.rawOverrideUdp !== undefined && !isBooleanLike(current.rawOverrideUdp)) {
-    console.warn("⚠️ 警告: proxy-provider-override-udp 仅支持布尔值，已回退为 false");
+    emitWarning("⚠️ 警告: proxy-provider-override-udp 仅支持布尔值，已回退为 false");
   }
 
   if (current.rawOverrideUdpOverTcp !== undefined && !isBooleanLike(current.rawOverrideUdpOverTcp)) {
-    console.warn("⚠️ 警告: proxy-provider-override-udp-over-tcp 仅支持布尔值，已回退为 false");
+    emitWarning("⚠️ 警告: proxy-provider-override-udp-over-tcp 仅支持布尔值，已回退为 false");
   }
 
   if (current.rawOverrideDown !== undefined && !current.overrideDown) {
-    console.warn("⚠️ 警告: proxy-provider-override-down 为空，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-override-down 为空，已忽略");
   }
 
   if (current.rawOverrideUp !== undefined && !current.overrideUp) {
-    console.warn("⚠️ 警告: proxy-provider-override-up 为空，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-override-up 为空，已忽略");
   }
 
   if (current.rawOverrideTfo !== undefined && !isBooleanLike(current.rawOverrideTfo)) {
-    console.warn("⚠️ 警告: proxy-provider-override-tfo 仅支持布尔值，已回退为 false");
+    emitWarning("⚠️ 警告: proxy-provider-override-tfo 仅支持布尔值，已回退为 false");
   }
 
   if (current.rawOverrideMptcp !== undefined && !isBooleanLike(current.rawOverrideMptcp)) {
-    console.warn("⚠️ 警告: proxy-provider-override-mptcp 仅支持布尔值，已回退为 false");
+    emitWarning("⚠️ 警告: proxy-provider-override-mptcp 仅支持布尔值，已回退为 false");
   }
 
   if (current.rawOverrideSkipCertVerify !== undefined && !isBooleanLike(current.rawOverrideSkipCertVerify)) {
-    console.warn("⚠️ 警告: proxy-provider-override-skip-cert-verify 仅支持布尔值，已回退为 false");
+    emitWarning("⚠️ 警告: proxy-provider-override-skip-cert-verify 仅支持布尔值，已回退为 false");
   }
 
   if (current.rawOverrideInterfaceName !== undefined && !current.overrideInterfaceName) {
-    console.warn("⚠️ 警告: proxy-provider-override-interface-name 为空，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-override-interface-name 为空，已忽略");
   }
 
   if (current.rawOverrideRoutingMark !== undefined && current.overrideRoutingMark === null) {
-    console.warn("⚠️ 警告: proxy-provider-override-routing-mark 仅支持大于等于 0 的整数，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-override-routing-mark 仅支持大于等于 0 的整数，已忽略");
   }
 
   if (current.rawOverrideIpVersion !== undefined && normalizeStringArg(current.rawOverrideIpVersion) && !current.overrideIpVersion) {
-    console.warn("⚠️ 警告: proxy-provider-override-ip-version 无效，已忽略");
+    emitWarning("⚠️ 警告: proxy-provider-override-ip-version 无效，已忽略");
   }
 
   if (current.rawOverrideProxyName !== undefined && hasUsableArgValue(current.rawOverrideProxyName) && !current.overrideProxyNameRules.length) {
-    console.warn("⚠️ 警告: proxy-provider-override-proxy-name 语法无效，已忽略；请使用 pattern=>target||pattern2=>target2");
+    emitWarning("⚠️ 警告: proxy-provider-override-proxy-name 语法无效，已忽略；请使用 pattern=>target||pattern2=>target2");
   }
 
   for (const rule of current.parsedOverrideProxyNameRules) {
     try {
       compilePatternRegExp(rule.pattern);
     } catch (error) {
-      console.warn(`⚠️ 警告: proxy-provider-override-proxy-name 正则无效 (${rule.pattern}): ${error.message}`);
+      emitWarning(`⚠️ 警告: proxy-provider-override-proxy-name 正则无效 (${rule.pattern}): ${error.message}`);
     }
   }
 }
@@ -4289,28 +4423,26 @@ function warnResolveArgGroupLayoutState(layoutState) {
   const current = isObject(layoutState) ? layoutState : buildResolveArgGroupLayoutState();
 
   if (current.rawGroupOrderPreset !== undefined && !VALID_GROUP_ORDER_PRESET_TOKENS.includes(normalizeGroupMarkerToken(current.rawGroupOrderPreset))) {
-    console.warn(`⚠️ 警告: group-order-preset 无效，已重置为 ${current.groupOrderPreset}`);
+    emitWarning(`⚠️ 警告: group-order-preset 无效，已重置为 ${current.groupOrderPreset}`);
   }
 
   if (current.rawGroupOrder !== undefined && !current.groupOrder.length) {
-    console.warn("⚠️ 警告: group-order 为空，已忽略");
+    emitWarning("⚠️ 警告: group-order 为空，已忽略");
   }
 
   if (current.rawGroupOrderPreset !== undefined && current.rawGroupOrder !== undefined && current.groupOrder.length) {
-    console.warn("⚠️ 提醒: 已同时配置 group-order-preset 与 group-order；当前以显式 group-order 为准");
+    emitWarning("⚠️ 提醒: 已同时配置 group-order-preset 与 group-order；当前以显式 group-order 为准");
   }
 
   if (current.rawCountryGroupSort !== undefined && !isValidGeoGroupSortMode(current.rawCountryGroupSort)) {
-    console.warn(`⚠️ 警告: country-group-sort 无效，已重置为 ${current.countryGroupSort}`);
+    emitWarning(`⚠️ 警告: country-group-sort 无效，已重置为 ${current.countryGroupSort}`);
   }
 
   if (current.rawRegionGroupSort !== undefined && !isValidGeoGroupSortMode(current.rawRegionGroupSort)) {
-    console.warn(`⚠️ 警告: region-group-sort 无效，已重置为 ${current.regionGroupSort}`);
+    emitWarning(`⚠️ 警告: region-group-sort 无效，已重置为 ${current.regionGroupSort}`);
   }
 
-  for (const item of current.parsedRegionGroups.invalidTokens) {
-    console.warn(`⚠️ 警告: region-groups 未匹配到内置区域定义，已忽略: ${item}`);
-  }
+  emitInvalidEntryWarnings("region-groups", current.parsedRegionGroups.invalidTokens, "未匹配到内置区域定义，已忽略");
 }
 
 // 把全局测速组状态拍平成 resolveArgs 返回对象里的字段。
@@ -4417,18 +4549,19 @@ function warnResolveArgRuleSourceState(ruleSourceState) {
     { rawValue: current.rawAiExtraListUrl, value: current.aiExtraListUrl, label: "ai-extra-list-url" }
   ];
 
-  for (const item of urlDefinitions) {
-    if (item.value && !looksLikeHttpUrl(item.value)) {
-      console.warn(`⚠️ 警告: ${item.label} 看起来不像合法 http(s) 地址: ${item.value}`);
-    }
-  }
+  emitWarningList(
+    urlDefinitions,
+    (item) => item.value && !looksLikeHttpUrl(item.value)
+      ? `⚠️ 警告: ${item.label} 看起来不像合法 http(s) 地址: ${item.value}`
+      : ""
+  );
 
   if (current.rawRuleSourcePreset !== undefined && !["default", "meta", "metacubex", "official", "builtin", "blackmatrix7", "blackmatrix", "bm7", "iosrulescript"].includes(normalizeGroupMarkerToken(current.rawRuleSourcePreset))) {
-    console.warn(`⚠️ 警告: rule-source-preset 无效，已重置为 ${current.ruleSourcePreset}`);
+    emitWarning(`⚠️ 警告: rule-source-preset 无效，已重置为 ${current.ruleSourcePreset}`);
   }
 
   if (current.rawSteamFixUrl !== undefined && current.steamFixUrl && !looksLikeHttpUrl(current.steamFixUrl)) {
-    console.warn(`⚠️ 警告: steam-fix-url 看起来不是有效的 http(s) 链接，当前建议检查: ${current.steamFixUrl}`);
+    emitWarning(`⚠️ 警告: steam-fix-url 看起来不是有效的 http(s) 链接，当前建议检查: ${current.steamFixUrl}`);
   }
 }
 
@@ -4437,23 +4570,14 @@ function warnResolveArgCountryAliasState(countryAliasState) {
   const current = isObject(countryAliasState) ? countryAliasState : buildResolveArgCountryAliasState();
 
   if (current.rawCountryExtraAliases !== undefined && hasUsableArgValue(current.rawCountryExtraAliases) && !current.countryExtraAliasCountryCount) {
-    console.warn("⚠️ 警告: country-extra-aliases 未解析出任何有效条目，已忽略；请使用 国家:别名1|别名2;国家2:别名3 这种写法");
+    emitWarning("⚠️ 警告: country-extra-aliases 未解析出任何有效条目，已忽略；请使用 国家:别名1|别名2;国家2:别名3 这种写法");
   }
 
-  for (const item of current.parsedEntries.invalidEntries) {
-    console.warn(`⚠️ 警告: country-extra-aliases 条目无效，已忽略: ${item}`);
-  }
-
-  for (const item of current.parsedEntries.unknownCountryMarkers) {
-    console.warn(`⚠️ 警告: country-extra-aliases 未匹配到内置国家定义，已忽略: ${item}`);
-  }
-
-  for (const item of current.analysis.customDuplicateConflicts) {
-    console.warn(`⚠️ 警告: country-extra-aliases 同一别名指向多个国家，可能导致识别歧义: ${item}`);
-  }
-
-  for (const item of current.analysis.builtInMarkerConflicts) {
-    console.warn(`⚠️ 警告: country-extra-aliases 别名与其他内置国家标记冲突，可能导致优先链歧义: ${item}`);
+  if (current.countryExtraAliasCountryCount) {
+    emitInvalidEntryWarnings("country-extra-aliases", current.parsedEntries.invalidEntries, "条目无效，已忽略");
+    emitInvalidEntryWarnings("country-extra-aliases", current.parsedEntries.unknownCountryMarkers, "未匹配到内置国家定义，已忽略");
+    emitInvalidEntryWarnings("country-extra-aliases", current.analysis.customDuplicateConflicts, "同一别名指向多个国家，可能导致识别歧义");
+    emitInvalidEntryWarnings("country-extra-aliases", current.analysis.builtInMarkerConflicts, "别名与其他内置国家标记冲突，可能导致优先链歧义");
   }
 }
 
@@ -4493,6 +4617,172 @@ function buildResolveArgCountryAliasResultPayload(countryAliasState) {
     countryExtraAliasPreview: current.countryExtraAliasPreview,
     countryExtraAliasConflictCount: current.countryExtraAliasConflictCount,
     countryExtraAliasConflictPreview: current.countryExtraAliasConflictPreview
+  };
+}
+
+// resolveArgs 末尾剩余的 Profile / Runtime / DNS / Kernel 标量参数很多，这里统一收口成状态对象。
+function buildResolveArgRuntimeCoreState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const parsedGeoUpdateInterval = parseNumber(current.rawGeoUpdateInterval, 24);
+  const parsedFakeIpTtl = parseNumber(current.rawFakeIpTtl, 1);
+
+  return {
+    rawProfileSelected: current.rawProfileSelected,
+    profileSelected: parseBool(current.rawProfileSelected, true),
+    rawProfileFakeIp: current.rawProfileFakeIp,
+    profileFakeIp: parseBool(current.rawProfileFakeIp, true),
+    rawFakeIpEnabled: current.rawFakeIpEnabled,
+    fakeip: parseBool(current.rawFakeIpEnabled, true),
+    rawQuicEnabled: current.rawQuicEnabled,
+    quic: parseBool(current.rawQuicEnabled, false),
+    rawUnifiedDelay: current.rawUnifiedDelay,
+    unifiedDelay: parseBool(current.rawUnifiedDelay, true),
+    rawTcpConcurrent: current.rawTcpConcurrent,
+    tcpConcurrent: parseBool(current.rawTcpConcurrent, true),
+    rawGeoAutoUpdate: current.rawGeoAutoUpdate,
+    geoAutoUpdate: parseBool(current.rawGeoAutoUpdate, false),
+    rawGeoUpdateInterval: current.rawGeoUpdateInterval,
+    parsedGeoUpdateInterval,
+    geoUpdateInterval: Math.max(1, parsedGeoUpdateInterval),
+    rawGlobalUa: current.rawGlobalUa,
+    globalUa: normalizeStringArg(current.rawGlobalUa),
+    rawResponseHeaders: current.rawResponseHeaders,
+    responseHeaders: parseBool(current.rawResponseHeaders, false),
+    rawResponseHeaderPrefix: current.rawResponseHeaderPrefix,
+    responseHeaderPrefix: normalizeHeaderPrefix(current.rawResponseHeaderPrefix),
+    rawDnsPreferH3: current.rawDnsPreferH3,
+    dnsPreferH3: parseBool(current.rawDnsPreferH3, false),
+    rawDnsRespectRules: current.rawDnsRespectRules,
+    dnsRespectRules: parseBool(current.rawDnsRespectRules, false),
+    rawDnsCacheAlgorithm: current.rawDnsCacheAlgorithm,
+    dnsCacheAlgorithm: normalizeStringArg(current.rawDnsCacheAlgorithm).toLowerCase(),
+    rawDnsUseSystemHosts: current.rawDnsUseSystemHosts,
+    dnsUseSystemHosts: parseBool(current.rawDnsUseSystemHosts, true),
+    rawFakeIpFilterMode: current.rawFakeIpFilterMode,
+    fakeIpFilterMode: normalizeStringArg(current.rawFakeIpFilterMode).toLowerCase(),
+    rawFakeIpTtl: current.rawFakeIpTtl,
+    parsedFakeIpTtl,
+    fakeIpTtl: Math.max(1, parsedFakeIpTtl),
+    rawProcessMode: current.rawProcessMode,
+    processMode: normalizeStringArg(current.rawProcessMode).toLowerCase(),
+    rawGeodataLoader: current.rawGeodataLoader,
+    geodataLoader: normalizeStringArg(current.rawGeodataLoader).toLowerCase(),
+    rawGeodataMode: current.rawGeodataMode,
+    geodataMode: parseBool(current.rawGeodataMode, true),
+    rawDnsListen: current.rawDnsListen,
+    dnsListen: normalizeStringArg(current.rawDnsListen),
+    rawFakeIpRange: current.rawFakeIpRange,
+    fakeIpRange: normalizeStringArg(current.rawFakeIpRange),
+    rawFakeIpRange6: current.rawFakeIpRange6,
+    fakeIpRange6: normalizeStringArg(current.rawFakeIpRange6)
+  };
+}
+
+// Runtime 数值项目前只剩 geo-update-interval / fake-ip-ttl 两个需要 clamp 告警，这里统一收口。
+function warnResolveArgRuntimeCoreState(runtimeCoreState) {
+  const current = isObject(runtimeCoreState) ? runtimeCoreState : buildResolveArgRuntimeCoreState();
+
+  warnAdjustedNumericArg(current.rawGeoUpdateInterval, current.parsedGeoUpdateInterval, current.geoUpdateInterval, "geo-update-interval");
+  warnAdjustedNumericArg(current.rawFakeIpTtl, current.parsedFakeIpTtl, current.fakeIpTtl, "fake-ip-ttl");
+}
+
+// 把 Runtime / DNS / Kernel 主状态拍平成 resolveArgs 返回对象里的字段。
+function buildResolveArgRuntimeCoreResultPayload(runtimeCoreState) {
+  const current = isObject(runtimeCoreState) ? runtimeCoreState : buildResolveArgRuntimeCoreState();
+
+  return {
+    profileSelected: current.profileSelected,
+    hasProfileSelected: current.rawProfileSelected !== undefined,
+    profileFakeIp: current.profileFakeIp,
+    hasProfileFakeIp: current.rawProfileFakeIp !== undefined,
+    fakeip: current.fakeip,
+    quic: current.quic,
+    unifiedDelay: current.unifiedDelay,
+    hasUnifiedDelay: current.rawUnifiedDelay !== undefined,
+    tcpConcurrent: current.tcpConcurrent,
+    hasTcpConcurrent: current.rawTcpConcurrent !== undefined,
+    geoAutoUpdate: current.geoAutoUpdate,
+    hasGeoAutoUpdate: current.rawGeoAutoUpdate !== undefined,
+    geoUpdateInterval: current.geoUpdateInterval,
+    hasGeoUpdateInterval: current.rawGeoUpdateInterval !== undefined,
+    globalUa: current.globalUa,
+    hasGlobalUa: !!current.globalUa,
+    responseHeaders: current.responseHeaders,
+    hasResponseHeaders: current.rawResponseHeaders !== undefined,
+    responseHeaderPrefix: current.responseHeaderPrefix,
+    hasResponseHeaderPrefix: typeof current.rawResponseHeaderPrefix === "string" && !!current.rawResponseHeaderPrefix.trim(),
+    dnsPreferH3: current.dnsPreferH3,
+    hasDnsPreferH3: current.rawDnsPreferH3 !== undefined,
+    dnsRespectRules: current.dnsRespectRules,
+    hasDnsRespectRules: current.rawDnsRespectRules !== undefined,
+    dnsCacheAlgorithm: current.dnsCacheAlgorithm,
+    hasDnsCacheAlgorithm: !!current.dnsCacheAlgorithm,
+    dnsUseSystemHosts: current.dnsUseSystemHosts,
+    hasDnsUseSystemHosts: current.rawDnsUseSystemHosts !== undefined,
+    fakeIpFilterMode: current.fakeIpFilterMode,
+    hasFakeIpFilterMode: !!current.fakeIpFilterMode,
+    fakeIpTtl: current.fakeIpTtl,
+    hasFakeIpTtl: current.rawFakeIpTtl !== undefined,
+    processMode: current.processMode,
+    hasProcessMode: !!current.processMode,
+    geodataLoader: current.geodataLoader,
+    hasGeodataLoader: !!current.geodataLoader,
+    geodataMode: current.geodataMode,
+    hasGeodataMode: current.rawGeodataMode !== undefined
+  };
+}
+
+// DNS 监听地址与 Fake-IP 地址池单独拍平，便于 resolveArgs return 保持原有 threshold 前后顺序。
+function buildResolveArgRuntimeDnsAddressResultPayload(runtimeCoreState) {
+  const current = isObject(runtimeCoreState) ? runtimeCoreState : buildResolveArgRuntimeCoreState();
+
+  return {
+    dnsListen: current.dnsListen,
+    hasDnsListen: !!current.dnsListen,
+    fakeIpRange: current.fakeIpRange,
+    hasFakeIpRange: !!current.fakeIpRange,
+    fakeIpRange6: current.fakeIpRange6,
+    hasFakeIpRange6: !!current.fakeIpRange6
+  };
+}
+
+// Sniffer 顶层布尔项与域名名单参数统一收口，避免 resolveArgs return 区继续手写成片字段。
+function buildResolveArgSnifferState(payload) {
+  const current = isObject(payload) ? payload : {};
+
+  return {
+    rawSnifferForceDnsMapping: current.rawSnifferForceDnsMapping,
+    snifferForceDnsMapping: parseBool(current.rawSnifferForceDnsMapping, true),
+    rawSnifferParsePureIp: current.rawSnifferParsePureIp,
+    snifferParsePureIp: parseBool(current.rawSnifferParsePureIp, true),
+    rawSnifferOverrideDestination: current.rawSnifferOverrideDestination,
+    snifferOverrideDestination: parseBool(current.rawSnifferOverrideDestination, false),
+    rawSnifferHttpOverrideDestination: current.rawSnifferHttpOverrideDestination,
+    snifferHttpOverrideDestination: parseBool(current.rawSnifferHttpOverrideDestination, true),
+    rawSnifferForceDomains: current.rawSnifferForceDomains,
+    snifferForceDomains: toStringList(current.rawSnifferForceDomains),
+    rawSnifferSkipDomains: current.rawSnifferSkipDomains,
+    snifferSkipDomains: toStringList(current.rawSnifferSkipDomains)
+  };
+}
+
+// 把 Sniffer 状态拍平成 resolveArgs 返回对象里的字段。
+function buildResolveArgSnifferResultPayload(snifferState) {
+  const current = isObject(snifferState) ? snifferState : buildResolveArgSnifferState();
+
+  return {
+    snifferForceDnsMapping: current.snifferForceDnsMapping,
+    hasSnifferForceDnsMapping: current.rawSnifferForceDnsMapping !== undefined,
+    snifferParsePureIp: current.snifferParsePureIp,
+    hasSnifferParsePureIp: current.rawSnifferParsePureIp !== undefined,
+    snifferOverrideDestination: current.snifferOverrideDestination,
+    hasSnifferOverrideDestination: current.rawSnifferOverrideDestination !== undefined,
+    snifferHttpOverrideDestination: current.snifferHttpOverrideDestination,
+    hasSnifferHttpOverrideDestination: current.rawSnifferHttpOverrideDestination !== undefined,
+    snifferForceDomains: current.snifferForceDomains,
+    hasSnifferForceDomains: !!current.snifferForceDomains.length,
+    snifferSkipDomains: current.snifferSkipDomains,
+    hasSnifferSkipDomains: !!current.snifferSkipDomains.length
   };
 }
 
@@ -5084,7 +5374,7 @@ function resolveArgs(rawArgs) {
 
   // 如果用户传入值被修正了，就打印一条警告帮助定位问题。
   if (parsedThreshold !== threshold) {
-    console.warn(`⚠️ 警告: threshold 超出范围，已重置为 ${threshold}`);
+    emitWarning(`⚠️ 警告: threshold 超出范围，已重置为 ${threshold}`);
   }
 
   // 全局测速组的规范化与诊断逻辑已收口到状态 helper，这里直接复用。
@@ -5094,12 +5384,8 @@ function resolveArgs(rawArgs) {
   warnResolveArgRuleSourceState(ruleSourceResolveState);
   warnResolveArgCountryAliasState(countryAliasResolveState);
 
-  // GitHub / Steam / Dev 三类独立组的 test-url 语义一致，统一批量做 URL 合法性提示。
-  for (const serviceState of serviceResolveStates) {
-    if (serviceState.testUrl && !looksLikeHttpUrl(serviceState.testUrl)) {
-      console.warn(`⚠️ 警告: ${serviceState.key}-test-url 看起来不像合法 http(s) 地址: ${serviceState.testUrl}`);
-    }
-  }
+  // GitHub / Steam / Dev 三类独立组的所有参数告警统一走共享 helper，减少 resolveArgs 主体里的重复循环。
+  warnResolveArgServiceStates(serviceResolveStates);
 
   // rule-provider / proxy-provider 的解析与诊断逻辑已收口到状态 helper，这里直接复用。
   warnResolveArgRuleProviderState(ruleProviderResolveState);
@@ -5107,93 +5393,27 @@ function resolveArgs(rawArgs) {
 
   // 如果 geo 更新间隔被修正，也打印提示。
   if (rawGeoUpdateInterval !== undefined && parsedGeoUpdateInterval !== geoUpdateInterval) {
-    console.warn(`⚠️ 警告: geo-update-interval 无效，已重置为 ${geoUpdateInterval}`);
-  }
-
-  // GitHub / Steam / Dev 三类独立组的测速/类型/节点池优先级告警完全同构，统一走状态表批量输出。
-  for (const serviceState of serviceResolveStates) {
-    warnAdjustedNumericArg(
-      serviceState.rawGroupInterval,
-      serviceState.parsedGroupInterval,
-      serviceState.groupInterval,
-      `${serviceState.key}-group-interval`
-    );
-    warnAdjustedNumericArg(
-      serviceState.rawGroupTolerance,
-      serviceState.parsedGroupTolerance,
-      serviceState.groupTolerance,
-      `${serviceState.key}-group-tolerance`
-    );
-    warnAdjustedNumericArg(
-      serviceState.rawGroupTimeout,
-      serviceState.parsedGroupTimeout,
-      serviceState.groupTimeout,
-      `${serviceState.key}-group-timeout`
-    );
-    warnAdjustedNumericArg(
-      serviceState.rawGroupMaxFailedTimes,
-      serviceState.parsedGroupMaxFailedTimes,
-      serviceState.groupMaxFailedTimes,
-      `${serviceState.key}-group-max-failed-times`
-    );
-    warnNormalizedChoiceArg(serviceState.rawMode, serviceState.mode, `${serviceState.key}-mode`);
-    warnNormalizedChoiceArg(serviceState.rawType, serviceState.type, `${serviceState.key}-type`);
-    warnInvalidStrategyArg(serviceState.rawGroupStrategy, serviceState.groupStrategy, `${serviceState.key}-group-strategy`);
-    warnInvalidExpectedStatusArg(
-      serviceState.rawGroupExpectedStatus,
-      serviceState.normalizedExpectedStatus,
-      serviceState.groupExpectedStatus,
-      `${serviceState.key}-group-expected-status`
-    );
-    warnIgnoredEmptyStringArg(serviceState.rawInterfaceName, serviceState.interfaceName, `${serviceState.key}-interface-name`);
-    warnIgnoredRoutingMarkArg(serviceState.rawRoutingMark, serviceState.routingMark, `${serviceState.key}-routing-mark`);
-    warnIneffectiveStrategyArg(
-      serviceState.rawGroupStrategy,
-      serviceState.groupStrategy,
-      serviceState.type,
-      `${serviceState.key}-group-strategy`,
-      `${serviceState.key}-type`
-    );
-    warnIgnoredEmptyStringArg(serviceState.rawIcon, serviceState.icon, `${serviceState.key}-icon`);
-
-    if (serviceState.rawIncludeAllProviders !== undefined && serviceState.includeAllProviders && serviceState.useProviders.length) {
-      console.warn(`⚠️ 警告: ${serviceState.key}-include-all-providers 已开启，${serviceState.key}-use-providers 将被忽略`);
-    }
-
-    if (serviceState.rawIncludeAll !== undefined && serviceState.includeAll && (serviceState.useProviders.length || serviceState.includeAllProviders)) {
-      console.warn(`⚠️ 警告: ${serviceState.key}-include-all 已开启，${serviceState.key}-use-providers / ${serviceState.key}-include-all-providers 将被忽略`);
-    }
-
-    if (serviceState.rawIncludeAll !== undefined && serviceState.includeAll && serviceState.includeAllProxies) {
-      console.warn(`⚠️ 警告: ${serviceState.key}-include-all 已开启，${serviceState.key}-include-all-proxies 将被忽略`);
-    }
+    emitWarning(`⚠️ 警告: geo-update-interval 无效，已重置为 ${geoUpdateInterval}`);
   }
 
   // 官方文档已将 interface-name 标记为 deprecated，这里主动提醒，避免长期依赖。
   if (groupResolveState.interfaceName || serviceResolveStates.some((serviceState) => !!serviceState.interfaceName)) {
-    console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 interface-name 标记为 deprecated，请仅在必须绑定出口网卡时使用");
+    emitWarning("⚠️ 提醒: Mihomo Proxy Groups 文档已将 interface-name 标记为 deprecated，请仅在必须绑定出口网卡时使用");
   }
 
   // 官方文档已将 routing-mark 标记为 deprecated，这里主动提醒，避免长期依赖。
   if (groupResolveState.routingMark !== null || serviceResolveStates.some((serviceState) => serviceState.routingMark !== null)) {
-    console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 routing-mark 标记为 deprecated，请仅在必须配合策略路由打标时使用");
-  }
-
-  // GitHub / Steam / Dev 规则顺序位置语义一致，统一按服务状态表批量提示非法值。
-  for (const serviceState of serviceResolveStates) {
-    if (serviceState.rawRulePosition !== undefined && normalizeStringArg(serviceState.rawRulePosition).toLowerCase() !== serviceState.rulePosition) {
-      console.warn(`⚠️ 警告: ${serviceState.key}-rule-position 无效，已重置为 ${serviceState.rulePosition}`);
-    }
+    emitWarning("⚠️ 提醒: Mihomo Proxy Groups 文档已将 routing-mark 标记为 deprecated，请仅在必须配合策略路由打标时使用");
   }
 
   // 如果 SteamCN 规则顺序位置非法，则回退默认值并提示。
   if (rawSteamCnRulePosition !== undefined && normalizeStringArg(rawSteamCnRulePosition).toLowerCase() !== steamCnRulePosition) {
-    console.warn(`⚠️ 警告: steam-cn-rule-position 无效，已重置为 ${steamCnRulePosition}`);
+    emitWarning(`⚠️ 警告: steam-cn-rule-position 无效，已重置为 ${steamCnRulePosition}`);
   }
 
   // 如果 custom-rule-position 非法，则回退默认值并提示。
   if (rawCustomRulePosition !== undefined && normalizeStringArg(rawCustomRulePosition).toLowerCase() !== customRulePosition) {
-    console.warn(`⚠️ 警告: custom-rule-position 无效，已重置为 ${customRulePosition}`);
+    emitWarning(`⚠️ 警告: custom-rule-position 无效，已重置为 ${customRulePosition}`);
   }
 
   // 布局参数告警同样已收口到状态 helper，避免 resolveArgs 主体继续堆积模板。
@@ -5201,7 +5421,7 @@ function resolveArgs(rawArgs) {
 
   // 如果 fake-ip-ttl 被修正，也打印提示。
   if (rawFakeIpTtl !== undefined && parsedFakeIpTtl !== fakeIpTtl) {
-    console.warn(`⚠️ 警告: fake-ip-ttl 无效，已重置为 ${fakeIpTtl}`);
+    emitWarning(`⚠️ 警告: fake-ip-ttl 无效，已重置为 ${fakeIpTtl}`);
   }
 
   // 返回最终规范化后的参数对象。
@@ -6131,6 +6351,11 @@ function cloneJsonCompatibleValue(value, fallback) {
 // 解析 rule-provider payload 参数，支持字符串数组、JSON 数组，以及换行 / || 分隔的规则列表。
 function parseRuleProviderPayload(value) {
   let source = value;
+
+  // 未传 payload 时按“未配置”处理，避免默认空参在脚本初始化阶段产生误报。
+  if (source === undefined || source === null) {
+    return { items: [], invalidItems: [], parseFailed: false };
+  }
 
   if (typeof source === "string") {
     // 字符串优先尝试按 JSON 解析；失败后再退回到“纯文本规则列表”模式。
@@ -8840,61 +9065,130 @@ function buildServiceAutoProxyHeaderValue(argToken) {
     : "default";
 }
 
-// GitHub / Steam / Dev 这类独立组的测速覆盖项结构一致，这里统一按参数前缀组装。
+// GitHub / Steam / Dev 这类独立组的参数对象结构高度同构，这里统一定义字段映射，避免四五份对象模板并行漂移。
+function createServiceArgPayloadFieldDefinition(key, argSuffix, options) {
+  return Object.freeze(Object.assign({
+    key,
+    argSuffix: normalizeStringArg(argSuffix)
+  }, isObject(options) ? options : {}));
+}
+
+// definition-driven service payload 在兜底数组/对象时要返回副本，避免不同服务组选项共享同一引用。
+function cloneServiceArgPayloadDefaultValue(value) {
+  return (Array.isArray(value) || isObject(value))
+    ? cloneJsonCompatibleValue(value, Array.isArray(value) ? value.slice() : Object.assign({}, value))
+    : value;
+}
+
+// service payload definition 既可能取 ARGS，也可能取运行期上下文（如 providerReferences），统一收口到这里解析。
+function resolveServiceArgPayloadFieldValue(argToken, definition, runtimeContext) {
+  const current = isObject(runtimeContext) ? runtimeContext : {};
+  const fieldDefinition = isObject(definition) ? definition : {};
+
+  if (typeof fieldDefinition.valueBuilder === "function") {
+    return fieldDefinition.valueBuilder(argToken, current, fieldDefinition);
+  }
+
+  const contextKey = normalizeStringArg(fieldDefinition.contextKey);
+  if (contextKey) {
+    return hasOwn(current, contextKey)
+      ? current[contextKey]
+      : (hasOwn(fieldDefinition, "defaultValue") ? cloneServiceArgPayloadDefaultValue(fieldDefinition.defaultValue) : undefined);
+  }
+
+  const argSuffix = normalizeStringArg(fieldDefinition.argSuffix);
+  if (argSuffix) {
+    return fieldDefinition.hasArg
+      ? ARGS[`has${argToken}${argSuffix}`]
+      : ARGS[buildServiceArgKey(argToken, argSuffix)];
+  }
+
+  return hasOwn(fieldDefinition, "defaultValue")
+    ? cloneServiceArgPayloadDefaultValue(fieldDefinition.defaultValue)
+    : undefined;
+}
+
+// 独立组参数对象统一走 definitions -> payload 装配，后续再新增字段时只需扩表。
+function buildServiceArgPayload(argToken, definitions, runtimeContext) {
+  const payload = {};
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key) {
+      continue;
+    }
+
+    payload[key] = resolveServiceArgPayloadFieldValue(argToken, definition, runtimeContext);
+  }
+
+  return payload;
+}
+
+const SERVICE_LATENCY_OVERRIDE_FIELD_DEFINITIONS = Object.freeze([
+  createServiceArgPayloadFieldDefinition("testUrl", "TestUrl"),
+  createServiceArgPayloadFieldDefinition("hasTestUrl", "TestUrl", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupInterval", "GroupInterval"),
+  createServiceArgPayloadFieldDefinition("hasGroupInterval", "GroupInterval", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupTolerance", "GroupTolerance"),
+  createServiceArgPayloadFieldDefinition("hasGroupTolerance", "GroupTolerance", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupTimeout", "GroupTimeout"),
+  createServiceArgPayloadFieldDefinition("hasGroupTimeout", "GroupTimeout", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupLazy", "GroupLazy"),
+  createServiceArgPayloadFieldDefinition("hasGroupLazy", "GroupLazy", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupMaxFailedTimes", "GroupMaxFailedTimes"),
+  createServiceArgPayloadFieldDefinition("hasGroupMaxFailedTimes", "GroupMaxFailedTimes", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupExpectedStatus", "GroupExpectedStatus"),
+  createServiceArgPayloadFieldDefinition("hasGroupExpectedStatus", "GroupExpectedStatus", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("groupStrategy", "GroupStrategy"),
+  createServiceArgPayloadFieldDefinition("hasGroupStrategy", "GroupStrategy", { hasArg: true })
+]);
+
+const SERVICE_AUTO_COLLECTION_OPTION_FIELD_DEFINITIONS = Object.freeze([
+  createServiceArgPayloadFieldDefinition("filter", "NodeFilter"),
+  createServiceArgPayloadFieldDefinition("excludeFilter", "NodeExcludeFilter"),
+  createServiceArgPayloadFieldDefinition("excludeType", "NodeExcludeType"),
+  createServiceArgPayloadFieldDefinition("includeAllProxies", "IncludeAllProxies")
+]);
+
+const SERVICE_PROVIDER_COLLECTION_OPTION_FIELD_DEFINITIONS = Object.freeze([
+  createServiceArgPayloadFieldDefinition("includeAll", "IncludeAll"),
+  createServiceArgPayloadFieldDefinition("use", "", { contextKey: "providerReferences", defaultValue: [] }),
+  createServiceArgPayloadFieldDefinition("includeAllProviders", "IncludeAllProviders")
+]);
+
+const SERVICE_ADVANCED_OPTION_FIELD_DEFINITIONS = Object.freeze([
+  createServiceArgPayloadFieldDefinition("hidden", "Hidden"),
+  createServiceArgPayloadFieldDefinition("hasHidden", "Hidden", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("disableUdp", "DisableUdp"),
+  createServiceArgPayloadFieldDefinition("hasDisableUdp", "DisableUdp", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("icon", "Icon"),
+  createServiceArgPayloadFieldDefinition("hasIcon", "Icon", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("interfaceName", "InterfaceName"),
+  createServiceArgPayloadFieldDefinition("hasInterfaceName", "InterfaceName", { hasArg: true }),
+  createServiceArgPayloadFieldDefinition("routingMark", "RoutingMark"),
+  createServiceArgPayloadFieldDefinition("hasRoutingMark", "RoutingMark", { hasArg: true })
+]);
+
+// GitHub / Steam / Dev 这类独立组的测速覆盖项结构一致，这里统一按参数 definitions 装配。
 function buildServiceLatencyOverrides(argToken) {
-  return {
-    testUrl: ARGS[buildServiceArgKey(argToken, "TestUrl")],
-    hasTestUrl: ARGS[`has${argToken}TestUrl`],
-    groupInterval: ARGS[buildServiceArgKey(argToken, "GroupInterval")],
-    hasGroupInterval: ARGS[`has${argToken}GroupInterval`],
-    groupTolerance: ARGS[buildServiceArgKey(argToken, "GroupTolerance")],
-    hasGroupTolerance: ARGS[`has${argToken}GroupTolerance`],
-    groupTimeout: ARGS[buildServiceArgKey(argToken, "GroupTimeout")],
-    hasGroupTimeout: ARGS[`has${argToken}GroupTimeout`],
-    groupLazy: ARGS[buildServiceArgKey(argToken, "GroupLazy")],
-    hasGroupLazy: ARGS[`has${argToken}GroupLazy`],
-    groupMaxFailedTimes: ARGS[buildServiceArgKey(argToken, "GroupMaxFailedTimes")],
-    hasGroupMaxFailedTimes: ARGS[`has${argToken}GroupMaxFailedTimes`],
-    groupExpectedStatus: ARGS[buildServiceArgKey(argToken, "GroupExpectedStatus")],
-    hasGroupExpectedStatus: ARGS[`has${argToken}GroupExpectedStatus`],
-    groupStrategy: ARGS[buildServiceArgKey(argToken, "GroupStrategy")],
-    hasGroupStrategy: ARGS[`has${argToken}GroupStrategy`]
-  };
+  return buildServiceArgPayload(argToken, SERVICE_LATENCY_OVERRIDE_FIELD_DEFINITIONS);
 }
 
-// GitHub / Steam / Dev 的原始节点自动收集参数也完全同构，统一在这里生成。
+// GitHub / Steam / Dev 的原始节点自动收集参数也完全同构，统一由 definitions 生成。
 function buildServiceAutoCollectionOptions(argToken) {
-  return {
-    filter: ARGS[buildServiceArgKey(argToken, "NodeFilter")],
-    excludeFilter: ARGS[buildServiceArgKey(argToken, "NodeExcludeFilter")],
-    excludeType: ARGS[buildServiceArgKey(argToken, "NodeExcludeType")],
-    includeAllProxies: ARGS[buildServiceArgKey(argToken, "IncludeAllProxies")]
-  };
+  return buildServiceArgPayload(argToken, SERVICE_AUTO_COLLECTION_OPTION_FIELD_DEFINITIONS);
 }
 
-// GitHub / Steam / Dev 的 provider 池配置统一走这套结构，调用方只需传入已解析好的 provider 名称列表。
+// GitHub / Steam / Dev 的 provider 池配置统一走 definitions + runtimeContext，调用方只需传入已解析好的 provider 引用列表。
 function buildServiceProviderCollectionOptions(argToken, providerReferences) {
-  return {
-    includeAll: ARGS[buildServiceArgKey(argToken, "IncludeAll")],
-    use: Array.isArray(providerReferences) ? providerReferences : [],
-    includeAllProviders: ARGS[buildServiceArgKey(argToken, "IncludeAllProviders")]
-  };
+  return buildServiceArgPayload(argToken, SERVICE_PROVIDER_COLLECTION_OPTION_FIELD_DEFINITIONS, {
+    providerReferences: Array.isArray(providerReferences) ? providerReferences : []
+  });
 }
 
-// GitHub / Steam / Dev 的展示与网络高级项统一组装，避免 buildProxyGroups 里重复写 hidden/icon/udp/interface/routing-mark。
+// GitHub / Steam / Dev 的展示与网络高级项统一 definitions 化，避免 buildProxyGroups 里重复写 hidden/icon/udp/interface/routing-mark。
 function buildServiceAdvancedOptions(argToken) {
-  return {
-    hidden: ARGS[buildServiceArgKey(argToken, "Hidden")],
-    hasHidden: ARGS[`has${argToken}Hidden`],
-    disableUdp: ARGS[buildServiceArgKey(argToken, "DisableUdp")],
-    hasDisableUdp: ARGS[`has${argToken}DisableUdp`],
-    icon: ARGS[buildServiceArgKey(argToken, "Icon")],
-    hasIcon: ARGS[`has${argToken}Icon`],
-    interfaceName: ARGS[buildServiceArgKey(argToken, "InterfaceName")],
-    hasInterfaceName: ARGS[`has${argToken}InterfaceName`],
-    routingMark: ARGS[buildServiceArgKey(argToken, "RoutingMark")],
-    hasRoutingMark: ARGS[`has${argToken}RoutingMark`]
-  };
+  return buildServiceArgPayload(argToken, SERVICE_ADVANCED_OPTION_FIELD_DEFINITIONS);
 }
 
 // 统一解析 GitHub / Steam / Dev 的前置组、点名节点与 provider 引用，避免 buildProxyGroups 里重复写三组相同分支。
@@ -8981,26 +9275,62 @@ function createServiceModeBaseProxyDefinition(serviceDefinition) {
   };
 }
 
+const PROXY_GROUP_SERVICE_ARTIFACT_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "argToken", value: (context, definition) => definition.argToken },
+  { key: "groupName", value: (context, definition) => definition.groupName },
+  { key: "type", value: (context, definition) => ARGS[buildServiceArgKey(definition.argToken, "Type")] },
+  { key: "mode", value: (context, definition) => ARGS[buildServiceArgKey(definition.argToken, "Mode")] },
+  { key: "hasPreferredCountries", value: (context, definition) => !!ARGS[`has${definition.argToken}PreferCountries`] },
+  {
+    key: "preferredGroups",
+    value: (context, definition) => context[normalizeStringArg(definition.preferredGroupsContextKey)]
+  },
+  {
+    key: "modeBaseProxies",
+    value: (context, definition) => context[normalizeStringArg(definition.modeBaseProxiesContextKey)]
+  },
+  {
+    key: "directPreferBaseProxies",
+    value: (context, definition) => typeof definition.resolveDirectPreferBaseProxies === "function"
+      ? definition.resolveDirectPreferBaseProxies(context)
+      : context.selectFirstProxies
+  },
+  { key: "availableGroupNames", value: (context) => context.availableGroupNames },
+  { key: "proxyNames", value: (context) => context.proxyNames },
+  { key: "providerNames", value: (context) => context.existingProxyProviderNames }
+]);
+
 // service artifact 装配前先按统一定义把上下文拍平成 payload，后续 buildProxyGroupServiceArtifacts 就只关心“如何装配”，不再知道外部 key 名。
 function buildProxyGroupServiceArtifactPayload(serviceDefinition, payload) {
   const definition = isObject(serviceDefinition) ? serviceDefinition : {};
   const current = isObject(payload) ? payload : {};
-  return {
-    argToken: definition.argToken,
-    groupName: definition.groupName,
-    type: ARGS[buildServiceArgKey(definition.argToken, "Type")],
-    mode: ARGS[buildServiceArgKey(definition.argToken, "Mode")],
-    hasPreferredCountries: !!ARGS[`has${definition.argToken}PreferCountries`],
-    preferredGroups: current[definition.preferredGroupsContextKey],
-    modeBaseProxies: current[definition.modeBaseProxiesContextKey],
-    directPreferBaseProxies: typeof definition.resolveDirectPreferBaseProxies === "function"
-      ? definition.resolveDirectPreferBaseProxies(current)
-      : current.selectFirstProxies,
-    availableGroupNames: current.availableGroupNames,
-    proxyNames: current.proxyNames,
-    providerNames: current.existingProxyProviderNames
-  };
+  return buildDefinitionDrivenPayload(PROXY_GROUP_SERVICE_ARTIFACT_PAYLOAD_DEFINITIONS, current, definition);
 }
+
+const PROXY_GROUP_SERVICE_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "groupName", value: (context) => context.groupName },
+  { key: "type", value: (context) => context.type },
+  { key: "preferredResources", value: (context, argToken, preferredResources) => preferredResources },
+  {
+    key: "proxies",
+    value: (context, argToken, preferredResources) => buildServicePreferredProxies({
+      mode: context.mode,
+      hasPreferredCountries: context.hasPreferredCountries,
+      preferredGroups: context.preferredGroups,
+      modeBaseProxies: context.modeBaseProxies,
+      directPreferBaseProxies: context.directPreferBaseProxies,
+      preferredReferences: preferredResources.preferredReferences,
+      preferredNodes: preferredResources.preferredNodes
+    })
+  },
+  { key: "latencyOverrides", value: (context, argToken) => buildServiceLatencyOverrides(argToken) },
+  { key: "autoCollectionOptions", value: (context, argToken) => buildServiceAutoCollectionOptions(argToken) },
+  {
+    key: "providerCollectionOptions",
+    value: (context, argToken, preferredResources) => buildServiceProviderCollectionOptions(argToken, preferredResources.providerReferences)
+  },
+  { key: "advancedOptions", value: (context, argToken) => buildServiceAdvancedOptions(argToken) }
+]);
 
 // GitHub / Steam / Dev 三类独立组在 buildProxyGroups 里的资源解析、候选链与组选项构建模板完全一致，这里统一装配。
 function buildProxyGroupServiceArtifacts(payload) {
@@ -9015,27 +9345,7 @@ function buildProxyGroupServiceArtifacts(payload) {
     context.groupName
   );
 
-  return {
-    // 组名与组类型都要随 artifact 一起向后传递；否则 createProxyGroupServiceArtifactGroup
-    // 会拿到 undefined name/type，最终导致 GitHub / Dev / Steam 这类独立组被 sanitize 阶段当成无效组丢弃。
-    groupName: context.groupName,
-    type: context.type,
-    preferredResources,
-    // proxies 是最终给 service group 用的候选链，已经把国家优先链、前置组和点名节点都合并进去了。
-    proxies: buildServicePreferredProxies({
-      mode: context.mode,
-      hasPreferredCountries: context.hasPreferredCountries,
-      preferredGroups: context.preferredGroups,
-      modeBaseProxies: context.modeBaseProxies,
-      directPreferBaseProxies: context.directPreferBaseProxies,
-      preferredReferences: preferredResources.preferredReferences,
-      preferredNodes: preferredResources.preferredNodes
-    }),
-    latencyOverrides: buildServiceLatencyOverrides(argToken),
-    autoCollectionOptions: buildServiceAutoCollectionOptions(argToken),
-    providerCollectionOptions: buildServiceProviderCollectionOptions(argToken, preferredResources.providerReferences),
-    advancedOptions: buildServiceAdvancedOptions(argToken)
-  };
+  return buildDefinitionDrivenPayload(PROXY_GROUP_SERVICE_ARTIFACT_DEFINITIONS, context, argToken, preferredResources);
 }
 
 // 按统一计划批量构造 GitHub / Steam / Dev 的服务组中间产物；定义只保留在 SERVICE_DEFINITIONS 一处，避免 key/arg/context 映射漂移。
@@ -9127,6 +9437,7 @@ function buildProxyGroupBaseContext(payload) {
   const context = isObject(payload) ? payload : {};
   const countries = Array.isArray(context.countryConfigs) ? context.countryConfigs : [];
   const regions = Array.isArray(context.regionConfigs) ? context.regionConfigs : [];
+  const countryCoverage = analyzeCountryCoverage(context.proxies);
   return {
     countryGroupNames: countries.map((country) => country.name),
     resolvedRegionConfigs: regions,
@@ -9134,7 +9445,9 @@ function buildProxyGroupBaseContext(payload) {
     existingGroupNames: collectNamedEntries(context.existingGroups),
     existingProxyProviderNames: Object.keys(isObject(context.existingProxyProviders) ? context.existingProxyProviders : {}),
     proxyNames: collectNamedEntries(context.proxies),
-    countryFilters: countries.map((country) => country.filter)
+    countryFilters: countries.map((country) => country.filter),
+    countryCoverage,
+    classifiedCountryProxyCount: countryCoverage.classified
   };
 }
 
@@ -10898,6 +11211,26 @@ function analyzeCountryCoverage(proxies) {
   };
 }
 
+// main 入口的配置守卫统一收口到这里，避免“非对象 / 缺 proxies / 空 proxies”这三段早退分支散落在主流程里。
+function validateMainConfigInput(config) {
+  if (!isObject(config)) {
+    console.error("❌ 错误: 配置对象不存在");
+    return { ok: false, value: {} };
+  }
+
+  if (!Array.isArray(config.proxies)) {
+    emitWarning("⚠️ 警告: 配置文件中未找到代理节点数组");
+    return { ok: false, value: config };
+  }
+
+  if (config.proxies.length === 0) {
+    emitWarning("⚠️ 警告: 代理节点数组为空，无法生成完整配置");
+    return { ok: false, value: config };
+  }
+
+  return { ok: true, value: config };
+}
+
 // 统一清洗并规范代理节点名称。
 // 重点处理两类问题：首尾空格/多空格，以及重复节点名。
 function normalizeProxies(proxies) {
@@ -10951,9 +11284,8 @@ function normalizeProxies(proxies) {
 
 // 解析所有节点，提取能成立的国家分组配置。
 function parseCountries(proxies) {
-  // 保护性判断：没有节点就直接返回空数组。
+  // 这里保持纯函数语义：没有节点时直接回空数组，由 main 入口统一负责告警。
   if (!Array.isArray(proxies) || proxies.length === 0) {
-    console.warn("⚠️ 警告: 代理节点数组为空，无法解析国家信息");
     return [];
   }
 
@@ -11237,7 +11569,9 @@ function createIncludeAllLatencyGroup(name, filter, excludeFilter, type) {
 }
 
 // 清洗策略组定义，做名称去重、空组移除、候选列表去重。
-function sanitizeProxyGroups(groups) {
+function sanitizeProxyGroups(groups, options) {
+  const currentOptions = isObject(options) ? options : {};
+  const warnOnEmptyGroup = currentOptions.warnOnEmptyGroup !== false;
   // 记录哪些组名已经出现过。
   const seen = Object.create(null);
   // 存放最终有效的策略组。
@@ -11267,7 +11601,9 @@ function sanitizeProxyGroups(groups) {
     if (!isAutoCollectionGroup(group) && !group.filter) {
       // 如果连 proxies 都没有，就说明这是个空组，直接丢弃。
       if (!Array.isArray(group.proxies) || group.proxies.length === 0) {
-        console.warn(`⚠️ 警告: 策略组 ${group.name} 无可用候选，已跳过`);
+        if (warnOnEmptyGroup) {
+          emitWarning(`⚠️ 警告: 策略组 ${group.name} 无可用候选，已跳过`);
+        }
         continue;
       }
     }
@@ -11284,8 +11620,8 @@ function sanitizeProxyGroups(groups) {
 
 // 合并脚本生成的策略组与原配置中的自定义策略组。
 function mergeProxyGroups(generatedGroups, existingGroups) {
-  // 先清洗脚本生成的组，确保基础结构稳定。
-  const baseGroups = sanitizeProxyGroups(generatedGroups);
+  // 脚本内部生成的空组多半只是“当前场景无需生成”，这里静默跳过，避免和用户显式配置错误混在一起。
+  const baseGroups = sanitizeProxyGroups(generatedGroups, { warnOnEmptyGroup: false });
   // 用于记录已经占用的组名。
   const seen = Object.create(null);
 
@@ -11309,8 +11645,8 @@ function mergeProxyGroups(generatedGroups, existingGroups) {
     seen[group.name] = true;
   }
 
-  // 最终结果 = 脚本组 + 用户不冲突组，再统一清洗一遍。
-  return sanitizeProxyGroups(baseGroups.concat(extras));
+  // 最终结果 = 脚本组 + 用户不冲突组，再统一清洗一遍；此阶段保留对用户显式空组的告警。
+  return sanitizeProxyGroups(baseGroups.concat(extras), { warnOnEmptyGroup: true });
 }
 
 // 校验规则定义里引用的 provider 是否都真实存在。
@@ -12728,6 +13064,7 @@ const BUILD_DIAGNOSTICS_SUPPLEMENT_FIELD_DEFINITIONS = Object.freeze([]
     { key: "proxyProviderMutationStats", type: "raw" },
     { key: "ruleProviderMutationPreview", type: "raw" },
     { key: "proxyProviderMutationPreview", type: "raw" },
+    { key: "classifiedCountryProxies", type: "number" },
     { key: "unclassifiedCountryProxies", type: "number" },
     { key: "unclassifiedCountryExamples", type: "array" },
     { key: "countrySummary", type: "string" },
@@ -12747,6 +13084,7 @@ const BUILD_DIAGNOSTICS_SUPPLEMENT_PAYLOAD_DEFINITIONS = Object.freeze([
   { key: "proxyProviderMutationStats", value: (context) => context.proxyProviderMutationStats },
   { key: "ruleProviderMutationPreview", value: (context) => context.ruleProviderMutationPreview },
   { key: "proxyProviderMutationPreview", value: (context) => context.proxyProviderMutationPreview },
+  { key: "classifiedCountryProxies", value: (context) => context.countryCoverage.classified },
   { key: "unclassifiedCountryProxies", value: (context) => context.countryCoverage.unclassified },
   { key: "unclassifiedCountryExamples", value: (context) => context.countryCoverage.unclassifiedExamples },
   { key: "countrySummary", value: (context) => context.countrySummary },
@@ -13093,8 +13431,8 @@ function logBuildSummaryMetricLines(stats, definitions, defaultUnit) {
 }
 
 // 顺序遍历所有指标节定义，并逐节输出统计摘要。
-function logBuildSummaryMetricSections(stats) {
-  for (const section of BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS) {
+function logBuildSummaryMetricSections(stats, sections) {
+  for (const section of Array.isArray(sections) ? sections : BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS) {
     logBuildSummaryMetricLines(stats, section.definitions, section.defaultUnit);
   }
 }
@@ -13122,26 +13460,47 @@ const BUILD_SUMMARY_LOOKUP_REGISTRY_DEFINITIONS = Object.freeze([
   { key: "providerArg", definitions: BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS }
 ]);
 
+// build summary lookup registry 当前只依赖 definitions 数组，这里单独解析方便 registry builder 与 source payload 共享同一入口。
+function resolveBuildSummaryLookupRegistryDefinitions(definitions) {
+  return Array.isArray(definitions) ? definitions : [];
+}
+
+// registry 中的单个 lookup 项本质上只是“标准化 key + 预编译后的 label lookup”，这里抽成 entry builder 便于继续收敛 registry 主体。
+function buildBuildSummaryLookupRegistryEntry(definition) {
+  const key = normalizeStringArg(definition && definition.key);
+  if (!key) {
+    return null;
+  }
+
+  return {
+    key,
+    lookup: buildBuildSummaryDefinitionLookup(definition && definition.definitions)
+  };
+}
+
 // 把多套 summary 定义表预编译成 lookup registry，供 full 模式按标签快速检索。
 function buildBuildSummaryLookupRegistry(definitions) {
   const registry = Object.create(null);
 
-  for (const definition of Array.isArray(definitions) ? definitions : []) {
-    const key = normalizeStringArg(definition && definition.key);
-    if (!key || hasOwn(registry, key)) {
+  for (const definition of resolveBuildSummaryLookupRegistryDefinitions(definitions)) {
+    const entry = buildBuildSummaryLookupRegistryEntry(definition);
+    if (!isObject(entry) || hasOwn(registry, entry.key)) {
       continue;
     }
 
-    registry[key] = buildBuildSummaryDefinitionLookup(definition.definitions);
+    registry[entry.key] = entry.lookup;
   }
 
   return registry;
 }
 
 // 按标签列表批量输出摘要行，减少 logBuildSummary 里一长串重复的 find+log 调用。
-function logBuildSummaryDefinitionLabels(stats, lookup, labels, logger) {
+function logBuildSummaryDefinitionLabels(stats, lookup, labels, loggerKind) {
   const currentLookup = isObject(lookup) ? lookup : {};
-  const logCurrent = typeof logger === "function" ? logger : (() => {});
+  const currentLoggerKind = resolveKindRegistryValue(BUILD_SUMMARY_LOOKUP_LOGGER_MAP, loggerKind);
+  if (!currentLoggerKind) {
+    return;
+  }
 
   for (const label of Array.isArray(labels) ? labels : []) {
     const normalizedLabel = normalizeStringArg(label);
@@ -13149,52 +13508,79 @@ function logBuildSummaryDefinitionLabels(stats, lookup, labels, logger) {
       continue;
     }
 
-    logCurrent(currentLookup[normalizedLabel], stats);
+    logBuildSummaryLineByKind(currentLoggerKind, currentLookup[normalizedLabel], stats);
   }
 }
 
-// 不同 lookup 分区对应不同的输出函数，这里固定映射，避免调用方再写条件分派。
+// 不同 lookup 分区对应不同的行日志协议 kind，这里固定映射，避免调用方再写条件分派。
 const BUILD_SUMMARY_LOOKUP_LOGGER_MAP = Object.freeze({
-  arg: logBuildSummaryArgLine,
-  value: logBuildSummaryValueLine
+  arg: "arg",
+  value: "value"
 });
+
+// lookup section 当前真正依赖的外部上下文只有 stats/lookups，这里先统一打包，减少 section runner 之间的参数位耦合。
+function buildBuildSummaryLookupSectionContext(payload) {
+  const context = isObject(payload) ? payload : {};
+  return {
+    stats: isObject(context.stats) ? context.stats : {},
+    lookups: isObject(context.lookups) ? context.lookups : {}
+  };
+}
+
+// lookup section 的执行载荷固定由 lookupKey/loggerKind/labels/lookup/stats 五项组成，这里统一 definitions 化，避免 runner 再手写取值模板。
+const BUILD_SUMMARY_LOOKUP_SECTION_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "lookupKey", value: (section) => normalizeStringArg(section && section.lookupKey) },
+  { key: "loggerKind", value: (section) => resolveKindRegistryValue(BUILD_SUMMARY_LOOKUP_LOGGER_MAP, section && section.loggerKey) || "" },
+  { key: "labels", value: (section) => Array.isArray(section && section.labels) ? section.labels : [] },
+  {
+    key: "lookup",
+    value: (section, context) => {
+      const lookupKey = normalizeStringArg(section && section.lookupKey);
+      return lookupKey && hasOwn(context.lookups, lookupKey) ? context.lookups[lookupKey] : null;
+    }
+  },
+  { key: "stats", value: (section, context) => context.stats }
+]);
+
+// 单个 lookup section 统一先裁成标准 payload，后续是否跳过/如何执行都只看这份 payload。
+function buildBuildSummaryLookupSectionPayload(section, context) {
+  return buildDefinitionDrivenPayload(
+    BUILD_SUMMARY_LOOKUP_SECTION_PAYLOAD_DEFINITIONS,
+    isObject(section) ? section : {},
+    buildBuildSummaryLookupSectionContext(context)
+  );
+}
+
+// lookup section 的执行条件统一收敛：loggerKind、lookup 与 labels 三者缺一就直接跳过。
+function shouldExecuteBuildSummaryLookupSection(payload) {
+  const current = isObject(payload) ? payload : {};
+  return !!normalizeStringArg(current.loggerKind)
+    && isObject(current.lookup)
+    && Array.isArray(current.labels)
+    && current.labels.length > 0;
+}
+
+// 单个 lookup section 的执行统一走标准 payload，减少主 runner 里重复的 normalize + hasOwn 防御代码。
+function executeBuildSummaryLookupSection(section, context) {
+  const payload = buildBuildSummaryLookupSectionPayload(section, context);
+  if (!shouldExecuteBuildSummaryLookupSection(payload)) {
+    return;
+  }
+
+  logBuildSummaryDefinitionLabels(payload.stats, payload.lookup, payload.labels, payload.loggerKind);
+}
+
+// lookup section 计划按顺序统一执行，保持原输出顺序不变，同时把上下文参数收紧成一份 context 对象。
+function runBuildSummaryLookupSections(context, sections) {
+  const currentContext = buildBuildSummaryLookupSectionContext(context);
+  for (const section of Array.isArray(sections) ? sections : []) {
+    executeBuildSummaryLookupSection(section, currentContext);
+  }
+}
 
 // 按计划表批量执行 full 日志中的 lookup 区块，减少 logBuildSummary 里重复声明 logger/lookup/labels 组合。
 function logBuildSummaryLookupSections(stats, lookups, sections) {
-  const currentLookups = isObject(lookups) ? lookups : {};
-
-  for (const section of Array.isArray(sections) ? sections : []) {
-    const lookupKey = normalizeStringArg(section && section.lookupKey);
-    const loggerKey = normalizeStringArg(section && section.loggerKey);
-    const labels = Array.isArray(section && section.labels) ? section.labels : [];
-
-    // lookup/logger 任一缺失都直接跳过，保证计划表可局部裁剪而不用额外防御。
-    if (!lookupKey || !loggerKey || !hasOwn(currentLookups, lookupKey) || !hasOwn(BUILD_SUMMARY_LOOKUP_LOGGER_MAP, loggerKey)) {
-      continue;
-    }
-
-    logBuildSummaryDefinitionLabels(stats, currentLookups[lookupKey], labels, BUILD_SUMMARY_LOOKUP_LOGGER_MAP[loggerKey]);
-  }
-}
-
-// full 日志里这类“摘要 + 可选 preview”格式也走统一模板，减少多段近似 console.log。
-function logBuildSummaryDiagnosticLines(stats, definitions) {
-  const current = isObject(stats) ? stats : {};
-
-  for (const definition of Array.isArray(definitions) ? definitions : []) {
-    const label = normalizeStringArg(definition && definition.label);
-    const summaryKey = normalizeStringArg(definition && definition.summaryKey);
-    const previewKey = normalizeStringArg(definition && definition.previewKey);
-
-    if (!label || !summaryKey) {
-      continue;
-    }
-
-    // summary 是必选主内容；previewKey 存在时再额外拼 preview，避免多数行都硬带一个空预览。
-    const summary = current[summaryKey] || "none";
-    const preview = previewKey ? (current[previewKey] || "none") : "";
-    console.log(`   ✓ ${label}: ${summary}${previewKey ? `, preview=${preview}` : ""}`);
-  }
+  runBuildSummaryLookupSections({ stats, lookups }, sections);
 }
 
 // 统一解析 full 日志里的单个参数项；未配置时回退为 default，避免每条日志都手写三元表达式。
@@ -13239,38 +13625,110 @@ function formatBuildSummaryArgEntries(entries, stats) {
     .join(", ");
 }
 
-// 统一输出 full 日志里的服务参数摘要块。
-function logBuildSummaryArgLine(definition, stats) {
-  const label = normalizeStringArg(definition && definition.label);
-  if (!label) {
+// build-summary 里的 arg/value/optional/diagnostic 四类行最终都可归一成 { label, content, shouldLog } 协议，这里统一注册各类 payload builder。
+const BUILD_SUMMARY_LINE_LOG_PAYLOAD_BUILDERS = Object.freeze({
+  arg: (definition, stats) => {
+    const label = normalizeStringArg(definition && definition.label);
+    if (!label) {
+      return null;
+    }
+
+    return {
+      label,
+      content: formatBuildSummaryArgEntries(definition.entries, stats),
+      shouldLog: true
+    };
+  },
+  value: (definition, stats) => {
+    const label = normalizeStringArg(definition && definition.label);
+    if (!label || typeof (definition && definition.value) !== "function") {
+      return null;
+    }
+
+    return {
+      label,
+      content: definition.value(isObject(stats) ? stats : {}),
+      shouldLog: true
+    };
+  },
+  "optional-value": (definition, stats) => {
+    const current = isObject(stats) ? stats : {};
+    const shouldLog = definition && typeof definition.shouldLog === "function"
+      ? definition.shouldLog(current)
+      : false;
+
+    if (!shouldLog) {
+      return null;
+    }
+
+    return buildBuildSummaryLineLogPayload("value", definition, current);
+  },
+  diagnostic: (definition, stats) => {
+    const current = isObject(stats) ? stats : {};
+    const label = normalizeStringArg(definition && definition.label);
+    const summaryKey = normalizeStringArg(definition && definition.summaryKey);
+    const previewKey = normalizeStringArg(definition && definition.previewKey);
+
+    if (!label || !summaryKey) {
+      return null;
+    }
+
+    const summary = current[summaryKey] || "none";
+    const preview = previewKey ? (current[previewKey] || "none") : "";
+
+    return {
+      label,
+      content: `${summary}${previewKey ? `, preview=${preview}` : ""}`,
+      shouldLog: true
+    };
+  }
+});
+
+// 统一解析 build-summary 单行日志 payload，避免 arg/value/optional/diagnostic 四类行各自维护一套标签/内容兜底逻辑。
+function buildBuildSummaryLineLogPayload(kind, definition, stats) {
+  const payload = executeKindRegistryHandler(
+    BUILD_SUMMARY_LINE_LOG_PAYLOAD_BUILDERS,
+    kind,
+    definition,
+    isObject(stats) ? stats : {}
+  );
+  return typeof payload === "undefined" ? null : payload;
+}
+
+// 单行日志最终只需要按 payload 协议输出；无 payload 或 shouldLog=false 时直接跳过。
+function emitBuildSummaryLinePayload(payload) {
+  if (!isObject(payload) || payload.shouldLog === false) {
     return;
   }
 
-  emitBuildSummaryLine(label, formatBuildSummaryArgEntries(definition.entries, stats));
+  emitBuildSummaryLine(payload.label, payload.content);
+}
+
+// build-summary 各类单行 logger 统一走 kind -> payload -> emit 这条链路，减少平行 logger 的重复模板。
+function logBuildSummaryLineByKind(kind, definition, stats) {
+  emitBuildSummaryLinePayload(buildBuildSummaryLineLogPayload(kind, definition, stats));
+}
+
+// full 日志里这类“摘要 + 可选 preview”格式也走统一模板，减少多段近似 console.log。
+function logBuildSummaryDiagnosticLines(stats, definitions) {
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    logBuildSummaryLineByKind("diagnostic", definition, stats);
+  }
+}
+
+// 统一输出 full 日志里的服务参数摘要块。
+function logBuildSummaryArgLine(definition, stats) {
+  logBuildSummaryLineByKind("arg", definition, stats);
 }
 
 // 统一输出“标签 + 动态摘要”型日志，适合国家附加别名、区域分组参数这类不规则摘要行。
 function logBuildSummaryValueLine(definition, stats) {
-  const label = normalizeStringArg(definition && definition.label);
-  if (!label || typeof (definition && definition.value) !== "function") {
-    return;
-  }
-
-  emitBuildSummaryLine(label, definition.value(isObject(stats) ? stats : {}));
+  logBuildSummaryLineByKind("value", definition, stats);
 }
 
 // 统一输出“满足条件才打印”的摘要行，适合国家统计/区域统计/国家优先链 trace 这类可选项。
 function logBuildSummaryOptionalValueLine(definition, stats) {
-  const current = isObject(stats) ? stats : {};
-  const shouldLog = definition && typeof definition.shouldLog === "function"
-    ? definition.shouldLog(current)
-    : false;
-
-  if (!shouldLog) {
-    return;
-  }
-
-  logBuildSummaryValueLine(definition, current);
+  logBuildSummaryLineByKind("optional-value", definition, stats);
 }
 
 // 把 diagnostics 里的摘要字段批量转成响应头，避免 buildRuntimeResponseHeaders 底部长串近似赋值。
@@ -13418,30 +13876,44 @@ function buildRuntimeResponseHeaderContext(diagnostics) {
   };
 }
 
+// runtime response-header 各 section 当前都只是消费 definitions，这里统一抽出读取逻辑，避免 section builder 各自重复兜底。
+function resolveRuntimeResponseHeaderSectionDefinitions(section) {
+  return Array.isArray(section && section.definitions) ? section.definitions : [];
+}
+
+// definition / diagnostics-summary 两类 section 最终都只是“definitions + context -> headers”，这里统一收敛映射壳层。
+function buildRuntimeResponseHeaderMappedSectionPayload(section, context, payloadBuilder) {
+  const currentContext = isObject(context) ? context : {};
+  const definitions = resolveRuntimeResponseHeaderSectionDefinitions(section);
+  return definitions.length && typeof payloadBuilder === "function"
+    ? payloadBuilder(currentContext.prefix, currentContext.diagnostics, definitions)
+    : {};
+}
+
 // runtime response-header 的 section 目前只分 definitions / diagnostics-summary 两类；注册表化后更容易继续扩展新 section 类型。
 const RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS = Object.freeze({
-  definition: (section, context) => {
-    const definitions = Array.isArray(section && section.definitions) ? section.definitions : [];
-    return definitions.length
-      ? buildRuntimeResponseHeaderEntries(context.prefix, definitions, context.diagnostics)
-      : {};
-  },
-  "diagnostic-summary": (section, context) => {
-    const definitions = Array.isArray(section && section.definitions) ? section.definitions : [];
-    return definitions.length
-      ? buildDiagnosticSummaryResponseHeaders(context.prefix, context.diagnostics, definitions)
-      : {};
-  }
+  definition: (section, context) => buildRuntimeResponseHeaderMappedSectionPayload(
+    section,
+    context,
+    buildRuntimeResponseHeaderEntries
+  ),
+  "diagnostic-summary": (section, context) => buildRuntimeResponseHeaderMappedSectionPayload(
+    section,
+    context,
+    buildDiagnosticSummaryResponseHeaders
+  )
 });
 
 // 按 section 计划批量装配运行时响应头，减少 buildRuntimeResponseHeaders 内平行展开多段 helper 调用。
 function buildRuntimeResponseHeaderSectionPayload(section, context) {
   const currentContext = isObject(context) ? context : {};
-  const kind = normalizeStringArg(section && section.kind);
-
-  return kind && hasOwn(RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS, kind)
-    ? RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS[kind](section, currentContext)
-    : {};
+  const payload = executeKindRegistryHandler(
+    RUNTIME_RESPONSE_HEADER_SECTION_PAYLOAD_BUILDERS,
+    section && section.kind,
+    section,
+    currentContext
+  );
+  return isObject(payload) ? payload : {};
 }
 
 // 把 section 计划表依次归并成最终响应头对象。
@@ -13548,21 +14020,63 @@ function buildMainAnalysisSingleValuePayload(payload) {
   return buildDefinitionDrivenPayload(MAIN_ANALYSIS_SINGLE_VALUE_DEFINITIONS, payload);
 }
 
-// 主流程里一批顺序/链路分析高度相关，这里统一计算并附带派生摘要，避免 main 中堆连续二三十行平行变量。
-function buildMainAnalysisArtifacts(payload) {
-  const context = isObject(payload) ? payload : {};
-  const analysisPayload = buildDefinitionDrivenPayload(MAIN_ANALYSIS_ARTIFACT_DEFINITIONS, context);
+// 分析阶段里“单值摘要”只需要这几项字段，这里统一裁剪后再喂给单值 definitions，避免 buildMainAnalysisArtifacts 手写对象模板。
+const MAIN_ANALYSIS_SINGLE_VALUE_SOURCE_DEFINITIONS = Object.freeze([
+  { key: "proxyGroups", value: (context) => context.proxyGroups },
+  { key: "rules", value: (context) => context.rules },
+  { key: "generatedRules", value: (context) => context.generatedRules },
+  { key: "configuredRules", value: (context) => context.configuredRules },
+  { key: "ruleAnalysis", value: (context) => context.ruleAnalysis }
+]);
 
-  return Object.assign(analysisPayload, {
-    analysisSummaryPayload: buildMainAnalysisSummaryPreviewPayload(analysisPayload),
-    analysisSingleValuePayload: buildMainAnalysisSingleValuePayload({
-      proxyGroups: context.proxyGroups,
-      rules: context.rules,
-      generatedRules: context.generatedRules,
-      configuredRules: context.configuredRules,
-      ruleAnalysis: context.ruleAnalysis
-    })
-  });
+// 单值分析摘要在多个收尾点都可能复用这一裁剪后的输入，这里单独收口。
+function buildMainAnalysisSingleValueSourcePayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_ANALYSIS_SINGLE_VALUE_SOURCE_DEFINITIONS, payload);
+}
+
+// analysis 阶段继续整理成顺序产物：主分析 -> summary/preview -> 单值摘要 -> 最终合并结果。
+const MAIN_ANALYSIS_EXECUTION_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "analysisPayload",
+    value: (context) => buildDefinitionDrivenPayload(MAIN_ANALYSIS_ARTIFACT_DEFINITIONS, context)
+  },
+  {
+    key: "analysisSummaryPayload",
+    value: (context) => buildMainAnalysisSummaryPreviewPayload(context.analysisPayload)
+  },
+  {
+    key: "analysisSingleValueSourcePayload",
+    value: (context) => buildMainAnalysisSingleValueSourcePayload(context)
+  },
+  {
+    key: "analysisSingleValuePayload",
+    value: (context) => buildMainAnalysisSingleValuePayload(context.analysisSingleValueSourcePayload)
+  },
+  {
+    key: "finalAnalysisArtifacts",
+    value: (context) => Object.assign(
+      {},
+      isObject(context.analysisPayload) ? context.analysisPayload : {},
+      {
+        analysisSummaryPayload: isObject(context.analysisSummaryPayload) ? context.analysisSummaryPayload : {},
+        analysisSingleValuePayload: isObject(context.analysisSingleValuePayload) ? context.analysisSingleValuePayload : {}
+      }
+    )
+  }
+]);
+
+// 主流程里一批顺序/链路分析高度相关，这里统一走顺序执行器，避免 main 中堆连续二三十行平行变量。
+function buildMainAnalysisExecutionArtifacts(payload) {
+  return buildSequentialDefinitionPayload(
+    MAIN_ANALYSIS_EXECUTION_ARTIFACT_DEFINITIONS,
+    isObject(payload) ? payload : {},
+    buildSequentialStageExecutionContext
+  );
+}
+
+// 分析阶段最终只暴露合并后的 artifacts，顺序执行细节由单独 helper 负责。
+function buildMainAnalysisArtifacts(payload) {
+  return buildMainAnalysisExecutionArtifacts(payload).finalAnalysisArtifacts;
 }
 
 // analysis 派生摘要固定只暴露这两个字段，统一定义后后续若新增派生摘要可直接扩表。
@@ -13680,23 +14194,80 @@ function buildMainDiagnosticsSupplementArtifacts(payload) {
   );
 }
 
-// 主流程里的 diagnostics 阶段：统一完成最终产物校验、补齐派生 diagnostics 字段与国家优先链摘要。
-function buildMainDiagnosticsArtifacts(payload) {
+// diagnostics 校验阶段真正喂给 validateGeneratedArtifacts 的字段也固定成一份 definitions，避免继续手写长参数列表。
+const MAIN_DIAGNOSTICS_VALIDATION_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "proxies", value: (context) => Array.isArray(context.proxies) ? context.proxies : [] },
+  { key: "proxyGroups", value: (context) => Array.isArray(context.proxyGroups) ? context.proxyGroups : [] },
+  { key: "resultRuleProviders", value: (context) => context.result && context.result["rule-providers"] },
+  { key: "result", value: (context) => context.result },
+  { key: "dns", value: (context) => context.dns },
+  { key: "countryConfigs", value: (context) => context.countryConfigs },
+  { key: "finalRuleDefinitions", value: (context) => context.finalRuleDefinitions },
+  { key: "configuredRules", value: (context) => context.configuredRules },
+  { key: "analysisCache", value: (context) => buildValidationAnalysisCache(context.analysisArtifacts) }
+]);
+
+// 把 diagnostics 校验输入裁成固定 payload，后续不管 validate helper 还是阶段执行器都统一只认这一份结构。
+function buildMainDiagnosticsValidationPayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_DIAGNOSTICS_VALIDATION_PAYLOAD_DEFINITIONS, payload);
+}
+
+// validateGeneratedArtifacts 参数很多，这里单独收口成 helper，减少 diagnostics 阶段里那串长参数调用。
+function runMainDiagnosticsValidation(payload) {
   const context = isObject(payload) ? payload : {};
-  const diagnostics = validateGeneratedArtifacts(
+  return validateGeneratedArtifacts(
     context.proxies,
     context.proxyGroups,
-    context.result && context.result["rule-providers"],
+    context.resultRuleProviders,
     context.result,
     context.dns,
     context.countryConfigs,
     context.finalRuleDefinitions,
     context.configuredRules,
-    buildValidationAnalysisCache(context.analysisArtifacts)
+    context.analysisCache
   );
-  Object.assign(diagnostics, buildMainDiagnosticsSupplementArtifacts(context));
+}
 
-  return diagnostics;
+// diagnostics 最终都会经历“原始校验结果 + supplement”这一步，这里单独收口，便于继续扩展后处理字段。
+function finalizeMainDiagnosticsArtifacts(diagnostics, supplementArtifacts) {
+  return Object.assign(
+    isObject(diagnostics) ? diagnostics : {},
+    isObject(supplementArtifacts) ? supplementArtifacts : {}
+  );
+}
+
+// diagnostics 阶段也整理成顺序定义：校验输入 -> 原始 diagnostics -> supplement -> 最终合并结果。
+const MAIN_DIAGNOSTICS_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "validationPayload",
+    value: (context) => buildMainDiagnosticsValidationPayload(context)
+  },
+  {
+    key: "diagnostics",
+    value: (context) => runMainDiagnosticsValidation(context.validationPayload)
+  },
+  {
+    key: "supplementArtifacts",
+    value: (context) => buildMainDiagnosticsSupplementArtifacts(context)
+  },
+  {
+    key: "finalDiagnostics",
+    value: (context) => finalizeMainDiagnosticsArtifacts(context.diagnostics, context.supplementArtifacts)
+  }
+]);
+
+// diagnostics 阶段顺序产物统一在这里执行，保持 buildMainDiagnosticsArtifacts 本体只做返回值收口。
+function buildMainDiagnosticsExecutionArtifacts(payload) {
+  return buildSequentialDefinitionPayload(
+    MAIN_DIAGNOSTICS_ARTIFACT_DEFINITIONS,
+    isObject(payload) ? payload : {},
+    buildSequentialStageExecutionContext
+  );
+}
+
+// 主流程里的 diagnostics 阶段：统一完成最终产物校验、补齐派生 diagnostics 字段与国家优先链摘要。
+function buildMainDiagnosticsArtifacts(payload) {
+  return buildMainDiagnosticsExecutionArtifacts(payload).finalDiagnostics;
 }
 
 // diagnostics 副作用里“是否回写响应头”有固定判断逻辑，这里单独收口，避免 finalizeMainDiagnostics 内联三元模板。
@@ -13708,12 +14279,31 @@ function resolveMainDiagnosticsResponseHeadersApplied(diagnostics) {
   return setRuntimeResponseHeaders(RAW_OPTIONS, buildRuntimeResponseHeaders(diagnostics));
 }
 
+// diagnostics 副作用也继续 definitions 化：目前只有响应头回写结果和日志输出两项，后续扩展不必回到 finalizeMainDiagnostics 里平铺。
+const MAIN_DIAGNOSTICS_SIDE_EFFECT_DEFINITIONS = Object.freeze([
+  {
+    key: "responseHeadersApplied",
+    value: (context) => resolveMainDiagnosticsResponseHeadersApplied(context.diagnostics)
+  },
+  {
+    key: "logged",
+    value: (context) => {
+      logDiagnostics(context.diagnostics);
+      return true;
+    }
+  }
+]);
+
+// diagnostics 副作用集中在这里执行，调用方只消费真正有意义的响应头回写结果。
+function buildMainDiagnosticsSideEffectArtifacts(payload) {
+  return buildDefinitionDrivenPayload(MAIN_DIAGNOSTICS_SIDE_EFFECT_DEFINITIONS, {
+    diagnostics: isObject(payload) ? payload : {}
+  });
+}
+
 // diagnostics 阶段的副作用统一收敛：响应头回写 + 诊断日志输出。
 function finalizeMainDiagnostics(diagnostics) {
-  const responseHeadersApplied = resolveMainDiagnosticsResponseHeadersApplied(diagnostics);
-
-  logDiagnostics(diagnostics);
-  return responseHeadersApplied;
+  return buildMainDiagnosticsSideEffectArtifacts(diagnostics).responseHeadersApplied;
 }
 
 // pipeline / diagnostics 等阶段都只需要“规范化后的 config.rules”，这里统一收口避免重复 Array.isArray 判断。
@@ -13723,15 +14313,17 @@ function buildMainConfiguredRules(config) {
 }
 
 // 主流程里的 DNS / Sniffer / 通用内核默认项统一归到同一阶段，减少 main 里分散的三段构建调用。
+const MAIN_CORE_CONFIG_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "dns", value: (context, currentConfig) => buildDnsConfig(currentConfig.dns) },
+  { key: "sniffer", value: (context, currentConfig) => buildSnifferConfig(currentConfig.sniffer) },
+  { key: "kernelDefaults", value: (context, currentConfig) => buildKernelDefaults(currentConfig) }
+]);
+
+// core config 阶段只依赖 currentConfig，这里也改成 definitions 驱动，和 pipeline 其它阶段保持一致。
 function buildMainCoreConfigArtifacts(payload) {
   const context = isObject(payload) ? payload : {};
   const currentConfig = isObject(context.config) ? context.config : {};
-
-  return {
-    dns: buildDnsConfig(currentConfig.dns),
-    sniffer: buildSnifferConfig(currentConfig.sniffer),
-    kernelDefaults: buildKernelDefaults(currentConfig)
-  };
+  return buildDefinitionDrivenPayload(MAIN_CORE_CONFIG_ARTIFACT_DEFINITIONS, context, currentConfig);
 }
 
 // provider 阶段除了最终 providers 外，其余 mutation 统计/预览都遵循同一装配模式，统一定义后避免重复模板。
@@ -13741,6 +14333,100 @@ const MAIN_PROVIDER_MUTATION_ARTIFACT_DEFINITIONS = Object.freeze([
   { key: "ruleProviderMutationPreview", value: (context) => analyzeRuleProviderMutationPreview(context.existingRuleProviders, context.finalRuleProviders) },
   { key: "proxyProviderMutationPreview", value: (context) => analyzeProxyProviderMutationPreview(context.existingProxyProviders, context.proxyProviders) }
 ]);
+
+// provider 阶段真正依赖的输入源统一先裁剪出来，后续 result/mutation 都只消费这份 source payload。
+const MAIN_PROVIDER_SOURCE_DEFINITIONS = Object.freeze([
+  { key: "currentConfig", value: (context) => isObject(context.config) ? context.config : {} },
+  {
+    key: "existingProxyProviders",
+    value: (context, currentConfig) => currentConfig["proxy-providers"]
+  },
+  {
+    key: "existingRuleProviders",
+    value: (context, currentConfig) => currentConfig["rule-providers"]
+  },
+  {
+    key: "generatedRuleProviders",
+    value: (context) => isObject(context.generatedRuleProviders) ? context.generatedRuleProviders : {}
+  }
+]);
+
+// provider 阶段的核心结果字段也单独 definitions 化，避免 buildMainProviderArtifacts 继续手写两段结果对象。
+const MAIN_PROVIDER_RESULT_DEFINITIONS = Object.freeze([
+  { key: "proxyProviders", value: (context) => finalizeProxyProviders(context.existingProxyProviders) },
+  { key: "finalRuleProviders", value: (context) => mergeRuleProviders(context.existingRuleProviders, context.generatedRuleProviders) }
+]);
+
+// provider 阶段也整理成顺序产物：source -> result -> mutation -> final merge。
+const MAIN_PROVIDER_EXECUTION_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "providerSourcePayload",
+    value: (context) => buildMainProviderSourcePayload(context)
+  },
+  {
+    key: "providerResultPayload",
+    value: (context) => buildDefinitionDrivenPayload(
+      MAIN_PROVIDER_RESULT_DEFINITIONS,
+      context.providerSourcePayload
+    )
+  },
+  {
+    key: "providerMutationArtifacts",
+    value: (context) => buildDefinitionDrivenPayload(
+      MAIN_PROVIDER_MUTATION_ARTIFACT_DEFINITIONS,
+      Object.assign(
+        {},
+        isObject(context.providerSourcePayload) ? context.providerSourcePayload : {},
+        isObject(context.providerResultPayload) ? context.providerResultPayload : {}
+      )
+    )
+  },
+  {
+    key: "finalProviderArtifacts",
+    value: (context) => Object.assign(
+      {},
+      isObject(context.providerResultPayload) ? context.providerResultPayload : {},
+      isObject(context.providerMutationArtifacts) ? context.providerMutationArtifacts : {}
+    )
+  }
+]);
+
+// provider source payload 统一在这里装配，减少后续多个 builder 各自解构 config/generator。
+function buildMainProviderSourcePayload(payload) {
+  const context = isObject(payload) ? payload : {};
+  const currentConfig = isObject(context.config) ? context.config : {};
+  return buildDefinitionDrivenPayload(MAIN_PROVIDER_SOURCE_DEFINITIONS, context, currentConfig);
+}
+
+// pipeline 真正需要的输入源目前只有 config/proxies，两项统一收口后，后续若继续插入 stage source 就不必回到 buildMainPipelineArtifacts。
+const MAIN_PIPELINE_SOURCE_DEFINITIONS = Object.freeze([
+  { key: "currentConfig", value: (context) => isObject(context.config) ? context.config : {} },
+  { key: "proxies", value: (context) => Array.isArray(context.proxies) ? context.proxies : [] }
+]);
+
+// pipeline stageContext 也继续定义化：基础输入 + 规则配置 + rule-provider 生成器，避免 buildMainPipelineArtifacts 再手写局部对象。
+const MAIN_PIPELINE_STAGE_CONTEXT_DEFINITIONS = Object.freeze([
+  { key: "currentConfig", value: (context, sourcePayload) => sourcePayload.currentConfig },
+  { key: "proxies", value: (context, sourcePayload) => sourcePayload.proxies },
+  { key: "configuredRules", value: (context, sourcePayload) => buildMainConfiguredRules(sourcePayload.currentConfig) },
+  { key: "generatedRuleProviders", value: () => ruleProviders }
+]);
+
+// pipeline 源输入先统一裁成固定结构，减少后续 stageContext/执行器重复处理 config/proxies。
+function buildMainPipelineSourcePayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_PIPELINE_SOURCE_DEFINITIONS, payload);
+}
+
+// pipeline 顺序阶段共用同一个 stageContext，这里提前定义化，避免 buildMainPipelineArtifacts 继续维护字面量模板。
+function buildMainPipelineStageContext(payload) {
+  const context = isObject(payload) ? payload : {};
+  const sourcePayload = buildMainPipelineSourcePayload(context);
+  return buildDefinitionDrivenPayload(
+    MAIN_PIPELINE_STAGE_CONTEXT_DEFINITIONS,
+    context,
+    sourcePayload
+  );
+}
 
 // pipeline 前半段的阶段顺序固定，统一定义后便于继续扩展而不把 buildMainPipelineArtifacts 拉成长模板。
 const MAIN_PIPELINE_STAGE_DEFINITIONS = Object.freeze([
@@ -13781,70 +14467,57 @@ const MAIN_PIPELINE_STAGE_DEFINITIONS = Object.freeze([
   }
 ]);
 
-// pipeline 每个阶段都基于“初始上下文 + 已产出的前序阶段结果”执行，这里抽成 helper 以避免循环里反复手写 Object.assign。
-function buildMainPipelineStageExecutionContext(baseContext, pipelineArtifacts) {
-  return Object.assign({}, isObject(baseContext) ? baseContext : {}, isObject(pipelineArtifacts) ? pipelineArtifacts : {});
+// 顺序阶段大多都遵循“初始上下文 + 已产出的前序结果”浅合并的模式，这里抽成通用 helper，供主流程/策略组等单文件模块共用。
+function buildSequentialStageExecutionContext(baseContext, stageArtifacts) {
+  return Object.assign({}, isObject(baseContext) ? baseContext : {}, isObject(stageArtifacts) ? stageArtifacts : {});
 }
 
 // 主流程前半段的顺序产物统一在这里串起来，避免 main 中逐阶段展开太多中间变量。
 function buildMainPipelineArtifacts(payload) {
-  const context = isObject(payload) ? payload : {};
-  const currentConfig = isObject(context.config) ? context.config : {};
-  const stageContext = {
-    currentConfig,
-    proxies: Array.isArray(context.proxies) ? context.proxies : [],
-    configuredRules: buildMainConfiguredRules(currentConfig),
-    generatedRuleProviders: ruleProviders
-  };
   return buildSequentialDefinitionPayload(
     MAIN_PIPELINE_STAGE_DEFINITIONS,
-    stageContext,
-    buildMainPipelineStageExecutionContext
+    buildMainPipelineStageContext(payload),
+    buildSequentialStageExecutionContext
+  );
+}
+
+// 统一完成 provider 阶段：proxy-provider 补强、rule-provider 合并，以及两者 mutation 统计/预览。
+function buildMainProviderExecutionArtifacts(payload) {
+  return buildSequentialDefinitionPayload(
+    MAIN_PROVIDER_EXECUTION_ARTIFACT_DEFINITIONS,
+    isObject(payload) ? payload : {},
+    buildSequentialStageExecutionContext
   );
 }
 
 // 统一完成 provider 阶段：proxy-provider 补强、rule-provider 合并，以及两者 mutation 统计/预览。
 function buildMainProviderArtifacts(payload) {
-  const context = isObject(payload) ? payload : {};
-  const currentConfig = isObject(context.config) ? context.config : {};
-  const existingProxyProviders = currentConfig["proxy-providers"];
-  const existingRuleProviders = currentConfig["rule-providers"];
-  const generatedRuleProviders = isObject(context.generatedRuleProviders) ? context.generatedRuleProviders : {};
-
-  const proxyProviders = finalizeProxyProviders(existingProxyProviders);
-  const finalRuleProviders = mergeRuleProviders(existingRuleProviders, generatedRuleProviders);
-
-  return Object.assign({
-    proxyProviders,
-    finalRuleProviders
-  }, buildDefinitionDrivenPayload(MAIN_PROVIDER_MUTATION_ARTIFACT_DEFINITIONS, {
-    existingProxyProviders,
-    existingRuleProviders,
-    proxyProviders,
-    finalRuleProviders
-  }));
+  return buildMainProviderExecutionArtifacts(payload).finalProviderArtifacts;
 }
 
 // diagnostics 阶段需要的上下文较多，这里按阶段产物统一装配，避免 main 中维护长对象字面量。
-function buildMainDiagnosticsPayload(payload) {
-  const context = isObject(payload) ? payload : {};
-  const assemblyContext = buildMainPayloadAssemblyContext(context);
+const MAIN_DIAGNOSTICS_PAYLOAD_DEFINITIONS = Object.freeze([
+  { key: "proxies", value: (context, assemblyContext) => assemblyContext.proxies },
+  { key: "result", value: (context) => context.result },
+  { key: "dns", value: (context, assemblyContext) => assemblyContext.coreConfigArtifacts.dns },
+  { key: "finalRuleDefinitions", value: (context, assemblyContext) => assemblyContext.rulePayloadArtifacts.finalRuleDefinitions },
+  { key: "configuredRules", value: (context, assemblyContext) => assemblyContext.configuredRules },
+  { key: "analysisArtifacts", value: (context) => context.analysisArtifacts },
+  { key: "normalizedProxyState", value: (context) => context.normalizedProxyState },
+  {
+    key: "providerArtifacts",
+    value: (context, assemblyContext) => isObject(context.providerArtifacts)
+      ? context.providerArtifacts
+      : assemblyContext.providerArtifacts
+  }
+]);
 
-  return Object.assign({
-    // diagnostics supplement / response header / full-summary 都还会继续复用 assemblyContext；
-    // 这里直接带下去，避免后续阶段再二次装配时丢字段。
-    assemblyContext,
-    proxies: assemblyContext.proxies,
-    proxyGroups: assemblyContext.summaryPayloadContext.proxyGroups,
-    result: context.result,
-    dns: assemblyContext.coreConfigArtifacts.dns,
-    countryConfigs: assemblyContext.summaryPayloadContext.countryConfigs,
-    finalRuleDefinitions: assemblyContext.rulePayloadArtifacts.finalRuleDefinitions,
-    configuredRules: assemblyContext.configuredRules,
-    analysisArtifacts: context.analysisArtifacts,
-    normalizedProxyState: context.normalizedProxyState,
-    providerArtifacts: context.providerArtifacts
-  }, assemblyContext.summaryPayloadContext);
+// diagnostics 阶段需要的上下文较多，这里按阶段产物统一装配，避免 main 中维护长对象字面量。
+function buildMainDiagnosticsPayload(payload) {
+  return buildMainSummaryScopedPayload(payload, MAIN_DIAGNOSTICS_PAYLOAD_DEFINITIONS, {
+    includeAssemblyContext: true,
+    includeSummaryPayloadContext: true
+  });
 }
 
 // geo 阶段本身也是顺序产物：后面的 countrySummary/regionConfigs/proxyGroups 依赖前序结果，这里统一定义执行顺序。
@@ -13919,6 +14592,22 @@ const MAIN_PAYLOAD_ASSEMBLY_CONTEXT_DEFINITIONS = Object.freeze([
   { key: "summaryPayloadContext", value: (context, currentConfig, summaryPayloadContext) => summaryPayloadContext }
 ]);
 
+// assemblyContext 真正依赖的“外部输入源”目前只有 currentConfig 与 summaryPayloadContext，两项先统一装成 source payload。
+const MAIN_PAYLOAD_ASSEMBLY_CONTEXT_SOURCE_DEFINITIONS = Object.freeze([
+  { key: "currentConfig", value: (context) => isObject(context.config) ? context.config : {} },
+  {
+    key: "summaryPayloadContext",
+    value: (context) => isObject(context.summaryPayloadContext)
+      ? context.summaryPayloadContext
+      : buildMainSummaryPayloadContext(context)
+  }
+]);
+
+// result / diagnostics / finalize 都会先依赖这两项 assembly source，这里单独收口避免重复写两段局部变量。
+function buildMainPayloadAssemblyContextSourcePayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_PAYLOAD_ASSEMBLY_CONTEXT_SOURCE_DEFINITIONS, payload);
+}
+
 // result / diagnostics / finalize 三段都会消费同一批规范化输入，这里统一装配，减少多处重复取值。
 function buildMainPayloadAssemblyContext(payload) {
   const context = isObject(payload) ? payload : {};
@@ -13927,16 +14616,13 @@ function buildMainPayloadAssemblyContext(payload) {
     return context.assemblyContext;
   }
 
-  const currentConfig = isObject(context.config) ? context.config : {};
-  const summaryPayloadContext = isObject(context.summaryPayloadContext)
-    ? context.summaryPayloadContext
-    : buildMainSummaryPayloadContext(context);
+  const sourcePayload = buildMainPayloadAssemblyContextSourcePayload(context);
 
   return buildDefinitionDrivenPayload(
     MAIN_PAYLOAD_ASSEMBLY_CONTEXT_DEFINITIONS,
     context,
-    currentConfig,
-    summaryPayloadContext
+    sourcePayload.currentConfig,
+    sourcePayload.summaryPayloadContext
   );
 }
 
@@ -14003,6 +14689,43 @@ function buildDefinitionDrivenPayload(definitions, context) {
   return payload;
 }
 
+// 这类按 kind 从注册表里取值的逻辑在 diagnostics/build-summary/response-header 多处复用，这里统一收成共享 helper。
+function resolveKindRegistryValue(registry, kind) {
+  const currentRegistry = isObject(registry) ? registry : {};
+  const currentKind = normalizeStringArg(kind);
+  return currentKind && hasOwn(currentRegistry, currentKind)
+    ? currentRegistry[currentKind]
+    : undefined;
+}
+
+// 若注册表项是函数，则统一按“kind -> handler(...args)”执行；不存在或不是函数时返回 undefined，调用方自行决定回退策略。
+function executeKindRegistryHandler(registry, kind) {
+  const handler = resolveKindRegistryValue(registry, kind);
+  if (typeof handler !== "function") {
+    return undefined;
+  }
+
+  return handler.apply(null, Array.prototype.slice.call(arguments, 2));
+}
+
+// 很多 builder 都先按 definitions 生成若干 object section，再按定义顺序浅合并成最终 payload，这里统一抽成共享 helper。
+function mergeDefinitionDrivenSectionPayload(definitions, sections) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const currentSections = isObject(sections) ? sections : {};
+  const payload = {};
+
+  for (const definition of source) {
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key || !isObject(currentSections[key])) {
+      continue;
+    }
+
+    Object.assign(payload, currentSections[key]);
+  }
+
+  return payload;
+}
+
 // 对于存在前后依赖的阶段产物，按定义顺序逐个求值并把前序结果回灌上下文，减少顺序 builder 的平铺模板。
 function buildSequentialDefinitionPayload(definitions, baseContext, contextBuilder) {
   const source = Array.isArray(definitions) ? definitions : [];
@@ -14061,23 +14784,34 @@ function buildMainResultArtifactFields(payload) {
   return buildDefinitionDrivenPayload(MAIN_RESULT_ARTIFACT_FIELD_DEFINITIONS, payload);
 }
 
-// 统一组装主流程最终输出的配置对象，集中管理 mixed-port / allow-lan / unified-delay / tcp-concurrent 等默认值策略。
-function buildMainResultConfig(payload) {
+// buildMainResultConfig 最终只是顺序合并几段固定 section，这里也定义化，避免后续继续回到大对象 spread 模板。
+const MAIN_RESULT_CONFIG_SECTION_DEFINITIONS = Object.freeze([
+  { key: "baseConfig", value: (context, currentConfig) => currentConfig },
+  { key: "kernelDefaults", value: (context, currentConfig, currentKernelDefaults) => currentKernelDefaults },
+  { key: "providerFields", value: (context, currentConfig) => buildMainResultProviderFields(currentConfig, context.proxyProviders) },
+  { key: "artifactFields", value: (context) => buildMainResultArtifactFields(context) },
+  { key: "runtimeFields", value: (context, currentConfig) => buildMainResultRuntimeFields(currentConfig) }
+]);
+
+// result config 各 section 的装配顺序是稳定的，这里集中生成，便于继续插入新的收尾 section。
+function buildMainResultConfigSections(payload) {
   const context = isObject(payload) ? payload : {};
   const currentConfig = isObject(context.config) ? context.config : {};
   const currentKernelDefaults = isObject(context.kernelDefaults) ? context.kernelDefaults : {};
+  return buildDefinitionDrivenPayload(
+    MAIN_RESULT_CONFIG_SECTION_DEFINITIONS,
+    context,
+    currentConfig,
+    currentKernelDefaults
+  );
+}
 
-  return {
-    // 先展开原配置，保留用户未冲突的全局键。
-    ...currentConfig,
-    // 注入通用内核默认项，但不覆盖用户显式设置。
-    ...currentKernelDefaults,
-    // provider 字段与主流程产物字段统一走 helper，减少 buildMainResultConfig 中大段平铺模板。
-    ...buildMainResultProviderFields(currentConfig, context.proxyProviders),
-    ...buildMainResultArtifactFields(context),
-    // 这批运行时字段统一按“参数优先 / 保留原值 / 回落默认”定义装配，减少收尾逻辑散落。
-    ...buildMainResultRuntimeFields(currentConfig),
-  };
+// 统一组装主流程最终输出的配置对象，集中管理 mixed-port / allow-lan / unified-delay / tcp-concurrent 等默认值策略。
+function buildMainResultConfig(payload) {
+  return mergeDefinitionDrivenSectionPayload(
+    MAIN_RESULT_CONFIG_SECTION_DEFINITIONS,
+    buildMainResultConfigSections(payload)
+  );
 }
 
 // 根据参数与 full 模式决定是否需要注入 profile 缓存配置；不需要时返回 null，调用方可直接跳过。
@@ -14111,68 +14845,107 @@ function buildMainProfileConfig(payload) {
   return mergeObjects(buildMainProfileRuntimeFields(), currentConfig.profile);
 }
 
-// 收尾阶段与 diagnostics/full 日志会共同消费这批 geo/rule/analysis 摘要字段，统一定义后更容易继续扩展。
-const MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS = Object.freeze([
-  {
-    key: "proxyStats",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "proxyStats") ? context.proxyStats : geoPayloadArtifacts.proxyStats
-  },
-  {
-    key: "countryConfigs",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "countryConfigs") ? context.countryConfigs : geoPayloadArtifacts.countryConfigs
-  },
-  {
-    key: "countrySummary",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "countrySummary") ? context.countrySummary : geoPayloadArtifacts.countrySummary
-  },
-  {
-    key: "preferredCountrySummaryPayload",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "preferredCountrySummaryPayload") ? context.preferredCountrySummaryPayload : geoPayloadArtifacts.preferredCountrySummaryPayload
-  },
-  {
-    key: "regionConfigs",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "regionConfigs") ? context.regionConfigs : geoPayloadArtifacts.regionConfigs
-  },
-  {
-    key: "regionGroupSummary",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "regionGroupSummary") ? context.regionGroupSummary : geoPayloadArtifacts.regionGroupSummary
-  },
-  {
-    key: "proxyGroups",
-    value: (context, geoPayloadArtifacts) => Array.isArray(context.proxyGroups) ? context.proxyGroups : geoPayloadArtifacts.proxyGroups
-  },
-  {
-    key: "rules",
-    value: (context, geoPayloadArtifacts, rulePayloadArtifacts) => Array.isArray(context.rules) ? context.rules : rulePayloadArtifacts.rules
-  },
-  {
-    key: "countryCoverage",
-    value: (context, geoPayloadArtifacts) => hasOwn(context, "countryCoverage") ? context.countryCoverage : geoPayloadArtifacts.countryCoverage
-  },
-  {
-    key: "analysisSummaryPayload",
-    value: (context, geoPayloadArtifacts, rulePayloadArtifacts, analysisPayloadArtifacts) => isObject(context.analysisSummaryPayload) ? context.analysisSummaryPayload : analysisPayloadArtifacts.analysisSummaryPayload
-  },
-  {
-    key: "analysisSingleValuePayload",
-    value: (context, geoPayloadArtifacts, rulePayloadArtifacts, analysisPayloadArtifacts) => isObject(context.analysisSingleValuePayload) ? context.analysisSingleValuePayload : analysisPayloadArtifacts.analysisSingleValuePayload
+// finalize / full-summary 这类收尾 builder 都要复用 assemblyContext + summaryPayloadContext，这里统一成单文件内的共享装配壳层。
+function buildMainSummaryScopedPayload(payload, definitions, options) {
+  const context = isObject(payload) ? payload : {};
+  const currentOptions = isObject(options) ? options : {};
+  const assemblyContext = isObject(currentOptions.assemblyContext)
+    ? currentOptions.assemblyContext
+    : buildMainPayloadAssemblyContext(context);
+  const scopedPayload = {};
+
+  if (currentOptions.includeAssemblyContext) {
+    scopedPayload.assemblyContext = assemblyContext;
   }
+
+  if (currentOptions.includeSummaryPayloadContext) {
+    Object.assign(scopedPayload, assemblyContext.summaryPayloadContext);
+  }
+
+  return Object.assign(
+    scopedPayload,
+    buildDefinitionDrivenPayload(
+      Array.isArray(definitions) ? definitions : [],
+      context,
+      assemblyContext
+    )
+  );
+}
+
+// summary payload 会同时消费 geo/rule/analysis 三批轻量 artifacts，这里统一先装成一个 sourceArtifacts 对象，避免多实参 builder 继续膨胀。
+const MAIN_SUMMARY_SOURCE_ARTIFACT_DEFINITIONS = Object.freeze([
+  { key: "geoPayloadArtifacts", value: (context) => buildMainGeoPayloadArtifacts(context.geoArtifacts) },
+  { key: "rulePayloadArtifacts", value: (context) => buildMainRulePayloadArtifacts(context.ruleArtifacts) },
+  { key: "analysisPayloadArtifacts", value: (context) => buildMainAnalysisPayloadArtifacts(context.analysisArtifacts) }
+]);
+
+// 收尾类 builder 只需要一份“geo/rule/analysis 轻量摘要”上下文，这里统一装配，避免每个调用点各自重复裁剪三次。
+function buildMainSummarySourceArtifacts(payload) {
+  return buildDefinitionDrivenPayload(MAIN_SUMMARY_SOURCE_ARTIFACT_DEFINITIONS, payload);
+}
+
+// 从 summary sourceArtifacts 中统一读取某个 artifact 字段，避免 definitions 里反复手写 `artifacts.xxx && artifacts.xxx.yyy`。
+function resolveMainSummarySourceArtifactField(sourceArtifacts, artifactKey, fieldKey) {
+  const currentArtifacts = isObject(sourceArtifacts) ? sourceArtifacts : {};
+  const currentArtifact = isObject(artifactKey && currentArtifacts[artifactKey]) ? currentArtifacts[artifactKey] : {};
+  return currentArtifact[normalizeStringArg(fieldKey)];
+}
+
+// summary payload 大部分字段都是“若 context 已显式给值就优先，否则回落到某个 artifact 字段”，这里统一成工厂减少重复模板。
+function createMainSummaryPayloadContextDefinition(key, artifactKey, options) {
+  const currentOptions = isObject(options) ? options : {};
+  const outputKey = normalizeStringArg(key);
+  const sourceKey = normalizeStringArg(currentOptions.sourceKey) || outputKey;
+  const valueType = normalizeStringArg(currentOptions.valueType) || "own";
+
+  return Object.freeze({
+    key: outputKey,
+    value: (context, sourceArtifacts) => {
+      const current = isObject(context) ? context : {};
+      const currentValue = current[outputKey];
+
+      if (valueType === "array") {
+        return Array.isArray(currentValue)
+          ? currentValue
+          : resolveMainSummarySourceArtifactField(sourceArtifacts, artifactKey, sourceKey);
+      }
+
+      if (valueType === "object") {
+        return isObject(currentValue)
+          ? currentValue
+          : resolveMainSummarySourceArtifactField(sourceArtifacts, artifactKey, sourceKey);
+      }
+
+      return hasOwn(current, outputKey)
+        ? currentValue
+        : resolveMainSummarySourceArtifactField(sourceArtifacts, artifactKey, sourceKey);
+    }
+  });
+}
+
+// 收尾阶段与 diagnostics/full 日志会共同消费这批 geo/rule/analysis 摘要字段，统一改成工厂定义后更便于继续扩展。
+const MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS = Object.freeze([
+  createMainSummaryPayloadContextDefinition("proxyStats", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("countryConfigs", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("countrySummary", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("preferredCountrySummaryPayload", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("regionConfigs", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("regionGroupSummary", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("proxyGroups", "geoPayloadArtifacts", { valueType: "array" }),
+  createMainSummaryPayloadContextDefinition("rules", "rulePayloadArtifacts", { valueType: "array" }),
+  createMainSummaryPayloadContextDefinition("countryCoverage", "geoPayloadArtifacts"),
+  createMainSummaryPayloadContextDefinition("analysisSummaryPayload", "analysisPayloadArtifacts", { valueType: "object" }),
+  createMainSummaryPayloadContextDefinition("analysisSingleValuePayload", "analysisPayloadArtifacts", { valueType: "object" })
 ]);
 
 // 收尾阶段与 full 日志都会复用同一批 geo/rule/analysis 摘要字段，这里统一裁剪，减少重复装配。
 function buildMainSummaryPayloadContext(payload) {
   const context = isObject(payload) ? payload : {};
-  // 三类 artifacts 都先裁剪成“只保留摘要相关字段”的轻量对象，再交给统一 definitions 装配。
-  const geoPayloadArtifacts = buildMainGeoPayloadArtifacts(context.geoArtifacts);
-  const rulePayloadArtifacts = buildMainRulePayloadArtifacts(context.ruleArtifacts);
-  const analysisPayloadArtifacts = buildMainAnalysisPayloadArtifacts(context.analysisArtifacts);
-  // 允许调用方直接在 context 上覆盖某些摘要字段；definitions 会优先取显式传入值，再回落阶段产物。
+  // 允许调用方直接在 context 上覆盖某些摘要字段；definitions 会优先取显式传入值，再回落 summary sourceArtifacts。
   return buildDefinitionDrivenPayload(
     MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS,
     context,
-    geoPayloadArtifacts,
-    rulePayloadArtifacts,
-    analysisPayloadArtifacts
+    buildMainSummarySourceArtifacts(context)
   );
 }
 
@@ -14185,14 +14958,10 @@ const MAIN_FINALIZATION_PAYLOAD_DEFINITIONS = Object.freeze([
 
 // 主流程收尾阶段只需要 geo 摘要 + analysis 派生摘要，这里统一裁剪成最终日志/注入所需上下文。
 function buildMainFinalizationPayload(payload) {
-  const context = isObject(payload) ? payload : {};
-  const assemblyContext = buildMainPayloadAssemblyContext(context);
-  return Object.assign(
-    // full 日志阶段还会回头读取 summary/geo/rule 的聚合上下文，这里显式挂上 assemblyContext 供收尾链路复用。
-    { assemblyContext },
-    buildDefinitionDrivenPayload(MAIN_FINALIZATION_PAYLOAD_DEFINITIONS, context),
-    assemblyContext.summaryPayloadContext
-  );
+  return buildMainSummaryScopedPayload(payload, MAIN_FINALIZATION_PAYLOAD_DEFINITIONS, {
+    includeAssemblyContext: true,
+    includeSummaryPayloadContext: true
+  });
 }
 
 // full 模式下的 log-level 解析也遵循“保留原值，否则回落默认”的固定策略，这里单独抽出便于复用。
@@ -14214,14 +14983,9 @@ const MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS = Object.freeze([
 
 // finalize 阶段写 full 日志前，统一把需要的上下文裁成 buildFullSummaryPayload 可直接消费的结构。
 function buildMainFullSummaryLogPayload(payload) {
-  const context = isObject(payload) ? payload : {};
-  // full 日志阶段仍然要读 geo/rule/analysis/core 等汇总结果，所以这里继续复用 assemblyContext，避免再次手拼上下文字段。
-  const assemblyContext = buildMainPayloadAssemblyContext(context);
-  return Object.assign(
-    {},
-    assemblyContext.summaryPayloadContext,
-    buildDefinitionDrivenPayload(MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS, context)
-  );
+  return buildMainSummaryScopedPayload(payload, MAIN_FULL_SUMMARY_LOG_PAYLOAD_DEFINITIONS, {
+    includeSummaryPayloadContext: true
+  });
 }
 
 // full 模式收尾最终只产出 log-level 和 summary payload，定义化后便于继续扩展其它 full-only 字段。
@@ -14235,37 +14999,212 @@ function buildMainFullResultArtifacts(payload) {
   return buildDefinitionDrivenPayload(MAIN_FULL_RESULT_ARTIFACT_DEFINITIONS, payload);
 }
 
+// result 收尾阶段只有 profile 注入与 full 日志收尾两条固定支线，这里也定义化，避免 finalizeMainResultArtifacts 再堆条件模板。
+const MAIN_RESULT_FINALIZATION_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "profileConfig",
+    value: (context) => buildMainProfileConfig({ config: context.config })
+  },
+  {
+    key: "fullResultArtifacts",
+    value: (context) => ARGS.full ? buildMainFullResultArtifacts(context) : null
+  }
+]);
+
+// result 收尾统一在这里装配 profile/full 两批产物，后续若继续加收尾步骤只需扩 definitions。
+function buildMainResultFinalizationArtifacts(payload) {
+  return buildDefinitionDrivenPayload(MAIN_RESULT_FINALIZATION_ARTIFACT_DEFINITIONS, payload);
+}
+
+// profile 收尾单独抽出，避免 finalizeMainResultArtifacts 中内联 if + 赋值模板。
+function applyMainResultProfileConfig(result, profileConfig) {
+  const currentResult = isObject(result) ? result : {};
+  if (profileConfig) {
+    currentResult.profile = profileConfig;
+  }
+  return currentResult;
+}
+
+// full 模式收尾只负责 log-level 与 summary 日志输出；非 full 模式直接透传结果对象。
+function applyMainFullResultArtifacts(result, fullResultArtifacts) {
+  const currentResult = isObject(result) ? result : {};
+  if (!ARGS.full || !isObject(fullResultArtifacts)) {
+    return currentResult;
+  }
+
+  currentResult["log-level"] = fullResultArtifacts.logLevel;
+  logBuildSummary(fullResultArtifacts.fullSummaryPayload);
+  return currentResult;
+}
+
 // 统一处理主流程尾部的 profile 注入与 full 模式日志输出，减少 main 末尾的条件分支堆叠。
 function finalizeMainResultArtifacts(result, payload) {
   const currentResult = isObject(result) ? result : {};
   const context = isObject(payload) ? payload : {};
-  const currentConfig = isObject(context.config) ? context.config : {};
-  const profileConfig = buildMainProfileConfig({ config: currentConfig });
+  const finalizationArtifacts = buildMainResultFinalizationArtifacts(context);
 
-  if (profileConfig) {
-    currentResult.profile = profileConfig;
-  }
-
+  applyMainResultProfileConfig(currentResult, finalizationArtifacts.profileConfig);
   if (!ARGS.full) {
     return currentResult;
   }
 
-  const fullResultArtifacts = buildMainFullResultArtifacts(context);
-  currentResult["log-level"] = fullResultArtifacts.logLevel;
-  logBuildSummary(fullResultArtifacts.fullSummaryPayload);
+  return applyMainFullResultArtifacts(currentResult, finalizationArtifacts.fullResultArtifacts);
+}
 
-  return currentResult;
+// 主执行链的基础输入固定只有 config/proxies/normalizedProxyState，这里先单独定义化，便于后续 stage payload 复用。
+const MAIN_EXECUTION_STAGE_BASE_FIELD_DEFINITIONS = Object.freeze([
+  { key: "config", value: (context) => context.config },
+  { key: "proxies", value: (context) => Array.isArray(context.proxies) ? context.proxies : [] },
+  { key: "normalizedProxyState", value: (context) => isObject(context.normalizedProxyState) ? context.normalizedProxyState : {} }
+]);
+
+// 主执行链的 stage payload 始终由“基础输入 + pipelineArtifacts + 针对当前阶段的补充字段”三段组成，这里统一定义 section。
+const MAIN_EXECUTION_STAGE_PAYLOAD_SECTION_DEFINITIONS = Object.freeze([
+  { key: "baseFields", value: (context) => buildDefinitionDrivenPayload(MAIN_EXECUTION_STAGE_BASE_FIELD_DEFINITIONS, context) },
+  { key: "pipelineFields", value: (context) => isObject(context.pipelineArtifacts) ? context.pipelineArtifacts : {} },
+  { key: "extraFields", value: (context, currentExtraFields) => currentExtraFields }
+]);
+
+// 主执行链不同阶段都要共享同一份基础输入，这里先裁成 base payload，避免 result/diagnostics/finalize 各自重复处理。
+function buildMainExecutionStageBasePayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_EXECUTION_STAGE_BASE_FIELD_DEFINITIONS, isObject(payload) ? payload : {});
+}
+
+// 主执行链的 payload section 统一在这里装配，便于后续新增 result-only/diagnostics-only section 时继续扩展 definitions。
+function buildMainExecutionStagePayloadSections(payload, extraFields) {
+  const context = isObject(payload) ? payload : {};
+  return buildDefinitionDrivenPayload(
+    MAIN_EXECUTION_STAGE_PAYLOAD_SECTION_DEFINITIONS,
+    context,
+    isObject(extraFields) ? extraFields : {}
+  );
+}
+
+// 某些执行阶段只是在基础 payload 之上补几项字段，这里统一按 definitions 构造 extraFields，避免每个阶段手写对象字面量。
+function buildMainExecutionScopedPayload(payload, definitions) {
+  const context = isObject(payload) ? payload : {};
+  return buildMainExecutionStagePayload(
+    context,
+    buildDefinitionDrivenPayload(Array.isArray(definitions) ? definitions : [], context)
+  );
+}
+
+// 主执行链在单文件内也统一走“基础载荷 + 已完成阶段产物”的装配方式，避免 main 末尾继续手写多段 Object.assign。
+function buildMainExecutionStagePayload(payload, extraFields) {
+  return mergeDefinitionDrivenSectionPayload(
+    MAIN_EXECUTION_STAGE_PAYLOAD_SECTION_DEFINITIONS,
+    buildMainExecutionStagePayloadSections(payload, extraFields)
+  );
+}
+
+// result 阶段只需要在执行链基础载荷上补入 assemblyContext，一次定义后就不用在 MAIN_EXECUTION_ARTIFACT_DEFINITIONS 里重复写模板。
+const MAIN_EXECUTION_RESULT_STAGE_EXTRA_FIELD_DEFINITIONS = Object.freeze([
+  { key: "assemblyContext", value: (context) => context.assemblyContext }
+]);
+
+// diagnostics 阶段只额外依赖 result + assemblyContext，这里单独定义方便与 finalize 共享同一类 scoped payload 装配器。
+const MAIN_EXECUTION_DIAGNOSTICS_STAGE_EXTRA_FIELD_DEFINITIONS = Object.freeze([
+  { key: "result", value: (context) => context.result },
+  { key: "assemblyContext", value: (context) => context.assemblyContext }
+]);
+
+// finalize 阶段只额外依赖 diagnostics/responseHeadersApplied/assemblyContext，这里定义化后可直接复用到最终收尾 helper。
+const MAIN_EXECUTION_FINALIZATION_STAGE_EXTRA_FIELD_DEFINITIONS = Object.freeze([
+  { key: "diagnostics", value: (context) => context.diagnostics },
+  { key: "responseHeadersApplied", value: (context) => context.responseHeadersApplied },
+  { key: "assemblyContext", value: (context) => context.assemblyContext }
+]);
+
+// 主入口在节点规范化之后还会经过 pipeline/result/diagnostics/finalize 这几段固定流程，这里也改成顺序定义驱动。
+const MAIN_EXECUTION_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "pipelineArtifacts",
+    value: (context) => buildMainPipelineArtifacts(buildMainExecutionStagePayload(context))
+  },
+  {
+    key: "assemblyContext",
+    value: (context) => buildMainPayloadAssemblyContext(buildMainExecutionStagePayload(context))
+  },
+  {
+    key: "result",
+    value: (context) => buildMainResultConfig(
+      buildMainResultPayload(buildMainExecutionScopedPayload(
+        context,
+        MAIN_EXECUTION_RESULT_STAGE_EXTRA_FIELD_DEFINITIONS
+      ))
+    )
+  },
+  {
+    key: "diagnostics",
+    value: (context) => buildMainDiagnosticsArtifacts(
+      buildMainDiagnosticsPayload(buildMainExecutionScopedPayload(
+        context,
+        MAIN_EXECUTION_DIAGNOSTICS_STAGE_EXTRA_FIELD_DEFINITIONS
+      ))
+    )
+  },
+  {
+    key: "responseHeadersApplied",
+    value: (context) => finalizeMainDiagnostics(context.diagnostics)
+  }
+]);
+
+// 节点规范化完成后，剩余主流程统一由这组阶段产物驱动，保持单文件内的 main 入口更短、更聚焦。
+function buildMainExecutionArtifacts(payload) {
+  return buildSequentialDefinitionPayload(
+    MAIN_EXECUTION_ARTIFACT_DEFINITIONS,
+    buildMainExecutionStageBasePayload(payload),
+    buildSequentialStageExecutionContext
+  );
+}
+
+// 主执行链最终收尾只需要 result 本体与 finalize payload，这两项继续定义化后，finalizeMainExecutionResult 就只负责调用收尾器。
+const MAIN_EXECUTION_FINALIZATION_SOURCE_DEFINITIONS = Object.freeze([
+  { key: "result", value: (context) => isObject(context.result) ? context.result : {} },
+  {
+    key: "finalizationPayload",
+    value: (context) => buildMainFinalizationPayload(buildMainExecutionScopedPayload(
+      context,
+      MAIN_EXECUTION_FINALIZATION_STAGE_EXTRA_FIELD_DEFINITIONS
+    ))
+  }
+]);
+
+// 主执行链的最终收尾 source payload 统一在这里装配，避免 finalizeMainExecutionResult 回到手动局部变量 + 内联 payload 模板。
+function buildMainExecutionFinalizationSourcePayload(payload) {
+  return buildDefinitionDrivenPayload(MAIN_EXECUTION_FINALIZATION_SOURCE_DEFINITIONS, isObject(payload) ? payload : {});
+}
+
+// 主流程最终返回值统一在这里收尾：复用已产出的 result/diagnostics/assemblyContext，避免 main 再手拼 finalize 载荷。
+function finalizeMainExecutionResult(payload) {
+  const sourcePayload = buildMainExecutionFinalizationSourcePayload(payload);
+  finalizeMainResultArtifacts(sourcePayload.result, sourcePayload.finalizationPayload);
+  return sourcePayload.result;
+}
+
+// full-summary 最终对象也由“基础摘要 + 国家优先链摘要 + diagnostics 指标”三段组成，这里统一成 section 定义便于继续扩展。
+const FULL_SUMMARY_PAYLOAD_SECTION_DEFINITIONS = Object.freeze([
+  { key: "summaryFields", value: (context) => buildDefinitionDrivenPayload(BUILD_FULL_SUMMARY_PAYLOAD_DEFINITIONS, context) },
+  {
+    key: "preferredCountrySummaryPayload",
+    value: (context) => isObject(context.preferredCountrySummaryPayload) ? context.preferredCountrySummaryPayload : {}
+  },
+  {
+    key: "diagnosticsSummaryMetrics",
+    value: (context) => isObject(context.diagnosticsSummaryMetrics) ? context.diagnosticsSummaryMetrics : {}
+  }
+]);
+
+// full-summary sections 统一在这里装配，避免 buildFullSummaryPayload 再手写多段 merge 顺序。
+function buildFullSummaryPayloadSections(payload) {
+  return buildDefinitionDrivenPayload(FULL_SUMMARY_PAYLOAD_SECTION_DEFINITIONS, isObject(payload) ? payload : {});
 }
 
 // 按统一定义从主流程上下文装配 full 日志 payload，减少 main 中那段长对象字面量的维护负担。
 function buildFullSummaryPayload(payload) {
-  const context = isObject(payload) ? payload : {};
-  const summary = buildDefinitionDrivenPayload(BUILD_FULL_SUMMARY_PAYLOAD_DEFINITIONS, context);
-
-  return Object.assign(
-    summary,
-    isObject(context.preferredCountrySummaryPayload) ? context.preferredCountrySummaryPayload : {},
-    isObject(context.diagnosticsSummaryMetrics) ? context.diagnosticsSummaryMetrics : {}
+  return mergeDefinitionDrivenSectionPayload(
+    FULL_SUMMARY_PAYLOAD_SECTION_DEFINITIONS,
+    buildFullSummaryPayloadSections(payload)
   );
 }
 
@@ -14419,13 +15358,31 @@ const PROXY_GROUP_EXTRA_GROUP_DEFINITIONS = Object.freeze(
   flattenBuildDefinitionSections(PROXY_GROUP_EXTRA_GROUP_DEFINITION_SECTIONS)
 );
 
+// diagnostics summary metrics 同样由“计数类指标 + 额外格式化指标”两段组成，改成 section 后可继续复用共享 merge helper。
+const FULL_SUMMARY_DIAGNOSTIC_METRIC_SECTION_DEFINITIONS = Object.freeze([
+  {
+    key: "warningMetrics",
+    value: (context) => buildMetricCountDefinitionPayload(BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, context)
+  },
+  {
+    key: "extraMetrics",
+    value: (context) => buildDefinitionDrivenPayload(FULL_SUMMARY_DIAGNOSTIC_EXTRA_METRIC_DEFINITIONS, context)
+  }
+]);
+
+// diagnostics summary metrics 的各 section 统一在这里装配，便于后续新增其它 full-only 指标段。
+function buildFullSummaryDiagnosticMetricSections(diagnostics) {
+  return buildDefinitionDrivenPayload(
+    FULL_SUMMARY_DIAGNOSTIC_METRIC_SECTION_DEFINITIONS,
+    isObject(diagnostics) ? diagnostics : {}
+  );
+}
+
 // 把 diagnostics 里的数量/Provider 摘要打平成 full 日志统计对象，减少 main 中对 length/format 的重复手写。
 function buildFullSummaryDiagnosticMetrics(diagnostics) {
-  const current = isObject(diagnostics) ? diagnostics : {};
-  // 一部分指标来自“按 definitions 统计数量”，另一部分来自自定义 extra metric builder，这里合并成单一 stats 片段。
-  return Object.assign(
-    buildMetricCountDefinitionPayload(BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, current),
-    buildDefinitionDrivenPayload(FULL_SUMMARY_DIAGNOSTIC_EXTRA_METRIC_DEFINITIONS, current)
+  return mergeDefinitionDrivenSectionPayload(
+    FULL_SUMMARY_DIAGNOSTIC_METRIC_SECTION_DEFINITIONS,
+    buildFullSummaryDiagnosticMetricSections(diagnostics)
   );
 }
 
@@ -14572,6 +15529,73 @@ function buildProxyGroupRuntimeContext(payload) {
   return buildSequentialDefinitionPayload(PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS, isObject(payload) ? payload : {});
 }
 
+// 单文件内的 proxy-group 构建也整理成“阶段产物 + 收尾结果”的执行计划，保持 buildProxyGroups 主体只负责守卫与调度。
+function buildProxyGroupExecutionPayload(payload, extraFields) {
+  const context = isObject(payload) ? payload : {};
+  const proxyGroupBaseContext = isObject(context.proxyGroupBaseContext) ? context.proxyGroupBaseContext : {};
+
+  return Object.assign({
+    proxies: Array.isArray(context.proxies) ? context.proxies : [],
+    countryConfigs: Array.isArray(context.countryConfigs) ? context.countryConfigs : [],
+    regionConfigs: Array.isArray(context.regionConfigs) ? context.regionConfigs : [],
+    hasLowCost: !!context.hasLowCost,
+    existingGroups: Array.isArray(context.existingGroups) ? context.existingGroups : [],
+    existingProxyProviders: isObject(context.existingProxyProviders) ? context.existingProxyProviders : {}
+  }, proxyGroupBaseContext, isObject(extraFields) ? extraFields : {});
+}
+
+const PROXY_GROUP_EXECUTION_ARTIFACT_DEFINITIONS = Object.freeze([
+  {
+    key: "proxyGroupBaseContext",
+    value: (context) => buildProxyGroupBaseContext({
+      proxies: context.proxies,
+      countryConfigs: context.countryConfigs,
+      regionConfigs: context.regionConfigs,
+      existingGroups: context.existingGroups,
+      existingProxyProviders: context.existingProxyProviders
+    })
+  },
+  {
+    key: "proxyGroupRuntimeContext",
+    value: (context) => buildProxyGroupRuntimeContext(buildProxyGroupExecutionPayload(context))
+  },
+  {
+    key: "orderedGroups",
+    value: (context) => finalizeProxyGroupGeneration(
+      context.proxyGroupRuntimeContext && context.proxyGroupRuntimeContext.generatedGroups,
+      context.existingGroups,
+      context.proxyGroupBaseContext && context.proxyGroupBaseContext.countryGroupNames,
+      context.proxyGroupBaseContext && context.proxyGroupBaseContext.regionGroupNames
+    )
+  }
+]);
+
+// 独立抽出 buildProxyGroups 的阶段执行器，让国家/区域/服务组上下文可以在单文件里继续按模块维度演进。
+function buildProxyGroupArtifacts(payload) {
+  const context = isObject(payload) ? payload : {};
+  return buildSequentialDefinitionPayload(
+    PROXY_GROUP_EXECUTION_ARTIFACT_DEFINITIONS,
+    buildProxyGroupExecutionPayload(context),
+    buildSequentialStageExecutionContext
+  );
+}
+
+// 一个国家组都没识别出来时统一在这里告警，避免 buildProxyGroups 主体继续堆叠细碎条件。
+function warnMissingProxyGroupCountries(proxyGroupBaseContext) {
+  const current = isObject(proxyGroupBaseContext) ? proxyGroupBaseContext : {};
+
+  if (Array.isArray(current.countryGroupNames) && current.countryGroupNames.length) {
+    return;
+  }
+
+  // 完全没有国家命中时，兜底组本就是预期行为；这里不再额外打“缺国家组”告警，避免和未识别统计重复轰炸。
+  if (!(typeof current.classifiedCountryProxyCount === "number" && current.classifiedCountryProxyCount > 0)) {
+    return;
+  }
+
+  emitWarning("⚠️ 警告: 未检测到有效的国家分组，将使用兜底节点组");
+}
+
 // 构建写入 `_res.headers` 的调试头，便于直接在下载响应中查看关键运行信息。
 function buildRuntimeResponseHeaders(diagnostics) {
   return buildRuntimeResponseHeaderSections(
@@ -14589,47 +15613,18 @@ function buildProxyGroups(proxies, countryConfigs, regionConfigs, hasLowCost, ex
     console.time("buildProxyGroups");
   }
 
-  const proxyGroupBaseContext = buildProxyGroupBaseContext({
+  const proxyGroupArtifacts = buildProxyGroupArtifacts({
     proxies,
     countryConfigs,
     regionConfigs,
+    hasLowCost,
     existingGroups,
     existingProxyProviders
   });
-  // 只提取国家组名称，便于后面组装候选列表。
-  const countryGroupNames = proxyGroupBaseContext.countryGroupNames;
-  // 区域分组仅作为国家组的聚合层，默认不参与功能组候选链。
-  const resolvedRegionConfigs = proxyGroupBaseContext.resolvedRegionConfigs;
-  const regionGroupNames = proxyGroupBaseContext.regionGroupNames;
-  // 提前提取用户原配置中已有的策略组名称，供独立组前置组参数解析复用。
-  const existingGroupNames = proxyGroupBaseContext.existingGroupNames;
-  // 提前提取用户原配置中已有的 proxy-provider 名称，供 GitHub / Steam provider 池参数解析复用。
-  const existingProxyProviderNames = proxyGroupBaseContext.existingProxyProviderNames;
-  // 提前提取当前所有可见节点名称，供独立组点名节点参数解析复用。
-  const proxyNames = proxyGroupBaseContext.proxyNames;
-  // 同时提取国家过滤表达式，给“兜底节点”组排除这些国家用。
-  const countryFilters = proxyGroupBaseContext.countryFilters;
-  // 一个国家组都没识别出来时，打个提醒。
-  if (!countryGroupNames.length) {
-    console.warn("⚠️ 警告: 未检测到有效的国家分组，将使用兜底节点组");
-  }
-  // buildProxyGroups 前半段的候选链/优先链/服务组中间产物统一在这里串行装配，减少函数体里的平行模板。
-  const proxyGroupRuntimeContext = buildProxyGroupRuntimeContext({
-    hasLowCost,
-    countryConfigs,
-    resolvedRegionConfigs,
-    countryGroupNames,
-    regionGroupNames,
-    existingGroupNames,
-    existingProxyProviderNames,
-    proxyNames,
-    countryFilters
-  });
-  // generatedGroups 到这里已经是“按条件展开后的纯净结果”，后面只剩与现有组做 merge/order 的收尾步骤。
-  const generatedGroups = proxyGroupRuntimeContext.generatedGroups;
-
-  // 再把生成组和用户原配置里的额外组做合并，并按布局预设/显式 group-order 做最终重排。
-  const orderedGroups = finalizeProxyGroupGeneration(generatedGroups, existingGroups, countryGroupNames, regionGroupNames);
+  const proxyGroupBaseContext = proxyGroupArtifacts.proxyGroupBaseContext;
+  warnMissingProxyGroupCountries(proxyGroupBaseContext);
+  // orderedGroups 已经是“基础上下文 -> 候选链/服务组 -> merge/order”整套执行计划的最终产物。
+  const orderedGroups = proxyGroupArtifacts.orderedGroups;
 
   // full 模式下输出构建耗时。
   // 同样兼容缺少 console.timeEnd 的运行环境，避免 full 模式只因日志能力不足而中断主流程。
@@ -14961,6 +15956,21 @@ function createDiagnosticSpecialWarningDefinition(countKey, options) {
   return Object.assign({ countKey }, isObject(options) ? options : {});
 }
 
+// “有部分命中、也有部分漏掉”才算真正值得提示的国家识别覆盖率风险；全量未命中时默认视为订阅命名风格不同。
+function shouldWarnUnclassifiedCountryProxies(diagnostics) {
+  const current = isObject(diagnostics) ? diagnostics : {};
+  const unclassified = Number(current.unclassifiedCountryProxies) || 0;
+  if (unclassified <= 0) {
+    return false;
+  }
+
+  if (!hasOwn(current, "classifiedCountryProxies")) {
+    return true;
+  }
+
+  return (Number(current.classifiedCountryProxies) || 0) > 0;
+}
+
 // 非通用模板类 diagnostics 告警统一登记在此，方便 logDiagnostics 按定义表逐项输出。
 const DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS = Object.freeze([
   createDiagnosticSpecialWarningDefinition("missingProviders", {
@@ -14973,7 +15983,7 @@ const DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS = Object.freeze([
   }),
   createDiagnosticSpecialWarningDefinition("unclassifiedCountryProxies", {
     countType: "number",
-    shouldLog: (diagnostics) => typeof diagnostics.unclassifiedCountryProxies === "number" && diagnostics.unclassifiedCountryProxies > 0,
+    shouldLog: shouldWarnUnclassifiedCountryProxies,
     message: (diagnostics) => `⚠️ 检测到 ${diagnostics.unclassifiedCountryProxies} 个节点未命中任何国家识别规则`,
     previewItems: (diagnostics) => Array.isArray(diagnostics.unclassifiedCountryExamples) ? diagnostics.unclassifiedCountryExamples : [],
     previewLimit: 10
@@ -14986,6 +15996,10 @@ function countDiagnosticIssueDefinitions(diagnostics, definitions) {
   let total = 0;
 
   for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (definition && typeof definition.shouldLog === "function" && !definition.shouldLog(current)) {
+      continue;
+    }
+
     const countKey = normalizeStringArg((definition && definition.countKey) || (definition && definition.key));
     const countType = normalizeStringArg((definition && definition.countType) || "array");
 
@@ -15038,29 +16052,32 @@ function logDiagnosticPreviewItems(logState, diagnostics) {
     return;
   }
 
-  for (const item of state.items.slice(0, state.previewLimit)) {
-    console.warn(`   · ${state.formatItem(item, current)}`);
-  }
+  emitWarningList(
+    state.items.slice(0, state.previewLimit),
+    (item) => `   · ${state.formatItem(item, current)}`,
+    { once: false }
+  );
 }
 
 // diagnostics 各类告警最终都落成“可选 message + 可选 preview”两步，这里统一执行壳层，避免 warning/special-warning 各写一遍。
 function emitDiagnosticLogState(logState, diagnostics, message) {
   if (message) {
-    console.warn(message);
+    emitWarning(message);
   }
 
   logDiagnosticPreviewItems(logState, diagnostics);
 }
 
-// warning/special-warning 最终都能收敛成“解析当前 definition 的 items/logState/message”这一层，这里统一生成执行载荷。
-function buildDiagnosticDefinitionLogPayload(diagnostics, definition) {
-  const current = isObject(diagnostics) ? diagnostics : {};
-  const key = normalizeStringArg(definition && definition.key);
+// diagnostics 现在也显式区分 warning-block / special-warning 两类执行协议，后续若继续新增日志类型只需扩这个注册表。
+const DIAGNOSTIC_LOG_PAYLOAD_BUILDERS = Object.freeze({
+  "warning-block": (diagnostics, definition) => {
+    const current = isObject(diagnostics) ? diagnostics : {};
+    const key = normalizeStringArg(definition && definition.key);
+    if (!key) {
+      return null;
+    }
 
-  if (key) {
-    // 标准 warning 块：直接从 diagnostics[key] 里读取样本数组。
     const items = Array.isArray(current[key]) ? current[key] : [];
-
     if (!items.length) {
       return null;
     }
@@ -15074,32 +16091,56 @@ function buildDiagnosticDefinitionLogPayload(diagnostics, definition) {
       logState,
       message: (logState.messageBuilder || ((list) => `⚠️ 检测到 ${list.length} 个 ${key} 告警`))(items, current)
     };
+  },
+  "special-warning": (diagnostics, definition) => {
+    const current = isObject(diagnostics) ? diagnostics : {};
+    const previewItems = definition && typeof definition.previewItems === "function"
+      ? definition.previewItems(current)
+      : [];
+    const logState = resolveDiagnosticLogState(definition, current, {
+      items: previewItems
+    });
+
+    if (!logState.shouldLog) {
+      return null;
+    }
+
+    return {
+      diagnostics: current,
+      logState,
+      message: logState.messageBuilder
+        ? logState.messageBuilder(current)
+        : ""
+    };
+  }
+});
+
+// diagnostics definition 未显式标 kind 时，默认按是否存在 key 来区分 warning-block 与 special-warning，保持旧行为不变。
+function resolveDiagnosticLogPayloadKind(definition, kind) {
+  const currentKind = normalizeStringArg(kind);
+  if (currentKind) {
+    return currentKind;
   }
 
-  // special warning：是否打印、预览样本、消息内容都交给 definition 自己决定。
-  const previewItems = definition && typeof definition.previewItems === "function"
-    ? definition.previewItems(current)
-    : [];
-  const logState = resolveDiagnosticLogState(definition, current, {
-    items: previewItems
-  });
-
-  if (!logState.shouldLog) {
-    return null;
-  }
-
-  return {
-    diagnostics: current,
-    logState,
-    message: logState.messageBuilder
-      ? logState.messageBuilder(current)
-      : ""
-  };
+  return normalizeStringArg(definition && definition.key)
+    ? "warning-block"
+    : "special-warning";
 }
 
-// diagnostics 两类 definition 现在统一走同一个 handler：按 definition 解析载荷，再按共享壳层输出。
-function logDiagnosticDefinition(diagnostics, definition) {
-  const payload = buildDiagnosticDefinitionLogPayload(diagnostics, definition);
+// warning/special-warning 最终都能收敛成“kind + definition -> log payload”这一层，这里统一生成执行载荷。
+function buildDiagnosticDefinitionLogPayload(diagnostics, definition, kind) {
+  const payloadKind = resolveDiagnosticLogPayloadKind(definition, kind);
+  const payload = executeKindRegistryHandler(
+    DIAGNOSTIC_LOG_PAYLOAD_BUILDERS,
+    payloadKind,
+    diagnostics,
+    definition
+  );
+  return typeof payload === "undefined" ? null : payload;
+}
+
+// diagnostics 输出最终只需要按 payload 协议执行共享壳层；无 payload 时直接跳过。
+function emitDiagnosticLogPayload(payload) {
   if (!isObject(payload)) {
     return;
   }
@@ -15107,20 +16148,71 @@ function logDiagnosticDefinition(diagnostics, definition) {
   emitDiagnosticLogState(payload.logState, payload.diagnostics, payload.message);
 }
 
+// diagnostics 两类 definition 现在统一走 kind -> payload -> emit 这条链路，减少 warning/special-warning 的并行壳层。
+function logDiagnosticDefinition(diagnostics, definition, kind) {
+  emitDiagnosticLogPayload(buildDiagnosticDefinitionLogPayload(diagnostics, definition, kind));
+}
+
+// diagnostics / build-summary 的 definition-handler section 都共享同一套“definitions + handler + 可选 phase”壳层，这里统一抽成基础工厂。
+function createDefinitionHandlerSection(definitions, handler, options) {
+  const currentOptions = isObject(options) ? options : {};
+  const phase = normalizeStringArg(currentOptions.phase);
+  const section = {
+    definitions: Array.isArray(definitions) ? definitions : [],
+    handler: typeof handler === "function" ? handler : (() => {})
+  };
+
+  if (phase) {
+    section.phase = phase;
+  }
+
+  return section;
+}
+
+// 很多 handler section 都只是把一个 kind 绑定给统一 handler，这里继续抽成共享 helper，减少 diagnostics/build-summary 两边的重复模板。
+function createKindBoundDefinitionHandlerSection(definitions, kind, handler, options) {
+  const currentOptions = isObject(options) ? options : {};
+  const currentKind = normalizeStringArg(kind);
+  const kindPosition = normalizeStringArg(currentOptions.kindPosition) || "last";
+  return createDefinitionHandlerSection(
+    definitions,
+    (context, definition) => typeof handler === "function"
+      ? (kindPosition === "first"
+        ? handler(currentKind, definition, context)
+        : handler(context, definition, currentKind))
+      : undefined,
+    currentOptions
+  );
+}
+
+// diagnostics handler section 目前只是在 definitions/kind 两项上不同，这里也抽成轻量工厂，减少计划表模板。
+function createDiagnosticLogHandlerSection(kind, definitions) {
+  return createKindBoundDefinitionHandlerSection(definitions, kind, logDiagnosticDefinition);
+}
+
 // diagnostics 各类 handler 当前只是在固定顺序下批量执行，这里也整理成计划表，避免 logDiagnostics 主体再保留平铺调用。
 const DIAGNOSTIC_LOG_HANDLER_SECTIONS = Object.freeze([
-  { definitions: DIAGNOSTIC_WARNING_BLOCK_DEFINITIONS, handler: logDiagnosticDefinition },
-  { definitions: DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS, handler: logDiagnosticDefinition }
+  createDiagnosticLogHandlerSection("warning-block", DIAGNOSTIC_WARNING_BLOCK_DEFINITIONS),
+  createDiagnosticLogHandlerSection("special-warning", DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS)
 ]);
+
+// definition-handler section 的 definitions 统一走这层读取，便于 runDefinitionHandlerSections 与各类工厂共享同一套兜底逻辑。
+function resolveDefinitionHandlerSectionDefinitions(section) {
+  return Array.isArray(section && section.definitions) ? section.definitions : [];
+}
+
+// 指定 phase 时，只执行 phase 匹配的 section；未指定时全部执行，这里抽成 helper 让 runner 主体更聚焦。
+function shouldRunDefinitionHandlerSection(section, phase) {
+  const currentPhase = normalizeStringArg(phase);
+  return !currentPhase || normalizeStringArg(section && section.phase) === currentPhase;
+}
 
 // diagnostics / build-summary 都有“section -> definitions -> handler”的同构调度层，这里统一 section runner。
 function runDefinitionHandlerSections(sections, context, phase) {
   const source = Array.isArray(sections) ? sections : [];
-  const currentPhase = normalizeStringArg(phase);
 
   for (const section of source) {
-    // 指定 phase 时，只执行当前阶段匹配的 section；未指定时则全跑。
-    if (currentPhase && normalizeStringArg(section && section.phase) !== currentPhase) {
+    if (!shouldRunDefinitionHandlerSection(section, phase)) {
       continue;
     }
 
@@ -15129,30 +16221,200 @@ function runDefinitionHandlerSections(sections, context, phase) {
       continue;
     }
 
-    for (const definition of Array.isArray(section && section.definitions) ? section.definitions : []) {
+    for (const definition of resolveDefinitionHandlerSectionDefinitions(section)) {
       handler(context, definition);
     }
   }
 }
 
+// build-summary definition-handler section 目前只是在 phase/definitions/kind 三项上不同，这里抽成 helper 避免平铺重复 handler 模板。
+function createBuildSummaryDefinitionHandlerSection(phase, definitions, lineKind) {
+  return createKindBoundDefinitionHandlerSection(
+    definitions,
+    lineKind,
+    logBuildSummaryLineByKind,
+    { phase, kindPosition: "first" }
+  );
+}
+
 // logBuildSummary 里这几段“遍历 definitions -> 调不同 logger”也整理成计划表，避免主体继续出现多段近似循环。
 const BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS = Object.freeze([
+  createBuildSummaryDefinitionHandlerSection("pre-lookup", BUILD_SUMMARY_OPTIONAL_VALUE_LINE_DEFINITIONS, "optional-value"),
+  createBuildSummaryDefinitionHandlerSection("pre-lookup", BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS, "arg"),
+  createBuildSummaryDefinitionHandlerSection("post-lookup", BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS, "arg")
+]);
+
+// build-summary 日志真正依赖的上下文只有 stats 与 lookupRegistry，这里先统一裁成 source payload，便于后续继续扩展其它日志阶段输入。
+const BUILD_SUMMARY_LOG_SOURCE_DEFINITIONS = Object.freeze([
+  { key: "stats", value: (context) => isObject(context.stats) ? context.stats : {} },
   {
-    phase: "pre-lookup",
-    definitions: BUILD_SUMMARY_OPTIONAL_VALUE_LINE_DEFINITIONS,
-    handler: (stats, definition) => logBuildSummaryOptionalValueLine(definition, stats)
-  },
-  {
-    phase: "pre-lookup",
-    definitions: BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS,
-    handler: (stats, definition) => logBuildSummaryArgLine(definition, stats)
-  },
-  {
-    phase: "post-lookup",
-    definitions: BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS,
-    handler: (stats, definition) => logBuildSummaryArgLine(definition, stats)
+    key: "lookupRegistry",
+    value: (context) => isObject(context.lookupRegistry)
+      ? context.lookupRegistry
+      : buildBuildSummaryLookupRegistry(BUILD_SUMMARY_LOOKUP_REGISTRY_DEFINITIONS)
   }
 ]);
+
+// build-summary 日志 source payload 统一在这里装配，避免 logBuildSummary 回到手写局部变量。
+function buildBuildSummaryLogSourcePayload(payload) {
+  return buildDefinitionDrivenPayload(BUILD_SUMMARY_LOG_SOURCE_DEFINITIONS, isObject(payload) ? payload : {});
+}
+
+// build-summary 日志 section 大多只是 kind + 少量配置项不同，这里先抽成轻量工厂，减少计划表里的对象模板样板。
+function createBuildSummaryLogSectionDefinition(kind, options) {
+  return Object.assign({ kind }, isObject(options) ? options : {});
+}
+
+// build-summary 日志阶段同样改成 section 协议：标题 / 指标 / definition-handler / lookup / diagnostic-line 都按计划顺序执行。
+const BUILD_SUMMARY_LOG_SECTION_DEFINITIONS = Object.freeze([
+  createBuildSummaryLogSectionDefinition("title"),
+  createBuildSummaryLogSectionDefinition("metric-sections", {
+    sections: BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS
+  }),
+  createBuildSummaryLogSectionDefinition("definition-handler-sections", {
+    sections: BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS,
+    phase: "pre-lookup"
+  }),
+  createBuildSummaryLogSectionDefinition("lookup-sections", {
+    sections: BUILD_SUMMARY_LOG_LOOKUP_SECTION_DEFINITIONS
+  }),
+  createBuildSummaryLogSectionDefinition("diagnostic-lines", {
+    definitions: BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS
+  }),
+  createBuildSummaryLogSectionDefinition("definition-handler-sections", {
+    sections: BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS,
+    phase: "post-lookup"
+  })
+]);
+
+// build-summary section payload 里有一批字段只是从 source payload 透传，这里抽成工厂，避免各 kind 重复写 context.stats/lookupRegistry 模板。
+function createBuildSummaryLogSectionSourceFieldDefinition(key) {
+  const currentKey = normalizeStringArg(key);
+  return Object.freeze({
+    key: currentKey,
+    value: (section, sourcePayload) => sourcePayload && sourcePayload[currentKey]
+  });
+}
+
+// build-summary section payload 里的数组字段都遵循同一兜底规则：读取 section[key]，不是数组就回退空数组。
+function createBuildSummaryLogSectionArrayFieldDefinition(key) {
+  const currentKey = normalizeStringArg(key);
+  return Object.freeze({
+    key: currentKey,
+    value: (section) => Array.isArray(section && section[currentKey]) ? section[currentKey] : []
+  });
+}
+
+// build-summary section payload 里的 phase/kind 这类字符串字段统一做 normalize，避免各 kind 自己重复调用 normalizeStringArg。
+function createBuildSummaryLogSectionNormalizedFieldDefinition(key) {
+  const currentKey = normalizeStringArg(key);
+  return Object.freeze({
+    key: currentKey,
+    value: (section) => normalizeStringArg(section && section[currentKey])
+  });
+}
+
+// 每个 build-summary section 都会共享 kind/stats/lookupRegistry 这三项基础字段，这里统一成 base definitions。
+const BUILD_SUMMARY_LOG_SECTION_BASE_PAYLOAD_DEFINITIONS = Object.freeze([
+  createBuildSummaryLogSectionNormalizedFieldDefinition("kind"),
+  createBuildSummaryLogSectionSourceFieldDefinition("stats"),
+  createBuildSummaryLogSectionSourceFieldDefinition("lookupRegistry")
+]);
+
+// build-summary 各类 section 在执行前都先裁成标准 payload；这里按 kind 注册仅属于该 kind 的补充字段。
+const BUILD_SUMMARY_LOG_SECTION_SPECIFIC_PAYLOAD_DEFINITION_MAP = Object.freeze({
+  "metric-sections": Object.freeze([
+    createBuildSummaryLogSectionArrayFieldDefinition("sections")
+  ]),
+  "definition-handler-sections": Object.freeze([
+    createBuildSummaryLogSectionArrayFieldDefinition("sections"),
+    createBuildSummaryLogSectionNormalizedFieldDefinition("phase")
+  ]),
+  "lookup-sections": Object.freeze([
+    createBuildSummaryLogSectionArrayFieldDefinition("sections")
+  ]),
+  "diagnostic-lines": Object.freeze([
+    createBuildSummaryLogSectionArrayFieldDefinition("definitions")
+  ])
+});
+
+// 单个 section 实际需要的 payload definitions = 基础字段 + kind 对应的补充字段，这里统一解析避免 buildBuildSummaryLogSectionPayload 再内联分支。
+function resolveBuildSummaryLogSectionPayloadDefinitions(section) {
+  return BUILD_SUMMARY_LOG_SECTION_BASE_PAYLOAD_DEFINITIONS.concat(
+    resolveKindRegistryValue(BUILD_SUMMARY_LOG_SECTION_SPECIFIC_PAYLOAD_DEFINITION_MAP, section && section.kind) || []
+  );
+}
+
+// 单个 build-summary section 统一先标准化成 payload，后续执行器只消费 payload，避免执行层继续关心 section 原始字段名。
+function buildBuildSummaryLogSectionPayload(section, context) {
+  const currentSection = isObject(section) ? section : {};
+  return buildDefinitionDrivenPayload(
+    resolveBuildSummaryLogSectionPayloadDefinitions(currentSection),
+    currentSection,
+    buildBuildSummaryLogSourcePayload(context)
+  );
+}
+
+// build-summary 日志 section 的各类执行器集中注册，后续若新增新的日志区块类型只需扩这里。
+const BUILD_SUMMARY_LOG_SECTION_EXECUTORS = Object.freeze({
+  title: () => {
+    console.log(`📊 配置生成完毕 (Sub-Store.js v${SCRIPT_VERSION})`);
+  },
+  "metric-sections": (payload) => {
+    logBuildSummaryMetricSections(payload.stats, payload.sections);
+  },
+  "definition-handler-sections": (payload) => {
+    runDefinitionHandlerSections(
+      payload.sections,
+      payload.stats,
+      payload.phase
+    );
+  },
+  "lookup-sections": (payload) => {
+    logBuildSummaryLookupSections(
+      payload.stats,
+      payload.lookupRegistry,
+      payload.sections
+    );
+  },
+  "diagnostic-lines": (payload) => {
+    logBuildSummaryDiagnosticLines(payload.stats, payload.definitions);
+  }
+});
+
+// 单个 build-summary 日志 section 的执行统一走注册表，避免 buildBuildSummaryLogSideEffectArtifacts 内继续手写多段调用。
+function executeBuildSummaryLogSection(section, context) {
+  const payload = buildBuildSummaryLogSectionPayload(section, context);
+  executeKindRegistryHandler(BUILD_SUMMARY_LOG_SECTION_EXECUTORS, payload && payload.kind, payload);
+}
+
+// 按计划顺序依次执行 build-summary 日志 section，保持原日志顺序不变，同时收紧 logBuildSummary 的职责。
+function runBuildSummaryLogSections(context, sections) {
+  const source = Array.isArray(sections) ? sections : [];
+  const currentContext = isObject(context) ? context : {};
+  for (const section of source) {
+    executeBuildSummaryLogSection(section, currentContext);
+  }
+}
+
+// build-summary 日志副作用统一在这里执行，当前只暴露“已执行日志计划”这一项结果，避免外层关心内部步骤细节。
+const BUILD_SUMMARY_LOG_SIDE_EFFECT_DEFINITIONS = Object.freeze([
+  {
+    key: "logged",
+    value: (context) => {
+      runBuildSummaryLogSections(context, BUILD_SUMMARY_LOG_SECTION_DEFINITIONS);
+      return true;
+    }
+  }
+]);
+
+// build-summary 日志副作用统一在这里执行，logBuildSummary 只负责把 stats 交给这套计划表。
+function buildBuildSummaryLogSideEffectArtifacts(payload) {
+  return buildDefinitionDrivenPayload(
+    BUILD_SUMMARY_LOG_SIDE_EFFECT_DEFINITIONS,
+    buildBuildSummaryLogSourcePayload(payload)
+  );
+}
 
 // 输出构建过程中的诊断信息，例如自动重命名和一致性校验告警。
 function logDiagnostics(diagnostics) {
@@ -15167,95 +16429,37 @@ function logDiagnostics(diagnostics) {
 
 // 输出 full 模式下的构建统计信息。
 function logBuildSummary(stats) {
-  const lookupRegistry = buildBuildSummaryLookupRegistry(BUILD_SUMMARY_LOOKUP_REGISTRY_DEFINITIONS);
-
-  // 输出主标题并带上脚本版本。
-  console.log(`📊 配置生成完毕 (Sub-Store.js v${SCRIPT_VERSION})`);
-  // 统一输出核心数量指标与各类告警/提醒计数。
-  logBuildSummaryMetricSections(stats);
-  // 这几段 definition logger 都按 phase 计划批量执行，避免继续依赖 slice 下标这种隐式顺序约定。
-  runDefinitionHandlerSections(BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS, stats, "pre-lookup");
-  // 按预先配置好的分段计划批量输出剩余摘要，减少 logBuildSummary 主体里多段重复调用。
-  logBuildSummaryLookupSections(stats, lookupRegistry, BUILD_SUMMARY_LOG_LOOKUP_SECTION_DEFINITIONS);
-  // 这一批链路/规则摘要同时喂给响应头与 full 日志，统一走共享定义，减少两边维护漂移。
-  logBuildSummaryDiagnosticLines(stats, BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS);
-  // 剩余服务参数日志也纳入同一套计划执行。
-  runDefinitionHandlerSections(BUILD_SUMMARY_DEFINITION_HANDLER_SECTIONS, stats, "post-lookup");
+  buildBuildSummaryLogSideEffectArtifacts({ stats });
 }
 
 // 主入口函数。
 // Sub-Store 在运行脚本时会把配置对象传进来，我们在这里做二次加工。
 function main(config) {
-  // 非对象输入说明运行环境异常，直接返回空对象。
-  if (!isObject(config)) {
-    console.error("❌ 错误: 配置对象不存在");
-    return {};
-  }
-
-  // 没有 proxies 字段就说明不是标准 Clash 配置，原样返回。
-  if (!Array.isArray(config.proxies)) {
-    console.warn("⚠️ 警告: 配置文件中未找到代理节点数组");
-    return config;
-  }
-
-  // proxies 是空数组时没法做任何分组，直接返回原配置。
-  if (config.proxies.length === 0) {
-    console.warn("⚠️ 警告: 代理节点数组为空，无法生成完整配置");
-    return config;
+  resetRuntimeWarningState();
+  const inputState = validateMainConfigInput(config);
+  if (!inputState.ok) {
+    return inputState.value;
   }
 
   // 用 try/catch 包住主流程，确保脚本出错时不会把整个配置弄坏。
   try {
     // 先清洗并规范节点名称，处理空格和重复名称问题。
-    const normalizedProxyState = normalizeProxies(config.proxies);
+    const normalizedProxyState = normalizeProxies(inputState.value.proxies);
     // 取出规范化后的有效节点列表。
     const proxies = normalizedProxyState.proxies;
     // 如果清洗完一个有效节点都没有，则回退原配置。
     if (proxies.length === 0) {
-      console.warn("⚠️ 警告: 有效代理节点为空，已返回原配置");
-      return config;
+      emitWarning("⚠️ 警告: 有效代理节点为空，已返回原配置");
+      return inputState.value;
     }
-    // 主流程前半段统一完成地理/规则/分析/core/provider 五批阶段产物，保持 main 主体更聚焦。
-    const pipelineArtifacts = buildMainPipelineArtifacts({
-      config,
-      proxies
+    // 节点规范化之后，剩余主流程统一走单文件内的阶段执行器，main 本体只保留输入守卫与异常兜底。
+    const mainExecutionArtifacts = buildMainExecutionArtifacts({
+      config: inputState.value,
+      proxies,
+      normalizedProxyState
     });
-    // result / diagnostics / finalize 三段会反复消费同一批裁剪后的阶段上下文，这里预先装配一次后整轮复用。
-    const assemblyContext = buildMainPayloadAssemblyContext({
-      config,
-      proxies,
-      ...pipelineArtifacts
-    });
-
-    // 在原配置基础上覆盖/注入脚本生成的新配置项。
-    const result = buildMainResultConfig(buildMainResultPayload({
-      config,
-      proxies,
-      assemblyContext,
-      ...pipelineArtifacts
-    }));
-
-    // diagnostics 阶段统一完成：校验最终产物、补齐派生 diagnostics 字段，并处理响应头/诊断日志副作用。
-    const diagnostics = buildMainDiagnosticsArtifacts(buildMainDiagnosticsPayload({
-      config,
-      proxies,
-      result,
-      normalizedProxyState,
-      assemblyContext,
-      ...pipelineArtifacts
-    }));
-    const responseHeadersApplied = finalizeMainDiagnostics(diagnostics);
-    // 收尾阶段统一处理 profile 注入与 full 模式日志输出，保持 main 末尾更聚焦。
-    finalizeMainResultArtifacts(result, buildMainFinalizationPayload({
-      config,
-      diagnostics,
-      responseHeadersApplied,
-      assemblyContext,
-      ...pipelineArtifacts
-    }));
-
-    // 一切正常则返回最终生成的完整配置。
-    return result;
+    // result / diagnostics / finalize 统一从阶段产物收尾，避免 main 继续维护长对象模板。
+    return finalizeMainExecutionResult(mainExecutionArtifacts);
   } catch (error) {
     // 打印异常主信息。
     console.error(`❌ 配置生成失败: ${error.message}`);
@@ -15264,6 +16468,6 @@ function main(config) {
       console.error(error.stack);
     }
     // 出错时回退原配置，保证用户至少还能继续使用原订阅。
-    return config;
+    return inputState.value;
   }
 }
