@@ -356,11 +356,12 @@
  * 351. 国内音乐规则继续审计：参考 blackmatrix7 当前目录，把 NetEaseMusic 并入直连规则，补上 music.163.com / music.126.com / 163yun.com 等网易云音乐链路；NetEase 总规则仍暂不纳入，避免把邮箱、LOFTER 与更多网易泛业务一起卷入。
  * 352. 下载规则继续审计：参考 blackmatrix7 当前目录，把 PikPak 并入 PT 下载组，补上 mypikpak 与 sandai 下载链路；TelegramNL / TelegramSG / TelegramUS 仍暂不纳入，避免和现有 Telegram_IP IP 段规则重复。
  * 353. 英美点播规则继续审计：参考 blackmatrix7 当前目录，把 CWSeed 并入流媒体组，补上 cwseed.com / cwtv.com / thecwvideo.com；BBC / CBS 仍暂不纳入，避免把新闻/集团站点与更宽的媒体域名一起卷入。
+ * 354. 下载规则继续审计：参考 blackmatrix7 当前目录，把 Download 并入 PT 下载组，补上 qbittorrent / aria2 / xunlei / 迅雷与常见下载器进程匹配；AppStore / AppleID 仍暂不纳入，避免和现有 Apple 总规则堆叠重复。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.34";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.34。
+const SCRIPT_VERSION = "9.14.35";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.35。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7341,6 +7342,8 @@ const ruleProviders = finalizeRuleProviders({
   Speedtest: createRuleProvider("domain", metaGeoSite("ookla-speedtest")),
   // PikPak 下载/离线取回规则并入 PT 组，补足 mypikpak 与 sandai 下载域名。
   PikPak: createCommunityClashRuleProvider("PikPak"),
+  // Download 下载器规则也并入 PT 组，补足 qbittorrent / aria2 / xunlei 等常见下载链路。
+  Download: createCommunityClashRuleProvider("Download"),
   // PT 下载规则。
   PT: createRuleProvider("domain", metaGeoSite("category-pt")),
   // 自定义直连列表。
@@ -7635,6 +7638,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Epic", target: GROUPS.GAMES },
   // PikPak 下载/离线取回流量也交给 PT 组，补足通用 PT geosite 之外的下载链路。
   { provider: "PikPak", target: GROUPS.PT },
+  // Download 下载器规则也交给 PT 组，继续承接 qbittorrent / aria2 / xunlei 等下载流量。
+  { provider: "Download", target: GROUPS.PT },
   // PT 下载流量交给 PT 组。
   { provider: "PT", target: GROUPS.PT },
   // Speedtest 流量交给测速组。
@@ -11028,6 +11033,11 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   epic: "Epic",
   pikpak: "PikPak",
   mypikpak: "PikPak",
+  download: "Download",
+  qbittorrent: "Download",
+  aria2: "Download",
+  xunlei: "Download",
+  thunder: "Download",
   pt: "PT",
   speedtest: "Speedtest",
   github: "GitHub",
