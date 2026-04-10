@@ -350,11 +350,12 @@
  * 345. 苹果/视频规则继续审计：参考 blackmatrix7 当前目录，把 AppleNews 并入 Apple 组、Dailymotion / FOXPlus 并入流媒体组，补上 news-client-search.apple.com / dailymotion.com / foxplus.com；ATTWatchTV / Clubhouse 暂不纳入，避免把 directv.com 这类更宽电视站点或低频社交服务硬塞进现有分组。
  * 346. 国内创作者付费规则继续审计：参考 blackmatrix7 当前目录，把 Afdian 并入直连规则，补上 afdian.net / afdiancdn.com，避免爱发电这类国内创作者赞助链路误走代理；AcFun / Clubhouse 暂不纳入，避免把低收益国内视频站或低频社交服务硬塞进现有分组。
  * 347. PC 游戏平台规则继续审计：参考 blackmatrix7 当前目录，把 GOG 并入游戏加速组，补上 gog.com / gog-statics.com / gog.qtlglb.com；Origin / DiabloIII 等当前目录虽然存在，但已被 EA / Blizzard 现有规则覆盖或高度重叠，暂不重复纳入。
+ * 348. 国内支付规则继续审计：参考 blackmatrix7 当前目录，把 UnionPay 并入直连规则，补上 unionpay.com / chinaunionpay.com / chinapay.com 等银联链路；Bestbuy / MOMOShop / VipShop 仍暂不纳入，避免把电商站点硬塞进现有支付分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.28";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.28。
+const SCRIPT_VERSION = "9.14.29";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.29。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7255,6 +7256,8 @@ const ruleProviders = finalizeRuleProviders({
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // AliPay / 支付宝及其跨境收银域名统一直连，避免国内支付链路误走代理。
   AliPay: createCommunityClashRuleProvider("AliPay"),
+  // UnionPay / ChinaPay / 银联链路也统一直连，避免国内支付链路误走代理。
+  UnionPay: createCommunityClashRuleProvider("UnionPay"),
   // Afdian / 爱发电创作者赞助规则也统一直连，避免国内支付链路误走代理。
   Afdian: createCommunityClashRuleProvider("Afdian"),
   // PayPal 支付规则。
@@ -7480,6 +7483,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Reddit", target: GROUPS.REDDIT },
   // AliPay / 支付宝支付链路优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "AliPay", target: GROUPS.DIRECT },
+  // UnionPay / ChinaPay / 银联链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
+  { provider: "UnionPay", target: GROUPS.DIRECT },
   // Afdian / 爱发电创作者赞助链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "Afdian", target: GROUPS.DIRECT },
   // PayPal 支付流量交给 PayPal 组。
@@ -7659,6 +7664,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
+  { provider: "UnionPay", label: "UnionPay", expectedTarget: GROUPS.DIRECT },
   { provider: "Afdian", label: "Afdian", expectedTarget: GROUPS.DIRECT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Patreon", label: "Patreon", expectedTarget: GROUPS.PAYPAL },
@@ -8357,6 +8363,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Facebook", label: "Facebook", category: "social" },
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "AliPay", label: "AliPay", category: "trade" },
+  { key: "UnionPay", label: "UnionPay", category: "trade" },
   { key: "Afdian", label: "Afdian", category: "trade" },
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Patreon", label: "Patreon", category: "trade" },
@@ -10896,6 +10903,9 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   pandora: "Pandora",
   tidal: "TIDAL",
   qobuz: "Qobuz",
+  unionpay: "UnionPay",
+  chinapay: "UnionPay",
+  chinaunionpay: "UnionPay",
   afdian: "Afdian",
   afdiancdn: "Afdian",
   linkedin: "LinkedIn",
