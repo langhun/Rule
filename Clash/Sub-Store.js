@@ -346,11 +346,12 @@
  * 341. 无损音乐规则继续审计：参考 blackmatrix7 当前目录，把 TIDAL 并入流媒体组，补上 tidal.com / tidalhifi.com / wimpmusic.com；TuneIn 当前目录下未见对应 Clash 规则，先不额外引入。
  * 342. 区域/无损媒体规则继续审计：参考 blackmatrix7 当前目录，把 LiTV / VidolTV / MeWatch / Qobuz 统一并入流媒体组，补上 litv.tv / vidol.tv / mewatch.sg / qobuz.com；JOOX / MOOV / friDay / Viki 仍暂不纳入，避免把 sanook / now.com / fetnet / maxcdn 等更宽或共享域名一起卷入。
  * 343. 亚洲/韩区流媒体规则继续审计：参考 blackmatrix7 当前目录，把 WeTV / iQIYIIntl / PandoraTV 并入流媒体组，补上 wetv.qq.com / wetv.vip / iq.com / inter.iqiyi.com / pandora.tv；iQIYI 国内版 / FOXNOW / DAZN 仍暂不纳入，避免把更宽的大陆域名、fox.com 或第三方统计域名一起卷入。
+ * 344. 游戏分组继续审计：参考 blackmatrix7 当前目录，把 2KGames / Supercell / Rockstar / HoYoverse 并入游戏加速组，补上 2k.com / brawlstars.com / rockstargames.com / hoyoverse.com 等游戏生态域名；Garena 仍暂不纳入，避免把 seagroup.com 这类更宽的集团站点一起卷入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.24";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.24。
+const SCRIPT_VERSION = "9.14.25";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.25。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7286,6 +7287,11 @@ const ruleProviders = finalizeRuleProviders({
   PlayStation: createCommunityClashRuleProvider("PlayStation"),
   Xbox: createCommunityClashRuleProvider("Xbox"),
   Ubisoft: createCommunityClashRuleProvider("Ubisoft"),
+  // 2K / Supercell / Rockstar / HoYoverse 继续并入游戏加速组，补足更多主流厂商与游戏生态流量。
+  "2KGames": createCommunityClashRuleProvider("2KGames"),
+  Supercell: createCommunityClashRuleProvider("Supercell"),
+  Rockstar: createCommunityClashRuleProvider("Rockstar"),
+  HoYoverse: createCommunityClashRuleProvider("HoYoverse"),
   // Twitch 归并到游戏加速组，不再额外拆一个“直播平台”独立面板。
   Twitch: createCommunityClashRuleProvider("Twitch"),
   // SteamFix 直连补丁规则，仅在显式开启时接入。
@@ -7563,6 +7569,10 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "PlayStation", target: GROUPS.GAMES },
   { provider: "Xbox", target: GROUPS.GAMES },
   { provider: "Ubisoft", target: GROUPS.GAMES },
+  { provider: "2KGames", target: GROUPS.GAMES },
+  { provider: "Supercell", target: GROUPS.GAMES },
+  { provider: "Rockstar", target: GROUPS.GAMES },
+  { provider: "HoYoverse", target: GROUPS.GAMES },
   // Twitch 归并到游戏加速组，避免另外新增直播独立组。
   { provider: "Twitch", target: GROUPS.GAMES },
   // Epic Games 流量交给游戏组。
@@ -7688,6 +7698,10 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "PlayStation", label: "PlayStation", expectedTarget: GROUPS.GAMES },
   { provider: "Xbox", label: "Xbox", expectedTarget: GROUPS.GAMES },
   { provider: "Ubisoft", label: "Ubisoft", expectedTarget: GROUPS.GAMES },
+  { provider: "2KGames", label: "2KGames", expectedTarget: GROUPS.GAMES },
+  { provider: "Supercell", label: "Supercell", expectedTarget: GROUPS.GAMES },
+  { provider: "Rockstar", label: "Rockstar", expectedTarget: GROUPS.GAMES },
+  { provider: "HoYoverse", label: "HoYoverse", expectedTarget: GROUPS.GAMES },
   { provider: "Twitch", label: "Twitch", expectedTarget: GROUPS.GAMES },
   { provider: "Epic", label: "Epic", expectedTarget: GROUPS.GAMES },
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
@@ -8377,6 +8391,10 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "PlayStation", label: "PlayStation", category: "game" },
   { key: "Xbox", label: "Xbox", category: "game" },
   { key: "Ubisoft", label: "Ubisoft", category: "game" },
+  { key: "2KGames", label: "2KGames", category: "game" },
+  { key: "Supercell", label: "Supercell", category: "game" },
+  { key: "Rockstar", label: "Rockstar", category: "game" },
+  { key: "HoYoverse", label: "HoYoverse", category: "game" },
   { key: "Twitch", label: "Twitch", category: "game" },
   { key: "Epic", label: "Epic", category: "game" }
 ]);
@@ -10857,6 +10875,15 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   psn: "PlayStation",
   xbox: "Xbox",
   ubisoft: "Ubisoft",
+  "2kgames": "2KGames",
+  take2games: "2KGames",
+  supercell: "Supercell",
+  brawlstars: "Supercell",
+  rockstar: "Rockstar",
+  rockstargames: "Rockstar",
+  hoyoverse: "HoYoverse",
+  hoyolab: "HoYoverse",
+  genshinimpact: "HoYoverse",
   twitch: "Twitch",
   tiktok: "TikTok",
   bilibiliintl: "BiliBiliIntl",
