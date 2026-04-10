@@ -365,11 +365,12 @@
  * 360. 开源运行时规则继续审计：参考 blackmatrix7 当前目录，把 Electron 并入开发服务组，补上 electronjs.org；APKPure / APKCombo 仍暂不纳入，避免把应用分发站点硬塞进现有开发分组。
  * 361. 国内开发社区规则继续审计：参考 blackmatrix7 当前目录，把 CSDN 并入开发服务组，补上 csdn / gitcode / codechina / iteye / gitchat 等开发社区与代码托管域名；APKPure / APKCombo 仍暂不纳入，避免把应用分发站点继续硬塞进现有开发分组。
  * 362. 应用下载规则继续审计：参考 blackmatrix7 当前目录，把 APKPure 并入 PT 下载组，补上 apkpure.com / pureapk.com / cdnpure.com 等应用分发下载链路；APKCombo 仍暂不纳入，避免为单域名分发站点继续堆叠低收益规则。
+ * 363. AI 社区规则继续审计：参考 blackmatrix7 当前目录，把 Civitai 并入 AI 组，补上 civitai.com；BardAI / Claude 当前已被 Gemini / Anthropic / AIExtra 等既有规则体系覆盖或重叠，暂不重复纳入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.43";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.43。
+const SCRIPT_VERSION = "9.14.44";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.44。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7121,6 +7122,8 @@ const ruleProviders = finalizeRuleProviders({
   Copilot: createPresetAwareRuleProvider("Copilot", "classical", blackmatrix7ClashRule("Copilot"), "yaml"),
   // aiXcoder 规则并入 AI 组，补充 AI 编程助手域名。
   aiXcoder: createCommunityClashRuleProvider("aiXcoder"),
+  // Civitai 规则并入 AI 组，补充生成式 AI 社区域名。
+  Civitai: createCommunityClashRuleProvider("Civitai"),
   // Grok 规则复用社区补充规则项目，覆盖 x.ai / grok.com 等域名。
   Grok: createRuleProvider("classical", accademiaAdditionalRule("Grok"), "yaml"),
   // Apple Intelligence / PCC / Siri AI 相关规则也走社区补充规则。
@@ -7412,6 +7415,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Copilot", target: GROUPS.AI },
   // aiXcoder 社区规则也进入 AI 组，补充 AI 编程助手流量。
   { provider: "aiXcoder", target: GROUPS.AI },
+  // Civitai 社区规则也进入 AI 组，补充生成式 AI 社区流量。
+  { provider: "Civitai", target: GROUPS.AI },
   // Grok 社区规则进入 AI 组。
   { provider: "Grok", target: GROUPS.AI },
   // Apple Intelligence / PCC 社区规则也进入 AI 组。
@@ -7827,6 +7832,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
   { provider: "Copilot", label: "Copilot", expectedTarget: GROUPS.AI },
   { provider: "aiXcoder", label: "aiXcoder", expectedTarget: GROUPS.AI },
+  { provider: "Civitai", label: "Civitai", expectedTarget: GROUPS.AI },
   { provider: "Grok", label: "Grok", expectedTarget: GROUPS.AI },
   { provider: "AppleAI", label: "AppleAI", expectedTarget: GROUPS.AI },
   { provider: "AI", label: "AI", expectedTarget: GROUPS.AI },
@@ -8416,6 +8422,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Gemini", label: "Gemini", category: "ai" },
   { key: "Copilot", label: "Copilot", category: "ai" },
   { key: "aiXcoder", label: "aiXcoder", category: "ai" },
+  { key: "Civitai", label: "Civitai", category: "ai" },
   { key: "Grok", label: "Grok", category: "ai" },
   { key: "AppleAI", label: "AppleAI", category: "ai" },
   { key: "AI", label: "AI", category: "ai" },
@@ -10437,7 +10444,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
     }
 
     if (profile.provider === "AI" && firstProxy === BUILTIN_DIRECT) {
-      result.warnings.push("AI 组当前第一个候选是 DIRECT；AIExtra / OpenAI / Anthropic / Gemini / Copilot / aiXcoder / Grok / AppleAI 等流量可能会先走直连，而不是 AI 优先国家链");
+      result.warnings.push("AI 组当前第一个候选是 DIRECT；AIExtra / OpenAI / Anthropic / Gemini / Copilot / aiXcoder / Civitai / Grok / AppleAI 等流量可能会先走直连，而不是 AI 优先国家链");
     }
 
     if (profile.provider === "Crypto" && cryptoPreferredGroupNames.length && firstProxy && !cryptoPreferredGroupLookup[firstProxy]) {
@@ -10937,6 +10944,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   copilot: "Copilot",
   aixcoder: "aiXcoder",
   nnthink: "aiXcoder",
+  civitai: "Civitai",
   grok: "Grok",
   xai: "Grok",
   appleai: "AppleAI",
