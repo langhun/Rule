@@ -349,11 +349,12 @@
  * 344. 游戏分组继续审计：参考 blackmatrix7 当前目录，把 2KGames / Supercell / Rockstar / HoYoverse 并入游戏加速组，补上 2k.com / brawlstars.com / rockstargames.com / hoyoverse.com 等游戏生态域名；Garena 仍暂不纳入，避免把 seagroup.com 这类更宽的集团站点一起卷入。
  * 345. 苹果/视频规则继续审计：参考 blackmatrix7 当前目录，把 AppleNews 并入 Apple 组、Dailymotion / FOXPlus 并入流媒体组，补上 news-client-search.apple.com / dailymotion.com / foxplus.com；ATTWatchTV / Clubhouse 暂不纳入，避免把 directv.com 这类更宽电视站点或低频社交服务硬塞进现有分组。
  * 346. 国内创作者付费规则继续审计：参考 blackmatrix7 当前目录，把 Afdian 并入直连规则，补上 afdian.net / afdiancdn.com，避免爱发电这类国内创作者赞助链路误走代理；AcFun / Clubhouse 暂不纳入，避免把低收益国内视频站或低频社交服务硬塞进现有分组。
+ * 347. PC 游戏平台规则继续审计：参考 blackmatrix7 当前目录，把 GOG 并入游戏加速组，补上 gog.com / gog-statics.com / gog.qtlglb.com；Origin / DiabloIII 等当前目录虽然存在，但已被 EA / Blizzard 现有规则覆盖或高度重叠，暂不重复纳入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.27";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.27。
+const SCRIPT_VERSION = "9.14.28";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.28。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7302,6 +7303,8 @@ const ruleProviders = finalizeRuleProviders({
   Supercell: createCommunityClashRuleProvider("Supercell"),
   Rockstar: createCommunityClashRuleProvider("Rockstar"),
   HoYoverse: createCommunityClashRuleProvider("HoYoverse"),
+  // GOG 也并入游戏加速组，不额外拆 PC 游戏商店面板。
+  Gog: createCommunityClashRuleProvider("Gog"),
   // Twitch 归并到游戏加速组，不再额外拆一个“直播平台”独立面板。
   Twitch: createCommunityClashRuleProvider("Twitch"),
   // SteamFix 直连补丁规则，仅在显式开启时接入。
@@ -7591,6 +7594,7 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Supercell", target: GROUPS.GAMES },
   { provider: "Rockstar", target: GROUPS.GAMES },
   { provider: "HoYoverse", target: GROUPS.GAMES },
+  { provider: "Gog", target: GROUPS.GAMES },
   // Twitch 归并到游戏加速组，避免另外新增直播独立组。
   { provider: "Twitch", target: GROUPS.GAMES },
   // Epic Games 流量交给游戏组。
@@ -7724,6 +7728,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Supercell", label: "Supercell", expectedTarget: GROUPS.GAMES },
   { provider: "Rockstar", label: "Rockstar", expectedTarget: GROUPS.GAMES },
   { provider: "HoYoverse", label: "HoYoverse", expectedTarget: GROUPS.GAMES },
+  { provider: "Gog", label: "GOG", expectedTarget: GROUPS.GAMES },
   { provider: "Twitch", label: "Twitch", expectedTarget: GROUPS.GAMES },
   { provider: "Epic", label: "Epic", expectedTarget: GROUPS.GAMES },
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
@@ -8421,6 +8426,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Supercell", label: "Supercell", category: "game" },
   { key: "Rockstar", label: "Rockstar", category: "game" },
   { key: "HoYoverse", label: "HoYoverse", category: "game" },
+  { key: "Gog", label: "GOG", category: "game" },
   { key: "Twitch", label: "Twitch", category: "game" },
   { key: "Epic", label: "Epic", category: "game" }
 ]);
@@ -10913,6 +10919,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   hoyoverse: "HoYoverse",
   hoyolab: "HoYoverse",
   genshinimpact: "HoYoverse",
+  gog: "Gog",
   twitch: "Twitch",
   tiktok: "TikTok",
   bilibiliintl: "BiliBiliIntl",
