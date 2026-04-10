@@ -364,11 +364,12 @@
  * 359. 开发镜像规则继续审计：参考 blackmatrix7 当前目录，把 Bootcss 并入开发服务组，补上 bootcdn.cn / bootcss.com / phpcomposer.com；Electron / APKPure 仍暂不纳入，避免把低收益单域名站点或应用分发站点过早并入现有分组。
  * 360. 开源运行时规则继续审计：参考 blackmatrix7 当前目录，把 Electron 并入开发服务组，补上 electronjs.org；APKPure / APKCombo 仍暂不纳入，避免把应用分发站点硬塞进现有开发分组。
  * 361. 国内开发社区规则继续审计：参考 blackmatrix7 当前目录，把 CSDN 并入开发服务组，补上 csdn / gitcode / codechina / iteye / gitchat 等开发社区与代码托管域名；APKPure / APKCombo 仍暂不纳入，避免把应用分发站点继续硬塞进现有开发分组。
+ * 362. 应用下载规则继续审计：参考 blackmatrix7 当前目录，把 APKPure 并入 PT 下载组，补上 apkpure.com / pureapk.com / cdnpure.com 等应用分发下载链路；APKCombo 仍暂不纳入，避免为单域名分发站点继续堆叠低收益规则。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.42";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.42。
+const SCRIPT_VERSION = "9.14.43";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.43。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7365,6 +7366,8 @@ const ruleProviders = finalizeRuleProviders({
   PikPak: createCommunityClashRuleProvider("PikPak"),
   // Download 下载器规则也并入 PT 组，补足 qbittorrent / aria2 / xunlei 等常见下载链路。
   Download: createCommunityClashRuleProvider("Download"),
+  // APKPure 应用分发下载规则并入 PT 组，补足 APK 下载站点链路。
+  Apkpure: createCommunityClashRuleProvider("Apkpure"),
   // PT 下载规则。
   PT: createRuleProvider("domain", metaGeoSite("category-pt")),
   // 自定义直连列表。
@@ -7675,6 +7678,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "PikPak", target: GROUPS.PT },
   // Download 下载器规则也交给 PT 组，继续承接 qbittorrent / aria2 / xunlei 等下载流量。
   { provider: "Download", target: GROUPS.PT },
+  // APKPure 应用分发下载规则也交给 PT 组，继续承接 APK 下载站点流量。
+  { provider: "Apkpure", target: GROUPS.PT },
   // PT 下载流量交给 PT 组。
   { provider: "PT", target: GROUPS.PT },
   // Speedtest 流量交给测速组。
@@ -11089,6 +11094,9 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   aria2: "Download",
   xunlei: "Download",
   thunder: "Download",
+  apkpure: "Apkpure",
+  pureapk: "Apkpure",
+  cdnpure: "Apkpure",
   pt: "PT",
   speedtest: "Speedtest",
   github: "GitHub",
