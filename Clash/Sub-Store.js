@@ -353,11 +353,12 @@
  * 348. 国内支付规则继续审计：参考 blackmatrix7 当前目录，把 UnionPay 并入直连规则，补上 unionpay.com / chinaunionpay.com / chinapay.com 等银联链路；Bestbuy / MOMOShop / VipShop 仍暂不纳入，避免把电商站点硬塞进现有支付分组。
  * 349. 加密货币规则继续审计：参考 blackmatrix7 当前目录，把 Binance / OKX 并入加密货币组，补上 binance.cloud / binancefuture.com / oklink.com 等交易所生态域名；其余电商/社交站点仍暂不纳入，继续避免把不同业务硬塞进现有分组。
  * 350. 国内银行规则继续审计：参考 blackmatrix7 当前目录，把 ABC / BOCOM / CCB 并入直连规则，补上 abchina.com / bankcomm.com / ccb.com 等银行链路；BOC / CMB / ICBC 仍暂不纳入，避免把更宽的海外子品牌或夹带的混合域名一起卷入。
+ * 351. 国内音乐规则继续审计：参考 blackmatrix7 当前目录，把 NetEaseMusic 并入直连规则，补上 music.163.com / music.126.com / 163yun.com 等网易云音乐链路；NetEase 总规则仍暂不纳入，避免把邮箱、LOFTER 与更多网易泛业务一起卷入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.31";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.31。
+const SCRIPT_VERSION = "9.14.32";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.32。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7269,6 +7270,8 @@ const ruleProviders = finalizeRuleProviders({
   CCB: createCommunityClashRuleProvider("CCB"),
   // Afdian / 爱发电创作者赞助规则也统一直连，避免国内支付链路误走代理。
   Afdian: createCommunityClashRuleProvider("Afdian"),
+  // NetEaseMusic / 网易云音乐国内链路也统一直连，避免音乐播放/登录误走代理。
+  NetEaseMusic: createCommunityClashRuleProvider("NetEaseMusic"),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
   // Patreon 创作者赞助 / 订阅规则并入 PayPal 组，不额外新增创作者经济面板。
@@ -7503,6 +7506,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "CCB", target: GROUPS.DIRECT },
   // Afdian / 爱发电创作者赞助链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "Afdian", target: GROUPS.DIRECT },
+  // NetEaseMusic / 网易云音乐国内链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
+  { provider: "NetEaseMusic", target: GROUPS.DIRECT },
   // PayPal 支付流量交给 PayPal 组。
   { provider: "PayPal", target: GROUPS.PAYPAL },
   // Patreon 创作者赞助 / 订阅流量也收口到 PayPal 组，统一处理支付类站点。
@@ -7685,6 +7690,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "BOCOM", label: "BOCOM", expectedTarget: GROUPS.DIRECT },
   { provider: "CCB", label: "CCB", expectedTarget: GROUPS.DIRECT },
   { provider: "Afdian", label: "Afdian", expectedTarget: GROUPS.DIRECT },
+  { provider: "NetEaseMusic", label: "NetEaseMusic", expectedTarget: GROUPS.DIRECT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Patreon", label: "Patreon", expectedTarget: GROUPS.PAYPAL },
   { provider: "Stripe", label: "Stripe", expectedTarget: GROUPS.PAYPAL },
@@ -8391,6 +8397,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "BOCOM", label: "BOCOM", category: "trade" },
   { key: "CCB", label: "CCB", category: "trade" },
   { key: "Afdian", label: "Afdian", category: "trade" },
+  { key: "NetEaseMusic", label: "NetEaseMusic", category: "media" },
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Patreon", label: "Patreon", category: "trade" },
   { key: "Stripe", label: "Stripe", category: "trade" },
@@ -10946,6 +10953,9 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   ccbfund: "CCB",
   afdian: "Afdian",
   afdiancdn: "Afdian",
+  neteasemusic: "NetEaseMusic",
+  music163: "NetEaseMusic",
+  music126: "NetEaseMusic",
   linkedin: "LinkedIn",
   teams: "Teams",
   riot: "Riot",
