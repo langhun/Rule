@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.7
+ * Sub-Store 终极策略增强脚本 V9.14.8
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -329,11 +329,12 @@
  * 324. 视觉社交继续收敛：参考 blackmatrix7 当前目录，把 Pinterest 并入 Instagram 组；不再额外拆新社交面板，但补上图文灵感类流量覆盖。
  * 325. 国内支付规则继续审计：参考 blackmatrix7 当前目录，把 AliPay 补进直连规则，确保支付宝 / 跨境收银相关域名优先走直连；Alibaba 规则因范围过宽暂不纳入，避免误把泛阿里业务强塞进支付分组。
  * 326. 亚洲媒体规则继续审计：参考 blackmatrix7 当前目录，把 BiliBiliIntl 并入流媒体组，补上 bilibili.tv / Bstar 国际版；Abema / Bahamut 暂不纳入，避免为区域性媒体继续堆叠低频规则或引入过宽域名。
+ * 327. 苹果生态规则继续审计：参考 blackmatrix7 当前目录，把 TestFlight 并入 Apple 组，补上 beta.apple.com / testflight.apple.com；GoogleVoice 规则仅覆盖单一域名且收益较低，暂不单独纳入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.7";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.7。
+const SCRIPT_VERSION = "9.14.8";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.8。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7215,6 +7216,8 @@ const ruleProviders = finalizeRuleProviders({
   Apple: createRuleProvider("domain", metaGeoSite("apple")),
   // Apple Music 规则继续并入 Apple 组，不额外拆音乐面板。
   AppleMusic: createRuleProvider("domain", metaGeoSite("applemusic")),
+  // TestFlight / beta 分发规则继续并入 Apple 组，不额外拆开发测试面板。
+  TestFlight: createCommunityClashRuleProvider("TestFlight"),
   // Apple TV+ 规则。
   AppleTV: createRuleProvider("domain", metaGeoSite("apple-tvplus")),
   // Steam 之外的高频游戏平台统一补到“游戏加速”组，避免继续膨胀一排独立游戏面板。
@@ -7364,6 +7367,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "AppleTV", target: GROUPS.APPLE },
   // Apple Music 继续交给 Apple 组，和其它苹果生态保持一致。
   { provider: "AppleMusic", target: GROUPS.APPLE },
+  // TestFlight / beta.apple.com 继续交给 Apple 组，和苹果生态统一出口。
+  { provider: "TestFlight", target: GROUPS.APPLE },
   // Apple 域名交给 Apple 组。
   { provider: "Apple", target: GROUPS.APPLE },
   // Apple IP 段交给 Apple 组，并关闭解析。
@@ -7534,6 +7539,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
   { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
   { provider: "AppleMusic", label: "AppleMusic", expectedTarget: GROUPS.APPLE },
+  { provider: "TestFlight", label: "TestFlight", expectedTarget: GROUPS.APPLE },
   { provider: "Netflix", label: "Netflix", expectedTarget: GROUPS.NETFLIX },
   { provider: "Disney", label: "Disney", expectedTarget: GROUPS.DISNEY },
   { provider: "Spotify", label: "Spotify", expectedTarget: GROUPS.SPOTIFY },
@@ -7604,6 +7610,12 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
     blockerProvider: "Apple",
     blockedProvider: "AppleTV",
     message: "AppleTV 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，Apple TV+ 流量可能会先命中 Apple 组而不是 AppleTV 专属入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Apple",
+    blockedProvider: "TestFlight",
+    message: "TestFlight 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，TestFlight / beta.apple.com 流量可能会先命中 Apple 组而不是 TestFlight 专属入口"
   },
   {
     category: "platform",
@@ -8195,6 +8207,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "YouTube", label: "YouTube", category: "media" },
   { key: "YouTubeMusic", label: "YouTubeMusic", category: "media" },
   { key: "AppleMusic", label: "AppleMusic", category: "media" },
+  { key: "TestFlight", label: "TestFlight", category: "dev" },
   { key: "Netflix", label: "Netflix", category: "media" },
   { key: "Disney", label: "Disney", category: "media" },
   { key: "Spotify", label: "Spotify", category: "media" },
@@ -10646,6 +10659,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   microsoft: "Microsoft",
   ms: "Microsoft",
   appletv: "AppleTV",
+  testflight: "TestFlight",
   apple: "Apple",
   appleip: "Apple_IP",
   telegram: "Telegram",
