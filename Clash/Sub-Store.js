@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.10
+ * Sub-Store 终极策略增强脚本 V9.14.11
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -332,11 +332,12 @@
  * 327. 苹果生态规则继续审计：参考 blackmatrix7 当前目录，把 TestFlight 并入 Apple 组，补上 beta.apple.com / testflight.apple.com；GoogleVoice 规则仅覆盖单一域名且收益较低，暂不单独纳入。
  * 328. 视觉社区规则继续审计：参考 blackmatrix7 当前目录，把 Pixiv 并入 Instagram 组，统一承接 Pixiv / FANBOX / Booth 创作者社区流量；Patreon / Shopee 暂不纳入，避免把创作者赞助与区域电商硬塞进现有支付分组。
  * 329. 区域流媒体继续审计：参考 blackmatrix7 当前目录，把 All4 并入流媒体组，补上 channel4.com / c4assets.com；BritboxUK / Abema 仍暂不纳入，避免把 BBC / ITV / Ameba 等更宽泛站点一起卷进来。
+ * 330. 创作者付费规则继续审计：参考 blackmatrix7 当前目录，把 Patreon 并入 PayPal 组，补上 patreon.com / patreonusercontent.com；Shopee 仍暂不纳入，避免把区域电商大盘误并到支付分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.10";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.10。
+const SCRIPT_VERSION = "9.14.11";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.11。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7200,6 +7201,8 @@ const ruleProviders = finalizeRuleProviders({
   AliPay: createCommunityClashRuleProvider("AliPay"),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
+  // Patreon 创作者赞助 / 订阅规则并入 PayPal 组，不额外新增创作者经济面板。
+  Patreon: createCommunityClashRuleProvider("Patreon"),
   // 交易/电商高频规则统一并入 PayPal 组，不额外拆购物面板。
   Stripe: createCommunityClashRuleProvider("Stripe"),
   Shopify: createCommunityClashRuleProvider("Shopify"),
@@ -7406,6 +7409,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "AliPay", target: GROUPS.DIRECT },
   // PayPal 支付流量交给 PayPal 组。
   { provider: "PayPal", target: GROUPS.PAYPAL },
+  // Patreon 创作者赞助 / 订阅流量也收口到 PayPal 组，统一处理支付类站点。
+  { provider: "Patreon", target: GROUPS.PAYPAL },
   // Stripe / Shopify / eBay 统一交给 PayPal 组；这一批不会和 PrimeVideo 冲突，可以继续放在前面。
   { provider: "Stripe", target: GROUPS.PAYPAL },
   { provider: "Shopify", target: GROUPS.PAYPAL },
@@ -7541,6 +7546,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
+  { provider: "Patreon", label: "Patreon", expectedTarget: GROUPS.PAYPAL },
   { provider: "Stripe", label: "Stripe", expectedTarget: GROUPS.PAYPAL },
   { provider: "Shopify", label: "Shopify", expectedTarget: GROUPS.PAYPAL },
   { provider: "eBay", label: "eBay", expectedTarget: GROUPS.PAYPAL },
@@ -8211,6 +8217,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "AliPay", label: "AliPay", category: "trade" },
   { key: "PayPal", label: "PayPal", category: "trade" },
+  { key: "Patreon", label: "Patreon", category: "trade" },
   { key: "Stripe", label: "Stripe", category: "trade" },
   { key: "Shopify", label: "Shopify", category: "trade" },
   { key: "eBay", label: "eBay", category: "trade" },
@@ -10708,6 +10715,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   discoveryplus: "DiscoveryPlus",
   alipay: "AliPay",
   stripe: "Stripe",
+  patreon: "Patreon",
   shopify: "Shopify",
   ebay: "eBay",
   amazon: "Amazon",
