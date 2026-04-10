@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.2
+ * Sub-Store 终极策略增强脚本 V9.14.3
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -324,11 +324,12 @@
  * 319. 媒体分组继续收敛：新增通用“流媒体”组承接 PrimeVideo / HBO / Hulu / Paramount+ / Peacock / Discovery+，并把 YouTube Music 明确并入 YouTube，避免继续为每个平台单拆一整排面板。
  * 320. 媒体规则继续补漏：参考 MetaCubeX 的 geosite，把 AppleMusic 并入 Apple、ProxyMedia 并入流媒体组，继续用“补覆盖而不膨胀面板”的方式收尾。
  * 321. 音乐流媒体继续补齐：参考 blackmatrix7 当前目录，把 SoundCloud / Deezer / KKBOX / Pandora 统一并入流媒体组；Spotify 保持独立，其余音乐平台不再额外拆新面板。
+ * 322. 交易电商继续收敛：参考 blackmatrix7 当前目录，把 Stripe / Shopify / Amazon / AmazonCN 统一并入 PayPal 组；不额外新开购物面板，但通过规则顺序保证 PrimeVideo 仍优先命中流媒体组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.2";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.2。
+const SCRIPT_VERSION = "9.14.3";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.3。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -530,7 +531,7 @@ const GROUPS = {
   AI: "🤖 AI服务",
   // 加密货币相关服务专用策略组。
   CRYPTO: "💰 加密货币",
-  // PayPal 支付服务专用策略组。
+  // PayPal / 支付购物服务专用策略组；组名保持兼容，不额外新开购物面板。
   PAYPAL: "💳 PayPal",
   // Apple 服务专用策略组。
   APPLE: "🍎 Apple",
@@ -7182,6 +7183,11 @@ const ruleProviders = finalizeRuleProviders({
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
+  // 交易/电商高频规则统一并入 PayPal 组，不额外拆购物面板。
+  Stripe: createCommunityClashRuleProvider("Stripe"),
+  Shopify: createCommunityClashRuleProvider("Shopify"),
+  Amazon: createCommunityClashRuleProvider("Amazon"),
+  AmazonCN: createCommunityClashRuleProvider("AmazonCN"),
 
   // LinkedIn 规则：归并到微软服务组，避免为职业社交场景单开一个面板组。
   LinkedIn: createCommunityClashRuleProvider("LinkedIn"),
@@ -7371,6 +7377,11 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Reddit", target: GROUPS.REDDIT },
   // PayPal 支付流量交给 PayPal 组。
   { provider: "PayPal", target: GROUPS.PAYPAL },
+  // Stripe / Shopify / Amazon 统一交给 PayPal 组；它们比 PrimeVideo 更泛，所以放在 PrimeVideo/流媒体块之后。
+  { provider: "Stripe", target: GROUPS.PAYPAL },
+  { provider: "Shopify", target: GROUPS.PAYPAL },
+  { provider: "Amazon", target: GROUPS.PAYPAL },
+  { provider: "AmazonCN", target: GROUPS.PAYPAL },
   // TikTok 流量交给 TikTok 组。
   { provider: "TikTok", target: GROUPS.TIKTOK },
   // 额外国际视频平台统一交给流媒体组，避免继续拆出 PrimeVideo/HBO/Hulu 等单独组。
@@ -7491,6 +7502,10 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
+  { provider: "Stripe", label: "Stripe", expectedTarget: GROUPS.PAYPAL },
+  { provider: "Shopify", label: "Shopify", expectedTarget: GROUPS.PAYPAL },
+  { provider: "Amazon", label: "Amazon", expectedTarget: GROUPS.PAYPAL },
+  { provider: "AmazonCN", label: "AmazonCN", expectedTarget: GROUPS.PAYPAL },
   { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
   { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
   { provider: "AppleMusic", label: "AppleMusic", expectedTarget: GROUPS.APPLE },
@@ -7593,6 +7608,18 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
     blockerProvider: "Facebook",
     blockedProvider: "Instagram",
     message: "Instagram 规则当前排在 Facebook 之后；Facebook 是更宽泛的 Meta 生态规则，Instagram 流量可能会先命中 Facebook 组而不是 Instagram 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Amazon",
+    blockedProvider: "AmazonPrimeVideo",
+    message: "AmazonPrimeVideo 规则当前排在 Amazon 之后；Amazon 是更宽泛的电商规则，Prime Video 流量可能会先命中 PayPal 组而不是流媒体组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Amazon",
+    blockedProvider: "PrimeVideo",
+    message: "PrimeVideo 规则当前排在 Amazon 之后；Amazon 是更宽泛的电商规则，Prime Video 流量可能会先命中 PayPal 组而不是流媒体组"
   },
   {
     category: "geo",
@@ -8131,6 +8158,10 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Facebook", label: "Facebook", category: "social" },
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "PayPal", label: "PayPal", category: "trade" },
+  { key: "Stripe", label: "Stripe", category: "trade" },
+  { key: "Shopify", label: "Shopify", category: "trade" },
+  { key: "Amazon", label: "Amazon", category: "trade" },
+  { key: "AmazonCN", label: "AmazonCN", category: "trade" },
   { key: "YouTube", label: "YouTube", category: "media" },
   { key: "YouTubeMusic", label: "YouTubeMusic", category: "media" },
   { key: "AppleMusic", label: "AppleMusic", category: "media" },
@@ -10612,6 +10643,10 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   paramountplus: "ParamountPlus",
   peacock: "Peacock",
   discoveryplus: "DiscoveryPlus",
+  stripe: "Stripe",
+  shopify: "Shopify",
+  amazon: "Amazon",
+  amazoncn: "AmazonCN",
   soundcloud: "SoundCloud",
   deezer: "Deezer",
   kkbox: "KKBOX",
