@@ -7289,9 +7289,51 @@ const RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
 });
 // GitHub / Steam / Dev 三类独立组在响应头、校验、摘要等多个阶段都会复用相同的基础元信息，这里集中维护避免多份定义漂移。
 const SERVICE_DEFINITIONS = Object.freeze([
-  Object.freeze({ key: "github", label: "GitHub", argToken: "Github", groupName: GROUPS.GITHUB }),
-  Object.freeze({ key: "steam", label: "Steam", argToken: "Steam", groupName: GROUPS.STEAM }),
-  Object.freeze({ key: "dev", label: "Dev", argToken: "Dev", groupName: GROUPS.DEV })
+  Object.freeze({
+    key: "github",
+    label: "GitHub",
+    argToken: "Github",
+    groupName: GROUPS.GITHUB,
+    preferredGroupsContextKey: "githubPreferredGroups",
+    modeBaseProxiesContextKey: "githubModeBaseProxies",
+    // GitHub 组的 mode 分支保持“直连优先/代理优先/主选择优先”这三条基础链。
+    resolveModeBaseProxyBranches: (context) => ({
+      direct: context.directFirstProxies,
+      proxy: context.baseProxies,
+      default: context.selectFirstProxies
+    }),
+    // GitHub/Steam 的 direct + prefer-countries 默认都从 SELECT 头开始 prepend。
+    resolveDirectPreferBaseProxies: (context) => context.selectFirstProxies
+  }),
+  Object.freeze({
+    key: "steam",
+    label: "Steam",
+    argToken: "Steam",
+    groupName: GROUPS.STEAM,
+    preferredGroupsContextKey: "steamPreferredGroups",
+    modeBaseProxiesContextKey: "steamModeBaseProxies",
+    resolveModeBaseProxyBranches: (context) => ({
+      direct: context.directFirstProxies,
+      proxy: context.baseProxies,
+      default: context.selectFirstProxies
+    }),
+    resolveDirectPreferBaseProxies: (context) => context.selectFirstProxies
+  }),
+  Object.freeze({
+    key: "dev",
+    label: "Dev",
+    argToken: "Dev",
+    groupName: GROUPS.DEV,
+    preferredGroupsContextKey: "devPreferredGroups",
+    modeBaseProxiesContextKey: "developerModeBaseProxies",
+    // 开发服务组天然依赖 GitHub 组，所以三种 mode 基链都把 GitHub 预先揉进去。
+    resolveModeBaseProxyBranches: (context) => ({
+      direct: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, true),
+      proxy: prependPreferredNames([GROUPS.GITHUB], context.baseProxies, false),
+      default: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, false)
+    }),
+    resolveDirectPreferBaseProxies: (context) => uniqueStrings([GROUPS.GITHUB].concat(toStringArray(context.selectFirstProxies)))
+  })
 ]);
 // GitHub / Steam 会共用不少“仅面板独立组、不含 Dev”的摘要模板，这里预先缓存避免多处重复 filter。
 const NON_DEV_SERVICE_DEFINITIONS = Object.freeze(
@@ -8857,6 +8899,12 @@ function buildServiceArgKey(argToken, suffix) {
   return `${String(argToken || "").charAt(0).toLowerCase()}${String(argToken || "").slice(1)}${suffix}`;
 }
 
+// 统一按 key 读取服务定义，供 mode 基链定义与 service artifact 装配复用。
+function findServiceDefinitionByKey(serviceKey) {
+  const key = normalizeStringArg(serviceKey).toLowerCase();
+  return SERVICE_DEFINITIONS.find((definition) => definition.key === key) || null;
+}
+
 // 独立组响应头里凡是“节点池自动筛选已配置”这类布尔摘要，都走统一 helper 计算。
 function buildServiceAutoProxyHeaderValue(argToken) {
   return (
@@ -8975,6 +9023,62 @@ function buildServicePreferredProxies(options) {
     : structuredProxies;
 }
 
+// 各服务组的 mode 分支虽然细节不同，但都统一挂在 SERVICE_DEFINITIONS 上，避免 mode 基链和最终组装各维护一份映射。
+function buildServiceModeBaseProxyBranches(serviceDefinition, context) {
+  const definition = isObject(serviceDefinition) ? serviceDefinition : {};
+  const current = isObject(context) ? context : {};
+  return typeof definition.resolveModeBaseProxyBranches === "function"
+    ? definition.resolveModeBaseProxyBranches(current)
+    : {
+      direct: current.directFirstProxies,
+      proxy: current.baseProxies,
+      default: current.selectFirstProxies
+    };
+}
+
+// 按服务定义统一解析当前业务的 mode 对应基础链，减少 mode key / mode arg 两套表之间的漂移风险。
+function buildServiceModeBaseProxies(serviceDefinition, context) {
+  const definition = isObject(serviceDefinition) ? serviceDefinition : {};
+  return resolveServiceModeBaseProxies(
+    ARGS[buildServiceArgKey(definition.argToken, "Mode")],
+    buildServiceModeBaseProxyBranches(definition, context)
+  );
+}
+
+// 把某个 SERVICE_DEFINITIONS 条目转换成 buildProxyGroups 运行期 context definition，统一生成 github/steam/dev 三套 mode 基链。
+function createServiceModeBaseProxyDefinition(serviceDefinition) {
+  const definition = isObject(serviceDefinition) ? serviceDefinition : null;
+  if (!definition || !definition.modeBaseProxiesContextKey) {
+    return null;
+  }
+
+  return {
+    key: definition.modeBaseProxiesContextKey,
+    value: (context) => buildServiceModeBaseProxies(definition, context)
+  };
+}
+
+// service artifact 装配前先按统一定义把上下文拍平成 payload，后续 buildProxyGroupServiceArtifacts 就只关心“如何装配”，不再知道外部 key 名。
+function buildProxyGroupServiceArtifactPayload(serviceDefinition, payload) {
+  const definition = isObject(serviceDefinition) ? serviceDefinition : {};
+  const current = isObject(payload) ? payload : {};
+  return {
+    argToken: definition.argToken,
+    groupName: definition.groupName,
+    type: ARGS[buildServiceArgKey(definition.argToken, "Type")],
+    mode: ARGS[buildServiceArgKey(definition.argToken, "Mode")],
+    hasPreferredCountries: !!ARGS[`has${definition.argToken}PreferCountries`],
+    preferredGroups: current[definition.preferredGroupsContextKey],
+    modeBaseProxies: current[definition.modeBaseProxiesContextKey],
+    directPreferBaseProxies: typeof definition.resolveDirectPreferBaseProxies === "function"
+      ? definition.resolveDirectPreferBaseProxies(current)
+      : current.selectFirstProxies,
+    availableGroupNames: current.availableGroupNames,
+    proxyNames: current.proxyNames,
+    providerNames: current.existingProxyProviderNames
+  };
+}
+
 // GitHub / Steam / Dev 三类独立组在 buildProxyGroups 里的资源解析、候选链与组选项构建模板完全一致，这里统一装配。
 function buildProxyGroupServiceArtifacts(payload) {
   const context = isObject(payload) ? payload : {};
@@ -8989,6 +9093,10 @@ function buildProxyGroupServiceArtifacts(payload) {
   );
 
   return {
+    // 组名与组类型都要随 artifact 一起向后传递；否则 createProxyGroupServiceArtifactGroup
+    // 会拿到 undefined name/type，最终导致 GitHub / Dev / Steam 这类独立组被 sanitize 阶段当成无效组丢弃。
+    groupName: context.groupName,
+    type: context.type,
     preferredResources,
     // proxies 是最终给 service group 用的候选链，已经把国家优先链、前置组和点名节点都合并进去了。
     proxies: buildServicePreferredProxies({
@@ -9007,58 +9115,14 @@ function buildProxyGroupServiceArtifacts(payload) {
   };
 }
 
-// buildProxyGroups 中 GitHub / Steam / Dev 三类独立组的构造计划基本一致，统一表驱动减少模板。
-const PROXY_GROUP_SERVICE_ARTIFACT_INPUTS = Object.freeze([
-  {
-    key: "github",
-    argToken: "Github",
-    groupName: GROUPS.GITHUB,
-    modeArg: () => ARGS.githubMode,
-    hasPreferredCountries: () => ARGS.hasGithubPreferCountries,
-    preferredGroupsKey: "githubPreferredGroups",
-    modeBaseProxiesKey: "githubModeBaseProxies",
-    directPrefer: (context) => context.selectFirstProxies
-  },
-  {
-    key: "steam",
-    argToken: "Steam",
-    groupName: GROUPS.STEAM,
-    modeArg: () => ARGS.steamMode,
-    hasPreferredCountries: () => ARGS.hasSteamPreferCountries,
-    preferredGroupsKey: "steamPreferredGroups",
-    modeBaseProxiesKey: "steamModeBaseProxies",
-    directPrefer: (context) => context.selectFirstProxies
-  },
-  {
-    key: "dev",
-    argToken: "Dev",
-    groupName: GROUPS.DEV,
-    modeArg: () => ARGS.devMode,
-    hasPreferredCountries: () => ARGS.hasDevPreferCountries,
-    preferredGroupsKey: "devPreferredGroups",
-    modeBaseProxiesKey: "developerModeBaseProxies",
-    directPrefer: (context) => uniqueStrings([GROUPS.GITHUB].concat(toStringArray(context.selectFirstProxies)))
-  }
-]);
-
-// 按统一计划批量构造 GitHub / Steam / Dev 的服务组中间产物，避免 buildProxyGroups 里重复声明三段近似对象。
+// 按统一计划批量构造 GitHub / Steam / Dev 的服务组中间产物；定义只保留在 SERVICE_DEFINITIONS 一处，避免 key/arg/context 映射漂移。
 function buildProxyGroupServiceArtifactMap(payload) {
   const current = isObject(payload) ? payload : {};
   const artifacts = Object.create(null);
-  for (const definition of PROXY_GROUP_SERVICE_ARTIFACT_INPUTS) {
-    // 每一项 definition 只声明“如何取当前业务的输入”，真正装配逻辑统一交给 buildProxyGroupServiceArtifacts。
-    artifacts[definition.key] = buildProxyGroupServiceArtifacts({
-      argToken: definition.argToken,
-      groupName: definition.groupName,
-      mode: definition.modeArg(),
-      hasPreferredCountries: definition.hasPreferredCountries(),
-      preferredGroups: current[definition.preferredGroupsKey],
-      modeBaseProxies: current[definition.modeBaseProxiesKey],
-      directPreferBaseProxies: definition.directPrefer(current),
-      availableGroupNames: current.availableGroupNames,
-      proxyNames: current.proxyNames,
-      providerNames: current.existingProxyProviderNames
-    });
+  for (const definition of SERVICE_DEFINITIONS) {
+    artifacts[definition.key] = buildProxyGroupServiceArtifacts(
+      buildProxyGroupServiceArtifactPayload(definition, current)
+    );
   }
 
   return artifacts;
@@ -9190,33 +9254,12 @@ const PROXY_GROUP_PREFERRED_COUNTRY_DEFINITIONS = Object.freeze([
   }
 ]);
 
-// GitHub / Steam / Dev 三类服务组都遵循“同一套 mode 分支 + 不同的前缀链”模板，这里统一计划化。
-const PROXY_GROUP_MODE_BASE_PROXY_DEFINITIONS = Object.freeze([
-  {
-    key: "developerModeBaseProxies",
-    value: (context) => resolveServiceModeBaseProxies(ARGS.devMode, {
-      direct: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, true),
-      proxy: prependPreferredNames([GROUPS.GITHUB], context.baseProxies, false),
-      default: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, false)
-    })
-  },
-  {
-    key: "githubModeBaseProxies",
-    value: (context) => resolveServiceModeBaseProxies(ARGS.githubMode, {
-      direct: context.directFirstProxies,
-      proxy: context.baseProxies,
-      default: context.selectFirstProxies
-    })
-  },
-  {
-    key: "steamModeBaseProxies",
-    value: (context) => resolveServiceModeBaseProxies(ARGS.steamMode, {
-      direct: context.directFirstProxies,
-      proxy: context.baseProxies,
-      default: context.selectFirstProxies
-    })
-  }
-]);
+// GitHub / Steam / Dev 三类服务组的 mode 基链定义统一回收到 SERVICE_DEFINITIONS，避免 mode 规则与 artifact 装配维护两套独立映射。
+const PROXY_GROUP_MODE_BASE_PROXY_DEFINITIONS = Object.freeze(
+  ["dev", "github", "steam"]
+    .map((serviceKey) => createServiceModeBaseProxyDefinition(findServiceDefinitionByKey(serviceKey)))
+    .filter(Boolean)
+);
 
 // 把一组服务按统一格式拼成 `github=... , steam=...` 这种单行摘要，供 full 日志复用。
 function formatServiceLogSummary(services, formatter) {
@@ -14372,55 +14415,86 @@ function createMappedContextProxyGroupBuildDefinition(contextKey, builder) {
   };
 }
 
-// 固定策略组生成计划表：无论节点分布如何，这批核心组都会优先尝试生成。
-const PROXY_GROUP_FIXED_GROUP_DEFINITIONS = Object.freeze([
-  createContextSelectGroupBuildDefinition(GROUPS.SELECT, "baseProxies"),
-  { build: () => createIncludeAllSelectGroup(GROUPS.MANUAL) },
-  createContextLatencyGroupBuildDefinition(GROUPS.FALLBACK, "fallbackProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.AI, "aiProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.TELEGRAM, "baseProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.GOOGLE, "baseProxies"),
-  createServiceArtifactGroupBuildDefinition("github"),
-  createServiceArtifactGroupBuildDefinition("dev"),
-  createContextSelectGroupBuildDefinition(GROUPS.MICROSOFT, "baseProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.ONEDRIVE, "baseProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.GAMES, "baseProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.BING, "directFirstProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.APPLE, "directFirstProxies"),
-  createServiceArtifactGroupBuildDefinition("steam"),
-  createContextSelectGroupBuildDefinition(GROUPS.PT, "directFirstProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.SPEEDTEST, "directFirstProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.YOUTUBE, "mediaProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.NETFLIX, "mediaProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.DISNEY, "mediaProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.SPOTIFY, "mediaProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.TIKTOK, "mediaProxies"),
-  createContextSelectGroupBuildDefinition(GROUPS.CRYPTO, "cryptoProxies"),
-  createStaticSelectGroupBuildDefinition(GROUPS.ADS, ["REJECT", "REJECT-DROP", GROUPS.DIRECT]),
-  createStaticSelectGroupBuildDefinition(GROUPS.DIRECT, [BUILTIN_DIRECT, GROUPS.SELECT])
-]);
-// fixed group 之后还有一批“按条件/按国家/按区域追加”的组，也整理成统一定义，避免 buildProxyGroups 尾部残留多段 push/for 模板。
-const PROXY_GROUP_EXTRA_GROUP_DEFINITIONS = Object.freeze([
-  createConditionalProxyGroupBuildDefinition(
-    (context) => context.landingEnabled,
-    () => createIncludeAllSelectGroup(GROUPS.LANDING, composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]))
-  ),
-  createConditionalProxyGroupBuildDefinition(
-    (context) => context.hasLowCost,
-    () => createIncludeAllLatencyGroup(GROUPS.LOW_COST, composeCaseInsensitivePattern([REGEX_LOW_COST.source]), "", "url-test")
-  ),
-  createMappedContextProxyGroupBuildDefinition("countryConfigs", (country, context) => createIncludeAllLatencyGroup(
-      country.name,
-      country.filter,
-      context.countryExcludeFilter,
-      context.countryGroupType
-    )
-  ),
-  createMappedContextProxyGroupBuildDefinition("resolvedRegionConfigs", (region) => createSelectGroup(region.name, region.proxies)),
-  {
-    build: (context) => createIncludeAllSelectGroup(GROUPS.OTHER, "", context.otherExcludeFilter)
+// 这批 definitions 会被分成几个显式 section 来维护顺序；最终仍会拍平成旧的扁平数组，保证运行期行为不变。
+function flattenBuildDefinitionSections(sections) {
+  const items = [];
+  for (const section of Array.isArray(sections) ? sections : []) {
+    if (Array.isArray(section)) {
+      items.push.apply(items, section);
+    }
   }
+  return items;
+}
+
+// 固定策略组生成计划按“主链 -> 业务服务 -> 流媒体 -> 兜底/内置”拆成 section，后续调顺序时不用再在一个超长数组里找位置。
+const PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS = Object.freeze([
+  Object.freeze([
+    createContextSelectGroupBuildDefinition(GROUPS.SELECT, "baseProxies"),
+    { build: () => createIncludeAllSelectGroup(GROUPS.MANUAL) },
+    createContextLatencyGroupBuildDefinition(GROUPS.FALLBACK, "fallbackProxies")
+  ]),
+  Object.freeze([
+    createContextSelectGroupBuildDefinition(GROUPS.AI, "aiProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.TELEGRAM, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.GOOGLE, "baseProxies"),
+    createServiceArtifactGroupBuildDefinition("github"),
+    createServiceArtifactGroupBuildDefinition("dev"),
+    createContextSelectGroupBuildDefinition(GROUPS.MICROSOFT, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.ONEDRIVE, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.GAMES, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.BING, "directFirstProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.APPLE, "directFirstProxies"),
+    createServiceArtifactGroupBuildDefinition("steam"),
+    createContextSelectGroupBuildDefinition(GROUPS.PT, "directFirstProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.SPEEDTEST, "directFirstProxies")
+  ]),
+  Object.freeze([
+    createContextSelectGroupBuildDefinition(GROUPS.YOUTUBE, "mediaProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.NETFLIX, "mediaProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.DISNEY, "mediaProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.SPOTIFY, "mediaProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.TIKTOK, "mediaProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.CRYPTO, "cryptoProxies")
+  ]),
+  Object.freeze([
+    createStaticSelectGroupBuildDefinition(GROUPS.ADS, ["REJECT", "REJECT-DROP", GROUPS.DIRECT]),
+    createStaticSelectGroupBuildDefinition(GROUPS.DIRECT, [BUILTIN_DIRECT, GROUPS.SELECT])
+  ])
 ]);
+const PROXY_GROUP_FIXED_GROUP_DEFINITIONS = Object.freeze(
+  flattenBuildDefinitionSections(PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS)
+);
+// fixed group 之后还有一批“按条件/按国家/按区域追加”的组，也按 section 管理，后续调试国家/区域/兜底顺序时更直观。
+const PROXY_GROUP_EXTRA_GROUP_DEFINITION_SECTIONS = Object.freeze([
+  Object.freeze([
+    createConditionalProxyGroupBuildDefinition(
+      (context) => context.landingEnabled,
+      () => createIncludeAllSelectGroup(GROUPS.LANDING, composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]))
+    ),
+    createConditionalProxyGroupBuildDefinition(
+      (context) => context.hasLowCost,
+      () => createIncludeAllLatencyGroup(GROUPS.LOW_COST, composeCaseInsensitivePattern([REGEX_LOW_COST.source]), "", "url-test")
+    )
+  ]),
+  Object.freeze([
+    createMappedContextProxyGroupBuildDefinition("countryConfigs", (country, context) => createIncludeAllLatencyGroup(
+        country.name,
+        country.filter,
+        context.countryExcludeFilter,
+        context.countryGroupType
+      )
+    ),
+    createMappedContextProxyGroupBuildDefinition("resolvedRegionConfigs", (region) => createSelectGroup(region.name, region.proxies))
+  ]),
+  Object.freeze([
+    {
+      build: (context) => createIncludeAllSelectGroup(GROUPS.OTHER, "", context.otherExcludeFilter)
+    }
+  ])
+]);
+const PROXY_GROUP_EXTRA_GROUP_DEFINITIONS = Object.freeze(
+  flattenBuildDefinitionSections(PROXY_GROUP_EXTRA_GROUP_DEFINITION_SECTIONS)
+);
 
 // 把 diagnostics 里的数量/Provider 摘要打平成 full 日志统计对象，减少 main 中对 length/format 的重复手写。
 function buildFullSummaryDiagnosticMetrics(diagnostics) {
