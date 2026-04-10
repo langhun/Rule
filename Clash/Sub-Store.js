@@ -3826,6 +3826,386 @@ function buildResolveArgServiceResultPayload(serviceStates) {
   return payload;
 }
 
+// rule-provider 在 resolveArgs 里要同时处理路径、下载选项、header 与 inline payload，这里统一收敛成状态对象。
+function buildResolveArgRuleProviderState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const parsedInterval = parseNumber(current.rawInterval, RULE_INTERVAL);
+  const parsedSizeLimit = parseNumber(current.rawSizeLimit, 0);
+  const parsedHeaderEntries = parseProviderHeaderEntries(current.rawHeader);
+  const parsedPayload = parseRuleProviderPayload(current.rawPayload);
+
+  return {
+    rawPathDir: current.rawPathDir,
+    pathDir: normalizeRuleProviderPathDir(current.rawPathDir),
+    rawInterval: current.rawInterval,
+    parsedInterval,
+    interval: Math.max(1, parsedInterval),
+    rawProxy: current.rawProxy,
+    proxy: normalizeStringArg(current.rawProxy),
+    rawSizeLimit: current.rawSizeLimit,
+    parsedSizeLimit,
+    sizeLimit: Math.max(0, parsedSizeLimit),
+    rawUserAgent: current.rawUserAgent,
+    userAgent: normalizeStringArg(current.rawUserAgent),
+    rawAuthorization: current.rawAuthorization,
+    authorization: normalizeStringArg(current.rawAuthorization),
+    rawHeader: current.rawHeader,
+    parsedHeaderEntries,
+    header: parsedHeaderEntries.headers,
+    rawPayload: current.rawPayload,
+    parsedPayload,
+    payload: parsedPayload.items
+  };
+}
+
+// proxy-provider 的参数面更宽，这里统一收口成状态对象，后续告警与返回字段都从这里展开。
+function buildResolveArgProxyProviderState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const parsedInterval = parseNumber(current.rawInterval, PROXY_PROVIDER_INTERVAL);
+  const parsedSizeLimit = parseNumber(current.rawSizeLimit, 0);
+  const parsedHealthCheckInterval = parseNumber(current.rawHealthCheckInterval, GROUP_INTERVAL);
+  const parsedHealthCheckTimeout = parseNumber(current.rawHealthCheckTimeout, PROXY_PROVIDER_HEALTH_CHECK_TIMEOUT);
+  const parsedHeaderEntries = parseProviderHeaderEntries(current.rawHeader);
+  const parsedPayload = parseProxyProviderPayload(current.rawPayload);
+  const parsedOverrideProxyNameRules = parseProxyNameOverrideRules(current.rawOverrideProxyName);
+  const normalizedHealthCheckExpectedStatus = normalizeExpectedStatusArg(current.rawHealthCheckExpectedStatus);
+  // 这里先筛掉正则无法编译的改名规则，后面返回给 ARGS 的就是“可真正落地”的版本。
+  const overrideProxyNameRules = parsedOverrideProxyNameRules.filter((rule) => {
+    try {
+      compilePatternRegExp(rule.pattern);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  });
+
+  return {
+    rawInterval: current.rawInterval,
+    parsedInterval,
+    interval: Math.max(1, parsedInterval),
+    rawProxy: current.rawProxy,
+    proxy: normalizeStringArg(current.rawProxy),
+    rawSizeLimit: current.rawSizeLimit,
+    parsedSizeLimit,
+    sizeLimit: Math.max(0, parsedSizeLimit),
+    rawUserAgent: current.rawUserAgent,
+    userAgent: normalizeStringArg(current.rawUserAgent),
+    rawAuthorization: current.rawAuthorization,
+    authorization: normalizeStringArg(current.rawAuthorization),
+    rawHeader: current.rawHeader,
+    parsedHeaderEntries,
+    header: parsedHeaderEntries.headers,
+    rawPayload: current.rawPayload,
+    parsedPayload,
+    payload: parsedPayload.items,
+    rawPathDir: current.rawPathDir,
+    pathDir: normalizeProxyProviderPathDir(current.rawPathDir),
+    rawFilter: current.rawFilter,
+    filter: normalizeStringArg(current.rawFilter),
+    rawExcludeFilter: current.rawExcludeFilter,
+    excludeFilter: normalizeStringArg(current.rawExcludeFilter),
+    rawExcludeType: current.rawExcludeType,
+    excludeType: normalizeTypeListArg(current.rawExcludeType),
+    rawOverrideAdditionalPrefix: current.rawOverrideAdditionalPrefix,
+    overrideAdditionalPrefix: normalizeStringArg(current.rawOverrideAdditionalPrefix),
+    rawOverrideAdditionalSuffix: current.rawOverrideAdditionalSuffix,
+    overrideAdditionalSuffix: normalizeStringArg(current.rawOverrideAdditionalSuffix),
+    rawOverrideUdp: current.rawOverrideUdp,
+    overrideUdp: parseBool(current.rawOverrideUdp, false),
+    rawOverrideUdpOverTcp: current.rawOverrideUdpOverTcp,
+    overrideUdpOverTcp: parseBool(current.rawOverrideUdpOverTcp, false),
+    rawOverrideDown: current.rawOverrideDown,
+    overrideDown: normalizeStringArg(current.rawOverrideDown),
+    rawOverrideUp: current.rawOverrideUp,
+    overrideUp: normalizeStringArg(current.rawOverrideUp),
+    rawOverrideTfo: current.rawOverrideTfo,
+    overrideTfo: parseBool(current.rawOverrideTfo, false),
+    rawOverrideMptcp: current.rawOverrideMptcp,
+    overrideMptcp: parseBool(current.rawOverrideMptcp, false),
+    rawOverrideSkipCertVerify: current.rawOverrideSkipCertVerify,
+    overrideSkipCertVerify: parseBool(current.rawOverrideSkipCertVerify, false),
+    rawOverrideDialerProxy: current.rawOverrideDialerProxy,
+    overrideDialerProxy: normalizeStringArg(current.rawOverrideDialerProxy),
+    rawOverrideInterfaceName: current.rawOverrideInterfaceName,
+    overrideInterfaceName: normalizeInterfaceNameArg(current.rawOverrideInterfaceName),
+    rawOverrideRoutingMark: current.rawOverrideRoutingMark,
+    overrideRoutingMark: normalizeRoutingMarkArg(current.rawOverrideRoutingMark),
+    rawOverrideIpVersion: current.rawOverrideIpVersion,
+    overrideIpVersion: normalizeIpVersionArg(current.rawOverrideIpVersion, ""),
+    rawOverrideProxyName: current.rawOverrideProxyName,
+    parsedOverrideProxyNameRules,
+    overrideProxyNameRules,
+    rawHealthCheckEnable: current.rawHealthCheckEnable,
+    healthCheckEnable: parseBool(current.rawHealthCheckEnable, true),
+    rawHealthCheckUrl: current.rawHealthCheckUrl,
+    healthCheckUrl: normalizeStringArg(current.rawHealthCheckUrl),
+    rawHealthCheckInterval: current.rawHealthCheckInterval,
+    parsedHealthCheckInterval,
+    healthCheckInterval: Math.max(1, parsedHealthCheckInterval),
+    rawHealthCheckTimeout: current.rawHealthCheckTimeout,
+    parsedHealthCheckTimeout,
+    healthCheckTimeout: Math.max(1, parsedHealthCheckTimeout),
+    rawHealthCheckLazy: current.rawHealthCheckLazy,
+    healthCheckLazy: parseBool(current.rawHealthCheckLazy, true),
+    rawHealthCheckExpectedStatus: current.rawHealthCheckExpectedStatus,
+    normalizedHealthCheckExpectedStatus,
+    healthCheckExpectedStatus: isValidExpectedStatusValue(normalizedHealthCheckExpectedStatus) ? normalizedHealthCheckExpectedStatus : ""
+  };
+}
+
+// 输出 rule-provider 参数相关告警，避免 resolveArgs 主体里堆积大量样板判断。
+function warnResolveArgRuleProviderState(ruleProviderState) {
+  const current = isObject(ruleProviderState) ? ruleProviderState : buildResolveArgRuleProviderState();
+
+  if (current.rawPathDir !== undefined && !normalizeStringArg(current.rawPathDir)) {
+    console.warn(`⚠️ 警告: rule-provider-path-dir 为空，已回退为默认目录 ${RULE_PROVIDER_PATH_DIR}`);
+  }
+
+  if (current.rawHeader !== undefined && hasUsableArgValue(current.rawHeader) && !current.parsedHeaderEntries.entries.length) {
+    console.warn("⚠️ 警告: rule-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
+  }
+
+  for (const item of current.parsedHeaderEntries.invalidLines) {
+    console.warn(`⚠️ 警告: rule-provider-header 条目无效，已忽略: ${item}`);
+  }
+
+  if (current.rawPayload !== undefined && hasUsableArgValue(current.rawPayload) && !current.payload.length) {
+    const reason = current.parsedPayload.parseFailed
+      ? "请使用 JSON 数组、换行或 || 分隔的规则列表"
+      : "请至少提供一条非空规则字符串";
+    console.warn(`⚠️ 警告: rule-provider-payload 无有效规则，已忽略；${reason}`);
+  }
+
+  for (const item of current.parsedPayload.invalidItems) {
+    console.warn(`⚠️ 警告: rule-provider-payload 条目无效，已忽略: ${item}`);
+  }
+
+  warnAdjustedNumericArg(current.rawInterval, current.parsedInterval, current.interval, "rule-provider-interval");
+  warnAdjustedNumericArg(current.rawSizeLimit, current.parsedSizeLimit, current.sizeLimit, "rule-provider-size-limit");
+}
+
+// 输出 proxy-provider 参数相关告警，减少 resolveArgs 主体里的样板判断。
+function warnResolveArgProxyProviderState(proxyProviderState) {
+  const current = isObject(proxyProviderState) ? proxyProviderState : buildResolveArgProxyProviderState();
+
+  if (current.rawPathDir !== undefined && !normalizeStringArg(current.rawPathDir)) {
+    console.warn("⚠️ 警告: proxy-provider-path-dir 为空，已忽略本轮缓存目录接管");
+  }
+
+  if (current.rawPathDir !== undefined && hasUsableArgValue(current.rawPathDir) && !current.pathDir) {
+    console.warn(`⚠️ 警告: proxy-provider-path-dir 无效，已忽略: ${current.rawPathDir}`);
+  }
+
+  if (current.rawHeader !== undefined && hasUsableArgValue(current.rawHeader) && !current.parsedHeaderEntries.entries.length) {
+    console.warn("⚠️ 警告: proxy-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
+  }
+
+  for (const item of current.parsedHeaderEntries.invalidLines) {
+    console.warn(`⚠️ 警告: proxy-provider-header 条目无效，已忽略: ${item}`);
+  }
+
+  if (current.rawPayload !== undefined && hasUsableArgValue(current.rawPayload) && !current.payload.length) {
+    const reason = current.parsedPayload.parseFailed
+      ? "请使用 JSON 数组/对象写法"
+      : "请至少提供带 name/type 的节点对象";
+    console.warn(`⚠️ 警告: proxy-provider-payload 无有效节点，已忽略；${reason}`);
+  }
+
+  for (const item of current.parsedPayload.invalidItems) {
+    console.warn(`⚠️ 警告: proxy-provider-payload 条目无效，已忽略: ${item}`);
+  }
+
+  warnAdjustedNumericArg(current.rawInterval, current.parsedInterval, current.interval, "proxy-provider-interval");
+  warnAdjustedNumericArg(current.rawSizeLimit, current.parsedSizeLimit, current.sizeLimit, "proxy-provider-size-limit");
+  warnAdjustedNumericArg(
+    current.rawHealthCheckInterval,
+    current.parsedHealthCheckInterval,
+    current.healthCheckInterval,
+    "proxy-provider-health-check-interval"
+  );
+  warnAdjustedNumericArg(
+    current.rawHealthCheckTimeout,
+    current.parsedHealthCheckTimeout,
+    current.healthCheckTimeout,
+    "proxy-provider-health-check-timeout"
+  );
+
+  if (current.healthCheckUrl && !looksLikeHttpUrl(current.healthCheckUrl)) {
+    console.warn(`⚠️ 警告: proxy-provider-health-check-url 看起来不像合法 http(s) 地址: ${current.healthCheckUrl}`);
+  }
+
+  if (current.rawHealthCheckExpectedStatus !== undefined && current.normalizedHealthCheckExpectedStatus && !current.healthCheckExpectedStatus) {
+    console.warn("⚠️ 警告: proxy-provider-health-check-expected-status 语法无效，已忽略");
+  }
+
+  if (current.rawFilter !== undefined && current.filter) {
+    try {
+      compilePatternRegExp(current.filter);
+    } catch (error) {
+      console.warn(`⚠️ 警告: proxy-provider-filter 正则无效: ${error.message}`);
+    }
+  }
+
+  if (current.rawExcludeFilter !== undefined && current.excludeFilter) {
+    try {
+      compilePatternRegExp(current.excludeFilter);
+    } catch (error) {
+      console.warn(`⚠️ 警告: proxy-provider-exclude-filter 正则无效: ${error.message}`);
+    }
+  }
+
+  if (current.rawExcludeType !== undefined && normalizeStringArg(current.rawExcludeType) && !current.excludeType) {
+    console.warn("⚠️ 警告: proxy-provider-exclude-type 为空或格式无效，已忽略");
+  }
+
+  if (current.rawExcludeType !== undefined && /[()[\]{}*+?^$\\]/.test(normalizeStringArg(current.rawExcludeType))) {
+    console.warn("⚠️ 警告: proxy-provider-exclude-type 不支持正则，请只保留类型名并使用 | 分隔");
+  }
+
+  if (current.rawOverrideUdp !== undefined && !isBooleanLike(current.rawOverrideUdp)) {
+    console.warn("⚠️ 警告: proxy-provider-override-udp 仅支持布尔值，已回退为 false");
+  }
+
+  if (current.rawOverrideUdpOverTcp !== undefined && !isBooleanLike(current.rawOverrideUdpOverTcp)) {
+    console.warn("⚠️ 警告: proxy-provider-override-udp-over-tcp 仅支持布尔值，已回退为 false");
+  }
+
+  if (current.rawOverrideDown !== undefined && !current.overrideDown) {
+    console.warn("⚠️ 警告: proxy-provider-override-down 为空，已忽略");
+  }
+
+  if (current.rawOverrideUp !== undefined && !current.overrideUp) {
+    console.warn("⚠️ 警告: proxy-provider-override-up 为空，已忽略");
+  }
+
+  if (current.rawOverrideTfo !== undefined && !isBooleanLike(current.rawOverrideTfo)) {
+    console.warn("⚠️ 警告: proxy-provider-override-tfo 仅支持布尔值，已回退为 false");
+  }
+
+  if (current.rawOverrideMptcp !== undefined && !isBooleanLike(current.rawOverrideMptcp)) {
+    console.warn("⚠️ 警告: proxy-provider-override-mptcp 仅支持布尔值，已回退为 false");
+  }
+
+  if (current.rawOverrideSkipCertVerify !== undefined && !isBooleanLike(current.rawOverrideSkipCertVerify)) {
+    console.warn("⚠️ 警告: proxy-provider-override-skip-cert-verify 仅支持布尔值，已回退为 false");
+  }
+
+  if (current.rawOverrideInterfaceName !== undefined && !current.overrideInterfaceName) {
+    console.warn("⚠️ 警告: proxy-provider-override-interface-name 为空，已忽略");
+  }
+
+  if (current.rawOverrideRoutingMark !== undefined && current.overrideRoutingMark === null) {
+    console.warn("⚠️ 警告: proxy-provider-override-routing-mark 仅支持大于等于 0 的整数，已忽略");
+  }
+
+  if (current.rawOverrideIpVersion !== undefined && normalizeStringArg(current.rawOverrideIpVersion) && !current.overrideIpVersion) {
+    console.warn("⚠️ 警告: proxy-provider-override-ip-version 无效，已忽略");
+  }
+
+  if (current.rawOverrideProxyName !== undefined && hasUsableArgValue(current.rawOverrideProxyName) && !current.overrideProxyNameRules.length) {
+    console.warn("⚠️ 警告: proxy-provider-override-proxy-name 语法无效，已忽略；请使用 pattern=>target||pattern2=>target2");
+  }
+
+  for (const rule of current.parsedOverrideProxyNameRules) {
+    try {
+      compilePatternRegExp(rule.pattern);
+    } catch (error) {
+      console.warn(`⚠️ 警告: proxy-provider-override-proxy-name 正则无效 (${rule.pattern}): ${error.message}`);
+    }
+  }
+}
+
+// 把 rule-provider / proxy-provider 的状态统一展开回 resolveArgs 返回对象里的字段。
+function buildResolveArgProviderResultPayload(ruleProviderState, proxyProviderState) {
+  const currentRuleProviderState = isObject(ruleProviderState) ? ruleProviderState : buildResolveArgRuleProviderState();
+  const currentProxyProviderState = isObject(proxyProviderState) ? proxyProviderState : buildResolveArgProxyProviderState();
+
+  return {
+    ruleProviderPathDir: currentRuleProviderState.pathDir,
+    hasRuleProviderPathDir: currentRuleProviderState.rawPathDir !== undefined,
+    ruleProviderInterval: currentRuleProviderState.interval,
+    hasRuleProviderInterval: currentRuleProviderState.rawInterval !== undefined,
+    ruleProviderProxy: currentRuleProviderState.proxy,
+    hasRuleProviderProxy: !!currentRuleProviderState.proxy,
+    ruleProviderSizeLimit: currentRuleProviderState.sizeLimit,
+    hasRuleProviderSizeLimit: currentRuleProviderState.rawSizeLimit !== undefined,
+    ruleProviderUserAgent: currentRuleProviderState.userAgent,
+    hasRuleProviderUserAgent: !!currentRuleProviderState.userAgent,
+    ruleProviderAuthorization: currentRuleProviderState.authorization,
+    hasRuleProviderAuthorization: !!currentRuleProviderState.authorization,
+    ruleProviderHeader: currentRuleProviderState.header,
+    hasRuleProviderHeader: !!Object.keys(currentRuleProviderState.header).length,
+    ruleProviderHeaderEntryCount: currentRuleProviderState.parsedHeaderEntries.entries.length,
+    ruleProviderPayload: currentRuleProviderState.payload,
+    hasRuleProviderPayload: !!currentRuleProviderState.payload.length,
+    ruleProviderPayloadCount: currentRuleProviderState.payload.length,
+    proxyProviderInterval: currentProxyProviderState.interval,
+    hasProxyProviderInterval: currentProxyProviderState.rawInterval !== undefined,
+    proxyProviderProxy: currentProxyProviderState.proxy,
+    hasProxyProviderProxy: !!currentProxyProviderState.proxy,
+    proxyProviderSizeLimit: currentProxyProviderState.sizeLimit,
+    hasProxyProviderSizeLimit: currentProxyProviderState.rawSizeLimit !== undefined,
+    proxyProviderUserAgent: currentProxyProviderState.userAgent,
+    hasProxyProviderUserAgent: !!currentProxyProviderState.userAgent,
+    proxyProviderAuthorization: currentProxyProviderState.authorization,
+    hasProxyProviderAuthorization: !!currentProxyProviderState.authorization,
+    proxyProviderHeader: currentProxyProviderState.header,
+    hasProxyProviderHeader: !!Object.keys(currentProxyProviderState.header).length,
+    proxyProviderHeaderEntryCount: currentProxyProviderState.parsedHeaderEntries.entries.length,
+    proxyProviderPayload: currentProxyProviderState.payload,
+    hasProxyProviderPayload: !!currentProxyProviderState.payload.length,
+    proxyProviderPayloadCount: currentProxyProviderState.payload.length,
+    proxyProviderPathDir: currentProxyProviderState.pathDir,
+    hasProxyProviderPathDir: !!currentProxyProviderState.pathDir,
+    proxyProviderFilter: currentProxyProviderState.filter,
+    hasProxyProviderFilter: !!currentProxyProviderState.filter,
+    proxyProviderExcludeFilter: currentProxyProviderState.excludeFilter,
+    hasProxyProviderExcludeFilter: !!currentProxyProviderState.excludeFilter,
+    proxyProviderExcludeType: currentProxyProviderState.excludeType,
+    hasProxyProviderExcludeType: !!currentProxyProviderState.excludeType,
+    proxyProviderOverrideAdditionalPrefix: currentProxyProviderState.overrideAdditionalPrefix,
+    hasProxyProviderOverrideAdditionalPrefix: !!currentProxyProviderState.overrideAdditionalPrefix,
+    proxyProviderOverrideAdditionalSuffix: currentProxyProviderState.overrideAdditionalSuffix,
+    hasProxyProviderOverrideAdditionalSuffix: !!currentProxyProviderState.overrideAdditionalSuffix,
+    proxyProviderOverrideUdp: currentProxyProviderState.overrideUdp,
+    hasProxyProviderOverrideUdp: currentProxyProviderState.rawOverrideUdp !== undefined,
+    proxyProviderOverrideUdpOverTcp: currentProxyProviderState.overrideUdpOverTcp,
+    hasProxyProviderOverrideUdpOverTcp: currentProxyProviderState.rawOverrideUdpOverTcp !== undefined,
+    proxyProviderOverrideDown: currentProxyProviderState.overrideDown,
+    hasProxyProviderOverrideDown: !!currentProxyProviderState.overrideDown,
+    proxyProviderOverrideUp: currentProxyProviderState.overrideUp,
+    hasProxyProviderOverrideUp: !!currentProxyProviderState.overrideUp,
+    proxyProviderOverrideTfo: currentProxyProviderState.overrideTfo,
+    hasProxyProviderOverrideTfo: currentProxyProviderState.rawOverrideTfo !== undefined,
+    proxyProviderOverrideMptcp: currentProxyProviderState.overrideMptcp,
+    hasProxyProviderOverrideMptcp: currentProxyProviderState.rawOverrideMptcp !== undefined,
+    proxyProviderOverrideSkipCertVerify: currentProxyProviderState.overrideSkipCertVerify,
+    hasProxyProviderOverrideSkipCertVerify: currentProxyProviderState.rawOverrideSkipCertVerify !== undefined,
+    proxyProviderOverrideDialerProxy: currentProxyProviderState.overrideDialerProxy,
+    hasProxyProviderOverrideDialerProxy: !!currentProxyProviderState.overrideDialerProxy,
+    proxyProviderOverrideInterfaceName: currentProxyProviderState.overrideInterfaceName,
+    hasProxyProviderOverrideInterfaceName: !!currentProxyProviderState.overrideInterfaceName,
+    proxyProviderOverrideRoutingMark: currentProxyProviderState.overrideRoutingMark,
+    hasProxyProviderOverrideRoutingMark: currentProxyProviderState.rawOverrideRoutingMark !== undefined && currentProxyProviderState.overrideRoutingMark !== null,
+    proxyProviderOverrideIpVersion: currentProxyProviderState.overrideIpVersion,
+    hasProxyProviderOverrideIpVersion: !!currentProxyProviderState.overrideIpVersion,
+    proxyProviderOverrideProxyNameRules: currentProxyProviderState.overrideProxyNameRules,
+    hasProxyProviderOverrideProxyNameRules: !!currentProxyProviderState.overrideProxyNameRules.length,
+    proxyProviderHealthCheckEnable: currentProxyProviderState.healthCheckEnable,
+    hasProxyProviderHealthCheckEnable: currentProxyProviderState.rawHealthCheckEnable !== undefined,
+    proxyProviderHealthCheckUrl: currentProxyProviderState.healthCheckUrl,
+    hasProxyProviderHealthCheckUrl: !!currentProxyProviderState.healthCheckUrl,
+    proxyProviderHealthCheckInterval: currentProxyProviderState.healthCheckInterval,
+    hasProxyProviderHealthCheckInterval: currentProxyProviderState.rawHealthCheckInterval !== undefined,
+    proxyProviderHealthCheckTimeout: currentProxyProviderState.healthCheckTimeout,
+    hasProxyProviderHealthCheckTimeout: currentProxyProviderState.rawHealthCheckTimeout !== undefined,
+    proxyProviderHealthCheckLazy: currentProxyProviderState.healthCheckLazy,
+    hasProxyProviderHealthCheckLazy: currentProxyProviderState.rawHealthCheckLazy !== undefined,
+    proxyProviderHealthCheckExpectedStatus: currentProxyProviderState.healthCheckExpectedStatus,
+    hasProxyProviderHealthCheckExpectedStatus: !!currentProxyProviderState.healthCheckExpectedStatus
+  };
+}
+
 // 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
 function resolveArgs(rawArgs) {
   // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
@@ -4208,18 +4588,6 @@ function resolveArgs(rawArgs) {
   const parsedGroupMaxFailedTimes = parseNumber(rawGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
   // 尝试把 geo 更新间隔转成数字。
   const parsedGeoUpdateInterval = parseNumber(rawGeoUpdateInterval, 24);
-  // 尝试把 rule-provider 刷新间隔转成数字。
-  const parsedRuleProviderInterval = parseNumber(rawRuleProviderInterval, RULE_INTERVAL);
-  // 尝试把 rule-provider 大小限制转成数字。
-  const parsedRuleProviderSizeLimit = parseNumber(rawRuleProviderSizeLimit, 0);
-  // 尝试把 proxy-provider 刷新间隔转成数字。
-  const parsedProxyProviderInterval = parseNumber(rawProxyProviderInterval, PROXY_PROVIDER_INTERVAL);
-  // 尝试把 proxy-provider 大小限制转成数字。
-  const parsedProxyProviderSizeLimit = parseNumber(rawProxyProviderSizeLimit, 0);
-  // 尝试把 proxy-provider health-check interval 转成数字。
-  const parsedProxyProviderHealthCheckInterval = parseNumber(rawProxyProviderHealthCheckInterval, GROUP_INTERVAL);
-  // 尝试把 proxy-provider health-check timeout 转成数字。
-  const parsedProxyProviderHealthCheckTimeout = parseNumber(rawProxyProviderHealthCheckTimeout, PROXY_PROVIDER_HEALTH_CHECK_TIMEOUT);
   // 尝试把 fake-ip-ttl 转成数字。
   const parsedFakeIpTtl = parseNumber(rawFakeIpTtl, 1);
   // 再把 threshold 限制在允许范围内。
@@ -4234,18 +4602,6 @@ function resolveArgs(rawArgs) {
   const groupMaxFailedTimes = Math.max(1, parsedGroupMaxFailedTimes);
   // geo 更新间隔至少为 1 小时，避免生成非法配置。
   const geoUpdateInterval = Math.max(1, parsedGeoUpdateInterval);
-  // rule-provider 刷新间隔至少为 1 秒，避免生成非法配置。
-  const ruleProviderInterval = Math.max(1, parsedRuleProviderInterval);
-  // rule-provider 大小限制最小为 0，0 表示不额外限制。
-  const ruleProviderSizeLimit = Math.max(0, parsedRuleProviderSizeLimit);
-  // proxy-provider 刷新间隔至少为 1 秒，避免生成非法配置。
-  const proxyProviderInterval = Math.max(1, parsedProxyProviderInterval);
-  // proxy-provider 大小限制最小为 0，0 表示不额外限制。
-  const proxyProviderSizeLimit = Math.max(0, parsedProxyProviderSizeLimit);
-  // proxy-provider health-check interval 至少为 1 秒。
-  const proxyProviderHealthCheckInterval = Math.max(1, parsedProxyProviderHealthCheckInterval);
-  // proxy-provider health-check timeout 至少为 1 毫秒。
-  const proxyProviderHealthCheckTimeout = Math.max(1, parsedProxyProviderHealthCheckTimeout);
   // fake-ip-ttl 至少为 1，避免生成非法配置。
   const fakeIpTtl = Math.max(1, parsedFakeIpTtl);
   // 把字符串类参数统一做 trim，后面复用时就不用反复判断。
@@ -4265,45 +4621,49 @@ function resolveArgs(rawArgs) {
   const devListUrl = normalizeStringArg(rawDevListUrl);
   const ruleSourcePreset = normalizeRuleSourcePreset(rawRuleSourcePreset, DEFAULT_RULE_SOURCE_PRESET);
   const steamFixUrl = normalizeStringArg(rawSteamFixUrl);
-  const ruleProviderPathDir = normalizeRuleProviderPathDir(rawRuleProviderPathDir);
-  const ruleProviderProxy = normalizeStringArg(rawRuleProviderProxy);
-  const ruleProviderUserAgent = normalizeStringArg(rawRuleProviderUserAgent);
-  const ruleProviderAuthorization = normalizeStringArg(rawRuleProviderAuthorization);
-  const parsedRuleProviderHeaderEntries = parseProviderHeaderEntries(rawRuleProviderHeader);
-  const ruleProviderHeader = parsedRuleProviderHeaderEntries.headers;
-  const parsedRuleProviderPayload = parseRuleProviderPayload(rawRuleProviderPayload);
-  const ruleProviderPayload = parsedRuleProviderPayload.items;
-  const proxyProviderProxy = normalizeStringArg(rawProxyProviderProxy);
-  const proxyProviderUserAgent = normalizeStringArg(rawProxyProviderUserAgent);
-  const proxyProviderAuthorization = normalizeStringArg(rawProxyProviderAuthorization);
-  const parsedProxyProviderHeaderEntries = parseProviderHeaderEntries(rawProxyProviderHeader);
-  const proxyProviderHeader = parsedProxyProviderHeaderEntries.headers;
-  const parsedProxyProviderPayload = parseProxyProviderPayload(rawProxyProviderPayload);
-  const proxyProviderPayload = parsedProxyProviderPayload.items;
-  const proxyProviderPathDir = normalizeProxyProviderPathDir(rawProxyProviderPathDir);
-  const proxyProviderFilter = normalizeStringArg(rawProxyProviderFilter);
-  const proxyProviderExcludeFilter = normalizeStringArg(rawProxyProviderExcludeFilter);
-  const proxyProviderExcludeType = normalizeTypeListArg(rawProxyProviderExcludeType);
-  const proxyProviderOverrideAdditionalPrefix = normalizeStringArg(rawProxyProviderOverrideAdditionalPrefix);
-  const proxyProviderOverrideAdditionalSuffix = normalizeStringArg(rawProxyProviderOverrideAdditionalSuffix);
-  const proxyProviderOverrideDown = normalizeStringArg(rawProxyProviderOverrideDown);
-  const proxyProviderOverrideUp = normalizeStringArg(rawProxyProviderOverrideUp);
-  const proxyProviderOverrideDialerProxy = normalizeStringArg(rawProxyProviderOverrideDialerProxy);
-  const proxyProviderOverrideInterfaceName = normalizeInterfaceNameArg(rawProxyProviderOverrideInterfaceName);
-  const proxyProviderOverrideRoutingMark = normalizeRoutingMarkArg(rawProxyProviderOverrideRoutingMark);
-  const proxyProviderOverrideIpVersion = normalizeIpVersionArg(rawProxyProviderOverrideIpVersion, "");
-  const parsedProxyProviderOverrideProxyNameRules = parseProxyNameOverrideRules(rawProxyProviderOverrideProxyName);
-  const proxyProviderOverrideProxyNameRules = parsedProxyProviderOverrideProxyNameRules.filter((rule) => {
-    try {
-      compilePatternRegExp(rule.pattern);
-      return true;
-    } catch (error) {
-      return false;
-    }
+  const ruleProviderResolveState = buildResolveArgRuleProviderState({
+    rawPathDir: rawRuleProviderPathDir,
+    rawInterval: rawRuleProviderInterval,
+    rawProxy: rawRuleProviderProxy,
+    rawSizeLimit: rawRuleProviderSizeLimit,
+    rawUserAgent: rawRuleProviderUserAgent,
+    rawAuthorization: rawRuleProviderAuthorization,
+    rawHeader: rawRuleProviderHeader,
+    rawPayload: rawRuleProviderPayload
   });
-  const proxyProviderHealthCheckUrl = normalizeStringArg(rawProxyProviderHealthCheckUrl);
-  const rawNormalizedProxyProviderHealthCheckExpectedStatus = normalizeExpectedStatusArg(rawProxyProviderHealthCheckExpectedStatus);
-  const proxyProviderHealthCheckExpectedStatus = isValidExpectedStatusValue(rawNormalizedProxyProviderHealthCheckExpectedStatus) ? rawNormalizedProxyProviderHealthCheckExpectedStatus : "";
+  const proxyProviderResolveState = buildResolveArgProxyProviderState({
+    rawInterval: rawProxyProviderInterval,
+    rawProxy: rawProxyProviderProxy,
+    rawSizeLimit: rawProxyProviderSizeLimit,
+    rawUserAgent: rawProxyProviderUserAgent,
+    rawAuthorization: rawProxyProviderAuthorization,
+    rawHeader: rawProxyProviderHeader,
+    rawPayload: rawProxyProviderPayload,
+    rawPathDir: rawProxyProviderPathDir,
+    rawFilter: rawProxyProviderFilter,
+    rawExcludeFilter: rawProxyProviderExcludeFilter,
+    rawExcludeType: rawProxyProviderExcludeType,
+    rawOverrideAdditionalPrefix: rawProxyProviderOverrideAdditionalPrefix,
+    rawOverrideAdditionalSuffix: rawProxyProviderOverrideAdditionalSuffix,
+    rawOverrideUdp: rawProxyProviderOverrideUdp,
+    rawOverrideUdpOverTcp: rawProxyProviderOverrideUdpOverTcp,
+    rawOverrideDown: rawProxyProviderOverrideDown,
+    rawOverrideUp: rawProxyProviderOverrideUp,
+    rawOverrideTfo: rawProxyProviderOverrideTfo,
+    rawOverrideMptcp: rawProxyProviderOverrideMptcp,
+    rawOverrideSkipCertVerify: rawProxyProviderOverrideSkipCertVerify,
+    rawOverrideDialerProxy: rawProxyProviderOverrideDialerProxy,
+    rawOverrideInterfaceName: rawProxyProviderOverrideInterfaceName,
+    rawOverrideRoutingMark: rawProxyProviderOverrideRoutingMark,
+    rawOverrideIpVersion: rawProxyProviderOverrideIpVersion,
+    rawOverrideProxyName: rawProxyProviderOverrideProxyName,
+    rawHealthCheckEnable: rawProxyProviderHealthCheckEnable,
+    rawHealthCheckUrl: rawProxyProviderHealthCheckUrl,
+    rawHealthCheckInterval: rawProxyProviderHealthCheckInterval,
+    rawHealthCheckTimeout: rawProxyProviderHealthCheckTimeout,
+    rawHealthCheckLazy: rawProxyProviderHealthCheckLazy,
+    rawHealthCheckExpectedStatus: rawProxyProviderHealthCheckExpectedStatus
+  });
   const aiPreferCountries = toStringList(rawAiPreferCountries);
   const cryptoPreferCountries = toStringList(rawCryptoPreferCountries);
   const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
@@ -4435,6 +4795,8 @@ function resolveArgs(rawArgs) {
   ];
   // 预先展开服务相关返回字段，避免 return 区继续手写三套近似属性。
   const resolvedServiceArgPayload = buildResolveArgServiceResultPayload(serviceResolveStates);
+  // provider 相关字段也提前展开，避免 return 区继续维护大段平铺属性。
+  const resolvedProviderArgPayload = buildResolveArgProviderResultPayload(ruleProviderResolveState, proxyProviderResolveState);
 
   // 如果用户传入值被修正了，就打印一条警告帮助定位问题。
   if (parsedThreshold !== threshold) {
@@ -4530,202 +4892,13 @@ function resolveArgs(rawArgs) {
     }
   }
 
-  // 如果 rule-provider 路径目录传了空值，则回退默认目录并提示。
-  if (rawRuleProviderPathDir !== undefined && !normalizeStringArg(rawRuleProviderPathDir)) {
-    console.warn(`⚠️ 警告: rule-provider-path-dir 为空，已回退为默认目录 ${RULE_PROVIDER_PATH_DIR}`);
-  }
-
-  // 如果 rule-provider 自定义请求头完全没解析成功，则显式提示正确写法。
-  if (rawRuleProviderHeader !== undefined && hasUsableArgValue(rawRuleProviderHeader) && !parsedRuleProviderHeaderEntries.entries.length) {
-    console.warn("⚠️ 警告: rule-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
-  }
-
-  // 逐条提示 rule-provider 自定义请求头里的无效项，帮助定位拼写问题。
-  for (const item of parsedRuleProviderHeaderEntries.invalidLines) {
-    console.warn(`⚠️ 警告: rule-provider-header 条目无效，已忽略: ${item}`);
-  }
-
-  // 如果 rule-provider payload 完全没解析成功，则显式提示正确写法。
-  if (rawRuleProviderPayload !== undefined && hasUsableArgValue(rawRuleProviderPayload) && !ruleProviderPayload.length) {
-    const reason = parsedRuleProviderPayload.parseFailed
-      ? "请使用 JSON 数组、换行或 || 分隔的规则列表"
-      : "请至少提供一条非空规则字符串";
-    console.warn(`⚠️ 警告: rule-provider-payload 无有效规则，已忽略；${reason}`);
-  }
-
-  // 逐条提示 rule-provider payload 里无效的规则项，帮助定位数组结构问题。
-  for (const item of parsedRuleProviderPayload.invalidItems) {
-    console.warn(`⚠️ 警告: rule-provider-payload 条目无效，已忽略: ${item}`);
-  }
-
-  // 如果 proxy-provider 路径目录传了空值，则忽略本轮目录接管并提示。
-  if (rawProxyProviderPathDir !== undefined && !normalizeStringArg(rawProxyProviderPathDir)) {
-    console.warn("⚠️ 警告: proxy-provider-path-dir 为空，已忽略本轮缓存目录接管");
-  }
-
-  // 如果 proxy-provider 路径目录看起来无效，则显式提示本轮不会生效。
-  if (rawProxyProviderPathDir !== undefined && hasUsableArgValue(rawProxyProviderPathDir) && !proxyProviderPathDir) {
-    console.warn(`⚠️ 警告: proxy-provider-path-dir 无效，已忽略: ${rawProxyProviderPathDir}`);
-  }
-
-  // 如果 proxy-provider 自定义请求头完全没解析成功，则显式提示正确写法。
-  if (rawProxyProviderHeader !== undefined && hasUsableArgValue(rawProxyProviderHeader) && !parsedProxyProviderHeaderEntries.entries.length) {
-    console.warn("⚠️ 警告: proxy-provider-header 语法无效，已忽略；请使用 Header: value||Header2: value2");
-  }
-
-  // 逐条提示 proxy-provider 自定义请求头里无效的项，帮助定位拼写问题。
-  for (const item of parsedProxyProviderHeaderEntries.invalidLines) {
-    console.warn(`⚠️ 警告: proxy-provider-header 条目无效，已忽略: ${item}`);
-  }
-
-  // 如果 proxy-provider payload 完全没解析成功，则提示应改为 JSON 数组/对象写法。
-  if (rawProxyProviderPayload !== undefined && hasUsableArgValue(rawProxyProviderPayload) && !proxyProviderPayload.length) {
-    const reason = parsedProxyProviderPayload.parseFailed
-      ? "请使用 JSON 数组/对象写法"
-      : "请至少提供带 name/type 的节点对象";
-    console.warn(`⚠️ 警告: proxy-provider-payload 无有效节点，已忽略；${reason}`);
-  }
-
-  // 逐条提示 proxy-provider payload 里无效的节点项，帮助定位字段缺失。
-  for (const item of parsedProxyProviderPayload.invalidItems) {
-    console.warn(`⚠️ 警告: proxy-provider-payload 条目无效，已忽略: ${item}`);
-  }
+  // rule-provider / proxy-provider 的解析与诊断逻辑已收口到状态 helper，这里直接复用。
+  warnResolveArgRuleProviderState(ruleProviderResolveState);
+  warnResolveArgProxyProviderState(proxyProviderResolveState);
 
   // 如果 geo 更新间隔被修正，也打印提示。
   if (rawGeoUpdateInterval !== undefined && parsedGeoUpdateInterval !== geoUpdateInterval) {
     console.warn(`⚠️ 警告: geo-update-interval 无效，已重置为 ${geoUpdateInterval}`);
-  }
-
-  // 如果 rule-provider 刷新间隔被修正，也打印提示。
-  if (rawRuleProviderInterval !== undefined && parsedRuleProviderInterval !== ruleProviderInterval) {
-    console.warn(`⚠️ 警告: rule-provider-interval 无效，已重置为 ${ruleProviderInterval}`);
-  }
-
-  // 如果 rule-provider 大小限制被修正，也打印提示。
-  if (rawRuleProviderSizeLimit !== undefined && parsedRuleProviderSizeLimit !== ruleProviderSizeLimit) {
-    console.warn(`⚠️ 警告: rule-provider-size-limit 无效，已重置为 ${ruleProviderSizeLimit}`);
-  }
-
-  // 如果 proxy-provider 刷新间隔被修正，也打印提示。
-  if (rawProxyProviderInterval !== undefined && parsedProxyProviderInterval !== proxyProviderInterval) {
-    console.warn(`⚠️ 警告: proxy-provider-interval 无效，已重置为 ${proxyProviderInterval}`);
-  }
-
-  // 如果 proxy-provider 大小限制被修正，也打印提示。
-  if (rawProxyProviderSizeLimit !== undefined && parsedProxyProviderSizeLimit !== proxyProviderSizeLimit) {
-    console.warn(`⚠️ 警告: proxy-provider-size-limit 无效，已重置为 ${proxyProviderSizeLimit}`);
-  }
-
-  // 如果 proxy-provider health-check interval 被修正，也打印提示。
-  if (rawProxyProviderHealthCheckInterval !== undefined && parsedProxyProviderHealthCheckInterval !== proxyProviderHealthCheckInterval) {
-    console.warn(`⚠️ 警告: proxy-provider-health-check-interval 无效，已重置为 ${proxyProviderHealthCheckInterval}`);
-  }
-
-  // 如果 proxy-provider health-check timeout 被修正，也打印提示。
-  if (rawProxyProviderHealthCheckTimeout !== undefined && parsedProxyProviderHealthCheckTimeout !== proxyProviderHealthCheckTimeout) {
-    console.warn(`⚠️ 警告: proxy-provider-health-check-timeout 无效，已重置为 ${proxyProviderHealthCheckTimeout}`);
-  }
-
-  // 如果 proxy-provider health-check URL 看起来不像 http(s)，打印提示帮助定位问题。
-  if (proxyProviderHealthCheckUrl && !looksLikeHttpUrl(proxyProviderHealthCheckUrl)) {
-    console.warn(`⚠️ 警告: proxy-provider-health-check-url 看起来不像合法 http(s) 地址: ${proxyProviderHealthCheckUrl}`);
-  }
-
-  // 如果 proxy-provider health-check expected-status 语法非法，则回退为空并提示。
-  if (rawProxyProviderHealthCheckExpectedStatus !== undefined && rawNormalizedProxyProviderHealthCheckExpectedStatus && !proxyProviderHealthCheckExpectedStatus) {
-    console.warn("⚠️ 警告: proxy-provider-health-check-expected-status 语法无效，已忽略");
-  }
-
-  // 如果 proxy-provider filter 正则无法编译，则提前提示。
-  if (rawProxyProviderFilter !== undefined && proxyProviderFilter) {
-    try {
-      compilePatternRegExp(proxyProviderFilter);
-    } catch (error) {
-      console.warn(`⚠️ 警告: proxy-provider-filter 正则无效: ${error.message}`);
-    }
-  }
-
-  // 如果 proxy-provider exclude-filter 正则无法编译，则提前提示。
-  if (rawProxyProviderExcludeFilter !== undefined && proxyProviderExcludeFilter) {
-    try {
-      compilePatternRegExp(proxyProviderExcludeFilter);
-    } catch (error) {
-      console.warn(`⚠️ 警告: proxy-provider-exclude-filter 正则无效: ${error.message}`);
-    }
-  }
-
-  // 如果 proxy-provider exclude-type 清洗后为空，则提醒用户参数未生效。
-  if (rawProxyProviderExcludeType !== undefined && normalizeStringArg(rawProxyProviderExcludeType) && !proxyProviderExcludeType) {
-    console.warn("⚠️ 警告: proxy-provider-exclude-type 为空或格式无效，已忽略");
-  }
-
-  // Mihomo 官方文档说明 exclude-type 不支持正则；若看起来像正则语法则提前提醒。
-  if (rawProxyProviderExcludeType !== undefined && /[()[\]{}*+?^$\\]/.test(normalizeStringArg(rawProxyProviderExcludeType))) {
-    console.warn("⚠️ 警告: proxy-provider-exclude-type 不支持正则，请只保留类型名并使用 | 分隔");
-  }
-
-  // 如果 proxy-provider override udp 写法不像布尔量，则显式提示。
-  if (rawProxyProviderOverrideUdp !== undefined && !isBooleanLike(rawProxyProviderOverrideUdp)) {
-    console.warn("⚠️ 警告: proxy-provider-override-udp 仅支持布尔值，已回退为 false");
-  }
-
-  // 如果 proxy-provider override udp-over-tcp 写法不像布尔量，则显式提示。
-  if (rawProxyProviderOverrideUdpOverTcp !== undefined && !isBooleanLike(rawProxyProviderOverrideUdpOverTcp)) {
-    console.warn("⚠️ 警告: proxy-provider-override-udp-over-tcp 仅支持布尔值，已回退为 false");
-  }
-
-  // 如果 proxy-provider override down 为空，则提示已忽略。
-  if (rawProxyProviderOverrideDown !== undefined && !proxyProviderOverrideDown) {
-    console.warn("⚠️ 警告: proxy-provider-override-down 为空，已忽略");
-  }
-
-  // 如果 proxy-provider override up 为空，则提示已忽略。
-  if (rawProxyProviderOverrideUp !== undefined && !proxyProviderOverrideUp) {
-    console.warn("⚠️ 警告: proxy-provider-override-up 为空，已忽略");
-  }
-
-  // 如果 proxy-provider override tfo 写法不像布尔量，则显式提示。
-  if (rawProxyProviderOverrideTfo !== undefined && !isBooleanLike(rawProxyProviderOverrideTfo)) {
-    console.warn("⚠️ 警告: proxy-provider-override-tfo 仅支持布尔值，已回退为 false");
-  }
-
-  // 如果 proxy-provider override mptcp 写法不像布尔量，则显式提示。
-  if (rawProxyProviderOverrideMptcp !== undefined && !isBooleanLike(rawProxyProviderOverrideMptcp)) {
-    console.warn("⚠️ 警告: proxy-provider-override-mptcp 仅支持布尔值，已回退为 false");
-  }
-
-  // 如果 proxy-provider override skip-cert-verify 写法不像布尔量，则显式提示。
-  if (rawProxyProviderOverrideSkipCertVerify !== undefined && !isBooleanLike(rawProxyProviderOverrideSkipCertVerify)) {
-    console.warn("⚠️ 警告: proxy-provider-override-skip-cert-verify 仅支持布尔值，已回退为 false");
-  }
-
-  // 如果 proxy-provider override interface-name 为空，则提示已忽略。
-  if (rawProxyProviderOverrideInterfaceName !== undefined && !proxyProviderOverrideInterfaceName) {
-    console.warn("⚠️ 警告: proxy-provider-override-interface-name 为空，已忽略");
-  }
-
-  // 如果 proxy-provider override routing-mark 非法，则显式提示。
-  if (rawProxyProviderOverrideRoutingMark !== undefined && proxyProviderOverrideRoutingMark === null) {
-    console.warn("⚠️ 警告: proxy-provider-override-routing-mark 仅支持大于等于 0 的整数，已忽略");
-  }
-
-  // 如果 proxy-provider override ip-version 非法，则显式提示。
-  if (rawProxyProviderOverrideIpVersion !== undefined && normalizeStringArg(rawProxyProviderOverrideIpVersion) && !proxyProviderOverrideIpVersion) {
-    console.warn("⚠️ 警告: proxy-provider-override-ip-version 无效，已忽略");
-  }
-
-  // 如果 proxy-provider override proxy-name 规则未解析出任何有效项，则显式提示。
-  if (rawProxyProviderOverrideProxyName !== undefined && hasUsableArgValue(rawProxyProviderOverrideProxyName) && !proxyProviderOverrideProxyNameRules.length) {
-    console.warn("⚠️ 警告: proxy-provider-override-proxy-name 语法无效，已忽略；请使用 pattern=>target||pattern2=>target2");
-  }
-
-  // 逐条校验 proxy-provider override proxy-name 的正则是否可编译。
-  for (const rule of parsedProxyProviderOverrideProxyNameRules) {
-    try {
-      compilePatternRegExp(rule.pattern);
-    } catch (error) {
-      console.warn(`⚠️ 警告: proxy-provider-override-proxy-name 正则无效 (${rule.pattern}): ${error.message}`);
-    }
   }
 
   // GitHub / Steam / Dev 三类独立组的测速/类型/节点池优先级告警完全同构，统一走状态表批量输出。
@@ -4891,88 +5064,8 @@ function resolveArgs(rawArgs) {
     hasSteamFix: rawSteamFix !== undefined,
     steamFixUrl,
     hasSteamFixUrl: !!steamFixUrl,
-    ruleProviderPathDir,
-    hasRuleProviderPathDir: rawRuleProviderPathDir !== undefined,
-    ruleProviderInterval,
-    hasRuleProviderInterval: rawRuleProviderInterval !== undefined,
-    ruleProviderProxy,
-    hasRuleProviderProxy: !!ruleProviderProxy,
-    ruleProviderSizeLimit,
-    hasRuleProviderSizeLimit: rawRuleProviderSizeLimit !== undefined,
-    ruleProviderUserAgent,
-    hasRuleProviderUserAgent: !!ruleProviderUserAgent,
-    ruleProviderAuthorization,
-    hasRuleProviderAuthorization: !!ruleProviderAuthorization,
-    ruleProviderHeader,
-    hasRuleProviderHeader: !!Object.keys(ruleProviderHeader).length,
-    ruleProviderHeaderEntryCount: parsedRuleProviderHeaderEntries.entries.length,
-    ruleProviderPayload,
-    hasRuleProviderPayload: !!ruleProviderPayload.length,
-    ruleProviderPayloadCount: ruleProviderPayload.length,
-    proxyProviderInterval,
-    hasProxyProviderInterval: rawProxyProviderInterval !== undefined,
-    proxyProviderProxy,
-    hasProxyProviderProxy: !!proxyProviderProxy,
-    proxyProviderSizeLimit,
-    hasProxyProviderSizeLimit: rawProxyProviderSizeLimit !== undefined,
-    proxyProviderUserAgent,
-    hasProxyProviderUserAgent: !!proxyProviderUserAgent,
-    proxyProviderAuthorization,
-    hasProxyProviderAuthorization: !!proxyProviderAuthorization,
-    proxyProviderHeader,
-    hasProxyProviderHeader: !!Object.keys(proxyProviderHeader).length,
-    proxyProviderHeaderEntryCount: parsedProxyProviderHeaderEntries.entries.length,
-    proxyProviderPayload,
-    hasProxyProviderPayload: !!proxyProviderPayload.length,
-    proxyProviderPayloadCount: proxyProviderPayload.length,
-    proxyProviderPathDir,
-    hasProxyProviderPathDir: !!proxyProviderPathDir,
-    proxyProviderFilter,
-    hasProxyProviderFilter: !!proxyProviderFilter,
-    proxyProviderExcludeFilter,
-    hasProxyProviderExcludeFilter: !!proxyProviderExcludeFilter,
-    proxyProviderExcludeType,
-    hasProxyProviderExcludeType: !!proxyProviderExcludeType,
-    proxyProviderOverrideAdditionalPrefix,
-    hasProxyProviderOverrideAdditionalPrefix: !!proxyProviderOverrideAdditionalPrefix,
-    proxyProviderOverrideAdditionalSuffix,
-    hasProxyProviderOverrideAdditionalSuffix: !!proxyProviderOverrideAdditionalSuffix,
-    proxyProviderOverrideUdp: parseBool(rawProxyProviderOverrideUdp, false),
-    hasProxyProviderOverrideUdp: rawProxyProviderOverrideUdp !== undefined,
-    proxyProviderOverrideUdpOverTcp: parseBool(rawProxyProviderOverrideUdpOverTcp, false),
-    hasProxyProviderOverrideUdpOverTcp: rawProxyProviderOverrideUdpOverTcp !== undefined,
-    proxyProviderOverrideDown,
-    hasProxyProviderOverrideDown: !!proxyProviderOverrideDown,
-    proxyProviderOverrideUp,
-    hasProxyProviderOverrideUp: !!proxyProviderOverrideUp,
-    proxyProviderOverrideTfo: parseBool(rawProxyProviderOverrideTfo, false),
-    hasProxyProviderOverrideTfo: rawProxyProviderOverrideTfo !== undefined,
-    proxyProviderOverrideMptcp: parseBool(rawProxyProviderOverrideMptcp, false),
-    hasProxyProviderOverrideMptcp: rawProxyProviderOverrideMptcp !== undefined,
-    proxyProviderOverrideSkipCertVerify: parseBool(rawProxyProviderOverrideSkipCertVerify, false),
-    hasProxyProviderOverrideSkipCertVerify: rawProxyProviderOverrideSkipCertVerify !== undefined,
-    proxyProviderOverrideDialerProxy,
-    hasProxyProviderOverrideDialerProxy: !!proxyProviderOverrideDialerProxy,
-    proxyProviderOverrideInterfaceName,
-    hasProxyProviderOverrideInterfaceName: !!proxyProviderOverrideInterfaceName,
-    proxyProviderOverrideRoutingMark,
-    hasProxyProviderOverrideRoutingMark: rawProxyProviderOverrideRoutingMark !== undefined && proxyProviderOverrideRoutingMark !== null,
-    proxyProviderOverrideIpVersion,
-    hasProxyProviderOverrideIpVersion: !!proxyProviderOverrideIpVersion,
-    proxyProviderOverrideProxyNameRules,
-    hasProxyProviderOverrideProxyNameRules: !!proxyProviderOverrideProxyNameRules.length,
-    proxyProviderHealthCheckEnable: parseBool(rawProxyProviderHealthCheckEnable, true),
-    hasProxyProviderHealthCheckEnable: rawProxyProviderHealthCheckEnable !== undefined,
-    proxyProviderHealthCheckUrl,
-    hasProxyProviderHealthCheckUrl: !!proxyProviderHealthCheckUrl,
-    proxyProviderHealthCheckInterval,
-    hasProxyProviderHealthCheckInterval: rawProxyProviderHealthCheckInterval !== undefined,
-    proxyProviderHealthCheckTimeout,
-    hasProxyProviderHealthCheckTimeout: rawProxyProviderHealthCheckTimeout !== undefined,
-    proxyProviderHealthCheckLazy: parseBool(rawProxyProviderHealthCheckLazy, true),
-    hasProxyProviderHealthCheckLazy: rawProxyProviderHealthCheckLazy !== undefined,
-    proxyProviderHealthCheckExpectedStatus,
-    hasProxyProviderHealthCheckExpectedStatus: !!proxyProviderHealthCheckExpectedStatus,
+    // rule-provider / proxy-provider 字段统一由 provider 状态表展开，避免 return 区继续维护一长串重复属性。
+    ...resolvedProviderArgPayload,
     // 允许用参数覆盖 AI / Crypto 的国家优先链。
     aiPreferCountries,
     hasAiPreferCountries: !!aiPreferCountries.length,
