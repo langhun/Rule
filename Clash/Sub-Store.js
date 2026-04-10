@@ -4361,6 +4361,141 @@ function buildResolveArgGroupLayoutResultPayload(layoutState) {
   };
 }
 
+// 规则源参数既包含多个 URL，也包含 preset / steam-fix 这类开关，这里统一收口成状态对象。
+function buildResolveArgRuleSourceState(payload) {
+  const current = isObject(payload) ? payload : {};
+
+  return {
+    rawDirectListUrl: current.rawDirectListUrl,
+    directListUrl: normalizeStringArg(current.rawDirectListUrl),
+    rawCryptoListUrl: current.rawCryptoListUrl,
+    cryptoListUrl: normalizeStringArg(current.rawCryptoListUrl),
+    rawChatGptListUrl: current.rawChatGptListUrl,
+    chatGptListUrl: normalizeStringArg(current.rawChatGptListUrl),
+    rawAiExtraListUrl: current.rawAiExtraListUrl,
+    aiExtraListUrl: normalizeStringArg(current.rawAiExtraListUrl),
+    rawDevListUrl: current.rawDevListUrl,
+    devListUrl: normalizeStringArg(current.rawDevListUrl),
+    rawRuleSourcePreset: current.rawRuleSourcePreset,
+    ruleSourcePreset: normalizeRuleSourcePreset(current.rawRuleSourcePreset, DEFAULT_RULE_SOURCE_PRESET),
+    rawSteamFix: current.rawSteamFix,
+    steamFix: parseBool(current.rawSteamFix, false),
+    rawSteamFixUrl: current.rawSteamFixUrl,
+    steamFixUrl: normalizeStringArg(current.rawSteamFixUrl)
+  };
+}
+
+// country-extra-aliases 在 resolveArgs 里同时承担解析、冲突分析和运行态别名缓存输入，这里统一收口。
+function buildResolveArgCountryAliasState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const parsedEntries = parseCountryExtraAliasEntries(current.rawCountryExtraAliases);
+  const countryExtraAliasesMap = parsedEntries.map;
+  const analysis = analyzeCountryExtraAliasMap(countryExtraAliasesMap);
+  const countryCount = Object.keys(countryExtraAliasesMap).length;
+  const entryCount = Object.keys(countryExtraAliasesMap).reduce((total, key) => total + countryExtraAliasesMap[key].length, 0);
+
+  return {
+    rawCountryExtraAliases: current.rawCountryExtraAliases,
+    parsedEntries,
+    countryExtraAliasesMap,
+    analysis,
+    countryExtraAliasCountryCount: countryCount,
+    countryExtraAliasEntryCount: entryCount,
+    countryExtraAliasPreview: formatCountryExtraAliasPreview(countryExtraAliasesMap, 4, 2, 18),
+    countryExtraAliasConflictCount: analysis.conflicts.length,
+    countryExtraAliasConflictPreview: formatCountryExtraAliasConflictPreview(analysis.conflicts, 4, 32)
+  };
+}
+
+// 规则源相关告警集中处理，避免 resolveArgs 主体里继续堆积多段 URL/preset 模板。
+function warnResolveArgRuleSourceState(ruleSourceState) {
+  const current = isObject(ruleSourceState) ? ruleSourceState : buildResolveArgRuleSourceState();
+  const urlDefinitions = [
+    { rawValue: current.rawDirectListUrl, value: current.directListUrl, label: "direct-list-url" },
+    { rawValue: current.rawCryptoListUrl, value: current.cryptoListUrl, label: "crypto-list-url" },
+    { rawValue: current.rawChatGptListUrl, value: current.chatGptListUrl, label: "chatgpt-list-url" },
+    { rawValue: current.rawAiExtraListUrl, value: current.aiExtraListUrl, label: "ai-extra-list-url" }
+  ];
+
+  for (const item of urlDefinitions) {
+    if (item.value && !looksLikeHttpUrl(item.value)) {
+      console.warn(`⚠️ 警告: ${item.label} 看起来不像合法 http(s) 地址: ${item.value}`);
+    }
+  }
+
+  if (current.rawRuleSourcePreset !== undefined && !["default", "meta", "metacubex", "official", "builtin", "blackmatrix7", "blackmatrix", "bm7", "iosrulescript"].includes(normalizeGroupMarkerToken(current.rawRuleSourcePreset))) {
+    console.warn(`⚠️ 警告: rule-source-preset 无效，已重置为 ${current.ruleSourcePreset}`);
+  }
+
+  if (current.rawSteamFixUrl !== undefined && current.steamFixUrl && !looksLikeHttpUrl(current.steamFixUrl)) {
+    console.warn(`⚠️ 警告: steam-fix-url 看起来不是有效的 http(s) 链接，当前建议检查: ${current.steamFixUrl}`);
+  }
+}
+
+// country-extra-aliases 告警集中处理，减少 resolveArgs 主体里的多段循环。
+function warnResolveArgCountryAliasState(countryAliasState) {
+  const current = isObject(countryAliasState) ? countryAliasState : buildResolveArgCountryAliasState();
+
+  if (current.rawCountryExtraAliases !== undefined && hasUsableArgValue(current.rawCountryExtraAliases) && !current.countryExtraAliasCountryCount) {
+    console.warn("⚠️ 警告: country-extra-aliases 未解析出任何有效条目，已忽略；请使用 国家:别名1|别名2;国家2:别名3 这种写法");
+  }
+
+  for (const item of current.parsedEntries.invalidEntries) {
+    console.warn(`⚠️ 警告: country-extra-aliases 条目无效，已忽略: ${item}`);
+  }
+
+  for (const item of current.parsedEntries.unknownCountryMarkers) {
+    console.warn(`⚠️ 警告: country-extra-aliases 未匹配到内置国家定义，已忽略: ${item}`);
+  }
+
+  for (const item of current.analysis.customDuplicateConflicts) {
+    console.warn(`⚠️ 警告: country-extra-aliases 同一别名指向多个国家，可能导致识别歧义: ${item}`);
+  }
+
+  for (const item of current.analysis.builtInMarkerConflicts) {
+    console.warn(`⚠️ 警告: country-extra-aliases 别名与其他内置国家标记冲突，可能导致优先链歧义: ${item}`);
+  }
+}
+
+// 把规则源状态拍平成 resolveArgs 返回对象里的字段。
+function buildResolveArgRuleSourceResultPayload(ruleSourceState) {
+  const current = isObject(ruleSourceState) ? ruleSourceState : buildResolveArgRuleSourceState();
+
+  return {
+    directListUrl: current.directListUrl,
+    hasDirectListUrl: !!current.directListUrl,
+    cryptoListUrl: current.cryptoListUrl,
+    hasCryptoListUrl: !!current.cryptoListUrl,
+    chatGptListUrl: current.chatGptListUrl,
+    hasChatGptListUrl: !!current.chatGptListUrl,
+    aiExtraListUrl: current.aiExtraListUrl,
+    hasAiExtraListUrl: !!current.aiExtraListUrl,
+    devListUrl: current.devListUrl,
+    hasDevListUrl: !!current.devListUrl,
+    ruleSourcePreset: current.ruleSourcePreset,
+    hasRuleSourcePreset: current.rawRuleSourcePreset !== undefined,
+    steamFix: current.steamFix,
+    hasSteamFix: current.rawSteamFix !== undefined,
+    steamFixUrl: current.steamFixUrl,
+    hasSteamFixUrl: !!current.steamFixUrl
+  };
+}
+
+// 把 country-extra-aliases 状态拍平成 resolveArgs 返回对象里的字段。
+function buildResolveArgCountryAliasResultPayload(countryAliasState) {
+  const current = isObject(countryAliasState) ? countryAliasState : buildResolveArgCountryAliasState();
+
+  return {
+    countryExtraAliasesMap: current.countryExtraAliasesMap,
+    hasCountryExtraAliases: !!current.countryExtraAliasCountryCount,
+    countryExtraAliasCountryCount: current.countryExtraAliasCountryCount,
+    countryExtraAliasEntryCount: current.countryExtraAliasEntryCount,
+    countryExtraAliasPreview: current.countryExtraAliasPreview,
+    countryExtraAliasConflictCount: current.countryExtraAliasConflictCount,
+    countryExtraAliasConflictPreview: current.countryExtraAliasConflictPreview
+  };
+}
+
 // 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
 function resolveArgs(rawArgs) {
   // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
@@ -4747,13 +4882,16 @@ function resolveArgs(rawArgs) {
   const dnsListen = normalizeStringArg(rawDnsListen);
   const fakeIpRange = normalizeStringArg(rawFakeIpRange);
   const fakeIpRange6 = normalizeStringArg(rawFakeIpRange6);
-  const directListUrl = normalizeStringArg(rawDirectListUrl);
-  const cryptoListUrl = normalizeStringArg(rawCryptoListUrl);
-  const chatGptListUrl = normalizeStringArg(rawChatGptListUrl);
-  const aiExtraListUrl = normalizeStringArg(rawAiExtraListUrl);
-  const devListUrl = normalizeStringArg(rawDevListUrl);
-  const ruleSourcePreset = normalizeRuleSourcePreset(rawRuleSourcePreset, DEFAULT_RULE_SOURCE_PRESET);
-  const steamFixUrl = normalizeStringArg(rawSteamFixUrl);
+  const ruleSourceResolveState = buildResolveArgRuleSourceState({
+    rawDirectListUrl,
+    rawCryptoListUrl,
+    rawChatGptListUrl,
+    rawAiExtraListUrl,
+    rawDevListUrl,
+    rawRuleSourcePreset,
+    rawSteamFix,
+    rawSteamFixUrl
+  });
   const groupResolveState = buildResolveArgGroupState({
     rawTestUrl,
     rawGroupInterval,
@@ -4811,16 +4949,11 @@ function resolveArgs(rawArgs) {
   });
   const aiPreferCountries = toStringList(rawAiPreferCountries);
   const cryptoPreferCountries = toStringList(rawCryptoPreferCountries);
-  const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
-  const countryExtraAliasesMap = parsedCountryExtraAliases.map;
+  const countryAliasResolveState = buildResolveArgCountryAliasState({
+    rawCountryExtraAliases
+  });
   // 解析完成后立刻刷新运行态缓存，确保后续 parseCountries / preferred-country 等流程读取到的是本轮最新别名。
-  COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = isObject(countryExtraAliasesMap) ? countryExtraAliasesMap : Object.create(null);
-  const countryExtraAliasAnalysis = analyzeCountryExtraAliasMap(countryExtraAliasesMap);
-  const countryExtraAliasCountryCount = Object.keys(countryExtraAliasesMap).length;
-  const countryExtraAliasEntryCount = Object.keys(countryExtraAliasesMap).reduce((total, key) => total + countryExtraAliasesMap[key].length, 0);
-  const countryExtraAliasPreview = formatCountryExtraAliasPreview(countryExtraAliasesMap, 4, 2, 18);
-  const countryExtraAliasConflictCount = countryExtraAliasAnalysis.conflicts.length;
-  const countryExtraAliasConflictPreview = formatCountryExtraAliasConflictPreview(countryExtraAliasAnalysis.conflicts, 4, 32);
+  COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = isObject(countryAliasResolveState.countryExtraAliasesMap) ? countryAliasResolveState.countryExtraAliasesMap : Object.create(null);
   const steamCnRuleTarget = normalizeStringArg(rawSteamCnRuleTarget);
   const steamCnRuleAnchor = normalizeStringArg(rawSteamCnRuleAnchor);
   const steamCnRulePosition = normalizeRuleOrderPosition(rawSteamCnRulePosition, "before");
@@ -4941,6 +5074,9 @@ function resolveArgs(rawArgs) {
   // 全局测速组与布局字段也提前展开，避免 return 区继续维护成片平铺属性。
   const resolvedGroupArgPayload = buildResolveArgGroupResultPayload(groupResolveState);
   const resolvedGroupLayoutArgPayload = buildResolveArgGroupLayoutResultPayload(groupLayoutResolveState);
+  // 规则源与 country-extra-aliases 字段也统一拍平，避免 return 区继续手写大段重复键。
+  const resolvedRuleSourceArgPayload = buildResolveArgRuleSourceResultPayload(ruleSourceResolveState);
+  const resolvedCountryAliasArgPayload = buildResolveArgCountryAliasResultPayload(countryAliasResolveState);
   // 预先展开服务相关返回字段，避免 return 区继续手写三套近似属性。
   const resolvedServiceArgPayload = buildResolveArgServiceResultPayload(serviceResolveStates);
   // provider 相关字段也提前展开，避免 return 区继续维护大段平铺属性。
@@ -4954,47 +5090,9 @@ function resolveArgs(rawArgs) {
   // 全局测速组的规范化与诊断逻辑已收口到状态 helper，这里直接复用。
   warnResolveArgGroupState(groupResolveState);
 
-  // 如果自定义规则源 URL 看起来不像 http(s)，打印提示帮助定位问题。
-  if (directListUrl && !looksLikeHttpUrl(directListUrl)) {
-    console.warn(`⚠️ 警告: direct-list-url 看起来不像合法 http(s) 地址: ${directListUrl}`);
-  }
-
-  if (cryptoListUrl && !looksLikeHttpUrl(cryptoListUrl)) {
-    console.warn(`⚠️ 警告: crypto-list-url 看起来不像合法 http(s) 地址: ${cryptoListUrl}`);
-  }
-
-  if (chatGptListUrl && !looksLikeHttpUrl(chatGptListUrl)) {
-    console.warn(`⚠️ 警告: chatgpt-list-url 看起来不像合法 http(s) 地址: ${chatGptListUrl}`);
-  }
-
-  if (aiExtraListUrl && !looksLikeHttpUrl(aiExtraListUrl)) {
-    console.warn(`⚠️ 警告: ai-extra-list-url 看起来不像合法 http(s) 地址: ${aiExtraListUrl}`);
-  }
-
-  // 如果自定义国家别名参数传了值，但最终一个有效条目都没解析出来，则显式提示正确写法。
-  if (rawCountryExtraAliases !== undefined && hasUsableArgValue(rawCountryExtraAliases) && !countryExtraAliasCountryCount) {
-    console.warn("⚠️ 警告: country-extra-aliases 未解析出任何有效条目，已忽略；请使用 国家:别名1|别名2;国家2:别名3 这种写法");
-  }
-
-  // 逐条提示 country-extra-aliases 里格式不合法的项，帮助定位拼写问题。
-  for (const item of parsedCountryExtraAliases.invalidEntries) {
-    console.warn(`⚠️ 警告: country-extra-aliases 条目无效，已忽略: ${item}`);
-  }
-
-  // 逐条提示没有命中内置国家定义的国家标记，避免自定义别名 silently fail。
-  for (const item of parsedCountryExtraAliases.unknownCountryMarkers) {
-    console.warn(`⚠️ 警告: country-extra-aliases 未匹配到内置国家定义，已忽略: ${item}`);
-  }
-
-  // 逐条提示 country-extra-aliases 自身的冲突条目，避免一个别名被多个国家复用导致识别歧义。
-  for (const item of countryExtraAliasAnalysis.customDuplicateConflicts) {
-    console.warn(`⚠️ 警告: country-extra-aliases 同一别名指向多个国家，可能导致识别歧义: ${item}`);
-  }
-
-  // 逐条提示自定义别名撞到其他国家内置标记的情况，便于及时收敛配置。
-  for (const item of countryExtraAliasAnalysis.builtInMarkerConflicts) {
-    console.warn(`⚠️ 警告: country-extra-aliases 别名与其他内置国家标记冲突，可能导致优先链歧义: ${item}`);
-  }
+  // 规则源参数与 country-extra-aliases 的告警也统一收口，减少 resolveArgs 主体里的样板判断。
+  warnResolveArgRuleSourceState(ruleSourceResolveState);
+  warnResolveArgCountryAliasState(countryAliasResolveState);
 
   // GitHub / Steam / Dev 三类独立组的 test-url 语义一致，统一批量做 URL 合法性提示。
   for (const serviceState of serviceResolveStates) {
@@ -5101,16 +5199,6 @@ function resolveArgs(rawArgs) {
   // 布局参数告警同样已收口到状态 helper，避免 resolveArgs 主体继续堆积模板。
   warnResolveArgGroupLayoutState(groupLayoutResolveState);
 
-  // 如果规则源预设非法，则回退默认值并提示。
-  if (rawRuleSourcePreset !== undefined && !["default", "meta", "metacubex", "official", "builtin", "blackmatrix7", "blackmatrix", "bm7", "iosrulescript"].includes(normalizeGroupMarkerToken(rawRuleSourcePreset))) {
-    console.warn(`⚠️ 警告: rule-source-preset 无效，已重置为 ${ruleSourcePreset}`);
-  }
-
-  // 如果 SteamFix URL 看起来不像有效 http(s) 链接，则回退默认值并提示。
-  if (rawSteamFixUrl !== undefined && steamFixUrl && !looksLikeHttpUrl(steamFixUrl)) {
-    console.warn(`⚠️ 警告: steam-fix-url 看起来不是有效的 http(s) 链接，当前建议检查: ${steamFixUrl}`);
-  }
-
   // 如果 fake-ip-ttl 被修正，也打印提示。
   if (rawFakeIpTtl !== undefined && parsedFakeIpTtl !== fakeIpTtl) {
     console.warn(`⚠️ 警告: fake-ip-ttl 无效，已重置为 ${fakeIpTtl}`);
@@ -5131,23 +5219,8 @@ function resolveArgs(rawArgs) {
     // 允许用参数显式控制是否注入 profile.store-selected / store-fake-ip。
     profileCache: parseBool(rawProfileCache, false),
     hasProfileCache: rawProfileCache !== undefined,
-    // 允许用参数覆盖自定义 classical 规则源地址。
-    directListUrl,
-    hasDirectListUrl: !!directListUrl,
-    cryptoListUrl,
-    hasCryptoListUrl: !!cryptoListUrl,
-    chatGptListUrl,
-    hasChatGptListUrl: !!chatGptListUrl,
-    aiExtraListUrl,
-    hasAiExtraListUrl: !!aiExtraListUrl,
-    devListUrl,
-    hasDevListUrl: !!devListUrl,
-    ruleSourcePreset,
-    hasRuleSourcePreset: rawRuleSourcePreset !== undefined,
-    steamFix: parseBool(rawSteamFix, false),
-    hasSteamFix: rawSteamFix !== undefined,
-    steamFixUrl,
-    hasSteamFixUrl: !!steamFixUrl,
+    // 规则源字段统一由规则源状态表展开，避免 return 区继续维护 URL/preset/steam-fix 多段平铺属性。
+    ...resolvedRuleSourceArgPayload,
     // rule-provider / proxy-provider 字段统一由 provider 状态表展开，避免 return 区继续维护一长串重复属性。
     ...resolvedProviderArgPayload,
     // 允许用参数覆盖 AI / Crypto 的国家优先链。
@@ -5155,13 +5228,8 @@ function resolveArgs(rawArgs) {
     hasAiPreferCountries: !!aiPreferCountries.length,
     cryptoPreferCountries,
     hasCryptoPreferCountries: !!cryptoPreferCountries.length,
-    countryExtraAliasesMap,
-    hasCountryExtraAliases: !!countryExtraAliasCountryCount,
-    countryExtraAliasCountryCount,
-    countryExtraAliasEntryCount,
-    countryExtraAliasPreview,
-    countryExtraAliasConflictCount,
-    countryExtraAliasConflictPreview,
+    // country-extra-aliases 字段统一由国家别名状态表展开，避免 return 区继续维护冲突/预览等派生字段。
+    ...resolvedCountryAliasArgPayload,
     // 全局测速组与布局字段也统一由状态表展开，避免 return 区继续堆积重复属性。
     ...resolvedGroupArgPayload,
     ...resolvedGroupLayoutArgPayload,
