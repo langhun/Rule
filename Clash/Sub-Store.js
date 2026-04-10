@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.15
+ * Sub-Store 终极策略增强脚本 V9.14.16
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -337,11 +337,12 @@
  * 332. 视频平台规则继续审计：参考 blackmatrix7 当前目录，把 Vimeo 并入流媒体组，补上 vimeo.com / livestream.com / vimeoondemand.com；Tumblr / Niconico 这轮先不一起并，避免一次塞太多跨品类站点。
  * 333. 日系视频规则继续审计：参考 blackmatrix7 当前目录，把 Niconico 并入流媒体组，补上 niconico.com / nicovideo.jp / nicoseiga.jp；Tumblr 仍暂不纳入，避免把博客社区与图片/短视频社交混在一组。
  * 334. 博客社区规则继续审计：参考 blackmatrix7 当前目录，把 Tumblr 并入 Instagram 组，统一承接图片/创作/博客社区流量；仍不额外拆独立博客面板，避免继续膨胀社交分组。
+ * 335. 体育流媒体规则继续审计：参考 blackmatrix7 当前目录，把 FuboTV 并入流媒体组，补上 fubo.tv / fubotv.com；DAZN 虽也可归到流媒体，但域名更杂，这轮先不一起塞入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.15";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.15。
+const SCRIPT_VERSION = "9.14.16";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.16。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7189,6 +7190,8 @@ const ruleProviders = finalizeRuleProviders({
   Vimeo: createCommunityClashRuleProvider("Vimeo"),
   // Niconico / NicoVideo / NicoSeiga 统一并入流媒体组，补充日系视频社区。
   Niconico: createCommunityClashRuleProvider("Niconico"),
+  // FuboTV 归并到流媒体组，补充体育直播/点播平台。
+  FuboTV: createCommunityClashRuleProvider("FuboTV"),
   // 额外国际视频平台统一并入“流媒体”组，避免单服务继续膨胀面板。
   AmazonPrimeVideo: createCommunityClashRuleProvider("AmazonPrimeVideo"),
   PrimeVideo: createCommunityClashRuleProvider("PrimeVideo"),
@@ -7441,6 +7444,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Vimeo", target: GROUPS.STREAMING },
   // Niconico / NicoVideo / NicoSeiga 也归并到流媒体组，不再额外拆日系视频面板。
   { provider: "Niconico", target: GROUPS.STREAMING },
+  // FuboTV 也归并到流媒体组，不额外拆体育视频面板。
+  { provider: "FuboTV", target: GROUPS.STREAMING },
   // 额外国际视频平台统一交给流媒体组，避免继续拆出 PrimeVideo/HBO/Hulu 等单独组。
   { provider: "AmazonPrimeVideo", target: GROUPS.STREAMING },
   { provider: "PrimeVideo", target: GROUPS.STREAMING },
@@ -7587,6 +7592,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
   { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
   { provider: "Niconico", label: "Niconico", expectedTarget: GROUPS.STREAMING },
+  { provider: "FuboTV", label: "FuboTV", expectedTarget: GROUPS.STREAMING },
   { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "PrimeVideo", label: "PrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "HBO", label: "HBO", expectedTarget: GROUPS.STREAMING },
@@ -8262,6 +8268,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "All4", label: "All4", category: "media" },
   { key: "Vimeo", label: "Vimeo", category: "media" },
   { key: "Niconico", label: "Niconico", category: "media" },
+  { key: "FuboTV", label: "FuboTV", category: "media" },
   { key: "AmazonPrimeVideo", label: "AmazonPrimeVideo", category: "media" },
   { key: "PrimeVideo", label: "PrimeVideo", category: "media" },
   { key: "HBO", label: "HBO", category: "media" },
@@ -10776,6 +10783,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   vimeo: "Vimeo",
   niconico: "Niconico",
   nicovideo: "Niconico",
+  fubotv: "FuboTV",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
   disney: "Disney",
