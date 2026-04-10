@@ -358,11 +358,12 @@
  * 353. 英美点播规则继续审计：参考 blackmatrix7 当前目录，把 CWSeed 并入流媒体组，补上 cwseed.com / cwtv.com / thecwvideo.com；BBC / CBS 仍暂不纳入，避免把新闻/集团站点与更宽的媒体域名一起卷入。
  * 354. 下载规则继续审计：参考 blackmatrix7 当前目录，把 Download 并入 PT 下载组，补上 qbittorrent / aria2 / xunlei / 迅雷与常见下载器进程匹配；AppStore / AppleID 仍暂不纳入，避免和现有 Apple 总规则堆叠重复。
  * 355. 开发生态规则继续审计：参考 blackmatrix7 当前目录，把 Contentful 并入开发服务组，补上 contentful.com / ctfassets.net；Apifox / AppleDev 这轮仍暂不纳入，避免把国内服务或更混合的苹果开发基础设施过早并入。
+ * 356. 开发协作规则继续审计：参考 blackmatrix7 当前目录，把 Collabora 并入开发服务组，补上 collabora.com / collaboraoffice.com 等协作办公域名；aiXcoder / Apifox 仍暂不纳入，避免把 AI 编程服务或偏国内工具过早并入统一开发组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.36";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.36。
+const SCRIPT_VERSION = "9.14.37";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.37。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -661,9 +662,9 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.ADS
 ]);
 
-// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
+// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Contentful / Collabora / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
 // 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
-const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
+const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Contentful", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
@@ -7155,6 +7156,8 @@ const ruleProviders = finalizeRuleProviders({
   GitBook: createDeveloperRuleProvider("GitBook"),
   // Contentful Headless CMS / 静态资源托管规则。
   Contentful: createDeveloperRuleProvider("Contentful"),
+  // Collabora 在线协作办公 / 文档平台规则。
+  Collabora: createDeveloperRuleProvider("Collabora"),
   // SourceForge 开源下载/分发平台规则。
   SourceForge: createDeveloperRuleProvider("SourceForge"),
   // DigitalOcean 云平台/对象存储规则。
@@ -7429,6 +7432,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "GitBook", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Contentful Headless CMS / 资源托管流量交给开发服务组。
   { provider: "Contentful", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Collabora 在线协作办公 / 文档平台流量交给开发服务组。
+  { provider: "Collabora", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // SourceForge 下载/分发平台流量交给开发服务组。
   { provider: "SourceForge", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // DigitalOcean 云平台流量交给开发服务组。
@@ -7682,6 +7687,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Heroku", label: "Heroku", expectedTarget: GROUPS.DEV },
   { provider: "GitBook", label: "GitBook", expectedTarget: GROUPS.DEV },
   { provider: "Contentful", label: "Contentful", expectedTarget: GROUPS.DEV },
+  { provider: "Collabora", label: "Collabora", expectedTarget: GROUPS.DEV },
   { provider: "SourceForge", label: "SourceForge", expectedTarget: GROUPS.DEV },
   { provider: "DigitalOcean", label: "DigitalOcean", expectedTarget: GROUPS.DEV },
   { provider: "Anaconda", label: "Anaconda", expectedTarget: GROUPS.DEV },
@@ -8392,6 +8398,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Heroku", label: "Heroku", category: "dev" },
   { key: "GitBook", label: "GitBook", category: "dev" },
   { key: "Contentful", label: "Contentful", category: "dev" },
+  { key: "Collabora", label: "Collabora", category: "dev" },
   { key: "SourceForge", label: "SourceForge", category: "dev" },
   { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
   { key: "Anaconda", label: "Anaconda", category: "dev" },
@@ -10244,7 +10251,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   // 这里只挑一批最关键的 provider 观察其规则落点，避免预览过长。
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
-    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
+    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Contentful", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     .map((provider) => {
       const definition = definitionLookup[provider];
@@ -11068,6 +11075,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   gitbook: "GitBook",
   contentful: "Contentful",
   ctfassets: "Contentful",
+  collabora: "Collabora",
+  collaboraoffice: "Collabora",
   sourceforge: "SourceForge",
   sf: "SourceForge",
   fsdn: "SourceForge",
