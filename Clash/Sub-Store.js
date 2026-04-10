@@ -348,11 +348,12 @@
  * 343. 亚洲/韩区流媒体规则继续审计：参考 blackmatrix7 当前目录，把 WeTV / iQIYIIntl / PandoraTV 并入流媒体组，补上 wetv.qq.com / wetv.vip / iq.com / inter.iqiyi.com / pandora.tv；iQIYI 国内版 / FOXNOW / DAZN 仍暂不纳入，避免把更宽的大陆域名、fox.com 或第三方统计域名一起卷入。
  * 344. 游戏分组继续审计：参考 blackmatrix7 当前目录，把 2KGames / Supercell / Rockstar / HoYoverse 并入游戏加速组，补上 2k.com / brawlstars.com / rockstargames.com / hoyoverse.com 等游戏生态域名；Garena 仍暂不纳入，避免把 seagroup.com 这类更宽的集团站点一起卷入。
  * 345. 苹果/视频规则继续审计：参考 blackmatrix7 当前目录，把 AppleNews 并入 Apple 组、Dailymotion / FOXPlus 并入流媒体组，补上 news-client-search.apple.com / dailymotion.com / foxplus.com；ATTWatchTV / Clubhouse 暂不纳入，避免把 directv.com 这类更宽电视站点或低频社交服务硬塞进现有分组。
+ * 346. 国内创作者付费规则继续审计：参考 blackmatrix7 当前目录，把 Afdian 并入直连规则，补上 afdian.net / afdiancdn.com，避免爱发电这类国内创作者赞助链路误走代理；AcFun / Clubhouse 暂不纳入，避免把低收益国内视频站或低频社交服务硬塞进现有分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.26";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.26。
+const SCRIPT_VERSION = "9.14.27";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.27。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7253,6 +7254,8 @@ const ruleProviders = finalizeRuleProviders({
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // AliPay / 支付宝及其跨境收银域名统一直连，避免国内支付链路误走代理。
   AliPay: createCommunityClashRuleProvider("AliPay"),
+  // Afdian / 爱发电创作者赞助规则也统一直连，避免国内支付链路误走代理。
+  Afdian: createCommunityClashRuleProvider("Afdian"),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
   // Patreon 创作者赞助 / 订阅规则并入 PayPal 组，不额外新增创作者经济面板。
@@ -7474,6 +7477,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Reddit", target: GROUPS.REDDIT },
   // AliPay / 支付宝支付链路优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "AliPay", target: GROUPS.DIRECT },
+  // Afdian / 爱发电创作者赞助链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
+  { provider: "Afdian", target: GROUPS.DIRECT },
   // PayPal 支付流量交给 PayPal 组。
   { provider: "PayPal", target: GROUPS.PAYPAL },
   // Patreon 创作者赞助 / 订阅流量也收口到 PayPal 组，统一处理支付类站点。
@@ -7650,6 +7655,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
+  { provider: "Afdian", label: "Afdian", expectedTarget: GROUPS.DIRECT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Patreon", label: "Patreon", expectedTarget: GROUPS.PAYPAL },
   { provider: "Stripe", label: "Stripe", expectedTarget: GROUPS.PAYPAL },
@@ -8346,6 +8352,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Facebook", label: "Facebook", category: "social" },
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "AliPay", label: "AliPay", category: "trade" },
+  { key: "Afdian", label: "Afdian", category: "trade" },
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Patreon", label: "Patreon", category: "trade" },
   { key: "Stripe", label: "Stripe", category: "trade" },
@@ -10883,6 +10890,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   pandora: "Pandora",
   tidal: "TIDAL",
   qobuz: "Qobuz",
+  afdian: "Afdian",
+  afdiancdn: "Afdian",
   linkedin: "LinkedIn",
   teams: "Teams",
   riot: "Riot",
