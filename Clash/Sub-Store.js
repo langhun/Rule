@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.13.0
+ * Sub-Store 终极策略增强脚本 V9.13.1
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -319,11 +319,12 @@
  * 314. resolveArgs 服务 URL/优先级告警继续收敛：把独立组 test-url、include-all 覆盖链、icon/interface/routing-mark 提示改成统一循环，减少大段平铺 if 模板。
  * 315. GitHub 社区分组继续补厚：参考 blackmatrix7 / QuixoticHeart 等规则仓库，新增 Discord / WhatsApp / LINE / Instagram / Facebook / PayPal 独立组，并收紧 Meta 系规则顺序，避免宽泛规则抢先命中。
  * 316. 社区高频社交分组继续补齐：继续参考 blackmatrix7 当前规则目录，把 Twitter / Reddit 提升为独立组；Threads / Twitch / LinkedIn 暂不单拆，避免和既有 Meta / 媒体 / 开发生态重复堆叠。
+ * 317. 分组必要性继续审计：按“能并入现有大组就不再单拆”的原则，把 Threads 并入 Facebook、LinkedIn 并入微软服务，并把 Riot / Battle / Blizzard / EA / Nintendo / PlayStation / Xbox / Ubisoft 统一补进游戏加速组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.13.0";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.13.0。
+const SCRIPT_VERSION = "9.13.1";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.13.1。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7140,6 +7141,8 @@ const ruleProviders = finalizeRuleProviders({
   Twitter: createCommunityClashRuleProvider("Twitter"),
   // Reddit 社区规则。
   Reddit: createCommunityClashRuleProvider("Reddit"),
+  // Threads 归并进 Facebook 组，避免和 Instagram / Facebook 再额外拆出一个低收益面板组。
+  Threads: createCommunityClashRuleProvider("Threads"),
   // Netflix 规则。
   Netflix: createRuleProvider("domain", metaGeoSite("netflix")),
   // Disney 规则。
@@ -7151,6 +7154,8 @@ const ruleProviders = finalizeRuleProviders({
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
 
+  // LinkedIn 规则：归并到微软服务组，避免为职业社交场景单开一个面板组。
+  LinkedIn: createCommunityClashRuleProvider("LinkedIn"),
   // 微软服务规则。
   Microsoft: createRuleProvider("domain", metaGeoSite("microsoft")),
   // Bing 规则。
@@ -7161,6 +7166,15 @@ const ruleProviders = finalizeRuleProviders({
   Apple: createRuleProvider("domain", metaGeoSite("apple")),
   // Apple TV+ 规则。
   AppleTV: createRuleProvider("domain", metaGeoSite("apple-tvplus")),
+  // Steam 之外的高频游戏平台统一补到“游戏加速”组，避免继续膨胀一排独立游戏面板。
+  Riot: createCommunityClashRuleProvider("Riot"),
+  Battle: createCommunityClashRuleProvider("Battle"),
+  Blizzard: createCommunityClashRuleProvider("Blizzard"),
+  EA: createCommunityClashRuleProvider("EA"),
+  Nintendo: createCommunityClashRuleProvider("Nintendo"),
+  PlayStation: createCommunityClashRuleProvider("PlayStation"),
+  Xbox: createCommunityClashRuleProvider("Xbox"),
+  Ubisoft: createCommunityClashRuleProvider("Ubisoft"),
   // SteamFix 直连补丁规则，仅在显式开启时接入。
   ...(ARGS.steamFix
     ? { SteamFix: createRuleProvider("classical", ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL, "text") }
@@ -7284,6 +7298,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Bing", target: GROUPS.BING },
   // OneDrive 流量交给 OneDrive 组。
   { provider: "OneDrive", target: GROUPS.ONEDRIVE },
+  // LinkedIn 归并到微软服务组；不单拆职业社交组，避免和现有办公/微软生态分组重复。
+  { provider: "LinkedIn", target: GROUPS.MICROSOFT },
   // 其他微软流量交给微软服务组；它比较泛，默认应排在 GitHub / OneDrive / Bing 等细分规则之后。
   { provider: "Microsoft", target: GROUPS.MICROSOFT },
 
@@ -7306,6 +7322,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Twitter", target: GROUPS.TWITTER },
   // Instagram 规则默认也放在 Facebook 前面，避免更宽泛的 Meta 规则抢先命中。
   { provider: "Instagram", target: GROUPS.INSTAGRAM },
+  // Threads 归并到 Facebook 组，避免为 Meta 生态再拆出一条低收益单独组。
+  { provider: "Threads", target: GROUPS.FACEBOOK },
   // Facebook / Meta 生态流量交给 Facebook 组。
   { provider: "Facebook", target: GROUPS.FACEBOOK },
   // Reddit 社区流量交给 Reddit 组。
@@ -7344,6 +7362,15 @@ const RULE_SET_DEFINITIONS = (() => {
     ruleOrderAnchorKey: "steamCnRuleAnchor",
     ruleOrderPositionKey: "steamCnRulePosition"
   },
+  // Steam 之外的高频游戏平台统一归到游戏加速组，减少独立面板数量。
+  { provider: "Riot", target: GROUPS.GAMES },
+  { provider: "Battle", target: GROUPS.GAMES },
+  { provider: "Blizzard", target: GROUPS.GAMES },
+  { provider: "EA", target: GROUPS.GAMES },
+  { provider: "Nintendo", target: GROUPS.GAMES },
+  { provider: "PlayStation", target: GROUPS.GAMES },
+  { provider: "Xbox", target: GROUPS.GAMES },
+  { provider: "Ubisoft", target: GROUPS.GAMES },
   // Epic Games 流量交给游戏组。
   { provider: "Epic", target: GROUPS.GAMES },
   // PT 下载流量交给 PT 组。
@@ -7392,15 +7419,26 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Dropbox", label: "Dropbox", expectedTarget: GROUPS.DEV },
   { provider: "Discord", label: "Discord", expectedTarget: GROUPS.DISCORD },
   { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
+  { provider: "LinkedIn", label: "LinkedIn", expectedTarget: GROUPS.MICROSOFT },
   { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.WHATSAPP },
   { provider: "Line", label: "LINE", expectedTarget: GROUPS.LINE },
   { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.TWITTER },
   { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.INSTAGRAM },
+  { provider: "Threads", label: "Threads", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
+  { provider: "Riot", label: "Riot", expectedTarget: GROUPS.GAMES },
+  { provider: "Battle", label: "Battle", expectedTarget: GROUPS.GAMES },
+  { provider: "Blizzard", label: "Blizzard", expectedTarget: GROUPS.GAMES },
+  { provider: "EA", label: "EA", expectedTarget: GROUPS.GAMES },
+  { provider: "Nintendo", label: "Nintendo", expectedTarget: GROUPS.GAMES },
+  { provider: "PlayStation", label: "PlayStation", expectedTarget: GROUPS.GAMES },
+  { provider: "Xbox", label: "Xbox", expectedTarget: GROUPS.GAMES },
+  { provider: "Ubisoft", label: "Ubisoft", expectedTarget: GROUPS.GAMES },
+  { provider: "Epic", label: "Epic", expectedTarget: GROUPS.GAMES },
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
   { provider: "Copilot", label: "Copilot", expectedTarget: GROUPS.AI },
   { provider: "Grok", label: "Grok", expectedTarget: GROUPS.AI },
@@ -7999,11 +8037,21 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Line", label: "LINE", category: "social" },
   { key: "Twitter", label: "Twitter", category: "social" },
   { key: "Instagram", label: "Instagram", category: "social" },
+  { key: "Threads", label: "Threads", category: "social" },
   { key: "Facebook", label: "Facebook", category: "social" },
   { key: "Reddit", label: "Reddit", category: "social" },
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Steam", label: "Steam", category: "game" },
-  { key: "SteamCN", label: "SteamCN", category: "game" }
+  { key: "SteamCN", label: "SteamCN", category: "game" },
+  { key: "Riot", label: "Riot", category: "game" },
+  { key: "Battle", label: "Battle", category: "game" },
+  { key: "Blizzard", label: "Blizzard", category: "game" },
+  { key: "EA", label: "EA", category: "game" },
+  { key: "Nintendo", label: "Nintendo", category: "game" },
+  { key: "PlayStation", label: "PlayStation", category: "game" },
+  { key: "Xbox", label: "Xbox", category: "game" },
+  { key: "Ubisoft", label: "Ubisoft", category: "game" },
+  { key: "Epic", label: "Epic", category: "game" }
 ]);
 // 业务规则窗口里的分类计数统一走映射，减少分析函数里重复 if-else 分支。
 const SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY = Object.freeze({
@@ -10424,6 +10472,18 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   facebook: "Facebook",
   fb: "Facebook",
   reddit: "Reddit",
+  threads: "Threads",
+  linkedin: "LinkedIn",
+  riot: "Riot",
+  battle: "Battle",
+  battlenet: "Battle",
+  blizzard: "Blizzard",
+  ea: "EA",
+  nintendo: "Nintendo",
+  playstation: "PlayStation",
+  psn: "PlayStation",
+  xbox: "Xbox",
+  ubisoft: "Ubisoft",
   tiktok: "TikTok",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
