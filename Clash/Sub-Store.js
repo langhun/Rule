@@ -5407,70 +5407,405 @@ function buildRuleProviderApplyScopeSummary() {
   return scopes.length ? scopes.join(",") : "default";
 }
 
-// 统计 rule-provider 在当前参数组合下的实际命中数量，便于把“作用范围”进一步落到真实条目数上。
-function analyzeRuleProviderApplyStats(providers) {
-  const source = isObject(providers) ? providers : {};
-  // total/type 分布描述 provider 基础盘子；xxxHit 描述“当前参数是否真的打到了这些条目”。
+// 统一把 provider type 解析成可复用的布尔标记，供 apply/mutation 两条统计链共用。
+function buildProviderCapabilityTypeInfo(provider, fallbackType) {
+  const current = isObject(provider) ? provider : {};
+  const type = normalizeStringArg(current.type || fallbackType || "http").toLowerCase() || "http";
+  return {
+    type,
+    isHttpProvider: type === "http",
+    isFileProvider: type === "file",
+    isInlineProvider: type === "inline"
+  };
+}
+
+// mutation 阶段通常要同时看 before/after 的 type；这里统一按 after -> before -> fallback 的顺序回退。
+function buildProviderCapabilityTypeInfoFromPair(beforeProvider, afterProvider, fallbackType) {
+  return buildProviderCapabilityTypeInfo({
+    type: isObject(afterProvider) && hasOwn(afterProvider, "type")
+      ? afterProvider.type
+      : (isObject(beforeProvider) ? beforeProvider.type : fallbackType)
+  }, fallbackType);
+}
+
+// definitions 里的 enabled 既可能是布尔值也可能是函数，这里统一转成最终布尔结果。
+function isProviderCapabilityEnabled(definition) {
+  if (!definition) {
+    return false;
+  }
+
+  return typeof definition.enabled === "function"
+    ? !!definition.enabled()
+    : !!definition.enabled;
+}
+
+// 某些能力只作用于 http/inline provider；match 统一在这里执行，调用方不再手写类型分支。
+function shouldTrackProviderCapability(definition, typeInfo, provider, name) {
+  if (!definition || typeof definition.match !== "function") {
+    return true;
+  }
+
+  return !!definition.match(isObject(typeInfo) ? typeInfo : {}, provider, name);
+}
+
+// 把 capability key + Added/Overrode/Noop 统一转成 stats 字段名，避免各处手写字符串拼接。
+function buildProviderCapabilityStatKey(capabilityKey, suffix) {
+  const token = String(suffix || "");
+  return `${String(capabilityKey || "")}${token ? `${token.charAt(0).toUpperCase()}${token.slice(1)}` : ""}`;
+}
+
+// apply 统计固定都会带 total/http/file/inline/other/invalid，再额外挂每类 capability 的 xxxHit。
+function createProviderApplyStatsShell(definitions) {
   const stats = {
     total: 0,
     http: 0,
     file: 0,
     inline: 0,
     other: 0,
-    invalid: 0,
-    pathHit: 0,
-    downloadHit: 0,
-    payloadHit: 0
+    invalid: 0
   };
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (!definition || !definition.key) {
+      continue;
+    }
+    stats[buildProviderCapabilityStatKey(definition.key, "Hit")] = 0;
+  }
+
+  return stats;
+}
+
+// apply 预览里每类 capability 只需要一组名称数组样本。
+function createProviderApplyPreviewShell(definitions) {
+  const preview = {};
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (!definition || !definition.key) {
+      continue;
+    }
+    preview[definition.key] = [];
+  }
+  return preview;
+}
+
+// mutation 统计里每类 capability 都需要 added/overrode/noop 三元组计数。
+function createProviderMutationStatsShell(definitions) {
+  const stats = { total: 0 };
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (!definition || !definition.key) {
+      continue;
+    }
+
+    for (const suffix of ["Added", "Overrode", "Noop"]) {
+      stats[buildProviderCapabilityStatKey(definition.key, suffix)] = 0;
+    }
+  }
+
+  return stats;
+}
+
+// mutation 预览里每类 capability 都保留 added/overrode/noop 三个名称样本桶。
+function createProviderMutationPreviewShell(definitions) {
+  const preview = {};
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (!definition || !definition.key) {
+      continue;
+    }
+    preview[definition.key] = createProviderMutationPreviewEntry();
+  }
+  return preview;
+}
+
+// provider 类型统计属于固定维度，这里统一写进对应桶，避免 rule/proxy 两边各写一份分支。
+function appendProviderTypeStats(stats, typeInfo) {
+  const target = isObject(stats) ? stats : {};
+  const currentTypeInfo = isObject(typeInfo) ? typeInfo : {};
+  if (currentTypeInfo.isHttpProvider) {
+    target.http += 1;
+    return target;
+  }
+
+  if (currentTypeInfo.isFileProvider) {
+    target.file += 1;
+    return target;
+  }
+
+  if (currentTypeInfo.isInlineProvider) {
+    target.inline += 1;
+    return target;
+  }
+
+  target.other += 1;
+  return target;
+}
+
+// definitions 驱动的 apply 统计：统一完成类型分桶与 capability hit 计数。
+function analyzeProviderApplyStatsByDefinitions(providers, definitions, fallbackType) {
+  const source = isObject(providers) ? providers : {};
+  const capabilityDefinitions = Array.isArray(definitions) ? definitions : [];
+  const stats = createProviderApplyStatsShell(capabilityDefinitions);
 
   for (const name of Object.keys(source)) {
     const provider = source[name];
     stats.total += 1;
 
     if (!isObject(provider)) {
-      // 非对象 provider 记为 invalid，后续不再参与分类。
       stats.invalid += 1;
       continue;
     }
 
-    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
+    const typeInfo = buildProviderCapabilityTypeInfo(provider, fallbackType);
+    appendProviderTypeStats(stats, typeInfo);
 
-    if (type === "http") {
-      // path/download 接管都只对 http 类型有效。
-      stats.http += 1;
-      if (ARGS.hasRuleProviderPathDir) {
-        stats.pathHit += 1;
+    for (const definition of capabilityDefinitions) {
+      if (!definition || !definition.key || !isProviderCapabilityEnabled(definition) || !shouldTrackProviderCapability(definition, typeInfo, provider, name)) {
+        continue;
       }
-      if (hasRuleProviderDownloadConfiguredOptions()) {
-        stats.downloadHit += 1;
-      }
-      continue;
-    }
 
-    if (type === "file") {
-      stats.file += 1;
-      continue;
+      stats[buildProviderCapabilityStatKey(definition.key, "Hit")] += 1;
     }
-
-    if (type === "inline") {
-      // payload 只会命中 inline provider。
-      stats.inline += 1;
-      if (ARGS.hasRuleProviderPayload) {
-        stats.payloadHit += 1;
-      }
-      continue;
-    }
-
-    stats.other += 1;
   }
 
   return stats;
 }
 
+// definitions 驱动的 apply 预览：和 apply stats 同口径，只保留命中名称样本。
+function analyzeProviderApplyPreviewByDefinitions(providers, definitions, fallbackType) {
+  const source = isObject(providers) ? providers : {};
+  const capabilityDefinitions = Array.isArray(definitions) ? definitions : [];
+  const preview = createProviderApplyPreviewShell(capabilityDefinitions);
+
+  for (const name of Object.keys(source)) {
+    const provider = source[name];
+    if (!isObject(provider)) {
+      continue;
+    }
+
+    const typeInfo = buildProviderCapabilityTypeInfo(provider, fallbackType);
+    for (const definition of capabilityDefinitions) {
+      if (!definition || !definition.key || !isProviderCapabilityEnabled(definition) || !shouldTrackProviderCapability(definition, typeInfo, provider, name)) {
+        continue;
+      }
+
+      preview[definition.key].push(name);
+    }
+  }
+
+  return preview;
+}
+
+// definitions 驱动的 mutation 统计：统一完成 added/overrode/noop 三类计数。
+function analyzeProviderMutationStatsByDefinitions(beforeProviders, afterProviders, definitions, fallbackType) {
+  const source = isObject(beforeProviders) ? beforeProviders : {};
+  const target = isObject(afterProviders) ? afterProviders : {};
+  const capabilityDefinitions = Array.isArray(definitions) ? definitions : [];
+  const stats = createProviderMutationStatsShell(capabilityDefinitions);
+
+  for (const name of Object.keys(target)) {
+    const beforeProvider = isObject(source[name]) ? source[name] : {};
+    const afterProvider = target[name];
+    if (!isObject(afterProvider)) {
+      continue;
+    }
+
+    stats.total += 1;
+    const typeInfo = buildProviderCapabilityTypeInfoFromPair(beforeProvider, afterProvider, fallbackType);
+
+    for (const definition of capabilityDefinitions) {
+      if (
+        !definition ||
+        !definition.key ||
+        !Array.isArray(definition.mutationKeys) ||
+        !definition.mutationKeys.length ||
+        !isProviderCapabilityEnabled(definition) ||
+        !shouldTrackProviderCapability(definition, typeInfo, afterProvider, name)
+      ) {
+        continue;
+      }
+
+      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, definition.mutationKeys);
+      if (mutation.added) {
+        stats[buildProviderCapabilityStatKey(definition.key, "Added")] += 1;
+      }
+      if (mutation.overrode) {
+        stats[buildProviderCapabilityStatKey(definition.key, "Overrode")] += 1;
+      }
+      if (mutation.noop) {
+        stats[buildProviderCapabilityStatKey(definition.key, "Noop")] += 1;
+      }
+    }
+  }
+
+  return stats;
+}
+
+// definitions 驱动的 mutation 预览：和 mutation stats 保持同口径，只追加样本名称。
+function analyzeProviderMutationPreviewByDefinitions(beforeProviders, afterProviders, definitions, fallbackType) {
+  const source = isObject(beforeProviders) ? beforeProviders : {};
+  const target = isObject(afterProviders) ? afterProviders : {};
+  const capabilityDefinitions = Array.isArray(definitions) ? definitions : [];
+  const preview = createProviderMutationPreviewShell(capabilityDefinitions);
+
+  for (const name of Object.keys(target)) {
+    const beforeProvider = isObject(source[name]) ? source[name] : {};
+    const afterProvider = target[name];
+    if (!isObject(afterProvider)) {
+      continue;
+    }
+
+    const typeInfo = buildProviderCapabilityTypeInfoFromPair(beforeProvider, afterProvider, fallbackType);
+    for (const definition of capabilityDefinitions) {
+      if (
+        !definition ||
+        !definition.key ||
+        !Array.isArray(definition.mutationKeys) ||
+        !definition.mutationKeys.length ||
+        !isProviderCapabilityEnabled(definition) ||
+        !shouldTrackProviderCapability(definition, typeInfo, afterProvider, name)
+      ) {
+        continue;
+      }
+
+      appendProviderMutationPreviewEntry(
+        preview[definition.key],
+        name,
+        analyzeProviderMutationByKeys(beforeProvider, afterProvider, definition.mutationKeys)
+      );
+    }
+  }
+
+  return preview;
+}
+
+// apply 统计输出统一按 definitions 拼成 `path-hit=...` 这类紧凑片段，避免 rule/proxy 两边各维护一串模板。
+function formatProviderApplyStatsByDefinitions(stats, definitions) {
+  const source = isObject(stats) ? stats : {};
+  return [
+    `total=${Number(source.total) || 0}`,
+    `http=${Number(source.http) || 0}`,
+    `file=${Number(source.file) || 0}`,
+    `inline=${Number(source.inline) || 0}`,
+    `other=${Number(source.other) || 0}`,
+    `invalid=${Number(source.invalid) || 0}`
+  ].concat(
+    (Array.isArray(definitions) ? definitions : [])
+      .filter((definition) => definition && definition.key)
+      .map((definition) => `${definition.label || definition.key}-hit=${isProviderCapabilityEnabled(definition) ? (Number(source[buildProviderCapabilityStatKey(definition.key, "Hit")]) || 0) : "off"}`)
+  ).join(",");
+}
+
+// apply 预览输出同样统一按 definitions 拼接。
+function formatProviderApplyPreviewByDefinitions(preview, definitions) {
+  const source = isObject(preview) ? preview : {};
+  return (Array.isArray(definitions) ? definitions : [])
+    .filter((definition) => definition && definition.key)
+    .map((definition) => formatProviderPreviewEntry(definition.label || definition.key, source[definition.key], isProviderCapabilityEnabled(definition)))
+    .join(",");
+}
+
+// mutation 统计输出统一按 definitions 拉平成 added/overrode/noop 三元组，减少长模板字符串。
+function formatProviderMutationStatsByDefinitions(stats, definitions) {
+  const source = isObject(stats) ? stats : {};
+  const entries = [`total=${Number(source.total) || 0}`];
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    if (!definition || !definition.key) {
+      continue;
+    }
+
+    const label = definition.label || definition.key;
+    const enabled = isProviderCapabilityEnabled(definition);
+    entries.push(`${label}-added=${enabled ? (Number(source[buildProviderCapabilityStatKey(definition.key, "Added")]) || 0) : "off"}`);
+    entries.push(`${label}-overrode=${enabled ? (Number(source[buildProviderCapabilityStatKey(definition.key, "Overrode")]) || 0) : "off"}`);
+    entries.push(`${label}-noop=${enabled ? (Number(source[buildProviderCapabilityStatKey(definition.key, "Noop")]) || 0) : "off"}`);
+  }
+
+  return entries.join(",");
+}
+
+// mutation 样本预览也统一按 definitions 驱动，避免每新增一类 capability 都要手工改一遍 join 模板。
+function formatProviderMutationPreviewByDefinitions(preview, definitions) {
+  const source = isObject(preview) ? preview : {};
+  return (Array.isArray(definitions) ? definitions : [])
+    .filter((definition) => definition && definition.key)
+    .map((definition) => formatProviderMutationPreviewEntry(definition.label || definition.key, source[definition.key], isProviderCapabilityEnabled(definition)))
+    .join(",");
+}
+
+// rule-provider 的 path/download/payload 三类 capability 现在统一集中维护，apply 与 mutation 两条链都复用这份定义。
+const RULE_PROVIDER_CAPABILITY_DEFINITIONS = Object.freeze([
+  Object.freeze({
+    key: "path",
+    label: "path",
+    enabled: () => typeof ARGS !== "undefined" && ARGS && ARGS.hasRuleProviderPathDir,
+    match: (typeInfo) => typeInfo.isHttpProvider,
+    mutationKeys: ["path"]
+  }),
+  Object.freeze({
+    key: "download",
+    label: "download",
+    enabled: () => hasRuleProviderDownloadConfiguredOptions(),
+    match: (typeInfo) => typeInfo.isHttpProvider,
+    mutationKeys: ["interval", "proxy", "size-limit", "header"]
+  }),
+  Object.freeze({
+    key: "payload",
+    label: "payload",
+    enabled: () => typeof ARGS !== "undefined" && ARGS && ARGS.hasRuleProviderPayload,
+    match: (typeInfo) => typeInfo.isInlineProvider,
+    mutationKeys: ["payload"]
+  })
+]);
+
+// proxy-provider 的 capability 更丰富：除 path/download 外，其余几类可作用于所有合法 provider。
+const PROXY_PROVIDER_CAPABILITY_DEFINITIONS = Object.freeze([
+  Object.freeze({
+    key: "path",
+    label: "path",
+    enabled: () => typeof ARGS !== "undefined" && ARGS && ARGS.hasProxyProviderPathDir,
+    match: (typeInfo) => typeInfo.isHttpProvider,
+    mutationKeys: ["path"]
+  }),
+  Object.freeze({
+    key: "download",
+    label: "download",
+    enabled: () => hasProxyProviderDownloadConfiguredOptions(),
+    match: (typeInfo) => typeInfo.isHttpProvider,
+    mutationKeys: ["interval", "proxy", "size-limit", "header"]
+  }),
+  Object.freeze({
+    key: "payload",
+    label: "payload",
+    enabled: () => typeof ARGS !== "undefined" && ARGS && ARGS.hasProxyProviderPayload,
+    mutationKeys: ["payload"]
+  }),
+  Object.freeze({
+    key: "collection",
+    label: "collection",
+    enabled: () => hasProxyProviderCollectionConfiguredOptions(),
+    mutationKeys: ["filter", "exclude-filter", "exclude-type"]
+  }),
+  Object.freeze({
+    key: "override",
+    label: "override",
+    enabled: () => hasProxyProviderOverrideConfiguredOptions(),
+    mutationKeys: ["override"]
+  }),
+  Object.freeze({
+    key: "healthCheck",
+    label: "health-check",
+    enabled: () => hasProxyProviderHealthCheckConfiguredOptions(),
+    mutationKeys: ["health-check"]
+  })
+]);
+
+// 统计 rule-provider 在当前参数组合下的实际命中数量，便于把“作用范围”进一步落到真实条目数上。
+function analyzeRuleProviderApplyStats(providers) {
+  return analyzeProviderApplyStatsByDefinitions(providers, RULE_PROVIDER_CAPABILITY_DEFINITIONS, "http");
+}
+
 // 把 rule-provider 命中统计压成紧凑摘要，方便写入 full 日志与响应调试头。
 function formatRuleProviderApplyStats(stats) {
-  const source = isObject(stats) ? stats : {};
-  return `total=${Number(source.total) || 0},http=${Number(source.http) || 0},file=${Number(source.file) || 0},inline=${Number(source.inline) || 0},other=${Number(source.other) || 0},invalid=${Number(source.invalid) || 0},path-hit=${ARGS.hasRuleProviderPathDir ? (Number(source.pathHit) || 0) : "off"},download-hit=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadHit) || 0) : "off"},payload-hit=${ARGS.hasRuleProviderPayload ? (Number(source.payloadHit) || 0) : "off"}`;
+  return formatProviderApplyStatsByDefinitions(stats, RULE_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 清洗 provider 名称样本，避免预览摘要里的分隔符与超长名称把调试信息挤爆。
@@ -5510,50 +5845,12 @@ function formatProviderPreviewEntry(label, names, enabled) {
 
 // 汇总 rule-provider 实际命中的名称样本，便于在统计之外快速定位具体条目。
 function analyzeRuleProviderApplyPreview(providers) {
-  const source = isObject(providers) ? providers : {};
-  // 这里不存计数，只保留命中样本名称，后面统一压成短预览。
-  const preview = {
-    path: [],
-    download: [],
-    payload: []
-  };
-
-  for (const name of Object.keys(source)) {
-    const provider = source[name];
-
-    if (!isObject(provider)) {
-      continue;
-    }
-
-    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
-
-    if (type === "http") {
-      // 与统计逻辑保持同口径：http provider 同时承担 path/download 两类接管。
-      if (ARGS.hasRuleProviderPathDir) {
-        preview.path.push(name);
-      }
-      if (hasRuleProviderDownloadConfiguredOptions()) {
-        preview.download.push(name);
-      }
-      continue;
-    }
-
-    if (type === "inline" && ARGS.hasRuleProviderPayload) {
-      preview.payload.push(name);
-    }
-  }
-
-  return preview;
+  return analyzeProviderApplyPreviewByDefinitions(providers, RULE_PROVIDER_CAPABILITY_DEFINITIONS, "http");
 }
 
 // 把 rule-provider 命中样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
 function formatRuleProviderApplyPreview(preview) {
-  const source = isObject(preview) ? preview : {};
-  return [
-    formatProviderPreviewEntry("path", source.path, ARGS.hasRuleProviderPathDir),
-    formatProviderPreviewEntry("download", source.download, hasRuleProviderDownloadConfiguredOptions()),
-    formatProviderPreviewEntry("payload", source.payload, ARGS.hasRuleProviderPayload)
-  ].join(",");
+  return formatProviderApplyPreviewByDefinitions(preview, RULE_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 判断两个 JSON 兼容值在当前脚本语义下是否等价，便于区分“新增写入”和“覆盖旧值”。
@@ -5654,147 +5951,32 @@ function formatProviderMutationPreviewEntry(label, entry, enabled) {
 
 // 统计 rule-provider 参数最终是新增字段还是覆盖旧字段，帮助区分“补全”与“替换”。
 function analyzeRuleProviderMutationStats(beforeProviders, afterProviders) {
-  const source = isObject(beforeProviders) ? beforeProviders : {};
-  const target = isObject(afterProviders) ? afterProviders : {};
-  // added / overrode / noop 三元组用于区分“新增补全”“覆盖原值”“保持原样”。
-  const stats = {
-    total: 0,
-    pathAdded: 0,
-    pathOverrode: 0,
-    pathNoop: 0,
-    downloadAdded: 0,
-    downloadOverrode: 0,
-    downloadNoop: 0,
-    payloadAdded: 0,
-    payloadOverrode: 0,
-    payloadNoop: 0
-  };
-
-  for (const name of Object.keys(target)) {
-    const beforeProvider = isObject(source[name]) ? source[name] : {};
-    const afterProvider = target[name];
-
-    if (!isObject(afterProvider)) {
-      continue;
-    }
-
-    stats.total += 1;
-    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
-    const isHttpProvider = type === "http";
-    const isInlineProvider = type === "inline";
-
-    if (ARGS.hasRuleProviderPathDir && isHttpProvider) {
-      // path 只看 `path` 字段本身有没有被补写或改写。
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"]);
-      if (mutation.added) {
-        stats.pathAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.pathOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.pathNoop += 1;
-      }
-    }
-
-    if (hasRuleProviderDownloadConfiguredOptions() && isHttpProvider) {
-      // 下载控制是一组字段的组合改写，统一打包分析。
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"]);
-      if (mutation.added) {
-        stats.downloadAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.downloadOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.downloadNoop += 1;
-      }
-    }
-
-    if (ARGS.hasRuleProviderPayload && isInlineProvider) {
-      // inline payload 的变化只看 payload 本身。
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"]);
-      if (mutation.added) {
-        stats.payloadAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.payloadOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.payloadNoop += 1;
-      }
-    }
-  }
-
-  return stats;
+  return analyzeProviderMutationStatsByDefinitions(
+    beforeProviders,
+    afterProviders,
+    RULE_PROVIDER_CAPABILITY_DEFINITIONS,
+    "http"
+  );
 }
 
 // 汇总 rule-provider 的改动样本，便于快速定位哪些 provider 被新增写入、覆盖或保持不变。
 function analyzeRuleProviderMutationPreview(beforeProviders, afterProviders) {
-  const source = isObject(beforeProviders) ? beforeProviders : {};
-  const target = isObject(afterProviders) ? afterProviders : {};
-  // 每类改动都保留 added / overrode / noop 三个样本桶。
-  const preview = {
-    path: createProviderMutationPreviewEntry(),
-    download: createProviderMutationPreviewEntry(),
-    payload: createProviderMutationPreviewEntry()
-  };
-
-  for (const name of Object.keys(target)) {
-    const beforeProvider = isObject(source[name]) ? source[name] : {};
-    const afterProvider = target[name];
-
-    if (!isObject(afterProvider)) {
-      continue;
-    }
-
-    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
-    const isHttpProvider = type === "http";
-    const isInlineProvider = type === "inline";
-
-    if (ARGS.hasRuleProviderPathDir && isHttpProvider) {
-      // 样本预览与统计同口径，确保日志里的数量和样本能对上。
-      appendProviderMutationPreviewEntry(
-        preview.path,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"])
-      );
-    }
-
-    if (hasRuleProviderDownloadConfiguredOptions() && isHttpProvider) {
-      appendProviderMutationPreviewEntry(
-        preview.download,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"])
-      );
-    }
-
-    if (ARGS.hasRuleProviderPayload && isInlineProvider) {
-      appendProviderMutationPreviewEntry(
-        preview.payload,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"])
-      );
-    }
-  }
-
-  return preview;
+  return analyzeProviderMutationPreviewByDefinitions(
+    beforeProviders,
+    afterProviders,
+    RULE_PROVIDER_CAPABILITY_DEFINITIONS,
+    "http"
+  );
 }
 
 // 把 rule-provider 改动统计压成紧凑摘要，便于写入 full 日志与响应调试头。
 function formatRuleProviderMutationStats(stats) {
-  const source = isObject(stats) ? stats : {};
-  return `total=${Number(source.total) || 0},path-added=${ARGS.hasRuleProviderPathDir ? (Number(source.pathAdded) || 0) : "off"},path-overrode=${ARGS.hasRuleProviderPathDir ? (Number(source.pathOverrode) || 0) : "off"},path-noop=${ARGS.hasRuleProviderPathDir ? (Number(source.pathNoop) || 0) : "off"},download-added=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadAdded) || 0) : "off"},download-overrode=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadOverrode) || 0) : "off"},download-noop=${hasRuleProviderDownloadConfiguredOptions() ? (Number(source.downloadNoop) || 0) : "off"},payload-added=${ARGS.hasRuleProviderPayload ? (Number(source.payloadAdded) || 0) : "off"},payload-overrode=${ARGS.hasRuleProviderPayload ? (Number(source.payloadOverrode) || 0) : "off"},payload-noop=${ARGS.hasRuleProviderPayload ? (Number(source.payloadNoop) || 0) : "off"}`;
+  return formatProviderMutationStatsByDefinitions(stats, RULE_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 把 rule-provider 改动样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
 function formatRuleProviderMutationPreview(preview) {
-  const source = isObject(preview) ? preview : {};
-  return [
-    formatProviderMutationPreviewEntry("path", source.path, ARGS.hasRuleProviderPathDir),
-    formatProviderMutationPreviewEntry("download", source.download, hasRuleProviderDownloadConfiguredOptions()),
-    formatProviderMutationPreviewEntry("payload", source.payload, ARGS.hasRuleProviderPayload)
-  ].join(",");
+  return formatProviderMutationPreviewByDefinitions(preview, RULE_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 把最终 rule-provider 做统一定稿：补本地缓存路径，并把 http 类型的下载控制统一接管。
@@ -6299,363 +6481,52 @@ function buildProxyProviderApplyScopeSummary() {
 
 // 统计 proxy-provider 在当前参数组合下的实际命中数量，便于确认每类接管到底打到了多少 provider。
 function analyzeProxyProviderApplyStats(proxyProviders) {
-  const source = isObject(proxyProviders) ? proxyProviders : {};
-  // proxy-provider 的接管面更广，所以除了 path/download 外，还要跟踪 payload/collection/override/health-check。
-  const stats = {
-    total: 0,
-    http: 0,
-    file: 0,
-    inline: 0,
-    other: 0,
-    invalid: 0,
-    pathHit: 0,
-    downloadHit: 0,
-    payloadHit: 0,
-    collectionHit: 0,
-    overrideHit: 0,
-    healthCheckHit: 0
-  };
-
-  for (const name of Object.keys(source)) {
-    const provider = source[name];
-    stats.total += 1;
-
-    if (!isObject(provider)) {
-      // 保持和 rule-provider 一致：非法 provider 单独记 invalid。
-      stats.invalid += 1;
-      continue;
-    }
-
-    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
-
-    if (type === "http") {
-      // 只有 http provider 受 path/download 两类下载侧参数影响。
-      stats.http += 1;
-      if (ARGS.hasProxyProviderPathDir) {
-        stats.pathHit += 1;
-      }
-      if (hasProxyProviderDownloadConfiguredOptions()) {
-        stats.downloadHit += 1;
-      }
-    } else if (type === "file") {
-      stats.file += 1;
-    } else if (type === "inline") {
-      stats.inline += 1;
-    } else {
-      stats.other += 1;
-    }
-
-    // 下列四类参数对 provider 类型不敏感，只要 provider 合法就视为命中。
-    if (ARGS.hasProxyProviderPayload) {
-      stats.payloadHit += 1;
-    }
-
-    if (hasProxyProviderCollectionConfiguredOptions()) {
-      stats.collectionHit += 1;
-    }
-
-    if (hasProxyProviderOverrideConfiguredOptions()) {
-      stats.overrideHit += 1;
-    }
-
-    if (hasProxyProviderHealthCheckConfiguredOptions()) {
-      stats.healthCheckHit += 1;
-    }
-  }
-
-  return stats;
+  return analyzeProviderApplyStatsByDefinitions(proxyProviders, PROXY_PROVIDER_CAPABILITY_DEFINITIONS, "http");
 }
 
 // 把 proxy-provider 命中统计压成紧凑摘要，方便写入 full 日志与响应调试头。
 function formatProxyProviderApplyStats(stats) {
-  const source = isObject(stats) ? stats : {};
-  return `total=${Number(source.total) || 0},http=${Number(source.http) || 0},file=${Number(source.file) || 0},inline=${Number(source.inline) || 0},other=${Number(source.other) || 0},invalid=${Number(source.invalid) || 0},path-hit=${ARGS.hasProxyProviderPathDir ? (Number(source.pathHit) || 0) : "off"},download-hit=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadHit) || 0) : "off"},payload-hit=${ARGS.hasProxyProviderPayload ? (Number(source.payloadHit) || 0) : "off"},collection-hit=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionHit) || 0) : "off"},override-hit=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideHit) || 0) : "off"},health-check-hit=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckHit) || 0) : "off"}`;
+  return formatProviderApplyStatsByDefinitions(stats, PROXY_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 汇总 proxy-provider 实际命中的名称样本，便于快速定位具体 provider。
 function analyzeProxyProviderApplyPreview(proxyProviders) {
-  const source = isObject(proxyProviders) ? proxyProviders : {};
-  // 预览桶命名与 stats 的 hit 字段一一对应，方便摘要对照。
-  const preview = {
-    path: [],
-    download: [],
-    payload: [],
-    collection: [],
-    override: [],
-    healthCheck: []
-  };
-
-  for (const name of Object.keys(source)) {
-    const provider = source[name];
-
-    if (!isObject(provider)) {
-      continue;
-    }
-
-    const type = normalizeStringArg(provider.type || "http").toLowerCase() || "http";
-    const isHttpProvider = type === "http";
-
-    // 先处理只对 http 生效的项。
-    if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
-      preview.path.push(name);
-    }
-
-    if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
-      preview.download.push(name);
-    }
-
-    if (ARGS.hasProxyProviderPayload) {
-      preview.payload.push(name);
-    }
-
-    if (hasProxyProviderCollectionConfiguredOptions()) {
-      preview.collection.push(name);
-    }
-
-    if (hasProxyProviderOverrideConfiguredOptions()) {
-      preview.override.push(name);
-    }
-
-    if (hasProxyProviderHealthCheckConfiguredOptions()) {
-      preview.healthCheck.push(name);
-    }
-  }
-
-  return preview;
+  return analyzeProviderApplyPreviewByDefinitions(proxyProviders, PROXY_PROVIDER_CAPABILITY_DEFINITIONS, "http");
 }
 
 // 把 proxy-provider 命中样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
 function formatProxyProviderApplyPreview(preview) {
-  const source = isObject(preview) ? preview : {};
-  return [
-    formatProviderPreviewEntry("path", source.path, ARGS.hasProxyProviderPathDir),
-    formatProviderPreviewEntry("download", source.download, hasProxyProviderDownloadConfiguredOptions()),
-    formatProviderPreviewEntry("payload", source.payload, ARGS.hasProxyProviderPayload),
-    formatProviderPreviewEntry("collection", source.collection, hasProxyProviderCollectionConfiguredOptions()),
-    formatProviderPreviewEntry("override", source.override, hasProxyProviderOverrideConfiguredOptions()),
-    formatProviderPreviewEntry("health-check", source.healthCheck, hasProxyProviderHealthCheckConfiguredOptions())
-  ].join(",");
+  return formatProviderApplyPreviewByDefinitions(preview, PROXY_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 统计 proxy-provider 参数最终是新增字段还是覆盖旧字段，帮助区分“补全”与“替换”。
 function analyzeProxyProviderMutationStats(beforeProviders, afterProviders) {
-  const source = isObject(beforeProviders) ? beforeProviders : {};
-  const target = isObject(afterProviders) ? afterProviders : {};
-  // 结构和 rule-provider mutation stats 平行，只是覆盖面更大。
-  const stats = {
-    total: 0,
-    pathAdded: 0,
-    pathOverrode: 0,
-    pathNoop: 0,
-    downloadAdded: 0,
-    downloadOverrode: 0,
-    downloadNoop: 0,
-    payloadAdded: 0,
-    payloadOverrode: 0,
-    payloadNoop: 0,
-    collectionAdded: 0,
-    collectionOverrode: 0,
-    collectionNoop: 0,
-    overrideAdded: 0,
-    overrideOverrode: 0,
-    overrideNoop: 0,
-    healthCheckAdded: 0,
-    healthCheckOverrode: 0,
-    healthCheckNoop: 0
-  };
-
-  for (const name of Object.keys(target)) {
-    const beforeProvider = isObject(source[name]) ? source[name] : {};
-    const afterProvider = target[name];
-
-    if (!isObject(afterProvider)) {
-      continue;
-    }
-
-    stats.total += 1;
-    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
-    const isHttpProvider = type === "http";
-
-    if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
-      // path 仍然只看 `path` 这个单字段。
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"]);
-      if (mutation.added) {
-        stats.pathAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.pathOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.pathNoop += 1;
-      }
-    }
-
-    if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
-      // 下载控制仍然是 interval/proxy/size-limit/header 四字段组合。
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"]);
-      if (mutation.added) {
-        stats.downloadAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.downloadOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.downloadNoop += 1;
-      }
-    }
-
-    if (ARGS.hasProxyProviderPayload) {
-      // payload / collection / override / health-check 不区分 provider 类型。
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"]);
-      if (mutation.added) {
-        stats.payloadAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.payloadOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.payloadNoop += 1;
-      }
-    }
-
-    if (hasProxyProviderCollectionConfiguredOptions()) {
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["filter", "exclude-filter", "exclude-type"]);
-      if (mutation.added) {
-        stats.collectionAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.collectionOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.collectionNoop += 1;
-      }
-    }
-
-    if (hasProxyProviderOverrideConfiguredOptions()) {
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["override"]);
-      if (mutation.added) {
-        stats.overrideAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.overrideOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.overrideNoop += 1;
-      }
-    }
-
-    if (hasProxyProviderHealthCheckConfiguredOptions()) {
-      const mutation = analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["health-check"]);
-      if (mutation.added) {
-        stats.healthCheckAdded += 1;
-      }
-      if (mutation.overrode) {
-        stats.healthCheckOverrode += 1;
-      }
-      if (mutation.noop) {
-        stats.healthCheckNoop += 1;
-      }
-    }
-  }
-
-  return stats;
+  return analyzeProviderMutationStatsByDefinitions(
+    beforeProviders,
+    afterProviders,
+    PROXY_PROVIDER_CAPABILITY_DEFINITIONS,
+    "http"
+  );
 }
 
 // 汇总 proxy-provider 的改动样本，便于快速定位哪些 provider 被新增写入、覆盖或保持不变。
 function analyzeProxyProviderMutationPreview(beforeProviders, afterProviders) {
-  const source = isObject(beforeProviders) ? beforeProviders : {};
-  const target = isObject(afterProviders) ? afterProviders : {};
-  // 六个样本桶分别对应 path/download/payload/collection/override/health-check 六类接管面。
-  const preview = {
-    path: createProviderMutationPreviewEntry(),
-    download: createProviderMutationPreviewEntry(),
-    payload: createProviderMutationPreviewEntry(),
-    collection: createProviderMutationPreviewEntry(),
-    override: createProviderMutationPreviewEntry(),
-    healthCheck: createProviderMutationPreviewEntry()
-  };
-
-  for (const name of Object.keys(target)) {
-    const beforeProvider = isObject(source[name]) ? source[name] : {};
-    const afterProvider = target[name];
-
-    if (!isObject(afterProvider)) {
-      continue;
-    }
-
-    const type = normalizeStringArg(afterProvider.type || beforeProvider.type || "http").toLowerCase() || "http";
-    const isHttpProvider = type === "http";
-
-    // path/download 仍只针对 http provider；其余几类可作用于所有 provider 类型。
-    if (ARGS.hasProxyProviderPathDir && isHttpProvider) {
-      appendProviderMutationPreviewEntry(
-        preview.path,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["path"])
-      );
-    }
-
-    if (hasProxyProviderDownloadConfiguredOptions() && isHttpProvider) {
-      appendProviderMutationPreviewEntry(
-        preview.download,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["interval", "proxy", "size-limit", "header"])
-      );
-    }
-
-    if (ARGS.hasProxyProviderPayload) {
-      appendProviderMutationPreviewEntry(
-        preview.payload,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["payload"])
-      );
-    }
-
-    if (hasProxyProviderCollectionConfiguredOptions()) {
-      appendProviderMutationPreviewEntry(
-        preview.collection,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["filter", "exclude-filter", "exclude-type"])
-      );
-    }
-
-    if (hasProxyProviderOverrideConfiguredOptions()) {
-      appendProviderMutationPreviewEntry(
-        preview.override,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["override"])
-      );
-    }
-
-    if (hasProxyProviderHealthCheckConfiguredOptions()) {
-      appendProviderMutationPreviewEntry(
-        preview.healthCheck,
-        name,
-        analyzeProviderMutationByKeys(beforeProvider, afterProvider, ["health-check"])
-      );
-    }
-  }
-
-  return preview;
+  return analyzeProviderMutationPreviewByDefinitions(
+    beforeProviders,
+    afterProviders,
+    PROXY_PROVIDER_CAPABILITY_DEFINITIONS,
+    "http"
+  );
 }
 
 // 把 proxy-provider 改动统计压成紧凑摘要，便于写入 full 日志与响应调试头。
 function formatProxyProviderMutationStats(stats) {
-  const source = isObject(stats) ? stats : {};
-  return `total=${Number(source.total) || 0},path-added=${ARGS.hasProxyProviderPathDir ? (Number(source.pathAdded) || 0) : "off"},path-overrode=${ARGS.hasProxyProviderPathDir ? (Number(source.pathOverrode) || 0) : "off"},path-noop=${ARGS.hasProxyProviderPathDir ? (Number(source.pathNoop) || 0) : "off"},download-added=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadAdded) || 0) : "off"},download-overrode=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadOverrode) || 0) : "off"},download-noop=${hasProxyProviderDownloadConfiguredOptions() ? (Number(source.downloadNoop) || 0) : "off"},payload-added=${ARGS.hasProxyProviderPayload ? (Number(source.payloadAdded) || 0) : "off"},payload-overrode=${ARGS.hasProxyProviderPayload ? (Number(source.payloadOverrode) || 0) : "off"},payload-noop=${ARGS.hasProxyProviderPayload ? (Number(source.payloadNoop) || 0) : "off"},collection-added=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionAdded) || 0) : "off"},collection-overrode=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionOverrode) || 0) : "off"},collection-noop=${hasProxyProviderCollectionConfiguredOptions() ? (Number(source.collectionNoop) || 0) : "off"},override-added=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideAdded) || 0) : "off"},override-overrode=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideOverrode) || 0) : "off"},override-noop=${hasProxyProviderOverrideConfiguredOptions() ? (Number(source.overrideNoop) || 0) : "off"},health-check-added=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckAdded) || 0) : "off"},health-check-overrode=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckOverrode) || 0) : "off"},health-check-noop=${hasProxyProviderHealthCheckConfiguredOptions() ? (Number(source.healthCheckNoop) || 0) : "off"}`;
+  return formatProviderMutationStatsByDefinitions(stats, PROXY_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 把 proxy-provider 改动样本预览压成紧凑摘要，便于响应调试头与 full 日志复用。
 function formatProxyProviderMutationPreview(preview) {
-  const source = isObject(preview) ? preview : {};
-  return [
-    formatProviderMutationPreviewEntry("path", source.path, ARGS.hasProxyProviderPathDir),
-    formatProviderMutationPreviewEntry("download", source.download, hasProxyProviderDownloadConfiguredOptions()),
-    formatProviderMutationPreviewEntry("payload", source.payload, ARGS.hasProxyProviderPayload),
-    formatProviderMutationPreviewEntry("collection", source.collection, hasProxyProviderCollectionConfiguredOptions()),
-    formatProviderMutationPreviewEntry("override", source.override, hasProxyProviderOverrideConfiguredOptions()),
-    formatProviderMutationPreviewEntry("health-check", source.healthCheck, hasProxyProviderHealthCheckConfiguredOptions())
-  ].join(",");
+  return formatProviderMutationPreviewByDefinitions(preview, PROXY_PROVIDER_CAPABILITY_DEFINITIONS);
 }
 
 // 统一增强现有 proxy-providers，便于批量接入下载控制与 health-check 参数。
