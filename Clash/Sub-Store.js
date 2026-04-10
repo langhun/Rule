@@ -3678,6 +3678,154 @@ function warnIneffectiveStrategyArg(rawValue, finalValue, typeValue, strategyLab
   console.warn(`⚠️ 警告: ${strategyLabel} 仅在 ${typeLabel}=load-balance 时生效`);
 }
 
+// GitHub / Steam / Dev 在 resolveArgs 里会经历同一套“原始值 -> 规范化值 -> 告警状态 -> 返回字段”流程，这里统一收口。
+function buildResolveArgServiceState(payload) {
+  const current = isObject(payload) ? payload : {};
+  const key = normalizeStringArg(current.key).toLowerCase();
+  const rawNormalizedExpectedStatus = normalizeExpectedStatusArg(current.rawGroupExpectedStatus);
+  const parsedGroupInterval = parseNumber(current.rawGroupInterval, GROUP_INTERVAL);
+  const parsedGroupTolerance = parseNumber(current.rawGroupTolerance, GROUP_TOLERANCE);
+  const parsedGroupTimeout = parseNumber(current.rawGroupTimeout, GROUP_TIMEOUT);
+  const parsedGroupMaxFailedTimes = parseNumber(current.rawGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
+
+  return {
+    key,
+    rawTestUrl: current.rawTestUrl,
+    testUrl: normalizeStringArg(current.rawTestUrl),
+    rawGroupInterval: current.rawGroupInterval,
+    parsedGroupInterval,
+    groupInterval: Math.max(1, parsedGroupInterval),
+    rawGroupTolerance: current.rawGroupTolerance,
+    parsedGroupTolerance,
+    groupTolerance: Math.max(0, parsedGroupTolerance),
+    rawGroupTimeout: current.rawGroupTimeout,
+    parsedGroupTimeout,
+    groupTimeout: Math.max(1, parsedGroupTimeout),
+    rawGroupLazy: current.rawGroupLazy,
+    groupLazy: parseBool(current.rawGroupLazy, true),
+    rawGroupMaxFailedTimes: current.rawGroupMaxFailedTimes,
+    parsedGroupMaxFailedTimes,
+    groupMaxFailedTimes: Math.max(1, parsedGroupMaxFailedTimes),
+    rawGroupExpectedStatus: current.rawGroupExpectedStatus,
+    normalizedExpectedStatus: rawNormalizedExpectedStatus,
+    groupExpectedStatus: isValidExpectedStatusValue(rawNormalizedExpectedStatus) ? rawNormalizedExpectedStatus : "",
+    rawGroupStrategy: current.rawGroupStrategy,
+    groupStrategy: normalizeLoadBalanceStrategy(current.rawGroupStrategy, ""),
+    rawMode: current.rawMode,
+    mode: normalizeServiceGroupMode(current.rawMode, current.defaultMode || "select"),
+    rawType: current.rawType,
+    type: normalizeServiceGroupType(current.rawType, current.defaultType || "select"),
+    rawRuleTarget: current.rawRuleTarget,
+    ruleTarget: normalizeStringArg(current.rawRuleTarget),
+    rawRuleAnchor: current.rawRuleAnchor,
+    ruleAnchor: normalizeStringArg(current.rawRuleAnchor),
+    rawRulePosition: current.rawRulePosition,
+    rulePosition: normalizeRuleOrderPosition(current.rawRulePosition, "before"),
+    rawPreferCountries: current.rawPreferCountries,
+    preferCountries: toStringList(current.rawPreferCountries),
+    rawPreferGroups: current.rawPreferGroups,
+    preferGroups: toStringList(current.rawPreferGroups),
+    rawPreferNodes: current.rawPreferNodes,
+    preferNodes: toExplicitNameList(current.rawPreferNodes),
+    rawInterfaceName: current.rawInterfaceName,
+    interfaceName: normalizeInterfaceNameArg(current.rawInterfaceName),
+    rawRoutingMark: current.rawRoutingMark,
+    routingMark: normalizeRoutingMarkArg(current.rawRoutingMark),
+    rawUseProviders: current.rawUseProviders,
+    useProviders: toStringList(current.rawUseProviders),
+    rawIncludeAll: current.rawIncludeAll,
+    includeAll: parseBool(current.rawIncludeAll, false),
+    rawIncludeAllProviders: current.rawIncludeAllProviders,
+    includeAllProviders: parseBool(current.rawIncludeAllProviders, false),
+    rawIncludeAllProxies: current.rawIncludeAllProxies,
+    includeAllProxies: parseBool(current.rawIncludeAllProxies, false),
+    rawHidden: current.rawHidden,
+    hidden: parseBool(current.rawHidden, false),
+    rawDisableUdp: current.rawDisableUdp,
+    disableUdp: parseBool(current.rawDisableUdp, false),
+    rawIcon: current.rawIcon,
+    icon: normalizeStringArg(current.rawIcon),
+    rawNodeFilter: current.rawNodeFilter,
+    nodeFilter: normalizeStringArg(current.rawNodeFilter),
+    rawNodeExcludeFilter: current.rawNodeExcludeFilter,
+    nodeExcludeFilter: normalizeStringArg(current.rawNodeExcludeFilter),
+    rawNodeExcludeType: current.rawNodeExcludeType,
+    nodeExcludeType: normalizeTypeListArg(current.rawNodeExcludeType)
+  };
+}
+
+// 把服务状态重新拍平成 resolveArgs 最终返回对象里的字段，避免 return 区继续手写三套近似属性。
+function buildResolveArgServiceResultPayload(serviceStates) {
+  const payload = {};
+
+  for (const state of Array.isArray(serviceStates) ? serviceStates : []) {
+    if (!isObject(state) || !state.key) {
+      continue;
+    }
+
+    const key = state.key;
+    const token = `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+    payload[`${key}PreferCountries`] = state.preferCountries;
+    payload[`has${token}PreferCountries`] = !!state.preferCountries.length;
+    payload[`${key}PreferGroups`] = state.preferGroups;
+    payload[`has${token}PreferGroups`] = !!state.preferGroups.length;
+    payload[`${key}PreferNodes`] = state.preferNodes;
+    payload[`has${token}PreferNodes`] = !!state.preferNodes.length;
+    payload[`${key}RuleTarget`] = state.ruleTarget;
+    payload[`has${token}RuleTarget`] = !!state.ruleTarget;
+    payload[`${key}RuleAnchor`] = state.ruleAnchor;
+    payload[`has${token}RuleAnchor`] = !!state.ruleAnchor;
+    payload[`${key}RulePosition`] = state.rulePosition;
+    payload[`has${token}RulePosition`] = state.rawRulePosition !== undefined;
+    payload[`${key}Mode`] = state.mode;
+    payload[`has${token}Mode`] = state.rawMode !== undefined;
+    payload[`${key}Type`] = state.type;
+    payload[`has${token}Type`] = state.rawType !== undefined;
+    payload[`${key}TestUrl`] = state.testUrl;
+    payload[`has${token}TestUrl`] = !!state.testUrl;
+    payload[`${key}GroupInterval`] = state.groupInterval;
+    payload[`has${token}GroupInterval`] = state.rawGroupInterval !== undefined;
+    payload[`${key}GroupTolerance`] = state.groupTolerance;
+    payload[`has${token}GroupTolerance`] = state.rawGroupTolerance !== undefined;
+    payload[`${key}GroupTimeout`] = state.groupTimeout;
+    payload[`has${token}GroupTimeout`] = state.rawGroupTimeout !== undefined;
+    payload[`${key}GroupLazy`] = state.groupLazy;
+    payload[`has${token}GroupLazy`] = state.rawGroupLazy !== undefined;
+    payload[`${key}GroupMaxFailedTimes`] = state.groupMaxFailedTimes;
+    payload[`has${token}GroupMaxFailedTimes`] = state.rawGroupMaxFailedTimes !== undefined;
+    payload[`${key}GroupExpectedStatus`] = state.groupExpectedStatus;
+    payload[`has${token}GroupExpectedStatus`] = !!state.groupExpectedStatus;
+    payload[`${key}GroupStrategy`] = state.groupStrategy;
+    payload[`has${token}GroupStrategy`] = !!state.groupStrategy;
+    payload[`${key}InterfaceName`] = state.interfaceName;
+    payload[`has${token}InterfaceName`] = !!state.interfaceName;
+    payload[`${key}RoutingMark`] = state.routingMark;
+    payload[`has${token}RoutingMark`] = state.routingMark !== null;
+    payload[`${key}UseProviders`] = state.useProviders;
+    payload[`has${token}UseProviders`] = !!state.useProviders.length;
+    payload[`${key}IncludeAll`] = state.includeAll;
+    payload[`has${token}IncludeAll`] = state.rawIncludeAll !== undefined;
+    payload[`${key}IncludeAllProxies`] = state.includeAllProxies;
+    payload[`has${token}IncludeAllProxies`] = state.rawIncludeAllProxies !== undefined;
+    payload[`${key}IncludeAllProviders`] = state.includeAllProviders;
+    payload[`has${token}IncludeAllProviders`] = state.rawIncludeAllProviders !== undefined;
+    payload[`${key}Hidden`] = state.hidden;
+    payload[`has${token}Hidden`] = state.rawHidden !== undefined;
+    payload[`${key}DisableUdp`] = state.disableUdp;
+    payload[`has${token}DisableUdp`] = state.rawDisableUdp !== undefined;
+    payload[`${key}Icon`] = state.icon;
+    payload[`has${token}Icon`] = !!state.icon;
+    payload[`${key}NodeFilter`] = state.nodeFilter;
+    payload[`has${token}NodeFilter`] = !!state.nodeFilter;
+    payload[`${key}NodeExcludeFilter`] = state.nodeExcludeFilter;
+    payload[`has${token}NodeExcludeFilter`] = !!state.nodeExcludeFilter;
+    payload[`${key}NodeExcludeType`] = state.nodeExcludeType;
+    payload[`has${token}NodeExcludeType`] = !!state.nodeExcludeType;
+  }
+
+  return payload;
+}
+
 // 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
 function resolveArgs(rawArgs) {
   // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
@@ -4072,30 +4220,6 @@ function resolveArgs(rawArgs) {
   const parsedProxyProviderHealthCheckInterval = parseNumber(rawProxyProviderHealthCheckInterval, GROUP_INTERVAL);
   // 尝试把 proxy-provider health-check timeout 转成数字。
   const parsedProxyProviderHealthCheckTimeout = parseNumber(rawProxyProviderHealthCheckTimeout, PROXY_PROVIDER_HEALTH_CHECK_TIMEOUT);
-  // 尝试把 GitHub 独立组测速间隔转成数字。
-  const parsedGithubGroupInterval = parseNumber(rawGithubGroupInterval, GROUP_INTERVAL);
-  // 尝试把 Steam 独立组测速间隔转成数字。
-  const parsedSteamGroupInterval = parseNumber(rawSteamGroupInterval, GROUP_INTERVAL);
-  // 尝试把开发服务组测速间隔转成数字。
-  const parsedDevGroupInterval = parseNumber(rawDevGroupInterval, GROUP_INTERVAL);
-  // 尝试把 GitHub 独立组测速容差转成数字。
-  const parsedGithubGroupTolerance = parseNumber(rawGithubGroupTolerance, GROUP_TOLERANCE);
-  // 尝试把 Steam 独立组测速容差转成数字。
-  const parsedSteamGroupTolerance = parseNumber(rawSteamGroupTolerance, GROUP_TOLERANCE);
-  // 尝试把开发服务组测速容差转成数字。
-  const parsedDevGroupTolerance = parseNumber(rawDevGroupTolerance, GROUP_TOLERANCE);
-  // 尝试把 GitHub 独立组测速超时转成数字。
-  const parsedGithubGroupTimeout = parseNumber(rawGithubGroupTimeout, GROUP_TIMEOUT);
-  // 尝试把 Steam 独立组测速超时转成数字。
-  const parsedSteamGroupTimeout = parseNumber(rawSteamGroupTimeout, GROUP_TIMEOUT);
-  // 尝试把开发服务组测速超时转成数字。
-  const parsedDevGroupTimeout = parseNumber(rawDevGroupTimeout, GROUP_TIMEOUT);
-  // 尝试把 GitHub 独立组最大失败次数转成数字。
-  const parsedGithubGroupMaxFailedTimes = parseNumber(rawGithubGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
-  // 尝试把 Steam 独立组最大失败次数转成数字。
-  const parsedSteamGroupMaxFailedTimes = parseNumber(rawSteamGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
-  // 尝试把开发服务组最大失败次数转成数字。
-  const parsedDevGroupMaxFailedTimes = parseNumber(rawDevGroupMaxFailedTimes, GROUP_MAX_FAILED_TIMES);
   // 尝试把 fake-ip-ttl 转成数字。
   const parsedFakeIpTtl = parseNumber(rawFakeIpTtl, 1);
   // 再把 threshold 限制在允许范围内。
@@ -4122,30 +4246,6 @@ function resolveArgs(rawArgs) {
   const proxyProviderHealthCheckInterval = Math.max(1, parsedProxyProviderHealthCheckInterval);
   // proxy-provider health-check timeout 至少为 1 毫秒。
   const proxyProviderHealthCheckTimeout = Math.max(1, parsedProxyProviderHealthCheckTimeout);
-  // GitHub 独立组测速间隔至少为 1 秒。
-  const githubGroupInterval = Math.max(1, parsedGithubGroupInterval);
-  // Steam 独立组测速间隔至少为 1 秒。
-  const steamGroupInterval = Math.max(1, parsedSteamGroupInterval);
-  // 开发服务组测速间隔至少为 1 秒。
-  const devGroupInterval = Math.max(1, parsedDevGroupInterval);
-  // GitHub 独立组测速容差允许为 0。
-  const githubGroupTolerance = Math.max(0, parsedGithubGroupTolerance);
-  // Steam 独立组测速容差允许为 0。
-  const steamGroupTolerance = Math.max(0, parsedSteamGroupTolerance);
-  // 开发服务组测速容差允许为 0。
-  const devGroupTolerance = Math.max(0, parsedDevGroupTolerance);
-  // GitHub 独立组测速超时至少为 1。
-  const githubGroupTimeout = Math.max(1, parsedGithubGroupTimeout);
-  // Steam 独立组测速超时至少为 1。
-  const steamGroupTimeout = Math.max(1, parsedSteamGroupTimeout);
-  // 开发服务组测速超时至少为 1。
-  const devGroupTimeout = Math.max(1, parsedDevGroupTimeout);
-  // GitHub 独立组最大失败次数至少为 1。
-  const githubGroupMaxFailedTimes = Math.max(1, parsedGithubGroupMaxFailedTimes);
-  // Steam 独立组最大失败次数至少为 1。
-  const steamGroupMaxFailedTimes = Math.max(1, parsedSteamGroupMaxFailedTimes);
-  // 开发服务组最大失败次数至少为 1。
-  const devGroupMaxFailedTimes = Math.max(1, parsedDevGroupMaxFailedTimes);
   // fake-ip-ttl 至少为 1，避免生成非法配置。
   const fakeIpTtl = Math.max(1, parsedFakeIpTtl);
   // 把字符串类参数统一做 trim，后面复用时就不用反复判断。
@@ -4204,44 +4304,8 @@ function resolveArgs(rawArgs) {
   const proxyProviderHealthCheckUrl = normalizeStringArg(rawProxyProviderHealthCheckUrl);
   const rawNormalizedProxyProviderHealthCheckExpectedStatus = normalizeExpectedStatusArg(rawProxyProviderHealthCheckExpectedStatus);
   const proxyProviderHealthCheckExpectedStatus = isValidExpectedStatusValue(rawNormalizedProxyProviderHealthCheckExpectedStatus) ? rawNormalizedProxyProviderHealthCheckExpectedStatus : "";
-  const githubTestUrl = normalizeStringArg(rawGithubTestUrl);
-  const steamTestUrl = normalizeStringArg(rawSteamTestUrl);
-  const devTestUrl = normalizeStringArg(rawDevTestUrl);
-  const rawNormalizedGithubGroupExpectedStatus = normalizeExpectedStatusArg(rawGithubGroupExpectedStatus);
-  const githubGroupExpectedStatus = isValidExpectedStatusValue(rawNormalizedGithubGroupExpectedStatus) ? rawNormalizedGithubGroupExpectedStatus : "";
-  const githubGroupStrategy = normalizeLoadBalanceStrategy(rawGithubGroupStrategy, "");
-  const rawNormalizedSteamGroupExpectedStatus = normalizeExpectedStatusArg(rawSteamGroupExpectedStatus);
-  const steamGroupExpectedStatus = isValidExpectedStatusValue(rawNormalizedSteamGroupExpectedStatus) ? rawNormalizedSteamGroupExpectedStatus : "";
-  const steamGroupStrategy = normalizeLoadBalanceStrategy(rawSteamGroupStrategy, "");
-  const rawNormalizedDevGroupExpectedStatus = normalizeExpectedStatusArg(rawDevGroupExpectedStatus);
-  const devGroupExpectedStatus = isValidExpectedStatusValue(rawNormalizedDevGroupExpectedStatus) ? rawNormalizedDevGroupExpectedStatus : "";
-  const devGroupStrategy = normalizeLoadBalanceStrategy(rawDevGroupStrategy, "");
-  const githubInterfaceName = normalizeInterfaceNameArg(rawGithubInterfaceName);
-  const steamInterfaceName = normalizeInterfaceNameArg(rawSteamInterfaceName);
-  const devInterfaceName = normalizeInterfaceNameArg(rawDevInterfaceName);
-  const githubRoutingMark = normalizeRoutingMarkArg(rawGithubRoutingMark);
-  const steamRoutingMark = normalizeRoutingMarkArg(rawSteamRoutingMark);
-  const devRoutingMark = normalizeRoutingMarkArg(rawDevRoutingMark);
-  const githubUseProviders = toStringList(rawGithubUseProviders);
-  const steamUseProviders = toStringList(rawSteamUseProviders);
-  const devUseProviders = toStringList(rawDevUseProviders);
-  const githubIcon = normalizeStringArg(rawGithubIcon);
-  const steamIcon = normalizeStringArg(rawSteamIcon);
-  const devIcon = normalizeStringArg(rawDevIcon);
-  const githubNodeFilter = normalizeStringArg(rawGithubNodeFilter);
-  const steamNodeFilter = normalizeStringArg(rawSteamNodeFilter);
-  const devNodeFilter = normalizeStringArg(rawDevNodeFilter);
-  const githubNodeExcludeFilter = normalizeStringArg(rawGithubNodeExcludeFilter);
-  const steamNodeExcludeFilter = normalizeStringArg(rawSteamNodeExcludeFilter);
-  const devNodeExcludeFilter = normalizeStringArg(rawDevNodeExcludeFilter);
-  const githubNodeExcludeType = normalizeTypeListArg(rawGithubNodeExcludeType);
-  const steamNodeExcludeType = normalizeTypeListArg(rawSteamNodeExcludeType);
-  const devNodeExcludeType = normalizeTypeListArg(rawDevNodeExcludeType);
   const aiPreferCountries = toStringList(rawAiPreferCountries);
   const cryptoPreferCountries = toStringList(rawCryptoPreferCountries);
-  const githubPreferCountries = toStringList(rawGithubPreferCountries);
-  const steamPreferCountries = toStringList(rawSteamPreferCountries);
-  const devPreferCountries = toStringList(rawDevPreferCountries);
   const parsedCountryExtraAliases = parseCountryExtraAliasEntries(rawCountryExtraAliases);
   const countryExtraAliasesMap = parsedCountryExtraAliases.map;
   // 解析完成后立刻刷新运行态缓存，确保后续 parseCountries / preferred-country 等流程读取到的是本轮最新别名。
@@ -4252,32 +4316,11 @@ function resolveArgs(rawArgs) {
   const countryExtraAliasPreview = formatCountryExtraAliasPreview(countryExtraAliasesMap, 4, 2, 18);
   const countryExtraAliasConflictCount = countryExtraAliasAnalysis.conflicts.length;
   const countryExtraAliasConflictPreview = formatCountryExtraAliasConflictPreview(countryExtraAliasAnalysis.conflicts, 4, 32);
-  const githubPreferGroups = toStringList(rawGithubPreferGroups);
-  const steamPreferGroups = toStringList(rawSteamPreferGroups);
-  const devPreferGroups = toStringList(rawDevPreferGroups);
-  const githubPreferNodes = toExplicitNameList(rawGithubPreferNodes);
-  const steamPreferNodes = toExplicitNameList(rawSteamPreferNodes);
-  const devPreferNodes = toExplicitNameList(rawDevPreferNodes);
-  const githubRuleTarget = normalizeStringArg(rawGithubRuleTarget);
-  const steamRuleTarget = normalizeStringArg(rawSteamRuleTarget);
   const steamCnRuleTarget = normalizeStringArg(rawSteamCnRuleTarget);
-  const devRuleTarget = normalizeStringArg(rawDevRuleTarget);
-  const githubRuleAnchor = normalizeStringArg(rawGithubRuleAnchor);
-  const githubRulePosition = normalizeRuleOrderPosition(rawGithubRulePosition, "before");
-  const steamRuleAnchor = normalizeStringArg(rawSteamRuleAnchor);
-  const steamRulePosition = normalizeRuleOrderPosition(rawSteamRulePosition, "before");
   const steamCnRuleAnchor = normalizeStringArg(rawSteamCnRuleAnchor);
   const steamCnRulePosition = normalizeRuleOrderPosition(rawSteamCnRulePosition, "before");
-  const devRuleAnchor = normalizeStringArg(rawDevRuleAnchor);
-  const devRulePosition = normalizeRuleOrderPosition(rawDevRulePosition, "before");
   const customRuleAnchor = normalizeStringArg(rawCustomRuleAnchor);
   const customRulePosition = normalizeRuleOrderPosition(rawCustomRulePosition, "before");
-  const githubMode = normalizeServiceGroupMode(rawGithubMode, "select");
-  const steamMode = normalizeServiceGroupMode(rawSteamMode, "direct");
-  const devMode = normalizeServiceGroupMode(rawDevMode, "select");
-  const githubType = normalizeServiceGroupType(rawGithubType, "select");
-  const steamType = normalizeServiceGroupType(rawSteamType, "select");
-  const devType = normalizeServiceGroupType(rawDevType, "select");
   const groupOrderPreset = normalizeGroupOrderPreset(rawGroupOrderPreset, DEFAULT_GROUP_ORDER_PRESET);
   const groupOrder = toStringList(rawGroupOrder);
   const countryGroupSort = normalizeGeoGroupSortMode(rawCountryGroupSort, "definition");
@@ -4288,123 +4331,110 @@ function resolveArgs(rawArgs) {
   const snifferForceDomains = toStringList(rawSnifferForceDomains);
   const snifferSkipDomains = toStringList(rawSnifferSkipDomains);
   const responseHeaderPrefix = normalizeHeaderPrefix(rawResponseHeaderPrefix);
-  // GitHub / Steam / Dev 三类独立组后面会集中跑同一批参数告警，这里先把每组的规范化结果打包成统一上下文。
-  const serviceResolveWarningStates = [
-    {
+  // GitHub / Steam / Dev 三类独立组的大部分参数语义一致，这里统一收口成服务状态表，供告警与最终返回复用。
+  const serviceResolveStates = [
+    buildResolveArgServiceState({
       key: "github",
-      testUrl: githubTestUrl,
+      defaultMode: "select",
+      defaultType: "select",
+      rawTestUrl: rawGithubTestUrl,
       rawGroupInterval: rawGithubGroupInterval,
-      parsedGroupInterval: parsedGithubGroupInterval,
-      groupInterval: githubGroupInterval,
       rawGroupTolerance: rawGithubGroupTolerance,
-      parsedGroupTolerance: parsedGithubGroupTolerance,
-      groupTolerance: githubGroupTolerance,
       rawGroupTimeout: rawGithubGroupTimeout,
-      parsedGroupTimeout: parsedGithubGroupTimeout,
-      groupTimeout: githubGroupTimeout,
+      rawGroupLazy: rawGithubGroupLazy,
       rawGroupMaxFailedTimes: rawGithubGroupMaxFailedTimes,
-      parsedGroupMaxFailedTimes: parsedGithubGroupMaxFailedTimes,
-      groupMaxFailedTimes: githubGroupMaxFailedTimes,
+      rawGroupExpectedStatus: rawGithubGroupExpectedStatus,
+      rawGroupStrategy: rawGithubGroupStrategy,
       rawMode: rawGithubMode,
-      mode: githubMode,
       rawType: rawGithubType,
-      type: githubType,
-      rawStrategy: rawGithubGroupStrategy,
-      strategy: githubGroupStrategy,
-      rawExpectedStatus: rawGithubGroupExpectedStatus,
-      normalizedExpectedStatus: rawNormalizedGithubGroupExpectedStatus,
-      expectedStatus: githubGroupExpectedStatus,
+      rawRuleTarget: rawGithubRuleTarget,
+      rawRuleAnchor: rawGithubRuleAnchor,
+      rawRulePosition: rawGithubRulePosition,
+      rawPreferCountries: rawGithubPreferCountries,
+      rawPreferGroups: rawGithubPreferGroups,
+      rawPreferNodes: rawGithubPreferNodes,
       rawInterfaceName: rawGithubInterfaceName,
-      interfaceName: githubInterfaceName,
       rawRoutingMark: rawGithubRoutingMark,
-      routingMark: githubRoutingMark,
-      useProviders: githubUseProviders,
+      rawUseProviders: rawGithubUseProviders,
       rawIncludeAll: rawGithubIncludeAll,
-      includeAll: parseBool(rawGithubIncludeAll, false),
       rawIncludeAllProviders: rawGithubIncludeAllProviders,
-      includeAllProviders: parseBool(rawGithubIncludeAllProviders, false),
       rawIncludeAllProxies: rawGithubIncludeAllProxies,
-      includeAllProxies: parseBool(rawGithubIncludeAllProxies, false),
+      rawHidden: rawGithubHidden,
+      rawDisableUdp: rawGithubDisableUdp,
       rawIcon: rawGithubIcon,
-      icon: githubIcon
-    },
-    {
+      rawNodeFilter: rawGithubNodeFilter,
+      rawNodeExcludeFilter: rawGithubNodeExcludeFilter,
+      rawNodeExcludeType: rawGithubNodeExcludeType
+    }),
+    buildResolveArgServiceState({
       key: "steam",
-      testUrl: steamTestUrl,
+      defaultMode: "direct",
+      defaultType: "select",
+      rawTestUrl: rawSteamTestUrl,
       rawGroupInterval: rawSteamGroupInterval,
-      parsedGroupInterval: parsedSteamGroupInterval,
-      groupInterval: steamGroupInterval,
       rawGroupTolerance: rawSteamGroupTolerance,
-      parsedGroupTolerance: parsedSteamGroupTolerance,
-      groupTolerance: steamGroupTolerance,
       rawGroupTimeout: rawSteamGroupTimeout,
-      parsedGroupTimeout: parsedSteamGroupTimeout,
-      groupTimeout: steamGroupTimeout,
+      rawGroupLazy: rawSteamGroupLazy,
       rawGroupMaxFailedTimes: rawSteamGroupMaxFailedTimes,
-      parsedGroupMaxFailedTimes: parsedSteamGroupMaxFailedTimes,
-      groupMaxFailedTimes: steamGroupMaxFailedTimes,
+      rawGroupExpectedStatus: rawSteamGroupExpectedStatus,
+      rawGroupStrategy: rawSteamGroupStrategy,
       rawMode: rawSteamMode,
-      mode: steamMode,
       rawType: rawSteamType,
-      type: steamType,
-      rawStrategy: rawSteamGroupStrategy,
-      strategy: steamGroupStrategy,
-      rawExpectedStatus: rawSteamGroupExpectedStatus,
-      normalizedExpectedStatus: rawNormalizedSteamGroupExpectedStatus,
-      expectedStatus: steamGroupExpectedStatus,
+      rawRuleTarget: rawSteamRuleTarget,
+      rawRuleAnchor: rawSteamRuleAnchor,
+      rawRulePosition: rawSteamRulePosition,
+      rawPreferCountries: rawSteamPreferCountries,
+      rawPreferGroups: rawSteamPreferGroups,
+      rawPreferNodes: rawSteamPreferNodes,
       rawInterfaceName: rawSteamInterfaceName,
-      interfaceName: steamInterfaceName,
       rawRoutingMark: rawSteamRoutingMark,
-      routingMark: steamRoutingMark,
-      useProviders: steamUseProviders,
+      rawUseProviders: rawSteamUseProviders,
       rawIncludeAll: rawSteamIncludeAll,
-      includeAll: parseBool(rawSteamIncludeAll, false),
       rawIncludeAllProviders: rawSteamIncludeAllProviders,
-      includeAllProviders: parseBool(rawSteamIncludeAllProviders, false),
       rawIncludeAllProxies: rawSteamIncludeAllProxies,
-      includeAllProxies: parseBool(rawSteamIncludeAllProxies, false),
+      rawHidden: rawSteamHidden,
+      rawDisableUdp: rawSteamDisableUdp,
       rawIcon: rawSteamIcon,
-      icon: steamIcon
-    },
-    {
+      rawNodeFilter: rawSteamNodeFilter,
+      rawNodeExcludeFilter: rawSteamNodeExcludeFilter,
+      rawNodeExcludeType: rawSteamNodeExcludeType
+    }),
+    buildResolveArgServiceState({
       key: "dev",
-      testUrl: devTestUrl,
+      defaultMode: "select",
+      defaultType: "select",
+      rawTestUrl: rawDevTestUrl,
       rawGroupInterval: rawDevGroupInterval,
-      parsedGroupInterval: parsedDevGroupInterval,
-      groupInterval: devGroupInterval,
       rawGroupTolerance: rawDevGroupTolerance,
-      parsedGroupTolerance: parsedDevGroupTolerance,
-      groupTolerance: devGroupTolerance,
       rawGroupTimeout: rawDevGroupTimeout,
-      parsedGroupTimeout: parsedDevGroupTimeout,
-      groupTimeout: devGroupTimeout,
+      rawGroupLazy: rawDevGroupLazy,
       rawGroupMaxFailedTimes: rawDevGroupMaxFailedTimes,
-      parsedGroupMaxFailedTimes: parsedDevGroupMaxFailedTimes,
-      groupMaxFailedTimes: devGroupMaxFailedTimes,
+      rawGroupExpectedStatus: rawDevGroupExpectedStatus,
+      rawGroupStrategy: rawDevGroupStrategy,
       rawMode: rawDevMode,
-      mode: devMode,
       rawType: rawDevType,
-      type: devType,
-      rawStrategy: rawDevGroupStrategy,
-      strategy: devGroupStrategy,
-      rawExpectedStatus: rawDevGroupExpectedStatus,
-      normalizedExpectedStatus: rawNormalizedDevGroupExpectedStatus,
-      expectedStatus: devGroupExpectedStatus,
+      rawRuleTarget: rawDevRuleTarget,
+      rawRuleAnchor: rawDevRuleAnchor,
+      rawRulePosition: rawDevRulePosition,
+      rawPreferCountries: rawDevPreferCountries,
+      rawPreferGroups: rawDevPreferGroups,
+      rawPreferNodes: rawDevPreferNodes,
       rawInterfaceName: rawDevInterfaceName,
-      interfaceName: devInterfaceName,
       rawRoutingMark: rawDevRoutingMark,
-      routingMark: devRoutingMark,
-      useProviders: devUseProviders,
+      rawUseProviders: rawDevUseProviders,
       rawIncludeAll: rawDevIncludeAll,
-      includeAll: parseBool(rawDevIncludeAll, false),
       rawIncludeAllProviders: rawDevIncludeAllProviders,
-      includeAllProviders: parseBool(rawDevIncludeAllProviders, false),
       rawIncludeAllProxies: rawDevIncludeAllProxies,
-      includeAllProxies: parseBool(rawDevIncludeAllProxies, false),
+      rawHidden: rawDevHidden,
+      rawDisableUdp: rawDevDisableUdp,
       rawIcon: rawDevIcon,
-      icon: devIcon
-    }
+      rawNodeFilter: rawDevNodeFilter,
+      rawNodeExcludeFilter: rawDevNodeExcludeFilter,
+      rawNodeExcludeType: rawDevNodeExcludeType
+    })
   ];
+  // 预先展开服务相关返回字段，避免 return 区继续手写三套近似属性。
+  const resolvedServiceArgPayload = buildResolveArgServiceResultPayload(serviceResolveStates);
 
   // 如果用户传入值被修正了，就打印一条警告帮助定位问题。
   if (parsedThreshold !== threshold) {
@@ -4494,7 +4524,7 @@ function resolveArgs(rawArgs) {
   }
 
   // GitHub / Steam / Dev 三类独立组的 test-url 语义一致，统一批量做 URL 合法性提示。
-  for (const serviceState of serviceResolveWarningStates) {
+  for (const serviceState of serviceResolveStates) {
     if (serviceState.testUrl && !looksLikeHttpUrl(serviceState.testUrl)) {
       console.warn(`⚠️ 警告: ${serviceState.key}-test-url 看起来不像合法 http(s) 地址: ${serviceState.testUrl}`);
     }
@@ -4699,7 +4729,7 @@ function resolveArgs(rawArgs) {
   }
 
   // GitHub / Steam / Dev 三类独立组的测速/类型/节点池优先级告警完全同构，统一走状态表批量输出。
-  for (const serviceState of serviceResolveWarningStates) {
+  for (const serviceState of serviceResolveStates) {
     warnAdjustedNumericArg(
       serviceState.rawGroupInterval,
       serviceState.parsedGroupInterval,
@@ -4726,18 +4756,18 @@ function resolveArgs(rawArgs) {
     );
     warnNormalizedChoiceArg(serviceState.rawMode, serviceState.mode, `${serviceState.key}-mode`);
     warnNormalizedChoiceArg(serviceState.rawType, serviceState.type, `${serviceState.key}-type`);
-    warnInvalidStrategyArg(serviceState.rawStrategy, serviceState.strategy, `${serviceState.key}-group-strategy`);
+    warnInvalidStrategyArg(serviceState.rawGroupStrategy, serviceState.groupStrategy, `${serviceState.key}-group-strategy`);
     warnInvalidExpectedStatusArg(
-      serviceState.rawExpectedStatus,
+      serviceState.rawGroupExpectedStatus,
       serviceState.normalizedExpectedStatus,
-      serviceState.expectedStatus,
+      serviceState.groupExpectedStatus,
       `${serviceState.key}-group-expected-status`
     );
     warnIgnoredEmptyStringArg(serviceState.rawInterfaceName, serviceState.interfaceName, `${serviceState.key}-interface-name`);
     warnIgnoredRoutingMarkArg(serviceState.rawRoutingMark, serviceState.routingMark, `${serviceState.key}-routing-mark`);
     warnIneffectiveStrategyArg(
-      serviceState.rawStrategy,
-      serviceState.strategy,
+      serviceState.rawGroupStrategy,
+      serviceState.groupStrategy,
       serviceState.type,
       `${serviceState.key}-group-strategy`,
       `${serviceState.key}-type`
@@ -4758,33 +4788,25 @@ function resolveArgs(rawArgs) {
   }
 
   // 官方文档已将 interface-name 标记为 deprecated，这里主动提醒，避免长期依赖。
-  if (groupInterfaceName || githubInterfaceName || steamInterfaceName || devInterfaceName) {
+  if (groupInterfaceName || serviceResolveStates.some((serviceState) => !!serviceState.interfaceName)) {
     console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 interface-name 标记为 deprecated，请仅在必须绑定出口网卡时使用");
   }
 
   // 官方文档已将 routing-mark 标记为 deprecated，这里主动提醒，避免长期依赖。
-  if (groupRoutingMark !== null || githubRoutingMark !== null || steamRoutingMark !== null || devRoutingMark !== null) {
+  if (groupRoutingMark !== null || serviceResolveStates.some((serviceState) => serviceState.routingMark !== null)) {
     console.warn("⚠️ 提醒: Mihomo Proxy Groups 文档已将 routing-mark 标记为 deprecated，请仅在必须配合策略路由打标时使用");
   }
 
-  // 如果 GitHub 规则顺序位置非法，则回退默认值并提示。
-  if (rawGithubRulePosition !== undefined && normalizeStringArg(rawGithubRulePosition).toLowerCase() !== githubRulePosition) {
-    console.warn(`⚠️ 警告: github-rule-position 无效，已重置为 ${githubRulePosition}`);
-  }
-
-  // 如果 Steam 规则顺序位置非法，则回退默认值并提示。
-  if (rawSteamRulePosition !== undefined && normalizeStringArg(rawSteamRulePosition).toLowerCase() !== steamRulePosition) {
-    console.warn(`⚠️ 警告: steam-rule-position 无效，已重置为 ${steamRulePosition}`);
+  // GitHub / Steam / Dev 规则顺序位置语义一致，统一按服务状态表批量提示非法值。
+  for (const serviceState of serviceResolveStates) {
+    if (serviceState.rawRulePosition !== undefined && normalizeStringArg(serviceState.rawRulePosition).toLowerCase() !== serviceState.rulePosition) {
+      console.warn(`⚠️ 警告: ${serviceState.key}-rule-position 无效，已重置为 ${serviceState.rulePosition}`);
+    }
   }
 
   // 如果 SteamCN 规则顺序位置非法，则回退默认值并提示。
   if (rawSteamCnRulePosition !== undefined && normalizeStringArg(rawSteamCnRulePosition).toLowerCase() !== steamCnRulePosition) {
     console.warn(`⚠️ 警告: steam-cn-rule-position 无效，已重置为 ${steamCnRulePosition}`);
-  }
-
-  // 如果开发服务规则顺序位置非法，则回退默认值并提示。
-  if (rawDevRulePosition !== undefined && normalizeStringArg(rawDevRulePosition).toLowerCase() !== devRulePosition) {
-    console.warn(`⚠️ 警告: dev-rule-position 无效，已重置为 ${devRulePosition}`);
   }
 
   // 如果 custom-rule-position 非法，则回退默认值并提示。
@@ -4956,12 +4978,6 @@ function resolveArgs(rawArgs) {
     hasAiPreferCountries: !!aiPreferCountries.length,
     cryptoPreferCountries,
     hasCryptoPreferCountries: !!cryptoPreferCountries.length,
-    githubPreferCountries,
-    hasGithubPreferCountries: !!githubPreferCountries.length,
-    steamPreferCountries,
-    hasSteamPreferCountries: !!steamPreferCountries.length,
-    devPreferCountries,
-    hasDevPreferCountries: !!devPreferCountries.length,
     countryExtraAliasesMap,
     hasCountryExtraAliases: !!countryExtraAliasCountryCount,
     countryExtraAliasCountryCount,
@@ -4969,178 +4985,18 @@ function resolveArgs(rawArgs) {
     countryExtraAliasPreview,
     countryExtraAliasConflictCount,
     countryExtraAliasConflictPreview,
-    githubPreferGroups,
-    hasGithubPreferGroups: !!githubPreferGroups.length,
-    steamPreferGroups,
-    hasSteamPreferGroups: !!steamPreferGroups.length,
-    devPreferGroups,
-    hasDevPreferGroups: !!devPreferGroups.length,
-    githubPreferNodes,
-    hasGithubPreferNodes: !!githubPreferNodes.length,
-    steamPreferNodes,
-    hasSteamPreferNodes: !!steamPreferNodes.length,
-    devPreferNodes,
-    hasDevPreferNodes: !!devPreferNodes.length,
-    githubRuleTarget,
-    hasGithubRuleTarget: !!githubRuleTarget,
-    steamRuleTarget,
-    hasSteamRuleTarget: !!steamRuleTarget,
+    // GitHub / Steam / Dev 三类独立组的解析字段统一由状态表展开，避免 return 区继续维护三套重复键。
+    ...resolvedServiceArgPayload,
     steamCnRuleTarget,
     hasSteamCnRuleTarget: !!steamCnRuleTarget,
-    devRuleTarget,
-    hasDevRuleTarget: !!devRuleTarget,
-    githubRuleAnchor,
-    hasGithubRuleAnchor: !!githubRuleAnchor,
-    githubRulePosition,
-    hasGithubRulePosition: rawGithubRulePosition !== undefined,
-    steamRuleAnchor,
-    hasSteamRuleAnchor: !!steamRuleAnchor,
-    steamRulePosition,
-    hasSteamRulePosition: rawSteamRulePosition !== undefined,
     steamCnRuleAnchor,
     hasSteamCnRuleAnchor: !!steamCnRuleAnchor,
     steamCnRulePosition,
     hasSteamCnRulePosition: rawSteamCnRulePosition !== undefined,
-    devRuleAnchor,
-    hasDevRuleAnchor: !!devRuleAnchor,
-    devRulePosition,
-    hasDevRulePosition: rawDevRulePosition !== undefined,
     customRuleAnchor,
     hasCustomRuleAnchor: !!customRuleAnchor,
     customRulePosition,
     hasCustomRulePosition: rawCustomRulePosition !== undefined,
-    githubMode,
-    hasGithubMode: rawGithubMode !== undefined,
-    steamMode,
-    hasSteamMode: rawSteamMode !== undefined,
-    devMode,
-    hasDevMode: rawDevMode !== undefined,
-    githubType,
-    hasGithubType: rawGithubType !== undefined,
-    steamType,
-    hasSteamType: rawSteamType !== undefined,
-    devType,
-    hasDevType: rawDevType !== undefined,
-    devTestUrl,
-    hasDevTestUrl: !!devTestUrl,
-    devGroupInterval,
-    hasDevGroupInterval: rawDevGroupInterval !== undefined,
-    devGroupTolerance,
-    hasDevGroupTolerance: rawDevGroupTolerance !== undefined,
-    devGroupTimeout,
-    hasDevGroupTimeout: rawDevGroupTimeout !== undefined,
-    devGroupLazy: parseBool(rawDevGroupLazy, true),
-    hasDevGroupLazy: rawDevGroupLazy !== undefined,
-    devGroupMaxFailedTimes,
-    hasDevGroupMaxFailedTimes: rawDevGroupMaxFailedTimes !== undefined,
-    devGroupExpectedStatus,
-    hasDevGroupExpectedStatus: !!devGroupExpectedStatus,
-    devGroupStrategy,
-    hasDevGroupStrategy: !!devGroupStrategy,
-    devInterfaceName,
-    hasDevInterfaceName: !!devInterfaceName,
-    devRoutingMark,
-    hasDevRoutingMark: devRoutingMark !== null,
-    devHidden: parseBool(rawDevHidden, false),
-    hasDevHidden: rawDevHidden !== undefined,
-    devDisableUdp: parseBool(rawDevDisableUdp, false),
-    hasDevDisableUdp: rawDevDisableUdp !== undefined,
-    devIcon,
-    hasDevIcon: !!devIcon,
-    githubTestUrl,
-    hasGithubTestUrl: !!githubTestUrl,
-    githubGroupInterval,
-    hasGithubGroupInterval: rawGithubGroupInterval !== undefined,
-    githubGroupTolerance,
-    hasGithubGroupTolerance: rawGithubGroupTolerance !== undefined,
-    githubGroupTimeout,
-    hasGithubGroupTimeout: rawGithubGroupTimeout !== undefined,
-    githubGroupLazy: parseBool(rawGithubGroupLazy, true),
-    hasGithubGroupLazy: rawGithubGroupLazy !== undefined,
-    githubGroupMaxFailedTimes,
-    hasGithubGroupMaxFailedTimes: rawGithubGroupMaxFailedTimes !== undefined,
-    githubGroupExpectedStatus,
-    hasGithubGroupExpectedStatus: !!githubGroupExpectedStatus,
-    githubGroupStrategy,
-    hasGithubGroupStrategy: !!githubGroupStrategy,
-    githubInterfaceName,
-    hasGithubInterfaceName: !!githubInterfaceName,
-    githubRoutingMark,
-    hasGithubRoutingMark: githubRoutingMark !== null,
-    githubUseProviders,
-    hasGithubUseProviders: !!githubUseProviders.length,
-    githubIncludeAll: parseBool(rawGithubIncludeAll, false),
-    hasGithubIncludeAll: rawGithubIncludeAll !== undefined,
-    githubIncludeAllProxies: parseBool(rawGithubIncludeAllProxies, false),
-    hasGithubIncludeAllProxies: rawGithubIncludeAllProxies !== undefined,
-    githubIncludeAllProviders: parseBool(rawGithubIncludeAllProviders, false),
-    hasGithubIncludeAllProviders: rawGithubIncludeAllProviders !== undefined,
-    githubHidden: parseBool(rawGithubHidden, false),
-    hasGithubHidden: rawGithubHidden !== undefined,
-    githubDisableUdp: parseBool(rawGithubDisableUdp, false),
-    hasGithubDisableUdp: rawGithubDisableUdp !== undefined,
-    githubIcon,
-    hasGithubIcon: !!githubIcon,
-    githubNodeFilter,
-    hasGithubNodeFilter: !!githubNodeFilter,
-    githubNodeExcludeFilter,
-    hasGithubNodeExcludeFilter: !!githubNodeExcludeFilter,
-    githubNodeExcludeType,
-    hasGithubNodeExcludeType: !!githubNodeExcludeType,
-    steamTestUrl,
-    hasSteamTestUrl: !!steamTestUrl,
-    steamGroupInterval,
-    hasSteamGroupInterval: rawSteamGroupInterval !== undefined,
-    steamGroupTolerance,
-    hasSteamGroupTolerance: rawSteamGroupTolerance !== undefined,
-    steamGroupTimeout,
-    hasSteamGroupTimeout: rawSteamGroupTimeout !== undefined,
-    steamGroupLazy: parseBool(rawSteamGroupLazy, true),
-    hasSteamGroupLazy: rawSteamGroupLazy !== undefined,
-    steamGroupMaxFailedTimes,
-    hasSteamGroupMaxFailedTimes: rawSteamGroupMaxFailedTimes !== undefined,
-    steamGroupExpectedStatus,
-    hasSteamGroupExpectedStatus: !!steamGroupExpectedStatus,
-    steamGroupStrategy,
-    hasSteamGroupStrategy: !!steamGroupStrategy,
-    steamInterfaceName,
-    hasSteamInterfaceName: !!steamInterfaceName,
-    steamRoutingMark,
-    hasSteamRoutingMark: steamRoutingMark !== null,
-    steamUseProviders,
-    hasSteamUseProviders: !!steamUseProviders.length,
-    steamIncludeAll: parseBool(rawSteamIncludeAll, false),
-    hasSteamIncludeAll: rawSteamIncludeAll !== undefined,
-    steamIncludeAllProxies: parseBool(rawSteamIncludeAllProxies, false),
-    hasSteamIncludeAllProxies: rawSteamIncludeAllProxies !== undefined,
-    steamIncludeAllProviders: parseBool(rawSteamIncludeAllProviders, false),
-    hasSteamIncludeAllProviders: rawSteamIncludeAllProviders !== undefined,
-    steamHidden: parseBool(rawSteamHidden, false),
-    hasSteamHidden: rawSteamHidden !== undefined,
-    steamDisableUdp: parseBool(rawSteamDisableUdp, false),
-    hasSteamDisableUdp: rawSteamDisableUdp !== undefined,
-    steamIcon,
-    hasSteamIcon: !!steamIcon,
-    steamNodeFilter,
-    hasSteamNodeFilter: !!steamNodeFilter,
-    steamNodeExcludeFilter,
-    hasSteamNodeExcludeFilter: !!steamNodeExcludeFilter,
-    steamNodeExcludeType,
-    hasSteamNodeExcludeType: !!steamNodeExcludeType,
-    devUseProviders,
-    hasDevUseProviders: !!devUseProviders.length,
-    devIncludeAll: parseBool(rawDevIncludeAll, false),
-    hasDevIncludeAll: rawDevIncludeAll !== undefined,
-    devIncludeAllProxies: parseBool(rawDevIncludeAllProxies, false),
-    hasDevIncludeAllProxies: rawDevIncludeAllProxies !== undefined,
-    devIncludeAllProviders: parseBool(rawDevIncludeAllProviders, false),
-    hasDevIncludeAllProviders: rawDevIncludeAllProviders !== undefined,
-    devNodeFilter,
-    hasDevNodeFilter: !!devNodeFilter,
-    devNodeExcludeFilter,
-    hasDevNodeExcludeFilter: !!devNodeExcludeFilter,
-    devNodeExcludeType,
-    hasDevNodeExcludeType: !!devNodeExcludeType,
     // 允许用参数分别控制 profile.store-selected / store-fake-ip。
     profileSelected: parseBool(rawProfileSelected, true),
     hasProfileSelected: rawProfileSelected !== undefined,
