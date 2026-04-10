@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.4
+ * Sub-Store 终极策略增强脚本 V9.14.5
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -326,11 +326,12 @@
  * 321. 音乐流媒体继续补齐：参考 blackmatrix7 当前目录，把 SoundCloud / Deezer / KKBOX / Pandora 统一并入流媒体组；Spotify 保持独立，其余音乐平台不再额外拆新面板。
  * 322. 交易电商继续收敛：参考 blackmatrix7 当前目录，把 Stripe / Shopify / Amazon / AmazonCN 统一并入 PayPal 组；不额外新开购物面板，但通过规则顺序保证 PrimeVideo 仍优先命中流媒体组。
  * 323. 交易规则继续补齐并修序：继续把 eBay / AmazonTrust 并入 PayPal 组，同时把 Amazon 系规则整体后移到 PrimeVideo / 流媒体块之后，避免电商泛规则抢先吃掉 Prime Video。
+ * 324. 视觉社交继续收敛：参考 blackmatrix7 当前目录，把 Pinterest 并入 Instagram 组；不再额外拆新社交面板，但补上图文灵感类流量覆盖。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.4";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.4。
+const SCRIPT_VERSION = "9.14.5";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.5。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7152,6 +7153,8 @@ const ruleProviders = finalizeRuleProviders({
   Reddit: createCommunityClashRuleProvider("Reddit"),
   // Threads 归并进 Facebook 组，避免和 Instagram / Facebook 再额外拆出一个低收益面板组。
   Threads: createCommunityClashRuleProvider("Threads"),
+  // Pinterest 归并进 Instagram 组，统一视觉社交流量。
+  Pinterest: createCommunityClashRuleProvider("Pinterest"),
   // YouTube Music 归并进 YouTube 组，保持影音平台的面板数量稳定。
   YouTubeMusic: createCommunityClashRuleProvider("YouTubeMusic"),
   // Netflix 规则。
@@ -7370,6 +7373,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Line", target: GROUPS.LINE },
   // Twitter / X 流量交给 Twitter 组。
   { provider: "Twitter", target: GROUPS.TWITTER },
+  // Pinterest 归并到 Instagram 组，保持“视觉社交”统一入口。
+  { provider: "Pinterest", target: GROUPS.INSTAGRAM },
   // Instagram 规则默认也放在 Facebook 前面，避免更宽泛的 Meta 规则抢先命中。
   { provider: "Instagram", target: GROUPS.INSTAGRAM },
   // Threads 归并到 Facebook 组，避免为 Meta 生态再拆出一条低收益单独组。
@@ -7503,6 +7508,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.WHATSAPP },
   { provider: "Line", label: "LINE", expectedTarget: GROUPS.LINE },
   { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.TWITTER },
+  { provider: "Pinterest", label: "Pinterest", expectedTarget: GROUPS.INSTAGRAM },
   { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.INSTAGRAM },
   { provider: "Threads", label: "Threads", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
@@ -8161,6 +8167,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "WhatsApp", label: "WhatsApp", category: "social" },
   { key: "Line", label: "LINE", category: "social" },
   { key: "Twitter", label: "Twitter", category: "social" },
+  { key: "Pinterest", label: "Pinterest", category: "social" },
   { key: "Instagram", label: "Instagram", category: "social" },
   { key: "Threads", label: "Threads", category: "social" },
   { key: "Facebook", label: "Facebook", category: "social" },
@@ -10272,6 +10279,7 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   line: GROUPS.LINE,
   twitter: GROUPS.TWITTER,
   tweet: GROUPS.TWITTER,
+  pinterest: GROUPS.INSTAGRAM,
   instagram: GROUPS.INSTAGRAM,
   ig: GROUPS.INSTAGRAM,
   facebook: GROUPS.FACEBOOK,
@@ -10633,6 +10641,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   line: "Line",
   twitter: "Twitter",
   tweet: "Twitter",
+  pinterest: "Pinterest",
   instagram: "Instagram",
   ig: "Instagram",
   facebook: "Facebook",
