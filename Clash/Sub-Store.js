@@ -10496,8 +10496,6 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   steam: "Steam",
   steamcn: "SteamCN",
   epic: "Epic",
-  game: "Epic",
-  games: "Epic",
   pt: "PT",
   speedtest: "Speedtest",
   github: "GitHub",
