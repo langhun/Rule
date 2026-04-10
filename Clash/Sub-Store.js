@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.1
+ * Sub-Store 终极策略增强脚本 V9.14.2
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -323,11 +323,12 @@
  * 318. 分组审计继续收尾：继续参考 blackmatrix7 的 Teams / Twitch 规则，把 Teams 并入微软服务、Twitch 并入游戏加速；Pinterest / PrimeVideo / HBO / Hulu 这类当前没有合适现成组的条目先不硬塞。
  * 319. 媒体分组继续收敛：新增通用“流媒体”组承接 PrimeVideo / HBO / Hulu / Paramount+ / Peacock / Discovery+，并把 YouTube Music 明确并入 YouTube，避免继续为每个平台单拆一整排面板。
  * 320. 媒体规则继续补漏：参考 MetaCubeX 的 geosite，把 AppleMusic 并入 Apple、ProxyMedia 并入流媒体组，继续用“补覆盖而不膨胀面板”的方式收尾。
+ * 321. 音乐流媒体继续补齐：参考 blackmatrix7 当前目录，把 SoundCloud / Deezer / KKBOX / Pandora 统一并入流媒体组；Spotify 保持独立，其余音乐平台不再额外拆新面板。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.1";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.1。
+const SCRIPT_VERSION = "9.14.2";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.2。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7172,6 +7173,11 @@ const ruleProviders = finalizeRuleProviders({
   ParamountPlus: createCommunityClashRuleProvider("ParamountPlus"),
   Peacock: createCommunityClashRuleProvider("Peacock"),
   DiscoveryPlus: createCommunityClashRuleProvider("DiscoveryPlus"),
+  // 额外音乐流媒体统一并入通用流媒体组，Spotify 继续保持独立。
+  SoundCloud: createCommunityClashRuleProvider("SoundCloud"),
+  Deezer: createCommunityClashRuleProvider("Deezer"),
+  KKBOX: createCommunityClashRuleProvider("KKBOX"),
+  Pandora: createCommunityClashRuleProvider("Pandora"),
   // MetaCubeX 的 ProxyMedia geosite 用来补齐尚未单独列出的海外媒体站点。
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
   // PayPal 支付规则。
@@ -7380,6 +7386,10 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "ParamountPlus", target: GROUPS.STREAMING },
   { provider: "Peacock", target: GROUPS.STREAMING },
   { provider: "DiscoveryPlus", target: GROUPS.STREAMING },
+  { provider: "SoundCloud", target: GROUPS.STREAMING },
+  { provider: "Deezer", target: GROUPS.STREAMING },
+  { provider: "KKBOX", target: GROUPS.STREAMING },
+  { provider: "Pandora", target: GROUPS.STREAMING },
 
   // Netflix 域名交给 Netflix 组。
   { provider: "Netflix", target: GROUPS.NETFLIX },
@@ -7500,6 +7510,10 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "ParamountPlus", label: "ParamountPlus", expectedTarget: GROUPS.STREAMING },
   { provider: "Peacock", label: "Peacock", expectedTarget: GROUPS.STREAMING },
   { provider: "DiscoveryPlus", label: "DiscoveryPlus", expectedTarget: GROUPS.STREAMING },
+  { provider: "SoundCloud", label: "SoundCloud", expectedTarget: GROUPS.STREAMING },
+  { provider: "Deezer", label: "Deezer", expectedTarget: GROUPS.STREAMING },
+  { provider: "KKBOX", label: "KKBOX", expectedTarget: GROUPS.STREAMING },
+  { provider: "Pandora", label: "Pandora", expectedTarget: GROUPS.STREAMING },
   { provider: "ProxyMedia", label: "ProxyMedia", expectedTarget: GROUPS.STREAMING },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
@@ -8136,6 +8150,10 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "ParamountPlus", label: "ParamountPlus", category: "media" },
   { key: "Peacock", label: "Peacock", category: "media" },
   { key: "DiscoveryPlus", label: "DiscoveryPlus", category: "media" },
+  { key: "SoundCloud", label: "SoundCloud", category: "media" },
+  { key: "Deezer", label: "Deezer", category: "media" },
+  { key: "KKBOX", label: "KKBOX", category: "media" },
+  { key: "Pandora", label: "Pandora", category: "media" },
   { key: "ProxyMedia", label: "ProxyMedia", category: "media" },
   { key: "Steam", label: "Steam", category: "game" },
   { key: "SteamCN", label: "SteamCN", category: "game" },
@@ -10594,6 +10612,10 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   paramountplus: "ParamountPlus",
   peacock: "Peacock",
   discoveryplus: "DiscoveryPlus",
+  soundcloud: "SoundCloud",
+  deezer: "Deezer",
+  kkbox: "KKBOX",
+  pandora: "Pandora",
   linkedin: "LinkedIn",
   teams: "Teams",
   riot: "Riot",
