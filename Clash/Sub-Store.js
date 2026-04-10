@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.12.2
+ * Sub-Store 终极策略增强脚本 V9.13.0
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -317,11 +317,13 @@
  * 310. 规则定义查表继续收口：把 provider->definition / provider->index 两份查找表构建统一到共享 builder，减少重复循环模板。
  * 313. resolveArgs 服务告警继续收敛：把 GitHub / Steam / Dev 的测速、模式、类型、strategy、expected-status 等同构告警收成共享 helper + 状态表批量输出。
  * 314. resolveArgs 服务 URL/优先级告警继续收敛：把独立组 test-url、include-all 覆盖链、icon/interface/routing-mark 提示改成统一循环，减少大段平铺 if 模板。
+ * 315. GitHub 社区分组继续补厚：参考 blackmatrix7 / QuixoticHeart 等规则仓库，新增 Discord / WhatsApp / LINE / Instagram / Facebook / PayPal 独立组，并收紧 Meta 系规则顺序，避免宽泛规则抢先命中。
+ * 316. 社区高频社交分组继续补齐：继续参考 blackmatrix7 当前规则目录，把 Twitter / Reddit 提升为独立组；Threads / Twitch / LinkedIn 暂不单拆，避免和既有 Meta / 媒体 / 开发生态重复堆叠。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.12.8";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.12.8。
+const SCRIPT_VERSION = "9.13.0";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.13.0。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -523,6 +525,8 @@ const GROUPS = {
   AI: "🤖 AI服务",
   // 加密货币相关服务专用策略组。
   CRYPTO: "💰 加密货币",
+  // PayPal 支付服务专用策略组。
+  PAYPAL: "💳 PayPal",
   // Apple 服务专用策略组。
   APPLE: "🍎 Apple",
   // Microsoft 服务专用策略组。
@@ -538,8 +542,22 @@ const GROUPS = {
   // OneDrive 专用策略组。
   ONEDRIVE: "☁️ OneDrive",
 
+  // Discord 专用策略组。
+  DISCORD: "💬 Discord",
   // Telegram 专用策略组。
   TELEGRAM: "✈️ Telegram",
+  // WhatsApp 专用策略组。
+  WHATSAPP: "🟢 WhatsApp",
+  // LINE 专用策略组。
+  LINE: "💚 LINE",
+  // Twitter / X 专用策略组。
+  TWITTER: "🐦 Twitter",
+  // Instagram 专用策略组。
+  INSTAGRAM: "📸 Instagram",
+  // Facebook 专用策略组。
+  FACEBOOK: "📘 Facebook",
+  // Reddit 专用策略组。
+  REDDIT: "👽 Reddit",
   // YouTube 专用策略组。
   YOUTUBE: "📹 YouTube",
   // Netflix 专用策略组。
@@ -573,6 +591,7 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.OTHER,
   GROUPS.AI,
   GROUPS.CRYPTO,
+  GROUPS.PAYPAL,
   GROUPS.APPLE,
   GROUPS.MICROSOFT,
   GROUPS.GOOGLE,
@@ -580,7 +599,14 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.DEV,
   GROUPS.BING,
   GROUPS.ONEDRIVE,
+  GROUPS.DISCORD,
   GROUPS.TELEGRAM,
+  GROUPS.WHATSAPP,
+  GROUPS.LINE,
+  GROUPS.TWITTER,
+  GROUPS.INSTAGRAM,
+  GROUPS.FACEBOOK,
+  GROUPS.REDDIT,
   GROUPS.YOUTUBE,
   GROUPS.NETFLIX,
   GROUPS.DISNEY,
@@ -600,16 +626,16 @@ const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs"
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
   // token 列表里不是最终组名，而是布局阶段使用的抽象槽位；后面会再解析成实际 groups / region / country / helper 区块。
-  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "regions", "countries", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "google", "microsoft", "onedrive", "telegram", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "steam", "bing", "apple", "games", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "countries", "regions", "steam", "bing", "apple", "games", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "steam", "games", "regions", "countries", "telegram", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "other", "extras"],
-  compact: ["select", "manual", "fallback", "ai", "github", "dev", "steam", "media", "regions", "countries", "helpers", "extras"],
-  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "steam", "media", "helpers", "extras"]
+  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "countries", "regions", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "regions", "countries", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "other", "extras"],
+  compact: ["select", "manual", "fallback", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "regions", "countries", "helpers", "extras"],
+  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "helpers", "extras"]
 };
 
 // 某些自动分组天然允许为空，不必为此输出告警。
@@ -6943,6 +6969,11 @@ function blackmatrix7ClashRule(name) {
   return `${BLACKMATRIX7_CLASH_RULE_BASE_URL}/${name}/${name}.yaml`;
 }
 
+// 通用 blackmatrix7 Clash YAML 规则提供器；开发服务组与后续补充的社区细分组都复用它。
+function createCommunityClashRuleProvider(name) {
+  return createRuleProvider("classical", blackmatrix7ClashRule(name), "yaml");
+}
+
 // 拼接 Accademia Additional_Rule_For_Clash 的补充 YAML 规则地址。
 function accademiaAdditionalRule(name) {
   return `${ACCADEMIA_ADDITIONAL_RULE_BASE_URL}/${name}/${name}.yaml`;
@@ -6982,7 +7013,7 @@ function createPresetAwareRuleProvider(name, behavior, url, format) {
 
 // 新增的开发生态细分规则目前统一采用 blackmatrix7 提供的 Clash YAML 规则。
 function createDeveloperRuleProvider(name) {
-  return createRuleProvider("classical", blackmatrix7ClashRule(name), "yaml");
+  return createCommunityClashRuleProvider(name);
 }
 
 // 统一合并官方 `$options` 与 `$arguments`，并让显式 `$arguments` 保持更高优先级。
@@ -7093,8 +7124,22 @@ const ruleProviders = finalizeRuleProviders({
   Slack: createDeveloperRuleProvider("Slack"),
   // Dropbox 文件同步/协作规则。
   Dropbox: createDeveloperRuleProvider("Dropbox"),
+  // Discord 社区/语音协作规则。
+  Discord: createCommunityClashRuleProvider("Discord"),
   // Telegram 规则。
   Telegram: createRuleProvider("domain", metaGeoSite("telegram")),
+  // WhatsApp 通讯规则。
+  WhatsApp: createCommunityClashRuleProvider("Whatsapp"),
+  // LINE 通讯规则。
+  Line: createCommunityClashRuleProvider("Line"),
+  // Instagram 社交规则。
+  Instagram: createCommunityClashRuleProvider("Instagram"),
+  // Facebook / Meta 社交规则。
+  Facebook: createCommunityClashRuleProvider("Facebook"),
+  // Twitter / X 社交规则。
+  Twitter: createCommunityClashRuleProvider("Twitter"),
+  // Reddit 社区规则。
+  Reddit: createCommunityClashRuleProvider("Reddit"),
   // Netflix 规则。
   Netflix: createRuleProvider("domain", metaGeoSite("netflix")),
   // Disney 规则。
@@ -7103,6 +7148,8 @@ const ruleProviders = finalizeRuleProviders({
   Spotify: createRuleProvider("domain", metaGeoSite("spotify")),
   // TikTok 规则。
   TikTok: createRuleProvider("domain", metaGeoSite("tiktok")),
+  // PayPal 支付规则。
+  PayPal: createCommunityClashRuleProvider("PayPal"),
 
   // 微软服务规则。
   Microsoft: createRuleProvider("domain", metaGeoSite("microsoft")),
@@ -7231,6 +7278,8 @@ const RULE_SET_DEFINITIONS = (() => {
     ruleOrderAnchorKey: "githubRuleAnchor",
     ruleOrderPositionKey: "githubRulePosition"
   },
+  // Discord 流量交给 Discord 组。
+  { provider: "Discord", target: GROUPS.DISCORD },
   // Bing 流量交给 Bing 组。
   { provider: "Bing", target: GROUPS.BING },
   // OneDrive 流量交给 OneDrive 组。
@@ -7249,6 +7298,20 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Telegram", target: GROUPS.TELEGRAM },
   // Telegram IP 段交给 Telegram 组，并关闭解析。
   { provider: "Telegram_IP", target: GROUPS.TELEGRAM, noResolve: true },
+  // WhatsApp 规则必须放在 Facebook 前面；其规则里包含 graph.facebook.com，避免被更宽泛的 Meta/Facebook 规则提前吃掉。
+  { provider: "WhatsApp", target: GROUPS.WHATSAPP },
+  // LINE 流量交给 LINE 组。
+  { provider: "Line", target: GROUPS.LINE },
+  // Twitter / X 流量交给 Twitter 组。
+  { provider: "Twitter", target: GROUPS.TWITTER },
+  // Instagram 规则默认也放在 Facebook 前面，避免更宽泛的 Meta 规则抢先命中。
+  { provider: "Instagram", target: GROUPS.INSTAGRAM },
+  // Facebook / Meta 生态流量交给 Facebook 组。
+  { provider: "Facebook", target: GROUPS.FACEBOOK },
+  // Reddit 社区流量交给 Reddit 组。
+  { provider: "Reddit", target: GROUPS.REDDIT },
+  // PayPal 支付流量交给 PayPal 组。
+  { provider: "PayPal", target: GROUPS.PAYPAL },
   // TikTok 流量交给 TikTok 组。
   { provider: "TikTok", target: GROUPS.TIKTOK },
 
@@ -7327,7 +7390,15 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Figma", label: "Figma", expectedTarget: GROUPS.DEV },
   { provider: "Slack", label: "Slack", expectedTarget: GROUPS.DEV },
   { provider: "Dropbox", label: "Dropbox", expectedTarget: GROUPS.DEV },
+  { provider: "Discord", label: "Discord", expectedTarget: GROUPS.DISCORD },
   { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
+  { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.WHATSAPP },
+  { provider: "Line", label: "LINE", expectedTarget: GROUPS.LINE },
+  { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.TWITTER },
+  { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.INSTAGRAM },
+  { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
+  { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
+  { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
   { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
@@ -7384,6 +7455,18 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
     blockerProvider: "Microsoft",
     blockedProvider: "Bing",
     message: "Bing 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，Bing 流量可能会先命中微软服务组而不是 Bing 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Facebook",
+    blockedProvider: "WhatsApp",
+    message: "WhatsApp 规则当前排在 Facebook 之后；WhatsApp 规则中包含 graph.facebook.com，而 Facebook 是更宽泛的 Meta 生态规则，相关流量可能会先命中 Facebook 组而不是 WhatsApp 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Facebook",
+    blockedProvider: "Instagram",
+    message: "Instagram 规则当前排在 Facebook 之后；Facebook 是更宽泛的 Meta 生态规则，Instagram 流量可能会先命中 Facebook 组而不是 Instagram 独立组"
   },
   {
     category: "geo",
@@ -7911,6 +7994,14 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Figma", label: "Figma", category: "dev" },
   { key: "Slack", label: "Slack", category: "dev" },
   { key: "Dropbox", label: "Dropbox", category: "dev" },
+  { key: "Discord", label: "Discord", category: "social" },
+  { key: "WhatsApp", label: "WhatsApp", category: "social" },
+  { key: "Line", label: "LINE", category: "social" },
+  { key: "Twitter", label: "Twitter", category: "social" },
+  { key: "Instagram", label: "Instagram", category: "social" },
+  { key: "Facebook", label: "Facebook", category: "social" },
+  { key: "Reddit", label: "Reddit", category: "social" },
+  { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Steam", label: "Steam", category: "game" },
   { key: "SteamCN", label: "SteamCN", category: "game" }
 ]);
@@ -7918,6 +8009,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
 const SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY = Object.freeze({
   ai: "aiCount",
   dev: "devCount",
+  social: "socialCount",
   trade: "tradeCount",
   game: "gameCount"
 });
@@ -8452,6 +8544,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
     foundCount: 0,
     aiCount: 0,
     devCount: 0,
+    socialCount: 0,
     tradeCount: 0,
     gameCount: 0,
     missingCount: 0,
@@ -8495,7 +8588,7 @@ function formatServiceRuleWindowSummary(source) {
   const spanStart = Number(current.firstIndex);
   const spanEnd = Number(current.lastIndex);
   const span = spanStart >= 0 && spanEnd >= 0 ? `${spanStart + 1}-${spanEnd + 1}` : "0-0";
-  return `tracked=${Number(current.tracked) || 0},found=${Number(current.foundCount) || 0},ai=${Number(current.aiCount) || 0},dev=${Number(current.devCount) || 0},trade=${Number(current.tradeCount) || 0},game=${Number(current.gameCount) || 0},missing=${Number(current.missingCount) || 0},span=${span},order=${formatProviderPreviewNames(current.orderEntries, 6, 14)}`;
+  return `tracked=${Number(current.tracked) || 0},found=${Number(current.foundCount) || 0},ai=${Number(current.aiCount) || 0},dev=${Number(current.devCount) || 0},social=${Number(current.socialCount) || 0},trade=${Number(current.tradeCount) || 0},game=${Number(current.gameCount) || 0},missing=${Number(current.missingCount) || 0},span=${span},order=${formatProviderPreviewNames(current.orderEntries, 6, 14)}`;
 }
 
 // 把业务规则窗口样本压成预览字符串，便于直接看出这些业务规则的前后 2 跳邻居。
@@ -9965,7 +10058,19 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   sharepoint: GROUPS.ONEDRIVE,
   skydrive: GROUPS.ONEDRIVE,
   "1drv": GROUPS.ONEDRIVE,
+  discord: GROUPS.DISCORD,
+  dc: GROUPS.DISCORD,
   telegram: GROUPS.TELEGRAM,
+  whatsapp: GROUPS.WHATSAPP,
+  wa: GROUPS.WHATSAPP,
+  line: GROUPS.LINE,
+  twitter: GROUPS.TWITTER,
+  tweet: GROUPS.TWITTER,
+  instagram: GROUPS.INSTAGRAM,
+  ig: GROUPS.INSTAGRAM,
+  facebook: GROUPS.FACEBOOK,
+  fb: GROUPS.FACEBOOK,
+  reddit: GROUPS.REDDIT,
   youtube: GROUPS.YOUTUBE,
   netflix: GROUPS.NETFLIX,
   disney: GROUPS.DISNEY,
@@ -9975,6 +10080,8 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   steam: GROUPS.STEAM,
   game: GROUPS.GAMES,
   games: GROUPS.GAMES,
+  paypal: GROUPS.PAYPAL,
+  pp: GROUPS.PAYPAL,
   pt: GROUPS.PT,
   speedtest: GROUPS.SPEEDTEST,
   ads: GROUPS.ADS,
@@ -10072,7 +10179,7 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupN
     // core 是面板最顶层的主控组。
     core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.FALLBACK, GROUPS.DIRECT]),
     // services 把高频业务组打包成一桶，方便 preset 用一个 token 拉整段。
-    services: pickAvailable([GROUPS.AI, GROUPS.TELEGRAM, GROUPS.GOOGLE, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GAMES, GROUPS.BING, GROUPS.APPLE, GROUPS.STEAM, GROUPS.PT, GROUPS.SPEEDTEST, GROUPS.CRYPTO]),
+    services: pickAvailable([GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GOOGLE, GROUPS.TELEGRAM, GROUPS.DISCORD, GROUPS.WHATSAPP, GROUPS.LINE, GROUPS.TWITTER, GROUPS.INSTAGRAM, GROUPS.FACEBOOK, GROUPS.REDDIT, GROUPS.STEAM, GROUPS.BING, GROUPS.APPLE, GROUPS.GAMES, GROUPS.PAYPAL, GROUPS.CRYPTO, GROUPS.PT, GROUPS.SPEEDTEST]),
     // media 单独收流媒体服务，避免和普通业务组混在一起。
     media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK]),
     // regions / countries 则分别对应地理聚合组和国家组。
@@ -10202,7 +10309,19 @@ const PREFERRED_GROUP_ALIAS_MAP = Object.freeze(Object.assign({
   sharepoint: GROUPS.ONEDRIVE,
   skydrive: GROUPS.ONEDRIVE,
   "1drv": GROUPS.ONEDRIVE,
+  discord: GROUPS.DISCORD,
+  dc: GROUPS.DISCORD,
   telegram: GROUPS.TELEGRAM,
+  whatsapp: GROUPS.WHATSAPP,
+  wa: GROUPS.WHATSAPP,
+  line: GROUPS.LINE,
+  twitter: GROUPS.TWITTER,
+  tweet: GROUPS.TWITTER,
+  instagram: GROUPS.INSTAGRAM,
+  ig: GROUPS.INSTAGRAM,
+  facebook: GROUPS.FACEBOOK,
+  fb: GROUPS.FACEBOOK,
+  reddit: GROUPS.REDDIT,
   youtube: GROUPS.YOUTUBE,
   netflix: GROUPS.NETFLIX,
   disney: GROUPS.DISNEY,
@@ -10212,6 +10331,8 @@ const PREFERRED_GROUP_ALIAS_MAP = Object.freeze(Object.assign({
   steam: GROUPS.STEAM,
   game: GROUPS.GAMES,
   games: GROUPS.GAMES,
+  paypal: GROUPS.PAYPAL,
+  pp: GROUPS.PAYPAL,
   pt: GROUPS.PT,
   speedtest: GROUPS.SPEEDTEST,
   ads: GROUPS.ADS,
@@ -10280,6 +10401,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   youtube: "YouTube",
   google: "Google",
   googleip: "Google_IP",
+  discord: "Discord",
   bing: "Bing",
   onedrive: "OneDrive",
   sharepoint: "OneDrive",
@@ -10292,12 +10414,24 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   appleip: "Apple_IP",
   telegram: "Telegram",
   telegramip: "Telegram_IP",
+  whatsapp: "WhatsApp",
+  wa: "WhatsApp",
+  line: "Line",
+  twitter: "Twitter",
+  tweet: "Twitter",
+  instagram: "Instagram",
+  ig: "Instagram",
+  facebook: "Facebook",
+  fb: "Facebook",
+  reddit: "Reddit",
   tiktok: "TikTok",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
   disney: "Disney",
   disneyplus: "Disney",
   spotify: "Spotify",
+  paypal: "PayPal",
+  pp: "PayPal",
   steamfix: "SteamFix",
   steam: "Steam",
   steamcn: "SteamCN",
@@ -15298,12 +15432,20 @@ const PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS = Object.freeze([
   Object.freeze([
     createContextSelectGroupBuildDefinition(GROUPS.AI, "aiProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.TELEGRAM, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.DISCORD, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.WHATSAPP, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.LINE, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.TWITTER, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.INSTAGRAM, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.FACEBOOK, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.REDDIT, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.GOOGLE, "baseProxies"),
     createServiceArtifactGroupBuildDefinition("github"),
     createServiceArtifactGroupBuildDefinition("dev"),
     createContextSelectGroupBuildDefinition(GROUPS.MICROSOFT, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.ONEDRIVE, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.GAMES, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.PAYPAL, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.BING, "directFirstProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.APPLE, "directFirstProxies"),
     createServiceArtifactGroupBuildDefinition("steam"),
