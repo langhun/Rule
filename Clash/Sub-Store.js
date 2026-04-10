@@ -355,11 +355,12 @@
  * 350. 国内银行规则继续审计：参考 blackmatrix7 当前目录，把 ABC / BOCOM / CCB 并入直连规则，补上 abchina.com / bankcomm.com / ccb.com 等银行链路；BOC / CMB / ICBC 仍暂不纳入，避免把更宽的海外子品牌或夹带的混合域名一起卷入。
  * 351. 国内音乐规则继续审计：参考 blackmatrix7 当前目录，把 NetEaseMusic 并入直连规则，补上 music.163.com / music.126.com / 163yun.com 等网易云音乐链路；NetEase 总规则仍暂不纳入，避免把邮箱、LOFTER 与更多网易泛业务一起卷入。
  * 352. 下载规则继续审计：参考 blackmatrix7 当前目录，把 PikPak 并入 PT 下载组，补上 mypikpak 与 sandai 下载链路；TelegramNL / TelegramSG / TelegramUS 仍暂不纳入，避免和现有 Telegram_IP IP 段规则重复。
+ * 353. 英美点播规则继续审计：参考 blackmatrix7 当前目录，把 CWSeed 并入流媒体组，补上 cwseed.com / cwtv.com / thecwvideo.com；BBC / CBS 仍暂不纳入，避免把新闻/集团站点与更宽的媒体域名一起卷入。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.33";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.33。
+const SCRIPT_VERSION = "9.14.34";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.34。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7210,6 +7211,8 @@ const ruleProviders = finalizeRuleProviders({
   iQIYIIntl: createCommunityClashRuleProvider("iQIYIIntl"),
   // All4 / Channel 4 规则归并到流媒体组，补上英国地区点播服务。
   All4: createCommunityClashRuleProvider("All4"),
+  // CWSeed / CWTV 归并到流媒体组，补充美区电视台点播平台。
+  CWSeed: createCommunityClashRuleProvider("CWSeed"),
   // Dailymotion 归并到流媒体组，补充国际视频平台。
   Dailymotion: createCommunityClashRuleProvider("Dailymotion"),
   // Vimeo / Livestream / VHX 统一并入流媒体组，补充创作者视频托管平台。
@@ -7528,6 +7531,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "iQIYIIntl", target: GROUPS.STREAMING },
   // All4 / Channel 4 归并到流媒体组，不额外拆英国电视面板。
   { provider: "All4", target: GROUPS.STREAMING },
+  // CWSeed / CWTV 也归并到流媒体组，不额外拆美区电视点播面板。
+  { provider: "CWSeed", target: GROUPS.STREAMING },
   // Dailymotion 也归并到流媒体组，不额外拆国际视频平台面板。
   { provider: "Dailymotion", target: GROUPS.STREAMING },
   // Vimeo / Livestream / VHX 归并到流媒体组，继续用通用媒体组承接视频平台。
@@ -7717,6 +7722,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "WeTV", label: "WeTV", expectedTarget: GROUPS.STREAMING },
   { provider: "iQIYIIntl", label: "iQIYIIntl", expectedTarget: GROUPS.STREAMING },
   { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
+  { provider: "CWSeed", label: "CWSeed", expectedTarget: GROUPS.STREAMING },
   { provider: "Dailymotion", label: "Dailymotion", expectedTarget: GROUPS.STREAMING },
   { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
   { provider: "Niconico", label: "Niconico", expectedTarget: GROUPS.STREAMING },
@@ -8424,6 +8430,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "WeTV", label: "WeTV", category: "media" },
   { key: "iQIYIIntl", label: "iQIYIIntl", category: "media" },
   { key: "All4", label: "All4", category: "media" },
+  { key: "CWSeed", label: "CWSeed", category: "media" },
   { key: "Dailymotion", label: "Dailymotion", category: "media" },
   { key: "Vimeo", label: "Vimeo", category: "media" },
   { key: "Niconico", label: "Niconico", category: "media" },
@@ -10990,6 +10997,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   wetv: "WeTV",
   iqiyiintl: "iQIYIIntl",
   all4: "All4",
+  cwseed: "CWSeed",
+  cwtv: "CWSeed",
   dailymotion: "Dailymotion",
   channel4: "All4",
   vimeo: "Vimeo",
