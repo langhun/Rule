@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.12
+ * Sub-Store 终极策略增强脚本 V9.14.13
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -334,11 +334,12 @@
  * 329. 区域流媒体继续审计：参考 blackmatrix7 当前目录，把 All4 并入流媒体组，补上 channel4.com / c4assets.com；BritboxUK / Abema 仍暂不纳入，避免把 BBC / ITV / Ameba 等更宽泛站点一起卷进来。
  * 330. 创作者付费规则继续审计：参考 blackmatrix7 当前目录，把 Patreon 并入 PayPal 组，补上 patreon.com / patreonusercontent.com；Shopee 仍暂不纳入，避免把区域电商大盘误并到支付分组。
  * 331. 图片社区规则继续审计：参考 blackmatrix7 当前目录，把 Imgur 并入 Instagram 组，补上 imgur.com / imgurinc.com；Flickr / Behance 当前目录下无对应 Clash 规则，先不额外引入。
+ * 332. 视频平台规则继续审计：参考 blackmatrix7 当前目录，把 Vimeo 并入流媒体组，补上 vimeo.com / livestream.com / vimeoondemand.com；Tumblr / Niconico 这轮先不一起并，避免一次塞太多跨品类站点。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.12";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.12。
+const SCRIPT_VERSION = "9.14.13";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.13。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7180,6 +7181,8 @@ const ruleProviders = finalizeRuleProviders({
   BiliBiliIntl: createCommunityClashRuleProvider("BiliBiliIntl"),
   // All4 / Channel 4 规则归并到流媒体组，补上英国地区点播服务。
   All4: createCommunityClashRuleProvider("All4"),
+  // Vimeo / Livestream / VHX 统一并入流媒体组，补充创作者视频托管平台。
+  Vimeo: createCommunityClashRuleProvider("Vimeo"),
   // 额外国际视频平台统一并入“流媒体”组，避免单服务继续膨胀面板。
   AmazonPrimeVideo: createCommunityClashRuleProvider("AmazonPrimeVideo"),
   PrimeVideo: createCommunityClashRuleProvider("PrimeVideo"),
@@ -7426,6 +7429,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "BiliBiliIntl", target: GROUPS.STREAMING },
   // All4 / Channel 4 归并到流媒体组，不额外拆英国电视面板。
   { provider: "All4", target: GROUPS.STREAMING },
+  // Vimeo / Livestream / VHX 归并到流媒体组，继续用通用媒体组承接视频平台。
+  { provider: "Vimeo", target: GROUPS.STREAMING },
   // 额外国际视频平台统一交给流媒体组，避免继续拆出 PrimeVideo/HBO/Hulu 等单独组。
   { provider: "AmazonPrimeVideo", target: GROUPS.STREAMING },
   { provider: "PrimeVideo", target: GROUPS.STREAMING },
@@ -7569,6 +7574,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "TikTok", label: "TikTok", expectedTarget: GROUPS.TIKTOK },
   { provider: "BiliBiliIntl", label: "BiliBiliIntl", expectedTarget: GROUPS.STREAMING },
   { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
+  { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
   { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "PrimeVideo", label: "PrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "HBO", label: "HBO", expectedTarget: GROUPS.STREAMING },
@@ -8241,6 +8247,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "TikTok", label: "TikTok", category: "media" },
   { key: "BiliBiliIntl", label: "BiliBiliIntl", category: "media" },
   { key: "All4", label: "All4", category: "media" },
+  { key: "Vimeo", label: "Vimeo", category: "media" },
   { key: "AmazonPrimeVideo", label: "AmazonPrimeVideo", category: "media" },
   { key: "PrimeVideo", label: "PrimeVideo", category: "media" },
   { key: "HBO", label: "HBO", category: "media" },
@@ -10751,6 +10758,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   bstar: "BiliBiliIntl",
   all4: "All4",
   channel4: "All4",
+  vimeo: "Vimeo",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
   disney: "Disney",
