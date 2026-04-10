@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.13.1
+ * Sub-Store 终极策略增强脚本 V9.13.2
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -320,11 +320,12 @@
  * 315. GitHub 社区分组继续补厚：参考 blackmatrix7 / QuixoticHeart 等规则仓库，新增 Discord / WhatsApp / LINE / Instagram / Facebook / PayPal 独立组，并收紧 Meta 系规则顺序，避免宽泛规则抢先命中。
  * 316. 社区高频社交分组继续补齐：继续参考 blackmatrix7 当前规则目录，把 Twitter / Reddit 提升为独立组；Threads / Twitch / LinkedIn 暂不单拆，避免和既有 Meta / 媒体 / 开发生态重复堆叠。
  * 317. 分组必要性继续审计：按“能并入现有大组就不再单拆”的原则，把 Threads 并入 Facebook、LinkedIn 并入微软服务，并把 Riot / Battle / Blizzard / EA / Nintendo / PlayStation / Xbox / Ubisoft 统一补进游戏加速组。
+ * 318. 分组审计继续收尾：继续参考 blackmatrix7 的 Teams / Twitch 规则，把 Teams 并入微软服务、Twitch 并入游戏加速；Pinterest / PrimeVideo / HBO / Hulu 这类当前没有合适现成组的条目先不硬塞。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.13.1";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.13.1。
+const SCRIPT_VERSION = "9.13.2";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.13.2。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7156,6 +7157,8 @@ const ruleProviders = finalizeRuleProviders({
 
   // LinkedIn 规则：归并到微软服务组，避免为职业社交场景单开一个面板组。
   LinkedIn: createCommunityClashRuleProvider("LinkedIn"),
+  // Teams 规则：继续并入微软服务组，统一办公/协作类流量出口。
+  Teams: createCommunityClashRuleProvider("Teams"),
   // 微软服务规则。
   Microsoft: createRuleProvider("domain", metaGeoSite("microsoft")),
   // Bing 规则。
@@ -7175,6 +7178,8 @@ const ruleProviders = finalizeRuleProviders({
   PlayStation: createCommunityClashRuleProvider("PlayStation"),
   Xbox: createCommunityClashRuleProvider("Xbox"),
   Ubisoft: createCommunityClashRuleProvider("Ubisoft"),
+  // Twitch 归并到游戏加速组，不再额外拆一个“直播平台”独立面板。
+  Twitch: createCommunityClashRuleProvider("Twitch"),
   // SteamFix 直连补丁规则，仅在显式开启时接入。
   ...(ARGS.steamFix
     ? { SteamFix: createRuleProvider("classical", ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL, "text") }
@@ -7300,6 +7305,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "OneDrive", target: GROUPS.ONEDRIVE },
   // LinkedIn 归并到微软服务组；不单拆职业社交组，避免和现有办公/微软生态分组重复。
   { provider: "LinkedIn", target: GROUPS.MICROSOFT },
+  // Teams 归并到微软服务组，继续把办公协作流量收口到微软服务。
+  { provider: "Teams", target: GROUPS.MICROSOFT },
   // 其他微软流量交给微软服务组；它比较泛，默认应排在 GitHub / OneDrive / Bing 等细分规则之后。
   { provider: "Microsoft", target: GROUPS.MICROSOFT },
 
@@ -7371,6 +7378,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "PlayStation", target: GROUPS.GAMES },
   { provider: "Xbox", target: GROUPS.GAMES },
   { provider: "Ubisoft", target: GROUPS.GAMES },
+  // Twitch 归并到游戏加速组，避免另外新增直播独立组。
+  { provider: "Twitch", target: GROUPS.GAMES },
   // Epic Games 流量交给游戏组。
   { provider: "Epic", target: GROUPS.GAMES },
   // PT 下载流量交给 PT 组。
@@ -7420,6 +7429,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Discord", label: "Discord", expectedTarget: GROUPS.DISCORD },
   { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
   { provider: "LinkedIn", label: "LinkedIn", expectedTarget: GROUPS.MICROSOFT },
+  { provider: "Teams", label: "Teams", expectedTarget: GROUPS.MICROSOFT },
   { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.WHATSAPP },
   { provider: "Line", label: "LINE", expectedTarget: GROUPS.LINE },
   { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.TWITTER },
@@ -7438,6 +7448,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "PlayStation", label: "PlayStation", expectedTarget: GROUPS.GAMES },
   { provider: "Xbox", label: "Xbox", expectedTarget: GROUPS.GAMES },
   { provider: "Ubisoft", label: "Ubisoft", expectedTarget: GROUPS.GAMES },
+  { provider: "Twitch", label: "Twitch", expectedTarget: GROUPS.GAMES },
   { provider: "Epic", label: "Epic", expectedTarget: GROUPS.GAMES },
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
   { provider: "Copilot", label: "Copilot", expectedTarget: GROUPS.AI },
@@ -8032,6 +8043,8 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Figma", label: "Figma", category: "dev" },
   { key: "Slack", label: "Slack", category: "dev" },
   { key: "Dropbox", label: "Dropbox", category: "dev" },
+  { key: "LinkedIn", label: "LinkedIn", category: "dev" },
+  { key: "Teams", label: "Teams", category: "dev" },
   { key: "Discord", label: "Discord", category: "social" },
   { key: "WhatsApp", label: "WhatsApp", category: "social" },
   { key: "Line", label: "LINE", category: "social" },
@@ -8051,6 +8064,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "PlayStation", label: "PlayStation", category: "game" },
   { key: "Xbox", label: "Xbox", category: "game" },
   { key: "Ubisoft", label: "Ubisoft", category: "game" },
+  { key: "Twitch", label: "Twitch", category: "game" },
   { key: "Epic", label: "Epic", category: "game" }
 ]);
 // 业务规则窗口里的分类计数统一走映射，减少分析函数里重复 if-else 分支。
@@ -10474,6 +10488,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   reddit: "Reddit",
   threads: "Threads",
   linkedin: "LinkedIn",
+  teams: "Teams",
   riot: "Riot",
   battle: "Battle",
   battlenet: "Battle",
@@ -10484,6 +10499,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   psn: "PlayStation",
   xbox: "Xbox",
   ubisoft: "Ubisoft",
+  twitch: "Twitch",
   tiktok: "TikTok",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
