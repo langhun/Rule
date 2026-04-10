@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.5
+ * Sub-Store 终极策略增强脚本 V9.14.6
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -327,11 +327,12 @@
  * 322. 交易电商继续收敛：参考 blackmatrix7 当前目录，把 Stripe / Shopify / Amazon / AmazonCN 统一并入 PayPal 组；不额外新开购物面板，但通过规则顺序保证 PrimeVideo 仍优先命中流媒体组。
  * 323. 交易规则继续补齐并修序：继续把 eBay / AmazonTrust 并入 PayPal 组，同时把 Amazon 系规则整体后移到 PrimeVideo / 流媒体块之后，避免电商泛规则抢先吃掉 Prime Video。
  * 324. 视觉社交继续收敛：参考 blackmatrix7 当前目录，把 Pinterest 并入 Instagram 组；不再额外拆新社交面板，但补上图文灵感类流量覆盖。
+ * 325. 国内支付规则继续审计：参考 blackmatrix7 当前目录，把 AliPay 补进直连规则，确保支付宝 / 跨境收银相关域名优先走直连；Alibaba 规则因范围过宽暂不纳入，避免误把泛阿里业务强塞进支付分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.5";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.5。
+const SCRIPT_VERSION = "9.14.6";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.6。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7185,6 +7186,8 @@ const ruleProviders = finalizeRuleProviders({
   Pandora: createCommunityClashRuleProvider("Pandora"),
   // MetaCubeX 的 ProxyMedia geosite 用来补齐尚未单独列出的海外媒体站点。
   ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
+  // AliPay / 支付宝及其跨境收银域名统一直连，避免国内支付链路误走代理。
+  AliPay: createCommunityClashRuleProvider("AliPay"),
   // PayPal 支付规则。
   PayPal: createCommunityClashRuleProvider("PayPal"),
   // 交易/电商高频规则统一并入 PayPal 组，不额外拆购物面板。
@@ -7383,6 +7386,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Facebook", target: GROUPS.FACEBOOK },
   // Reddit 社区流量交给 Reddit 组。
   { provider: "Reddit", target: GROUPS.REDDIT },
+  // AliPay / 支付宝支付链路优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
+  { provider: "AliPay", target: GROUPS.DIRECT },
   // PayPal 支付流量交给 PayPal 组。
   { provider: "PayPal", target: GROUPS.PAYPAL },
   // Stripe / Shopify / eBay 统一交给 PayPal 组；这一批不会和 PrimeVideo 冲突，可以继续放在前面。
@@ -7513,6 +7518,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Threads", label: "Threads", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
   { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
+  { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
   { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
   { provider: "Stripe", label: "Stripe", expectedTarget: GROUPS.PAYPAL },
   { provider: "Shopify", label: "Shopify", expectedTarget: GROUPS.PAYPAL },
@@ -8172,6 +8178,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Threads", label: "Threads", category: "social" },
   { key: "Facebook", label: "Facebook", category: "social" },
   { key: "Reddit", label: "Reddit", category: "social" },
+  { key: "AliPay", label: "AliPay", category: "trade" },
   { key: "PayPal", label: "PayPal", category: "trade" },
   { key: "Stripe", label: "Stripe", category: "trade" },
   { key: "Shopify", label: "Shopify", category: "trade" },
@@ -10662,6 +10669,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   paramountplus: "ParamountPlus",
   peacock: "Peacock",
   discoveryplus: "DiscoveryPlus",
+  alipay: "AliPay",
   stripe: "Stripe",
   shopify: "Shopify",
   ebay: "eBay",
