@@ -372,11 +372,12 @@
  * 367. 基础设施即代码规则继续审计：参考 blackmatrix7 当前目录，把 HashiCorp 并入开发服务组，补上 terraform.io / consul.io / vaultproject.io / vagrantup.com 等 IaC 与基础设施工具域名；Gitee / Stackexchange 仍暂不纳入，避免把低收益单域名代码托管或更泛开发内容社区继续硬塞进现有开发分组。
  * 368. 代码托管规则继续审计：参考 blackmatrix7 当前目录，把 Gitee 并入开发服务组，补上 gitee.com / gitee.io 两条国内代码托管链路；Stackexchange / Teambition 仍暂不纳入，避免把更泛开发内容社区或混合协作域名继续硬塞进现有开发分组。
  * 369. 游戏引擎规则继续审计：参考 blackmatrix7 当前目录，把 Unity 并入开发服务组，补上 unity.com / unity3d.com / unitychina.cn / UnityHub.exe 等引擎、教育与编辑器分发链路；Stackexchange / Teambition 仍暂不纳入，避免把更泛开发内容社区或混合协作域名继续硬塞进现有开发分组。
+ * 370. 开发问答规则继续审计：参考 blackmatrix7 当前目录，把 Stackexchange 并入开发服务组，补上 stackoverflow.com / stackexchange.com / serverfault.com / sstatic.net 等问答与开发社区域名；Teambition / TeamViewer 仍暂不纳入，避免把混合协作域名或低收益远程控制链路继续硬塞进现有开发分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.50";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.50。
+const SCRIPT_VERSION = "9.14.51";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.51。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -675,9 +676,9 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.ADS
 ]);
 
-// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Apifox / Bootcss / Electron / Ubuntu / CSDN / Gitee / Contentful / Wordpress / AppleDev / HashiCorp / Unity / Collabora / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
+// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Apifox / Bootcss / Electron / Ubuntu / Stackexchange / CSDN / Gitee / Contentful / Wordpress / AppleDev / HashiCorp / Unity / Collabora / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
 // 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
-const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
+const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
@@ -7179,6 +7180,8 @@ const ruleProviders = finalizeRuleProviders({
   Electron: createDeveloperRuleProvider("Electron"),
   // Ubuntu / Canonical / Snapcraft Linux 开发生态规则。
   Ubuntu: createDeveloperRuleProvider("Ubuntu"),
+  // Stackexchange / Stack Overflow / Server Fault 开发问答社区规则。
+  Stackexchange: createDeveloperRuleProvider("Stackexchange"),
   // CSDN / GitCode / ITEYE 等国内开发社区与代码托管规则。
   CSDN: createDeveloperRuleProvider("CSDN"),
   // Gitee 国内代码托管 / Pages 规则。
@@ -7481,6 +7484,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Electron", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Ubuntu / Canonical / Snapcraft Linux 开发生态流量交给开发服务组。
   { provider: "Ubuntu", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Stackexchange / Stack Overflow / Server Fault 开发问答社区流量交给开发服务组。
+  { provider: "Stackexchange", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // CSDN / GitCode / ITEYE 等国内开发社区与代码托管流量交给开发服务组。
   { provider: "CSDN", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Gitee 国内代码托管 / Pages 流量交给开发服务组。
@@ -7755,6 +7760,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Bootcss", label: "Bootcss", expectedTarget: GROUPS.DEV },
   { provider: "Electron", label: "Electron", expectedTarget: GROUPS.DEV },
   { provider: "Ubuntu", label: "Ubuntu", expectedTarget: GROUPS.DEV },
+  { provider: "Stackexchange", label: "Stackexchange", expectedTarget: GROUPS.DEV },
   { provider: "CSDN", label: "CSDN", expectedTarget: GROUPS.DEV },
   { provider: "Gitee", label: "Gitee", expectedTarget: GROUPS.DEV },
   { provider: "Contentful", label: "Contentful", expectedTarget: GROUPS.DEV },
@@ -8480,6 +8486,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Bootcss", label: "Bootcss", category: "dev" },
   { key: "Electron", label: "Electron", category: "dev" },
   { key: "Ubuntu", label: "Ubuntu", category: "dev" },
+  { key: "Stackexchange", label: "Stackexchange", category: "dev" },
   { key: "CSDN", label: "CSDN", category: "dev" },
   { key: "Gitee", label: "Gitee", category: "dev" },
   { key: "Contentful", label: "Contentful", category: "dev" },
@@ -10340,7 +10347,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   // 这里只挑一批最关键的 provider 观察其规则落点，避免预览过长。
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
-    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
+    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     .map((provider) => {
       const definition = definitionLookup[provider];
@@ -11180,6 +11187,15 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   snapcraft: "Ubuntu",
   askubuntu: "Ubuntu",
   ubuntuforums: "Ubuntu",
+  stackexchange: "Stackexchange",
+  stackoverflow: "Stackexchange",
+  serverfault: "Stackexchange",
+  superuser: "Stackexchange",
+  stackapps: "Stackexchange",
+  stackauth: "Stackexchange",
+  sstatic: "Stackexchange",
+  mathoverflow: "Stackexchange",
+  stacksnippets: "Stackexchange",
   csdn: "CSDN",
   gitcode: "CSDN",
   codechina: "CSDN",
