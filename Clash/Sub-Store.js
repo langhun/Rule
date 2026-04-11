@@ -7130,6 +7130,8 @@ const ruleProviders = finalizeRuleProviders({
   OpenAI: createPresetAwareRuleProvider("OpenAI", "domain", metaGeoSite("openai")),
   // Anthropic 官方规则。
   Anthropic: createPresetAwareRuleProvider("Anthropic", "domain", metaGeoSite("anthropic")),
+  // Claude 社区规则单独并入 AI 组，补足 claude.ai / claudeusercontent.com 等更细的 Anthropic 入口。
+  Claude: createCommunityClashRuleProvider("Claude"),
   // Google Gemini 官方规则。
   Gemini: createPresetAwareRuleProvider("Gemini", "domain", metaGeoSite("google-gemini")),
   // Copilot 规则目前复用 GitHub 社区里维护的 Clash YAML 规则源。
@@ -7154,6 +7156,8 @@ const ruleProviders = finalizeRuleProviders({
 
   // YouTube 规则。
   YouTube: createRuleProvider("domain", metaGeoSite("youtube")),
+  // Google Drive 社区规则并入 Google 组，补足 drive / docs / file sharing 这类更细的云盘入口。
+  GoogleDrive: createCommunityClashRuleProvider("GoogleDrive"),
   // Google 规则。
   Google: createRuleProvider("domain", metaGeoSite("google")),
   // GitHub 规则。
@@ -7269,14 +7273,20 @@ const ruleProviders = finalizeRuleProviders({
   iQIYIIntl: createCommunityClashRuleProvider("iQIYIIntl"),
   // All4 / Channel 4 规则归并到流媒体组，补上英国地区点播服务。
   All4: createCommunityClashRuleProvider("All4"),
+  // ITV 归并到流媒体组，补上英国电视与点播平台。
+  ITV: createCommunityClashRuleProvider("ITV"),
   // CWSeed / CWTV 归并到流媒体组，补充美区电视台点播平台。
   CWSeed: createCommunityClashRuleProvider("CWSeed"),
+  // PBS 归并到流媒体组，补充美国公共电视内容分发域名。
+  PBS: createCommunityClashRuleProvider("PBS"),
   // Dailymotion 归并到流媒体组，补充国际视频平台。
   Dailymotion: createCommunityClashRuleProvider("Dailymotion"),
   // Vimeo / Livestream / VHX 统一并入流媒体组，补充创作者视频托管平台。
   Vimeo: createCommunityClashRuleProvider("Vimeo"),
   // Niconico / NicoVideo / NicoSeiga 统一并入流媒体组，补充日系视频社区。
   Niconico: createCommunityClashRuleProvider("Niconico"),
+  // Abema / AbemaTV 归并到流媒体组，补充日本地区视频与直播平台。
+  Abema: createCommunityClashRuleProvider("Abema"),
   // PandoraTV 归并到流媒体组，补充韩区视频平台。
   PandoraTV: createCommunityClashRuleProvider("PandoraTV"),
   // FOXPlus 归并到流媒体组，补充亚洲地区电视/体育流媒体。
@@ -7285,6 +7295,8 @@ const ruleProviders = finalizeRuleProviders({
   FuboTV: createCommunityClashRuleProvider("FuboTV"),
   // NowE 归并到流媒体组，补充港区视频平台。
   NowE: createCommunityClashRuleProvider("NowE"),
+  // myTVSUPER 归并到流媒体组，补充港区 TVB OTT 平台。
+  myTVSUPER: createCommunityClashRuleProvider("myTVSUPER"),
   // KKTV 归并到流媒体组，补充台区视频平台。
   KKTV: createCommunityClashRuleProvider("KKTV"),
   // LiTV 归并到流媒体组，补充台区视频平台。
@@ -7299,6 +7311,22 @@ const ruleProviders = finalizeRuleProviders({
   RTHK: createCommunityClashRuleProvider("RTHK"),
   // MeWatch 归并到流媒体组，补充新加坡地区视频平台。
   MeWatch: createCommunityClashRuleProvider("MeWatch"),
+  // Bahamut / 巴哈姆特动画疯也并入流媒体组，补充台港二次元视频社区。
+  Bahamut: createCommunityClashRuleProvider("Bahamut"),
+  // DAZN 归并到流媒体组，补充体育直播/点播平台。
+  DAZN: createCommunityClashRuleProvider("DAZN"),
+  // Viki / Rakuten Viki 归并到流媒体组，补充韩流与亚洲剧集平台。
+  Viki: createCommunityClashRuleProvider("Viki"),
+  // ViuTV 归并到流媒体组，补充港区电视/点播平台。
+  ViuTV: createCommunityClashRuleProvider("ViuTV"),
+  // friDay 归并到流媒体组，补充台区影视平台。
+  friDay: createCommunityClashRuleProvider("friDay"),
+  // HamiVideo 归并到流媒体组，补充台湾中华电信视频平台。
+  HamiVideo: createCommunityClashRuleProvider("HamiVideo"),
+  // ZeeTV / Zee5 归并到流媒体组，补充印度与南亚地区视频平台。
+  ZeeTV: createCommunityClashRuleProvider("ZeeTV"),
+  // Emby 归并到流媒体组，补充自建媒体服务器与客户端分发域名。
+  Emby: createCommunityClashRuleProvider("Emby"),
   // 额外国际视频平台统一并入“流媒体”组，避免单服务继续膨胀面板。
   AmazonPrimeVideo: createCommunityClashRuleProvider("AmazonPrimeVideo"),
   PrimeVideo: createCommunityClashRuleProvider("PrimeVideo"),
@@ -7358,6 +7386,14 @@ const ruleProviders = finalizeRuleProviders({
   Bing: createRuleProvider("domain", metaGeoSite("bing")),
   // OneDrive 规则：默认走 Meta geosite；当启用 blackmatrix7 预设时自动切到社区 YAML。
   OneDrive: createPresetAwareRuleProvider("OneDrive", "domain", metaGeoSite("onedrive")),
+  // App Store 下载分发规则并入 Apple 组，补足应用商店访问链路。
+  AppStore: createCommunityClashRuleProvider("AppStore"),
+  // Apple ID 账号认证规则并入 Apple 组，补足登录与鉴权链路。
+  AppleID: createCommunityClashRuleProvider("AppleID"),
+  // iCloud 云同步规则并入 Apple 组，补足云盘/同步/照片流等入口。
+  iCloud: createCommunityClashRuleProvider("iCloud"),
+  // 系统 OTA 更新规则并入 Apple 组，补足系统更新与资源下载链路。
+  SystemOTA: createCommunityClashRuleProvider("SystemOTA"),
   // Apple 规则。
   Apple: createRuleProvider("domain", metaGeoSite("apple")),
   // Apple Music 规则继续并入 Apple 组，不额外拆音乐面板。
@@ -7439,6 +7475,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "ChatGPT", target: GROUPS.AI },
   // AI 补充规则进入 AI 组。
   { provider: "AIExtra", target: GROUPS.AI },
+  // Claude 社区规则放在 Anthropic 泛规则前面，优先命中更细的 Claude Web / App 域名。
+  { provider: "Claude", target: GROUPS.AI },
   // OpenAI 官方规则进入 AI 组。
   { provider: "OpenAI", target: GROUPS.AI },
   // Anthropic 官方规则进入 AI 组。
@@ -7467,6 +7505,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "YouTube", target: GROUPS.YOUTUBE },
   // YouTube Music 归并到 YouTube 组，避免继续新增一个低频影音独立面板。
   { provider: "YouTubeMusic", target: GROUPS.YOUTUBE },
+  // Google Drive / Docs / 文件分享规则放在 Google 泛规则前面，优先命中更细的云盘入口。
+  { provider: "GoogleDrive", target: GROUPS.GOOGLE },
   // Google 域名交给 Google 组。
   { provider: "Google", target: GROUPS.GOOGLE },
   // 本地开发补充规则流量交给开发服务组。
@@ -7565,12 +7605,20 @@ const RULE_SET_DEFINITIONS = (() => {
 
   // Apple TV+ 流量交给 Apple 组。
   { provider: "AppleTV", target: GROUPS.APPLE },
+  // App Store 下载分发规则放在 Apple 泛规则前面，优先命中更细的应用商店入口。
+  { provider: "AppStore", target: GROUPS.APPLE },
+  // Apple ID 账号认证规则也放在 Apple 泛规则前面，优先命中更细的登录鉴权入口。
+  { provider: "AppleID", target: GROUPS.APPLE },
+  // iCloud 规则也放在 Apple 泛规则前面，优先命中更细的云同步/照片流入口。
+  { provider: "iCloud", target: GROUPS.APPLE },
   // Apple News / News+ 也交给 Apple 组，和其它苹果生态统一出口。
   { provider: "AppleNews", target: GROUPS.APPLE },
   // Apple Music 继续交给 Apple 组，和其它苹果生态保持一致。
   { provider: "AppleMusic", target: GROUPS.APPLE },
   // TestFlight / beta.apple.com 继续交给 Apple 组，和苹果生态统一出口。
   { provider: "TestFlight", target: GROUPS.APPLE },
+  // 系统 OTA 更新规则也放在 Apple 泛规则前面，优先命中更新下载链路。
+  { provider: "SystemOTA", target: GROUPS.APPLE },
   // Apple 域名交给 Apple 组。
   { provider: "Apple", target: GROUPS.APPLE },
   // Apple IP 段交给 Apple 组，并关闭解析。
@@ -7631,14 +7679,20 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "iQIYIIntl", target: GROUPS.STREAMING },
   // All4 / Channel 4 归并到流媒体组，不额外拆英国电视面板。
   { provider: "All4", target: GROUPS.STREAMING },
+  // ITV 也归并到流媒体组，不额外拆英国电视面板。
+  { provider: "ITV", target: GROUPS.STREAMING },
   // CWSeed / CWTV 也归并到流媒体组，不额外拆美区电视点播面板。
   { provider: "CWSeed", target: GROUPS.STREAMING },
+  // PBS 也归并到流媒体组，不额外拆美国公共电视面板。
+  { provider: "PBS", target: GROUPS.STREAMING },
   // Dailymotion 也归并到流媒体组，不额外拆国际视频平台面板。
   { provider: "Dailymotion", target: GROUPS.STREAMING },
   // Vimeo / Livestream / VHX 归并到流媒体组，继续用通用媒体组承接视频平台。
   { provider: "Vimeo", target: GROUPS.STREAMING },
   // Niconico / NicoVideo / NicoSeiga 也归并到流媒体组，不再额外拆日系视频面板。
   { provider: "Niconico", target: GROUPS.STREAMING },
+  // Abema / AbemaTV 也归并到流媒体组，不额外拆日本视频平台面板。
+  { provider: "Abema", target: GROUPS.STREAMING },
   // PandoraTV 也归并到流媒体组，不额外拆韩区视频面板。
   { provider: "PandoraTV", target: GROUPS.STREAMING },
   // FOXPlus 也归并到流媒体组，不额外拆亚洲电视/体育流媒体面板。
@@ -7647,6 +7701,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "FuboTV", target: GROUPS.STREAMING },
   // NowE 也归并到流媒体组，不额外拆港区视频面板。
   { provider: "NowE", target: GROUPS.STREAMING },
+  // myTVSUPER 也归并到流媒体组，不额外拆港区 OTT 面板。
+  { provider: "myTVSUPER", target: GROUPS.STREAMING },
   // KKTV 也归并到流媒体组，不额外拆台区视频面板。
   { provider: "KKTV", target: GROUPS.STREAMING },
   // LiTV / VidolTV 也归并到流媒体组，不额外拆台区视频面板。
@@ -7660,6 +7716,22 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "RTHK", target: GROUPS.STREAMING },
   // MeWatch 也归并到流媒体组，不额外拆新加坡视频面板。
   { provider: "MeWatch", target: GROUPS.STREAMING },
+  // Bahamut / 动画疯也归并到流媒体组，继续补足台港动画平台。
+  { provider: "Bahamut", target: GROUPS.STREAMING },
+  // DAZN 归并到流媒体组，补足体育直播/点播平台。
+  { provider: "DAZN", target: GROUPS.STREAMING },
+  // Viki / Rakuten Viki 归并到流媒体组，补足亚洲剧集平台。
+  { provider: "Viki", target: GROUPS.STREAMING },
+  // ViuTV 归并到流媒体组，补足港区电视/点播平台。
+  { provider: "ViuTV", target: GROUPS.STREAMING },
+  // friDay 归并到流媒体组，补足台区影视平台。
+  { provider: "friDay", target: GROUPS.STREAMING },
+  // HamiVideo 归并到流媒体组，补足台湾中华电信视频平台。
+  { provider: "HamiVideo", target: GROUPS.STREAMING },
+  // ZeeTV / Zee5 归并到流媒体组，补足印度与南亚地区视频平台。
+  { provider: "ZeeTV", target: GROUPS.STREAMING },
+  // Emby 归并到流媒体组，补足自建媒体库客户端分发流量。
+  { provider: "Emby", target: GROUPS.STREAMING },
   // 额外国际视频平台统一交给流媒体组，避免继续拆出 PrimeVideo/HBO/Hulu 等单独组。
   { provider: "AmazonPrimeVideo", target: GROUPS.STREAMING },
   { provider: "PrimeVideo", target: GROUPS.STREAMING },
@@ -7831,9 +7903,14 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "AmazonTrust", label: "AmazonTrust", expectedTarget: GROUPS.PAYPAL },
   { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
   { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
+  { provider: "GoogleDrive", label: "GoogleDrive", expectedTarget: GROUPS.GOOGLE },
+  { provider: "AppStore", label: "AppStore", expectedTarget: GROUPS.APPLE },
+  { provider: "AppleID", label: "AppleID", expectedTarget: GROUPS.APPLE },
+  { provider: "iCloud", label: "iCloud", expectedTarget: GROUPS.APPLE },
   { provider: "AppleNews", label: "AppleNews", expectedTarget: GROUPS.APPLE },
   { provider: "AppleMusic", label: "AppleMusic", expectedTarget: GROUPS.APPLE },
   { provider: "TestFlight", label: "TestFlight", expectedTarget: GROUPS.APPLE },
+  { provider: "SystemOTA", label: "SystemOTA", expectedTarget: GROUPS.APPLE },
   { provider: "Netflix", label: "Netflix", expectedTarget: GROUPS.NETFLIX },
   { provider: "Disney", label: "Disney", expectedTarget: GROUPS.DISNEY },
   { provider: "Spotify", label: "Spotify", expectedTarget: GROUPS.SPOTIFY },
@@ -7842,14 +7919,18 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "WeTV", label: "WeTV", expectedTarget: GROUPS.STREAMING },
   { provider: "iQIYIIntl", label: "iQIYIIntl", expectedTarget: GROUPS.STREAMING },
   { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
+  { provider: "ITV", label: "ITV", expectedTarget: GROUPS.STREAMING },
   { provider: "CWSeed", label: "CWSeed", expectedTarget: GROUPS.STREAMING },
+  { provider: "PBS", label: "PBS", expectedTarget: GROUPS.STREAMING },
   { provider: "Dailymotion", label: "Dailymotion", expectedTarget: GROUPS.STREAMING },
   { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
   { provider: "Niconico", label: "Niconico", expectedTarget: GROUPS.STREAMING },
+  { provider: "Abema", label: "Abema", expectedTarget: GROUPS.STREAMING },
   { provider: "PandoraTV", label: "PandoraTV", expectedTarget: GROUPS.STREAMING },
   { provider: "FOXPlus", label: "FOXPlus", expectedTarget: GROUPS.STREAMING },
   { provider: "FuboTV", label: "FuboTV", expectedTarget: GROUPS.STREAMING },
   { provider: "NowE", label: "NowE", expectedTarget: GROUPS.STREAMING },
+  { provider: "myTVSUPER", label: "myTVSUPER", expectedTarget: GROUPS.STREAMING },
   { provider: "KKTV", label: "KKTV", expectedTarget: GROUPS.STREAMING },
   { provider: "LiTV", label: "LiTV", expectedTarget: GROUPS.STREAMING },
   { provider: "VidolTV", label: "VidolTV", expectedTarget: GROUPS.STREAMING },
@@ -7857,6 +7938,14 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "TVer", label: "TVer", expectedTarget: GROUPS.STREAMING },
   { provider: "RTHK", label: "RTHK", expectedTarget: GROUPS.STREAMING },
   { provider: "MeWatch", label: "MeWatch", expectedTarget: GROUPS.STREAMING },
+  { provider: "Bahamut", label: "Bahamut", expectedTarget: GROUPS.STREAMING },
+  { provider: "DAZN", label: "DAZN", expectedTarget: GROUPS.STREAMING },
+  { provider: "Viki", label: "Viki", expectedTarget: GROUPS.STREAMING },
+  { provider: "ViuTV", label: "ViuTV", expectedTarget: GROUPS.STREAMING },
+  { provider: "friDay", label: "friDay", expectedTarget: GROUPS.STREAMING },
+  { provider: "HamiVideo", label: "HamiVideo", expectedTarget: GROUPS.STREAMING },
+  { provider: "ZeeTV", label: "ZeeTV", expectedTarget: GROUPS.STREAMING },
+  { provider: "Emby", label: "Emby", expectedTarget: GROUPS.STREAMING },
   { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "PrimeVideo", label: "PrimeVideo", expectedTarget: GROUPS.STREAMING },
   { provider: "HBO", label: "HBO", expectedTarget: GROUPS.STREAMING },
@@ -7894,6 +7983,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Twitch", label: "Twitch", expectedTarget: GROUPS.GAMES },
   { provider: "Epic", label: "Epic", expectedTarget: GROUPS.GAMES },
   { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
+  { provider: "Claude", label: "Claude", expectedTarget: GROUPS.AI },
   { provider: "Copilot", label: "Copilot", expectedTarget: GROUPS.AI },
   { provider: "aiXcoder", label: "aiXcoder", expectedTarget: GROUPS.AI },
   { provider: "Civitai", label: "Civitai", expectedTarget: GROUPS.AI },
@@ -7925,8 +8015,38 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
   {
     category: "platform",
     blockerProvider: "Google",
+    blockedProvider: "GoogleDrive",
+    message: "GoogleDrive 规则当前排在 Google 之后；Google 是更宽泛的 Google 生态规则，Drive / Docs / 文件分享流量可能会先命中 Google 组而不是更细的 GoogleDrive 入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Google",
     blockedProvider: "YouTube",
     message: "YouTube 规则当前排在 Google 之后；Google 是更宽泛的 Google 生态规则，YouTube 流量可能会先命中 Google 组而不是 YouTube 独立组"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Anthropic",
+    blockedProvider: "Claude",
+    message: "Claude 规则当前排在 Anthropic 之后；Anthropic 是更宽泛的 AI 规则，Claude Web / App 流量可能会先命中 Anthropic 而不是更细的 Claude 入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Apple",
+    blockedProvider: "AppStore",
+    message: "AppStore 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，App Store 下载与商店访问流量可能会先命中 Apple 组而不是更细的 AppStore 入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Apple",
+    blockedProvider: "AppleID",
+    message: "AppleID 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，Apple ID 登录与鉴权流量可能会先命中 Apple 组而不是更细的 AppleID 入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Apple",
+    blockedProvider: "iCloud",
+    message: "iCloud 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，iCloud 云同步与照片流流量可能会先命中 Apple 组而不是更细的 iCloud 入口"
   },
   {
     category: "platform",
@@ -7939,6 +8059,12 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
     blockerProvider: "Apple",
     blockedProvider: "TestFlight",
     message: "TestFlight 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，TestFlight / beta.apple.com 流量可能会先命中 Apple 组而不是 TestFlight 专属入口"
+  },
+  {
+    category: "platform",
+    blockerProvider: "Apple",
+    blockedProvider: "SystemOTA",
+    message: "SystemOTA 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，系统更新与 OTA 下载流量可能会先命中 Apple 组而不是更细的 SystemOTA 入口"
   },
   {
     category: "platform",
@@ -8489,6 +8615,7 @@ const KEY_RULE_WINDOW_BASE_DEFINITIONS = Object.freeze([
 const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "ChatGPT", label: "ChatGPT", category: "ai" },
   { key: "AIExtra", label: "AIExtra", category: "ai" },
+  { key: "Claude", label: "Claude", category: "ai" },
   { key: "OpenAI", label: "OpenAI", category: "ai" },
   { key: "Anthropic", label: "Anthropic", category: "ai" },
   { key: "Gemini", label: "Gemini", category: "ai" },
@@ -8578,14 +8705,18 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "WeTV", label: "WeTV", category: "media" },
   { key: "iQIYIIntl", label: "iQIYIIntl", category: "media" },
   { key: "All4", label: "All4", category: "media" },
+  { key: "ITV", label: "ITV", category: "media" },
   { key: "CWSeed", label: "CWSeed", category: "media" },
+  { key: "PBS", label: "PBS", category: "media" },
   { key: "Dailymotion", label: "Dailymotion", category: "media" },
   { key: "Vimeo", label: "Vimeo", category: "media" },
   { key: "Niconico", label: "Niconico", category: "media" },
+  { key: "Abema", label: "Abema", category: "media" },
   { key: "PandoraTV", label: "PandoraTV", category: "media" },
   { key: "FOXPlus", label: "FOXPlus", category: "media" },
   { key: "FuboTV", label: "FuboTV", category: "media" },
   { key: "NowE", label: "NowE", category: "media" },
+  { key: "myTVSUPER", label: "myTVSUPER", category: "media" },
   { key: "KKTV", label: "KKTV", category: "media" },
   { key: "LiTV", label: "LiTV", category: "media" },
   { key: "VidolTV", label: "VidolTV", category: "media" },
@@ -8593,6 +8724,14 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "TVer", label: "TVer", category: "media" },
   { key: "RTHK", label: "RTHK", category: "media" },
   { key: "MeWatch", label: "MeWatch", category: "media" },
+  { key: "Bahamut", label: "Bahamut", category: "media" },
+  { key: "DAZN", label: "DAZN", category: "media" },
+  { key: "Viki", label: "Viki", category: "media" },
+  { key: "ViuTV", label: "ViuTV", category: "media" },
+  { key: "friDay", label: "friDay", category: "media" },
+  { key: "HamiVideo", label: "HamiVideo", category: "media" },
+  { key: "ZeeTV", label: "ZeeTV", category: "media" },
+  { key: "Emby", label: "Emby", category: "media" },
   { key: "AmazonPrimeVideo", label: "AmazonPrimeVideo", category: "media" },
   { key: "PrimeVideo", label: "PrimeVideo", category: "media" },
   { key: "HBO", label: "HBO", category: "media" },
@@ -8752,7 +8891,7 @@ function classifyTrafficRuleLayer(rule) {
     return "local";
   }
 
-  if (["ChatGPT", "OpenAI", "Anthropic", "Gemini", "AI", "Crypto"].includes(provider)) {
+  if (["ChatGPT", "Claude", "OpenAI", "Anthropic", "Gemini", "AI", "Crypto"].includes(provider)) {
     // AI 与交易站点通常是最先单独分流的一批，这里合并成单独层。
     return "ai-crypto";
   }
@@ -10472,7 +10611,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   // 这里只挑一批最关键的 provider 观察其规则落点，避免预览过长。
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
-    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
+    .concat(["Claude", "GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "GoogleDrive", "OneDrive", "AppStore", "AppleID", "iCloud", "SystemOTA", "Steam", "SteamCN", "Abema", "Bahamut", "DAZN", "ITV", "PBS", "Viki", "ViuTV", "friDay", "HamiVideo", "myTVSUPER", "ZeeTV", "Emby", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     // 每个 provider 压成 provider->target[:NR] 样本，便于连同策略组候选链一起观察。
     .map((provider) => {
@@ -10623,7 +10762,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
     }
 
     if (profile.provider === "AI" && firstProxy === BUILTIN_DIRECT) {
-      result.warnings.push("AI 组当前第一个候选是 DIRECT；AIExtra / OpenAI / Anthropic / Gemini / Copilot / aiXcoder / Civitai / Grok / AppleAI 等流量可能会先走直连，而不是 AI 优先国家链");
+      result.warnings.push("AI 组当前第一个候选是 DIRECT；Claude / AIExtra / OpenAI / Anthropic / Gemini / Copilot / aiXcoder / Civitai / Grok / AppleAI 等流量可能会先走直连，而不是 AI 优先国家链");
     }
 
     if (profile.provider === "Crypto" && cryptoPreferredGroupNames.length && firstProxy && !cryptoPreferredGroupLookup[firstProxy]) {
@@ -11162,6 +11301,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   cursor: "AIExtra",
   huggingface: "AIExtra",
   hf: "AIExtra",
+  claude: "Claude",
   openai: "OpenAI",
   anthropic: "Anthropic",
   gemini: "Gemini",
@@ -11184,6 +11324,8 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   youtube: "YouTube",
   applemusic: "AppleMusic",
   proxymedia: "ProxyMedia",
+  googledrive: "GoogleDrive",
+  gdrive: "GoogleDrive",
   google: "Google",
   googleip: "Google_IP",
   discord: "Discord",
@@ -11195,8 +11337,12 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   microsoft: "Microsoft",
   ms: "Microsoft",
   appletv: "AppleTV",
+  appstore: "AppStore",
+  appleid: "AppleID",
+  icloud: "iCloud",
   applenews: "AppleNews",
   testflight: "TestFlight",
+  systemota: "SystemOTA",
   apple: "Apple",
   appleip: "Apple_IP",
   telegram: "Telegram",
@@ -11293,17 +11439,22 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   wetv: "WeTV",
   iqiyiintl: "iQIYIIntl",
   all4: "All4",
+  itv: "ITV",
   cwseed: "CWSeed",
   cwtv: "CWSeed",
+  pbs: "PBS",
   dailymotion: "Dailymotion",
   channel4: "All4",
   vimeo: "Vimeo",
   niconico: "Niconico",
   nicovideo: "Niconico",
+  abema: "Abema",
+  abematv: "Abema",
   pandoratv: "PandoraTV",
   foxplus: "FOXPlus",
   fubotv: "FuboTV",
   nowe: "NowE",
+  mytvsuper: "myTVSUPER",
   kktv: "KKTV",
   litv: "LiTV",
   vidoltv: "VidolTV",
@@ -11311,6 +11462,16 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   tver: "TVer",
   rthk: "RTHK",
   mewatch: "MeWatch",
+  bahamut: "Bahamut",
+  dazn: "DAZN",
+  viki: "Viki",
+  viutv: "ViuTV",
+  friday: "friDay",
+  fridayvideo: "friDay",
+  hamivideo: "HamiVideo",
+  zee5: "ZeeTV",
+  zeetv: "ZeeTV",
+  emby: "Emby",
   netflix: "Netflix",
   netflixip: "Netflix_IP",
   disney: "Disney",
