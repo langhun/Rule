@@ -10434,6 +10434,7 @@ function collectPreferredNodeWarnings(proxyNames) {
   return collectDefinitionWarnings(
     SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
     proxyNames,
+    // 每个独立组都复用同一套“标记 -> 节点名”校验器，只是读取的参数键不同。
     (definition, currentProxyNames) => validatePreferredProxyMarkers(
       currentProxyNames,
       ARGS[buildServiceArgKey(definition.argToken, "PreferNodes")],
@@ -10447,6 +10448,7 @@ function collectPreferredProviderWarnings(availableProxyProviderNames) {
   return collectDefinitionWarnings(
     SERVICE_RESOURCE_VALIDATION_DEFINITIONS,
     availableProxyProviderNames,
+    // 除 use-providers 外，还要把 include-all / include-all-providers 一并传进去判断是否应静默跳过逐项校验。
     (definition, currentProviderNames) => validatePreferredProxyProviderMarkers(
       currentProviderNames,
       ARGS[buildServiceArgKey(definition.argToken, "UseProviders")],
@@ -10460,6 +10462,7 @@ function collectPreferredProviderWarnings(availableProxyProviderNames) {
 // 汇总“请求 -> 规则 -> 目标组 -> 组内候选链”的关键链路，便于快速观察整条分流路径。
 function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, proxyGroups) {
   const context = isObject(runtimeContext) ? runtimeContext : {};
+  // 当前请求、规则定义、策略组都统一兜底，保证诊断逻辑可独立运行。
   const currentRules = Array.isArray(rules) ? rules : [];
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
   // 先把规则与策略组都建成 lookup，后面按 provider/group 名检索会更轻。
@@ -10471,6 +10474,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
     .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
+    // 每个 provider 压成 provider->target[:NR] 样本，便于连同策略组候选链一起观察。
     .map((provider) => {
       const definition = definitionLookup[provider];
       return definition ? `${sanitizeProviderPreviewName(provider)}->${sanitizeProviderPreviewName(definition.target)}${definition.noResolve ? ":NR" : ""}` : "";
@@ -10482,6 +10486,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
   // MATCH 是最后兜底规则，能直接看出“其余流量最终会被送到哪里”。
   const matchTarget = matchRule ? describeTrafficRule(matchRule).replace(/^MATCH->/, "") : GROUPS.SELECT;
+  // firstRule / routeMarker / routeTarget 负责给出“入口是谁、第一跳是谁、兜底去哪”三个最核心视角。
   const firstRule = currentRules.length ? describeTrafficRule(currentRules[0]) : "none";
   const routeMarker = `${sanitizeProviderPreviewName(context.routeKind || "unknown")}:${sanitizeProviderPreviewName(context.routeName || "unknown")}`;
   const routeTarget = sanitizeProviderPreviewName(context.routeTarget || context.queryTarget || context.target || "unknown");
@@ -10531,6 +10536,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
   const devPreferredGroupNames = devPreferredGroups
     .map((group) => group && group.name)
     .filter(Boolean);
+  // lookup 主要用于判断首个候选是否命中了“预期优先国家链”。
   const cryptoPreferredGroupLookup = createLookup(cryptoPreferredGroupNames);
   const devPreferredGroupLookup = createLookup(devPreferredGroupNames);
   const hasDeveloperLeadingOverrides = !!(ARGS.hasDevPreferCountries || ARGS.hasDevPreferGroups || ARGS.hasDevPreferNodes);
@@ -10560,6 +10566,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
       : (BUILTIN_POLICY_NAMES.includes(target) ? "builtin" : "missing");
     const groupProxies = Array.isArray(targetGroup && targetGroup.proxies) ? targetGroup.proxies : [];
     const firstProxy = groupProxies[0] || (target === BUILTIN_DIRECT ? BUILTIN_DIRECT : "");
+    // ruleIndex 专门用来回答“该业务规则在整条规则链里排第几”。
     const ruleIndex = hasOwn(definitionIndexLookup, profile.provider) ? definitionIndexLookup[profile.provider] : -1;
 
     result.total += 1;
@@ -10584,6 +10591,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
     }
 
     result.previewEntries.push(
+      // 样本统一压成 规则位置 -> 目标组[type] -> 组内前三候选，足够看出实际链路。
       `${profile.label}@${ruleIndex === -1 ? "?" : ruleIndex + 1}->${sanitizeProviderPreviewName(target || "none")}[${sanitizeProviderPreviewName(groupType)}]=${formatProviderPreviewNames(groupProxies.length ? groupProxies : [target], 3, 14)}`
     );
 
@@ -10656,10 +10664,12 @@ function resolveCustomRuleInsertIndex(bodyRules, ruleDefinitions) {
   }
 
   if (anchorResult.match === RULE_ORDER_START) {
+    // 显式锚到 start/top 时，自定义规则直接插到主体规则最前。
     return 0;
   }
 
   if (anchorResult.match === RULE_ORDER_END) {
+    // end/tail 语义统一收敛成“插到 MATCH 前最后一段”。
     return rules.length;
   }
 
@@ -10675,6 +10685,7 @@ function resolveCustomRuleInsertIndex(bodyRules, ruleDefinitions) {
     return rules.length;
   }
 
+  // before/after 只在这里真正落成具体索引，其余地方都只维护语义值。
   return ARGS.customRulePosition === "after" ? anchorIndex + 1 : anchorIndex;
 }
 
@@ -10694,6 +10705,7 @@ function mergeRules(generatedRules, existingRules, ruleDefinitions) {
   const insertIndex = resolveCustomRuleInsertIndex(bodyRules, ruleDefinitions);
   const orderedRules = bodyRules
     .slice(0, insertIndex)
+    // extraRules 统一原地插入到锚点位置，保持用户自定义规则之间的相对顺序。
     .concat(extraRules, bodyRules.slice(insertIndex));
 
   // 最终顺序：按 custom-rule-anchor 插入后的规则主体 -> 单一 MATCH。
@@ -10709,6 +10721,7 @@ function findCountryGroup(countryConfigs, markers) {
   for (const config of countryConfigs) {
     // 一个国家组只要命中任一标记，就视为找到目标组。
     for (const marker of keywords) {
+      // 这里故意用 includes 而不是精确相等，兼容 `🇯🇵 日本节点` 这类带前后缀显示名。
       if (config.name.indexOf(marker) !== -1) {
         return config;
       }
@@ -10728,6 +10741,7 @@ function prependPreferredGroups(preferredGroups, proxies) {
     }
   }
 
+  // 最终统一去重，防止同一国家组既在 preferredGroups 里也已出现在基础候选链里。
   return uniqueStrings(preferredNames.concat(proxies));
 }
 
@@ -10737,6 +10751,7 @@ function prependPreferredNames(preferredNames, proxies, keepDirectFirst) {
   const base = uniqueStrings(proxies);
 
   if (keepDirectFirst) {
+    // keepDirectFirst=true 时，无论用户怎么写 prefer-groups / prefer-nodes，DIRECT 都强制顶在最前。
     return uniqueStrings([BUILTIN_DIRECT].concat(
       preferred.filter((name) => name !== BUILTIN_DIRECT),
       base.filter((name) => name !== BUILTIN_DIRECT)
@@ -11109,6 +11124,7 @@ const PREFERRED_GROUP_ALIAS_MAP = Object.freeze(Object.assign({
 
 // 对外保留旧 helper 名称，确保已有解析逻辑不需要改结构。
 function createPreferredGroupAliasMap() {
+  // 直接返回缓存常量，避免每次解析 prefer-groups 都重新分配同一份巨大 alias 表。
   return PREFERRED_GROUP_ALIAS_MAP;
 }
 
@@ -11430,6 +11446,7 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
 
 // 对外保留旧 helper 名称，调用点继续按函数拿映射；内部改为复用缓存常量。
 function createRuleProviderAliasMap() {
+  // 和策略组别名表一样，这里只暴露兼容层，真实数据由顶层常量持有。
   return RULE_PROVIDER_ALIAS_MAP;
 }
 
@@ -11438,6 +11455,7 @@ function inspectRuleProviderReference(ruleDefinitions, marker) {
   const providers = uniqueStrings(
     (Array.isArray(ruleDefinitions) ? ruleDefinitions : []).map((definition) => definition && definition.provider).filter(Boolean)
   );
+  // marker 统一先裁剪，后面 exact / alias / fuzzy 三层都基于同一 token。
   const token = normalizeStringArg(marker);
 
   if (!token) {
@@ -11465,6 +11483,7 @@ function inspectRuleProviderReference(ruleDefinitions, marker) {
   // 第三层：脚本内置 alias，如 top/start/end/cn/cnip 之类缩写标记。
   const aliasTarget = createRuleProviderAliasMap()[normalizeGroupMarkerToken(token)];
   if (aliasTarget === RULE_ORDER_START || aliasTarget === RULE_ORDER_END) {
+    // start/end 这两个特殊锚点不需要真实存在于 providers 列表中。
     return { match: aliasTarget, reason: "alias" };
   }
 
@@ -11487,6 +11506,7 @@ function inspectRuleProviderReference(ruleDefinitions, marker) {
 // 把单个规则入口按 before/after 锚点重排到目标位置；start/end 会分别落到规则最前/最后（MATCH 之前）。
 function moveRuleDefinitionByAnchor(ruleDefinitions, provider, anchor, position) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions.slice() : [];
+  // currentIndex 找不到时直接返回原顺序，避免误删规则。
   const currentIndex = definitions.findIndex((definition) => definition && definition.provider === provider);
 
   if (currentIndex === -1) {
@@ -11503,6 +11523,7 @@ function moveRuleDefinitionByAnchor(ruleDefinitions, provider, anchor, position)
   } else {
     const anchorIndex = definitions.findIndex((definition) => definition && definition.provider === anchor);
     if (anchorIndex === -1) {
+      // 锚点找不到时把当前条目塞回原位附近，保证这个 helper 不会吞规则。
       definitions.splice(Math.min(currentIndex, definitions.length), 0, currentDefinition);
       return definitions;
     }
@@ -11517,6 +11538,7 @@ function moveRuleDefinitionByAnchor(ruleDefinitions, provider, anchor, position)
 // 把一组规则入口按原有相对顺序整体搬到目标锚点前/后，适合开发生态这类“多条规则一起移动”的场景。
 function moveRuleDefinitionBlockByAnchor(ruleDefinitions, providers, anchor, position) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions.slice() : [];
+  // providerLookup 用来快速判断哪些条目属于待搬运的 block。
   const providerLookup = createLookup(uniqueStrings(providers));
   const blockDefinitions = definitions.filter((definition) => definition && providerLookup[definition.provider]);
 
@@ -11541,6 +11563,7 @@ function moveRuleDefinitionBlockByAnchor(ruleDefinitions, providers, anchor, pos
   }
 
   remainingDefinitions.splice(insertIndex, 0, ...blockDefinitions);
+  // blockDefinitions 保持原数组中的相对顺序不变，这样 DevList 补丁块内部不会被打散。
   return remainingDefinitions;
 }
 
@@ -11572,6 +11595,7 @@ function applyRulePriorityGuardOrder(ruleDefinitions) {
 // 从“当前可用组名 + 内置策略”里解析用户传入的前置组标记。
 function findPreferredGroupReference(availableNames, marker) {
   const names = uniqueStrings(availableNames);
+  // token 保留原始内容做精确匹配，再额外做标准化别名映射。
   const token = normalizeStringArg(marker);
 
   if (!token) {
@@ -11617,6 +11641,7 @@ function resolvePreferredGroupReferences(availableNames, markers, excludedNames)
   for (const marker of Array.isArray(markers) ? markers : []) {
     const matched = findPreferredGroupReference(availableNames, marker);
     if (matched && !excludedLookup[matched]) {
+      // 这里不直接报错，纯做解析；是否提示无效/自引用由 validatePreferredGroupMarkers 负责。
       resolvedNames.push(matched);
     }
   }
@@ -11627,6 +11652,7 @@ function resolvePreferredGroupReferences(availableNames, markers, excludedNames)
 // 解析 proxy-provider 引用：优先精确匹配，其次大小写无关精确匹配，最后只在唯一命中时接受模糊包含匹配。
 function inspectPreferredProxyProviderReference(providerNames, marker) {
   const names = uniqueStrings(providerNames);
+  // provider 名不做复杂 normalize，只做 trim + ignore-case，避免把用户自定义 provider 名过度改写。
   const token = normalizeStringArg(marker);
 
   if (!token) {
@@ -11668,6 +11694,7 @@ function resolvePreferredProxyProviderReferences(providerNames, markers) {
   for (const marker of Array.isArray(markers) ? markers : []) {
     const result = inspectPreferredProxyProviderReference(providerNames, marker);
     if (result.match) {
+      // 这里只收真正命中的 provider；歧义和未命中由 validate 阶段统一给出中文提示。
       resolvedNames.push(result.match);
     }
   }
@@ -11680,6 +11707,7 @@ function validatePreferredProxyProviderMarkers(providerNames, markers, label, in
   const warnings = [];
 
   if (includeAll && !uniqueStrings(providerNames).length) {
+    // include-all / include-all-providers 开启后，本质上不再依赖 markers，但仍需提示“当前没有 provider 可吸收”。
     warnings.push(`${label} include-all 已开启，但当前配置中不存在可用 proxy-providers；当前只会吸收真实节点`);
   }
 
@@ -11688,6 +11716,7 @@ function validatePreferredProxyProviderMarkers(providerNames, markers, label, in
   }
 
   if (includeAll || includeAllProviders) {
+    // 已进入 include-all 语义时，逐个 marker 的未命中告警就没有意义了。
     return uniqueStrings(warnings);
   }
 
@@ -11724,6 +11753,7 @@ function validateProxyProviderHealthCheckCaveats(proxyGroups) {
 
     const hasProviderPool = !!(group["include-all"] || group["include-all-providers"] || (Array.isArray(group.use) && group.use.length));
     if (!hasProviderPool) {
+      // 只有通过 provider 池吸收成员时，才存在“健康检查不会深入 provider 内节点”的盲区。
       continue;
     }
 
@@ -11787,6 +11817,7 @@ function resolvePreferredProxyReferences(proxyNames, markers) {
   for (const marker of Array.isArray(markers) ? markers : []) {
     const result = inspectPreferredProxyReference(proxyNames, marker);
     if (result.match) {
+      // 解析阶段只保留成功命中的真实节点名；失败原因留给 validatePreferredProxyMarkers 汇总。
       resolvedNames.push(result.match);
     }
   }
@@ -11815,6 +11846,7 @@ function createPreferredCountryGroupEntries(groups, sourceType, sourceKey, sourc
 
   return (Array.isArray(groups) ? groups : [])
     .filter((group) => group && typeof group.name === "string" && group.name)
+    // 每条 entry 都同时保留 group 对象和来源元信息，便于后续既能恢复旧接口，也能做来源追踪。
     .map((group) => ({
       group,
       name: group.name,
@@ -11830,6 +11862,7 @@ function extractPreferredCountryGroupsFromEntries(entries) {
     .map((entry) => entry && entry.group)
     .filter(Boolean);
 
+  // 先按组名去重，再映射回原 group 对象，保持首次出现顺序。
   return uniqueStrings(groups.map((group) => group.name)).map((name) => groups.find((group) => group.name === name));
 }
 
@@ -11943,6 +11976,7 @@ function analyzePreferredCountryMarkerResolutions(countryConfigs, markers) {
 
     const entries = resolvePreferredCountryGroupEntriesByMarker(countryConfigs, token);
     const groups = extractPreferredCountryGroupsFromEntries(entries);
+    // firstEntry 用来提炼这次解析的“主来源类型”，例如 preset/region/country/fallback。
     const firstEntry = entries.length ? entries[0] : null;
     resolutions.push({
       token,
@@ -12029,6 +12063,7 @@ function validatePreferredProxyMarkers(proxyNames, markers, label) {
 
 // 只有在用户显式开启 hidden 参数时，才把指定辅助组标记为隐藏。
 function shouldHideGroup(name) {
+  // hidden 是全局开关；HIDEABLE_GROUPS 则限制只有少数辅助组会被自动隐藏。
   return ARGS.hidden && typeof name === "string" && HIDEABLE_GROUPS.includes(name);
 }
 
@@ -12037,6 +12072,7 @@ function applyGlobalProxyGroupAdvancedOptions(group) {
   const result = Object.assign({}, isObject(group) ? group : {});
 
   if (ARGS.hasGroupInterfaceName) {
+    // 全局 interface-name 会覆盖到所有脚本生成组，便于统一指定出站接口。
     result["interface-name"] = ARGS.groupInterfaceName;
   }
 
@@ -12052,6 +12088,7 @@ function applyGroupPresentationOptions(group) {
   const result = applyGlobalProxyGroupAdvancedOptions(group);
 
   if (shouldHideGroup(result.name)) {
+    // 这里只在应隐藏时显式写 hidden=true；否则保持对象尽量简洁。
     result.hidden = true;
   }
 
@@ -12068,6 +12105,7 @@ function applyProxyGroupAdvancedOptions(group, options) {
   }
 
   if (custom.hasIcon && custom.icon) {
+    // icon 只有显式传入且非空时才挂载，避免生成空 icon 字段。
     result.icon = custom.icon;
   }
 
@@ -12131,6 +12169,7 @@ function applyLatencyGroupOptions(group, overrides) {
 function applyAutoProxyCollectionOptions(group, options) {
   const result = Object.assign({}, isObject(group) ? group : {});
   const custom = isObject(options) ? options : {};
+  // 只要配置了任一自动收集相关字段，就视为开启 include-all-proxies 语义。
   const hasAutoCollection = !!(custom.filter || custom.excludeFilter || custom.excludeType || custom.includeAllProxies);
 
   if (!hasAutoCollection) {
@@ -12158,9 +12197,11 @@ function applyAutoProxyCollectionOptions(group, options) {
 function applyProxyProviderCollectionOptions(group, options) {
   const result = Object.assign({}, isObject(group) ? group : {});
   const custom = isObject(options) ? options : {};
+  // useProviders 会被统一去重，避免同一个 provider 被重复引用。
   const useProviders = uniqueStrings(custom.use);
 
   if (custom.includeAll) {
+    // include-all 语义最强：它会接管成员来源，因此要清掉其余 provider/proxy 自动收集字段。
     result["include-all"] = true;
     delete result["include-all-proxies"];
     delete result["include-all-providers"];
@@ -12169,6 +12210,7 @@ function applyProxyProviderCollectionOptions(group, options) {
   }
 
   if (custom.includeAllProviders) {
+    // include-all-providers 只表示吸收全部 provider，不会清空已有显式 proxies。
     result["include-all-providers"] = true;
     return result;
   }
@@ -12182,6 +12224,7 @@ function applyProxyProviderCollectionOptions(group, options) {
 
 // 判断某个策略组是否属于 Mihomo 自动收集型分组。
 function isAutoCollectionGroup(group) {
+  // 这里只识别三种官方自动收集入口；普通带 filter 的静态组不算自动收集组。
   return !!(
     isObject(group) &&
     (
@@ -12737,6 +12780,7 @@ function validateRuleProviders(providerDefinitions, providers) {
   // 逐条检查规则定义。
   for (const definition of Array.isArray(providerDefinitions) ? providerDefinitions : []) {
     // provider 不存在时记入缺失列表。
+    // 这里只做存在性校验，不关心 provider 类型/格式是否正确，那部分由 validateRuleProviderOptions 负责。
     if (!providerLookup[definition.provider]) {
       missingProviders.push(definition.provider);
     }
@@ -12761,6 +12805,7 @@ function validateRuleProviderPaths(providers) {
     }
 
     if (seen[path] && seen[path] !== name) {
+      // 冲突格式固定成 A <-> B: path，便于 full 日志快速肉眼比对。
       conflicts.push(`${seen[path]} <-> ${name}: ${path}`);
       continue;
     }
@@ -12782,6 +12827,7 @@ function validateRuleProviderUrls(providers) {
     const url = isObject(provider) ? normalizeStringArg(provider.url) : "";
 
     if (type !== "http") {
+      // 只有 http provider 需要远程 URL；file/inline 不在这里检查。
       continue;
     }
 
@@ -12806,6 +12852,7 @@ function collectHttpProviderCoreWarnings(name, provider) {
   }
 
   if (hasOwn(current, "interval")) {
+    // interval/size-limit 都允许“不配置”，但一旦配置就必须是合法数字。
     const interval = Number(current.interval);
     if (!isFinite(interval) || interval < 1) {
       warnings.push(`${name}: interval 必须为大于等于 1 的数字`);
@@ -12839,6 +12886,7 @@ function collectProviderHeaderWarnings(name, headers) {
   }
 
   for (const headerName of Object.keys(currentHeaders)) {
+    // header 值允许单值或数组值，统一折叠成数组后校验是否都能归一化成非空字符串。
     const rawHeaderValues = Array.isArray(currentHeaders[headerName]) ? currentHeaders[headerName] : [currentHeaders[headerName]];
     const headerValues = rawHeaderValues.map((item) => normalizeStringArg(item)).filter(Boolean);
 
@@ -12861,6 +12909,7 @@ function collectRuleProviderPayloadWarnings(name, provider, type, hasPayloadConf
   const url = normalizeStringArg(current.url);
 
   if (type === "inline") {
+    // inline provider 理论上主要依赖 payload，本身不应该再依赖远程 url。
     if (!Array.isArray(current.payload) || !current.payload.length) {
       warnings.push(`${name}: type=inline 时建议提供有效 payload`);
     }
@@ -12877,6 +12926,7 @@ function collectRuleProviderPayloadWarnings(name, provider, type, hasPayloadConf
     } else {
       for (let index = 0; index < current.payload.length; index += 1) {
         const item = current.payload[index];
+        // rule-provider payload 的每一项都应该是单条规则字符串。
         if (typeof item !== "string") {
           warnings.push(`${name}: payload[${index}] 必须为字符串规则`);
           continue;
@@ -12889,6 +12939,7 @@ function collectRuleProviderPayloadWarnings(name, provider, type, hasPayloadConf
     }
 
     if (type && type !== "inline") {
+      // 非 inline provider 即使挂了 payload，Mihomo 也通常不会消费它，这里直接提示用户。
       warnings.push(`${name}: 按 Mihomo 官方语义，payload 只对 type=inline 生效；当前 type=${current.type || "unknown"} 时通常不会生效`);
     }
   } else if (type === "inline" && hasPayloadConfiguredOption) {
@@ -12915,6 +12966,7 @@ function collectProxyProviderPayloadWarnings(name, provider, type, hasPayloadCon
     } else {
       for (let index = 0; index < current.payload.length; index += 1) {
         const item = current.payload[index];
+        // proxy-provider payload 必须是完整节点对象，而不是 rule-provider 那样的字符串规则。
         if (!isObject(item)) {
           warnings.push(`${name}: payload[${index}] 必须为对象`);
           continue;
@@ -12949,6 +13001,7 @@ function collectProxyProviderCollectionWarnings(name, provider) {
     }
 
     try {
+      // 用统一正则编译器预检，避免运行期才发现表达式拼错。
       compilePatternRegExp(value);
     } catch (error) {
       warnings.push(`${name}: ${field} 正则无效: ${error.message}`);
@@ -12985,6 +13038,7 @@ function collectProxyProviderOverrideWarnings(name, override) {
   }
 
   for (const field of ["udp", "udp-over-tcp", "tfo", "mptcp", "skip-cert-verify"]) {
+    // 这几项在 Mihomo 里都是明确布尔值，不接受字符串枚举。
     if (hasOwn(override, field) && !isBooleanLike(override[field])) {
       warnings.push(`${name}: override.${field} 仅支持布尔值`);
     }
@@ -13031,6 +13085,7 @@ function collectProxyProviderOverrideWarnings(name, override) {
         }
 
         try {
+          // pattern 本质上是重命名规则的匹配表达式，必须先能成功编译成正则。
           compilePatternRegExp(pattern);
         } catch (error) {
           warnings.push(`${name}: override.proxy-name 正则无效 (${pattern}): ${error.message}`);
@@ -13058,6 +13113,7 @@ function collectProxyProviderHealthCheckWarnings(name, healthCheck) {
       continue;
     }
 
+    // health-check 数字项都要求为正数，避免生成 0 或负值导致客户端行为不确定。
     const value = Number(healthCheck[field]);
     if (!isFinite(value) || value < 1) {
       warnings.push(`${name}: health-check.${field} 必须为大于等于 1 的数字`);
@@ -13097,6 +13153,7 @@ function validateRuleProviderOptions(providers) {
     const type = normalizeStringArg(provider.type).toLowerCase();
     const behavior = normalizeStringArg(provider.behavior).toLowerCase();
     const format = normalizeStringArg(provider.format).toLowerCase();
+    // path 统一转成 `/` 形式，后续做目录前缀比较时不会受平台分隔符影响。
     const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
 
     // 先校验 type/behavior/format 这些官方枚举语义。
@@ -13135,6 +13192,7 @@ function validateRuleProviderOptions(providers) {
     }
 
     if (type === "inline") {
+      // inlineProviderCount 用来在循环结束后判断“payload 参数有没有真正的承接方”。
       inlineProviderCount += 1;
     }
 
@@ -13153,6 +13211,7 @@ function validateRuleProviderOptions(providers) {
       if (!path) {
         warnings.push(`${name}: path 不能为空字符串`);
       } else {
+        // 配了 path-dir 时，http provider 的缓存路径应落在对应目录前缀下。
         const pathDirPrefix = ARGS.ruleProviderPathDir === "/" ? "/" : `${ARGS.ruleProviderPathDir}/`;
         if (type === "http" && hasPathConfiguredOption && !path.startsWith(pathDirPrefix)) {
           warnings.push(`${name}: path=${path} 未落在 rule-provider-path-dir=${ARGS.ruleProviderPathDir} 下`);
@@ -13209,6 +13268,7 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     const type = normalizeStringArg(provider.type).toLowerCase();
+    // path 同样统一斜杠格式，后面冲突检查与目录检查都复用这一版本。
     const path = normalizeStringArg(provider.path).replace(/\\/g, "/");
 
     // 先校验最基础的官方 type/url/path 语义。
@@ -13242,6 +13302,7 @@ function validateProxyProviderOptions(proxyProviders) {
     if (hasOwn(provider, "header")) {
       warnings.push.apply(warnings, collectProviderHeaderWarnings(name, provider.header));
     } else if (type === "http" && ARGS.hasProxyProviderHeader) {
+      // 用户显式配了统一 header，但当前 provider 没生成 header 时，单独提醒最直观。
       warnings.push(`${name}: 已配置 proxy-provider-header，但当前 header 仍未生成`);
     }
 
@@ -13277,6 +13338,7 @@ function validateProxyProviderOptions(proxyProviders) {
     }
 
     if (!hasOwn(provider, "health-check")) {
+      // health-check 是可选项；没配置时直接跳过，不强制告警。
       continue;
     }
 
@@ -13289,6 +13351,7 @@ function validateProxyProviderOptions(proxyProviders) {
 // 校验配置与生成结果中是否包含 Mihomo 文档已经标记为弃用的字段。
 function validateDeprecatedSettings(config, proxyGroups) {
   const currentConfig = isObject(config) ? config : {};
+  // 这里只关心“已被官方标记 deprecated”但仍可能被脚本生成的字段。
   const deprecatedSettings = [];
 
   if (hasOwn(currentConfig, "global-client-fingerprint")) {
@@ -13312,6 +13375,7 @@ function validateDnsRiskWarnings(dns) {
   const warnings = [];
 
   if (parseBool(currentDns["prefer-h3"], false) && parseBool(currentDns["respect-rules"], false)) {
+    // 这是 Mihomo 文档里明确写出的风险组合，因此直接升格成单独风险提示。
     warnings.push("dns.prefer-h3 与 dns.respect-rules 同时启用，Mihomo DNS 文档明确不推荐");
   }
 
@@ -13382,6 +13446,7 @@ function validateGeoConfig(config) {
   }
 
   if (parseBool(currentConfig["geo-auto-update"], false)) {
+    // geo-auto-update 开启后，四类核心下载地址都应该齐备，否则更新链路是不完整的。
     for (const key of ["geoip", "geosite", "mmdb", "asn"]) {
       if (typeof geoxUrl[key] !== "string" || !geoxUrl[key].trim()) {
         warnings.push(`geo-auto-update 已启用，但 geox-url.${key} 缺失`);
@@ -13396,6 +13461,7 @@ function validateGeoConfig(config) {
 function validateKernelOptionWarnings(config) {
   const currentConfig = isObject(config) ? config : {};
   const warnings = [];
+  // 这两项都是常见但容易写错的内核枚举参数，先统一 lower-case 再比对。
   const processMode = typeof currentConfig["find-process-mode"] === "string" ? currentConfig["find-process-mode"].trim().toLowerCase() : "";
   const geodataLoader = typeof currentConfig["geodata-loader"] === "string" ? currentConfig["geodata-loader"].trim().toLowerCase() : "";
 
@@ -13483,6 +13549,7 @@ function validateRuleTargets(proxyGroups, ruleDefinitions) {
   const expectedTargets = uniqueStrings(
     (Array.isArray(ruleDefinitions) ? ruleDefinitions : RULE_SET_DEFINITIONS).map((definition) => definition.target).concat(GROUPS.SELECT)
   );
+  // 包含 GROUPS.SELECT，是因为 MATCH 最终一定会引用它。
   // 返回缺失的目标组。
   return expectedTargets.filter((target) => !groupLookup[target]);
 }
@@ -13508,6 +13575,7 @@ function validateProxyGroupReferences(proxyGroups, proxies) {
     // 检查当前组中的每一项引用。
     for (const reference of group.proxies) {
       // 引用不存在时记录下来。
+      // 这里不做模糊匹配，必须是最终真实存在的精确名称，才能保证配置可用。
       if (!validReferenceLookup[reference]) {
         unresolvedReferences.push(`${group.name} -> ${reference}`);
       }
@@ -13520,6 +13588,7 @@ function validateProxyGroupReferences(proxyGroups, proxies) {
 
 // 校验策略组里的 use 引用是否都能解析到现有 proxy-providers。
 function validateProxyGroupProviderReferences(proxyGroups, proxyProviders) {
+  // 这里只检查最终 proxy-groups.use 引用，不关心 provider 本身语义是否合法。
   const providerNames = Object.keys(isObject(proxyProviders) ? proxyProviders : {});
   const providerLookup = createLookup(providerNames);
   const unresolvedReferences = [];
@@ -13531,6 +13600,7 @@ function validateProxyGroupProviderReferences(proxyGroups, proxyProviders) {
 
     for (const reference of group.use) {
       if (!providerLookup[reference]) {
+        // use 引用缺失时保留“group -> use:provider”格式，便于直接回到对应组排查。
         unresolvedReferences.push(`${group.name} -> use:${reference}`);
       }
     }
@@ -13656,6 +13726,7 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
     ? precomputedAnalysis.proxyGroupPriorityRisks
     : analyzeProxyGroupPriorityRisks(proxyGroups);
   return {
+    // 下面按“provider -> runtime -> rules -> groups”维度把所有自检结果平铺成 diagnostics 对象，供日志/响应头统一消费。
     missingProviders: validateRuleProviders(ruleDefinitions, providers),
     duplicateRuleProviderPaths: validateRuleProviderPaths(providers),
     invalidRuleProviderUrls: validateRuleProviderUrls(providers),
@@ -13681,6 +13752,7 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
     regionVisibilityPreview: regionVisibility.previewEntries,
     groupOrderWarnings: validateGroupOrderTokens(proxyGroups, countryConfigs),
     ruleOrderWarnings: uniqueStrings(validateRuleOrderMarkers(ruleDefinitions).concat(
+      // DevList 块有单独的锚点逻辑，因此额外补一条专用校验。
       validateDevRuleOrderMarker(ruleDefinitions)
     )),
     customRuleOrderWarnings: validateCustomRuleOrderMarker(ruleDefinitions, configuredRules),
@@ -13689,11 +13761,13 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
     proxyGroupPriorityWarnings: proxyGroupPriorityRiskAnalysis.warnings,
     targetPlatformWarnings: uniqueStrings([]
       .concat(
+        // 目标平台不是 Clash/Mihomo 时，很多生成语义虽然不报错，但行为未必符合预期。
         RUNTIME_CONTEXT.target && !isClashLikeTarget(RUNTIME_CONTEXT.target)
           ? [`当前目标平台看起来不是 Clash/Mihomo 体系: ${RUNTIME_CONTEXT.target}；本脚本更适合 Clash/Mihomo/OpenClash 输出`]
           : []
       )
       .concat(
+        // routeTarget 与 queryTarget 不一致时，通常说明运行环境还有额外路由层重写。
         RUNTIME_CONTEXT.routeTarget && RUNTIME_CONTEXT.queryTarget && RUNTIME_CONTEXT.routeTarget !== RUNTIME_CONTEXT.queryTarget
           ? [`路由目标 ${RUNTIME_CONTEXT.routeTarget} 与 query target ${RUNTIME_CONTEXT.queryTarget} 不一致；当前以路由目标为准`]
           : []
@@ -13715,6 +13789,7 @@ function validateGeneratedArtifacts(proxies, proxyGroups, providers, config, dns
 
 // 统计诊断项总数，便于写入响应头摘要。
 function countDiagnosticIssues(diagnostics) {
+  // 普通 warning 与 special warning 分开定义，这里统一相加得到总问题数。
   return countDiagnosticIssueDefinitions(diagnostics, DIAGNOSTIC_WARNING_BLOCK_DEFINITIONS)
     + countDiagnosticIssueDefinitions(diagnostics, DIAGNOSTIC_SPECIAL_WARNING_DEFINITIONS);
 }
