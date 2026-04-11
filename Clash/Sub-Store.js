@@ -8971,6 +8971,7 @@ function getRuleAnalysis(rules, precomputedAnalysis) {
 
 // 单独分析 config.rules 在最终规则链里的有效插入区间，便于快速判断外部自定义规则到底插进了哪里。
 function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ruleAnalysis) {
+  // baseRules / currentFinalRules 分别代表脚本原生规则和最终合并结果，后面会拿两者做差集。
   const baseRules = Array.isArray(generatedRules) ? uniqueStrings(generatedRules) : [];
   const currentFinalRules = Array.isArray(finalRules) ? finalRules : [];
   const finalRuleAnalysis = getRuleAnalysis(currentFinalRules, ruleAnalysis);
@@ -8978,10 +8979,12 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
   const generatedBodyRules = baseRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const rawConfiguredRuleList = Array.isArray(configuredRules) ? configuredRules.slice() : [];
   const uniqueConfiguredRules = uniqueStrings(rawConfiguredRuleList);
+  // rawMatchCount 单独统计，是为了明确告诉用户：自定义 MATCH 会在合并时被剥离。
   const rawMatchCount = rawConfiguredRuleList.filter((rule) => /^MATCH,/i.test(normalizeStringArg(rule))).length;
   // effectiveExtraRules 才是真正“新增插入最终链路”的规则：排除 MATCH、排除与脚本主体重复的项。
   const rawExtraRules = uniqueConfiguredRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
   const effectiveExtraRules = rawExtraRules.filter((rule) => !generatedBodyRules.includes(rule));
+  // effectiveIndexes 记录这些新增规则最终落到第几位，用来描述插入窗口区间。
   const effectiveIndexes = effectiveExtraRules
     .map((rule) => {
       const normalizedRule = normalizeStringArg(rule);
@@ -8990,6 +8993,7 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
         : -1;
     })
     .filter((index) => index >= 0);
+  // 类型 / 目标计数字典后面会被压成 top 列表，帮助判断“自定义规则主要在拦什么、导向哪里”。
   const typeCounts = Object.create(null);
   const targetCounts = Object.create(null);
 
@@ -9005,6 +9009,7 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
   }
 
   const topTypes = Object.keys(typeCounts)
+    // 优先按数量排序，再按字典序稳定排序，避免同数量时摘要顺序来回抖动。
     .sort((left, right) => {
       const diff = typeCounts[right] - typeCounts[left];
       return diff !== 0 ? diff : left.localeCompare(right);
@@ -9019,6 +9024,7 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
   const warnings = [];
 
   if (rawMatchCount > 0) {
+    // 自定义 MATCH 一旦保留会破坏脚本只留一个兜底 MATCH 的约束，所以必须显式提醒。
     warnings.push(`当前 config.rules 中包含 ${rawMatchCount} 条 MATCH；为保证最终规则链只有一个兜底 MATCH，这些自定义 MATCH 在合并时已被移除`);
   }
 
@@ -9031,6 +9037,7 @@ function analyzeCustomRuleWindow(generatedRules, configuredRules, finalRules, ru
   }
 
   return {
+    // raw/effective/start/end 一起给出“原始输入量、真正生效量、落点区间”三组关键信息。
     rawCount: rawExtraRules.length,
     effectiveCount: effectiveExtraRules.length,
     rawMatchCount,
@@ -9058,6 +9065,7 @@ function formatCustomRuleWindowPreview(source) {
 // 统一把 category 映射到结果对象里的计数字段，减少多个分析函数里重复 if-else 累加模板。
 function increaseCategorizedCounter(target, category, fieldLookup) {
   const current = isObject(target) ? target : null;
+  // category 一律规范化后再查映射，避免定义表里出现大小写不一致导致计数失效。
   const normalizedCategory = normalizeStringArg(category);
   const lookup = isObject(fieldLookup) ? fieldLookup : null;
 
@@ -9070,6 +9078,7 @@ function increaseCategorizedCounter(target, category, fieldLookup) {
     return;
   }
 
+  // 结果对象里所有这类计数都按 Number(...) 兜底，防止 undefined/NaN 把统计冲坏。
   current[countField] = (Number(current[countField]) || 0) + 1;
 }
 
@@ -9083,6 +9092,7 @@ function analyzeKeyRuleWindows(rules, ruleAnalysis) {
     .concat(ARGS.steamFix ? [{ key: "SteamFix", label: "SteamFix", kind: "business" }] : [])
     .concat(KEY_RULE_WINDOW_BASE_DEFINITIONS);
   const result = {
+    // found/missing 看覆盖率，blocker/business 看结构，matchIndex 看兜底是否落在尾部。
     foundCount: 0,
     blockerCount: 0,
     businessCount: 0,
@@ -9093,6 +9103,7 @@ function analyzeKeyRuleWindows(rules, ruleAnalysis) {
   };
 
   for (const definition of definitions) {
+    // 关键窗口靠 firstIndexByKey 定位每种规则第一次出现的位置即可。
     const index = hasOwn(currentRuleAnalysis.firstIndexByKey, definition.key)
       ? currentRuleAnalysis.firstIndexByKey[definition.key]
       : -1;
@@ -9146,6 +9157,7 @@ function analyzeRuleLayerTargetMapping(rules, ruleAnalysis) {
   const crossCounts = Object.create(null);
 
   for (const entry of currentRuleAnalysis.entries) {
+    // tag 用短标签，target 用简化目标组名；两者组合后可直观看“哪一层主要流向哪一组”。
     const layer = entry.tag;
     const target = entry.target;
     const crossKey = `${layer}->${target}`;
@@ -9156,6 +9168,7 @@ function analyzeRuleLayerTargetMapping(rules, ruleAnalysis) {
   }
 
   const layerEntries = Object.keys(layerCounts)
+    // 交叉统计摘要都采用“频次优先、字典序兜底”的稳定排序策略。
     .sort((left, right) => {
       const diff = layerCounts[right] - layerCounts[left];
       return diff !== 0 ? diff : left.localeCompare(right);
@@ -9175,6 +9188,7 @@ function analyzeRuleLayerTargetMapping(rules, ruleAnalysis) {
     .map((entry) => `${entry}:${crossCounts[entry]}`);
 
   return {
+    // total / layers / targets 描述总规模，后三个 entries 则给出 top 分布细节。
     total: currentRules.length,
     layers: Object.keys(layerCounts).length,
     targets: Object.keys(targetCounts).length,
@@ -9204,6 +9218,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
   const definitions = SERVICE_RULE_WINDOW_DEFINITIONS;
   // firstIndex/lastIndex 用于观察关键业务规则整体集中在哪个区间。
   const result = {
+    // tracked 是理论观测项数量；found/missing 与各类 count 用来观察当前规则集的覆盖情况。
     tracked: definitions.length,
     foundCount: 0,
     aiCount: 0,
@@ -9220,6 +9235,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
   };
 
   for (const definition of definitions) {
+    // 每个业务 provider 只看首次出现位置，这足够说明它在主链路中的优先级。
     const index = hasOwn(currentRuleAnalysis.firstIndexByKey, definition.key)
       ? currentRuleAnalysis.firstIndexByKey[definition.key]
       : -1;
@@ -9265,6 +9281,7 @@ function formatServiceRuleWindowPreview(source) {
 // 汇总规则入口最终会打到哪些目标组，并统计各目标组承接了多少条业务规则。
 function analyzeRuleTargetMapping(ruleDefinitions, rules, ruleAnalysis) {
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  // targetCounts 统计“多少条 rule-definition 指向某个目标组”，previewEntries 则保留原始映射样本。
   const targetCounts = Object.create(null);
   const previewEntries = [];
 
@@ -9281,6 +9298,7 @@ function analyzeRuleTargetMapping(ruleDefinitions, rules, ruleAnalysis) {
   }
 
   const targetEntries = Object.keys(targetCounts)
+    // 先按承接量排序，可以快速看出当前配置最依赖哪些策略组。
     .sort((left, right) => {
       const countDiff = targetCounts[right] - targetCounts[left];
       return countDiff !== 0 ? countDiff : left.localeCompare(right);
@@ -9288,6 +9306,7 @@ function analyzeRuleTargetMapping(ruleDefinitions, rules, ruleAnalysis) {
     .map((target) => `${sanitizeProviderPreviewName(target)}:${targetCounts[target]}`);
   const currentRules = Array.isArray(rules) ? rules : [];
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  // MATCH 位置不从 definitions 推，而是直接从最终 rules 里取，避免被后续 merge / reorder 影响。
   const matchIndex = hasOwn(currentRuleAnalysis.firstIndexByKey, "MATCH")
     ? currentRuleAnalysis.firstIndexByKey.MATCH
     : -1;
@@ -9323,11 +9342,13 @@ function formatRuleTargetMappingPreview(source) {
 function buildRuleDefinitionProviderLookup(ruleDefinitions, valueBuilder) {
   const lookup = Object.create(null);
   const definitions = Array.isArray(ruleDefinitions) ? ruleDefinitions : [];
+  // 默认直接返回 definition 自身；需要索引表时再由调用方传 buildValue。
   const buildValue = typeof valueBuilder === "function" ? valueBuilder : ((definition) => definition);
 
   definitions.forEach((definition, index) => {
     const provider = isObject(definition) ? normalizeStringArg(definition.provider) : "";
     if (provider && !hasOwn(lookup, provider)) {
+      // 同一 provider 只保留第一次出现的条目，和规则链“首次命中优先”语义保持一致。
       lookup[provider] = buildValue(definition, index);
     }
   });
@@ -9372,6 +9393,7 @@ function analyzeRulePriorityRisks(ruleDefinitions) {
     result.total += 1;
     increaseCategorizedCounter(result, category, RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY);
 
+    // preview 只保留 blocker>blocked 关系，warnings 则保留完整中文解释。
     result.previewEntries.push(`${sanitizeProviderPreviewName(blockerProvider)}>${sanitizeProviderPreviewName(blockedProvider)}`);
     result.warnings.push(message);
   }
@@ -9427,6 +9449,7 @@ function buildProxyGroupLookup(proxyGroups) {
   for (const group of Array.isArray(proxyGroups) ? proxyGroups : []) {
     const name = isObject(group) ? normalizeStringArg(group.name) : "";
     if (name && !hasOwn(lookup, name)) {
+      // 同名组只保留首个对象，避免 merge 后极端重名情况影响后续诊断。
       lookup[name] = group;
     }
   }
@@ -9468,6 +9491,7 @@ function formatProxyGroupPriorityEntry(group) {
 
 // 把最终策略组在配置里的排列顺序压成单行摘要，便于区分“展示顺序”和“规则优先级”。
 function buildProxyGroupOrderSummary(proxyGroups) {
+  // 这里只关心最终名字顺序，不关心组内候选链，因此只提取 group.name。
   const names = (Array.isArray(proxyGroups) ? proxyGroups : []).map((group) => group && group.name).filter(Boolean);
   return `count=${names.length},order=${formatProviderPreviewNames(names, 10, 16)}`;
 }
@@ -9475,6 +9499,7 @@ function buildProxyGroupOrderSummary(proxyGroups) {
 // 汇总几个最关键策略组的候选顺序，方便直接看出选择组/独立组/广告组内部谁排在前面。
 function buildProxyGroupPrioritySummary(proxyGroups) {
   const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
+  // 只看最关键的几个组，避免把完整 proxy-groups 打进摘要导致过长。
   const keyNames = [GROUPS.SELECT, GROUPS.FALLBACK, GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS];
   const entries = keyNames
     .map((name) => formatProxyGroupPriorityEntry(proxyGroupLookup[name] || null))
@@ -9485,6 +9510,7 @@ function buildProxyGroupPrioritySummary(proxyGroups) {
 
 // 查找某个候选在策略组 proxies 列表中的位置，找不到时返回 -1。
 function findProxyGroupCandidateIndex(group, candidate) {
+  // 这里保留严格全等匹配，避免名称近似时误判成同一个候选。
   const proxies = Array.isArray(isObject(group) ? group.proxies : null) ? group.proxies : [];
   return proxies.findIndex((item) => item === candidate);
 }
@@ -9517,6 +9543,7 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
     result.total += 1;
     increaseCategorizedCounter(result, category, PROXY_GROUP_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY);
 
+    // preview 负责给短样本，warnings 保留完整中文说明供 full 日志/头部透出。
     result.previewEntries.push(`${sanitizeProviderPreviewName(groupName)}>${tag}`);
     result.warnings.push(message);
   }
@@ -9671,6 +9698,7 @@ function buildTrafficChainGroupEntry(group) {
     return "";
   }
 
+  // 每段只保留前几个候选，足够看链路走向，不会把摘要撑得过长。
   const proxies = Array.isArray(current.proxies) ? current.proxies : [];
   return `${sanitizeProviderPreviewName(current.name)}=${formatProviderPreviewNames(proxies, 3, 14)}`;
 }
@@ -9779,6 +9807,7 @@ function buildServicePreferredCountrySummaryPayload(states) {
     const state = isObject(currentStates[definition.key]) ? currentStates[definition.key] : {};
 
     for (const field of SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS) {
+      // 统一拼成 aiPreferCountryResolved / githubPreferCountryTrace 这类平铺字段，便于 header/full 直接读取。
       payload[`${definition.key}PreferCountry${field.propertySuffix}`] = state[field.key] || "";
     }
   }
@@ -9790,6 +9819,7 @@ function buildServicePreferredCountrySummaryPayload(states) {
 function formatServicePreferredCountrySummaryLine(source, propertySuffix) {
   const current = isObject(source) ? source : {};
   return SERVICE_PREFERRED_COUNTRY_DEFINITIONS
+    // 每个业务维持统一 key=value 形式，日志层无需再知道具体字段名。
     .map((definition) => `${definition.label}=${current[`${definition.key}PreferCountry${propertySuffix}`] || "none"}`)
     .join(", ");
 }
@@ -9797,22 +9827,26 @@ function formatServicePreferredCountrySummaryLine(source, propertySuffix) {
 // 判断某类国家优先链摘要是否至少有一项非空，避免日志层每次都手写一遍 some + 模板字段。
 function hasServicePreferredCountrySummary(source, propertySuffix) {
   const current = isObject(source) ? source : {};
+  // 只要任一服务存在对应摘要，就认为这一栏值得输出。
   return SERVICE_PREFERRED_COUNTRY_DEFINITIONS.some((definition) => current[`${definition.key}PreferCountry${propertySuffix}`]);
 }
 
 // 把 Github / Steam / Dev 这类服务 token 统一转成 `githubPreferGroups` / `hasGithubPreferGroups` 这类参数键名。
 function buildServiceArgKey(argToken, suffix) {
+  // 服务 token 统一首字母小写，兼容 SERVICE_DEFINITIONS 里使用的大驼峰 argToken。
   return `${String(argToken || "").charAt(0).toLowerCase()}${String(argToken || "").slice(1)}${suffix}`;
 }
 
 // 统一按 key 读取服务定义，供 mode 基链定义与 service artifact 装配复用。
 function findServiceDefinitionByKey(serviceKey) {
   const key = normalizeStringArg(serviceKey).toLowerCase();
+  // SERVICE_DEFINITIONS 是单一真相源；这里统一查，避免外部手写 key -> definition 映射。
   return SERVICE_DEFINITIONS.find((definition) => definition.key === key) || null;
 }
 
 // 独立组响应头里凡是“节点池自动筛选已配置”这类布尔摘要，都走统一 helper 计算。
 function buildServiceAutoProxyHeaderValue(argToken) {
+  // 只要任一节点池筛选参数被显式配置，就显示 configured；否则显示 default。
   return (
     ARGS[`has${argToken}NodeFilter`] ||
     ARGS[`has${argToken}NodeExcludeFilter`] ||
@@ -9844,11 +9878,13 @@ function resolveServiceArgPayloadFieldValue(argToken, definition, runtimeContext
   const fieldDefinition = isObject(definition) ? definition : {};
 
   if (typeof fieldDefinition.valueBuilder === "function") {
+    // valueBuilder 优先级最高，适合那些需要组合多个上下文字段的动态值。
     return fieldDefinition.valueBuilder(argToken, current, fieldDefinition);
   }
 
   const contextKey = normalizeStringArg(fieldDefinition.contextKey);
   if (contextKey) {
+    // contextKey 表示该字段来自运行期上下文而不是 ARGS，例如 providerReferences。
     return hasOwn(current, contextKey)
       ? current[contextKey]
       : (hasOwn(fieldDefinition, "defaultValue") ? cloneServiceArgPayloadDefaultValue(fieldDefinition.defaultValue) : undefined);
@@ -9856,11 +9892,13 @@ function resolveServiceArgPayloadFieldValue(argToken, definition, runtimeContext
 
   const argSuffix = normalizeStringArg(fieldDefinition.argSuffix);
   if (argSuffix) {
+    // hasArg=true 时读取 hasXxx 这样的布尔开关；否则读取真正的参数值。
     return fieldDefinition.hasArg
       ? ARGS[`has${argToken}${argSuffix}`]
       : ARGS[buildServiceArgKey(argToken, argSuffix)];
   }
 
+  // 三类来源都没命中时，最后才回退默认值。
   return hasOwn(fieldDefinition, "defaultValue")
     ? cloneServiceArgPayloadDefaultValue(fieldDefinition.defaultValue)
     : undefined;
@@ -9876,6 +9914,7 @@ function buildServiceArgPayload(argToken, definitions, runtimeContext) {
       continue;
     }
 
+    // 每个字段都通过同一解析器装配，避免各服务组选项对象长期漂移。
     payload[key] = resolveServiceArgPayloadFieldValue(argToken, definition, runtimeContext);
   }
 
@@ -10002,6 +10041,7 @@ function buildServicePreferredProxies(options) {
 function buildServiceModeBaseProxyBranches(serviceDefinition, context) {
   const definition = isObject(serviceDefinition) ? serviceDefinition : {};
   const current = isObject(context) ? context : {};
+  // 若服务定义自带专属 mode 分支解析器，就优先交给定义本身；否则回退通用 direct/proxy/default 三路。
   return typeof definition.resolveModeBaseProxyBranches === "function"
     ? definition.resolveModeBaseProxyBranches(current)
     : {
@@ -10014,6 +10054,7 @@ function buildServiceModeBaseProxyBranches(serviceDefinition, context) {
 // 按服务定义统一解析当前业务的 mode 对应基础链，减少 mode key / mode arg 两套表之间的漂移风险。
 function buildServiceModeBaseProxies(serviceDefinition, context) {
   const definition = isObject(serviceDefinition) ? serviceDefinition : {};
+  // argToken 决定读取 githubMode / steamMode / devMode 哪一个参数。
   return resolveServiceModeBaseProxies(
     ARGS[buildServiceArgKey(definition.argToken, "Mode")],
     buildServiceModeBaseProxyBranches(definition, context)
@@ -10103,6 +10144,7 @@ function buildProxyGroupServiceArtifacts(payload) {
     context.groupName
   );
 
+  // 最终统一输出 groupName/type/proxies/latency/providerCollection 等完整 service artifact。
   return buildDefinitionDrivenPayload(PROXY_GROUP_SERVICE_ARTIFACT_DEFINITIONS, context, argToken, preferredResources);
 }
 
@@ -10111,6 +10153,7 @@ function buildProxyGroupServiceArtifactMap(payload) {
   const current = isObject(payload) ? payload : {};
   const artifacts = Object.create(null);
   for (const definition of SERVICE_DEFINITIONS) {
+    // 每个 definition 都先拍平成 payload，再进入统一 artifact builder。
     artifacts[definition.key] = buildProxyGroupServiceArtifacts(
       buildProxyGroupServiceArtifactPayload(definition, current)
     );
@@ -10195,6 +10238,7 @@ function buildProxyGroupBaseContext(payload) {
   const context = isObject(payload) ? payload : {};
   const countries = Array.isArray(context.countryConfigs) ? context.countryConfigs : [];
   const regions = Array.isArray(context.regionConfigs) ? context.regionConfigs : [];
+  // countryCoverage 后续既用于诊断，也用于统计最终有多少节点被归类进国家组。
   const countryCoverage = analyzeCountryCoverage(context.proxies);
   return {
     countryGroupNames: countries.map((country) => country.name),
@@ -10217,6 +10261,7 @@ function resolveOptionalPreferredCountryGroups(countryConfigs, enabled, markers)
 // 服务组虽然名称不同，但 mode 只分 direct / proxy / default 三路，这里统一根据模式挑选基础候选链。
 function resolveServiceModeBaseProxies(mode, branches) {
   const current = isObject(branches) ? branches : {};
+  // 所有分支都转成字符串数组，避免单值 / null 混入后续候选链。
   return mode === "direct"
     ? toStringArray(current.direct)
     : (mode === "proxy"
@@ -10260,6 +10305,7 @@ function formatServiceLogSummary(services, formatter) {
   const source = Array.isArray(services) ? services : [];
   const formatCurrent = typeof formatter === "function" ? formatter : (() => "default");
   return source
+    // 每个服务只保留 key=value 形式，日志层就能稳定地按服务横向比较。
     .map((service) => `${service.key}=${formatCurrent(service)}`)
     .join(", ");
 }
@@ -10269,11 +10315,13 @@ function getServiceArgLogValue(argToken, suffix, fallback) {
   const hasKey = `has${argToken}${suffix}`;
   const valueKey = buildServiceArgKey(argToken, suffix);
   if (!ARGS[hasKey]) {
+    // 没显式传参时统一输出 default，而不是空串，便于诊断看出“当前走的是默认策略”。
     return typeof fallback === "undefined" ? "default" : fallback;
   }
 
   const value = ARGS[valueKey];
   if (Array.isArray(value)) {
+    // 数组参数统一用 > 连接，直观看出优先链顺序。
     return value.length ? value.join(" > ") : "default";
   }
 
@@ -10283,6 +10331,7 @@ function getServiceArgLogValue(argToken, suffix, fallback) {
 // 统一格式化独立组 provider 池日志：优先显示 include-all，其次 include-all-providers，再回退 use-providers。
 function formatServiceProviderPoolLogValue(argToken) {
   if (ARGS[`has${argToken}IncludeAll`]) {
+    // include-all 优先级最高，因为它会直接改变整个 provider 池来源。
     return ARGS[buildServiceArgKey(argToken, "IncludeAll")] ? "include-all" : "off";
   }
 
@@ -10335,6 +10384,7 @@ function formatServiceNodePoolLogValue(argToken) {
 // 一组 `label + argSuffix` 型日志字段都统一走这套 formatter，避免测速/节点池/高级项各写一份 map 模板。
 function formatServiceArgFieldsLogValue(argToken, fields) {
   return (Array.isArray(fields) ? fields : [])
+    // 每项统一变成 label=value，便于多组参数并排展示。
     .map((field) => `${field.label}=${getServiceArgLogValue(argToken, field.suffix)}`)
     .join(", ");
 }
@@ -10348,6 +10398,7 @@ function collectDefinitionWarnings(definitions, context, collector) {
   for (const definition of source) {
     const currentWarnings = collect(definition, context);
     if (Array.isArray(currentWarnings) && currentWarnings.length) {
+      // 子校验器返回的多条告警统一摊平后再去重，避免日志里出现重复提示。
       warnings.push.apply(warnings, currentWarnings);
     }
   }
