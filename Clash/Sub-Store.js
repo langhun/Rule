@@ -695,13 +695,17 @@ const GROUP_ORDER_PRESET_TOKENS = {
   media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "countries", "regions", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "regions", "countries", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "other", "extras"],
-  compact: ["select", "manual", "fallback", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "regions", "countries", "helpers", "extras"],
+  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  compact: ["select", "manual", "fallback", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"],
   "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "helpers", "extras"]
 };
 // 兼容旧版默认 balanced 显式顺序：如果用户历史链接把它原样固化进 group-order，后面会自动升级到当前默认布局。
 const LEGACY_BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]);
+// 兼容旧版 workspace / dashboard / compact 显式顺序：如果历史链接把当时内置布局固化进 group-order，也自动升级到当前新版布局。
+const LEGACY_WORKSPACE_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "countries", "regions", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "other", "extras"]);
+const LEGACY_DASHBOARD_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "regions", "countries", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "other", "extras"]);
+const LEGACY_COMPACT_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "regions", "countries", "helpers", "extras"]);
 
 // 某些自动分组天然允许为空，不必为此输出告警。
 const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
@@ -11037,16 +11041,30 @@ function buildGroupOrderPresetTokens(preset) {
   return Array.isArray(tokens) ? tokens.slice() : GROUP_ORDER_PRESET_TOKENS[DEFAULT_GROUP_ORDER_PRESET].slice();
 }
 
-// 某些旧链接会把当时脚本内置的 balanced 顺序直接固化成 group-order；这里识别后自动迁移到当前默认布局。
-function isLegacyBalancedGroupOrderTokens(tokens) {
+// 某些旧链接会把当时脚本内置的 balanced / workspace / dashboard / compact 顺序直接固化成 group-order；这里识别后自动迁移到当前对应布局。
+function resolveLegacyBuiltinGroupOrderPreset(tokens) {
   // 统一兜底成数组，避免传空值时直接访问 length 报错。
   const currentTokens = Array.isArray(tokens) ? tokens : [];
-  // 长度都不一致时无需继续比，对不上就肯定不是旧版 balanced 全量序列。
-  if (currentTokens.length !== LEGACY_BALANCED_GROUP_ORDER_TOKENS.length) {
-    return false;
+  const snapshots = [
+    { preset: "balanced", tokens: LEGACY_BALANCED_GROUP_ORDER_TOKENS },
+    { preset: "workspace", tokens: LEGACY_WORKSPACE_GROUP_ORDER_TOKENS },
+    { preset: "dashboard", tokens: LEGACY_DASHBOARD_GROUP_ORDER_TOKENS },
+    { preset: "compact", tokens: LEGACY_COMPACT_GROUP_ORDER_TOKENS }
+  ];
+
+  for (const snapshot of snapshots) {
+    const sourceTokens = Array.isArray(snapshot.tokens) ? snapshot.tokens : [];
+    // 长度都不一致时无需继续比，对不上就肯定不是这一版内置 preset 全量序列。
+    if (currentTokens.length !== sourceTokens.length) {
+      continue;
+    }
+    // 逐项做规范化比较：这样 `group-order=Regions` / `regions` 这种大小写或连字符差异也能识别出来。
+    if (currentTokens.every((token, index) => normalizeGroupMarkerToken(token) === normalizeGroupMarkerToken(sourceTokens[index]))) {
+      return snapshot.preset;
+    }
   }
-  // 逐项做规范化比较：这样 `group-order=Regions` / `regions` 这种大小写或连字符差异也能识别出来。
-  return currentTokens.every((token, index) => normalizeGroupMarkerToken(token) === normalizeGroupMarkerToken(LEGACY_BALANCED_GROUP_ORDER_TOKENS[index]));
+
+  return "";
 }
 
 // 汇总“理论上属于脚本自动生成”的组名集合，便于把用户自定义组识别成 extras。
@@ -11137,9 +11155,10 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
     users: "extras"
   };
   // 显式 group-order 永远优先于 preset；只有没传 group-order 时才回退到预设布局。
+  const legacyPreset = ARGS.hasGroupOrder ? resolveLegacyBuiltinGroupOrderPreset(ARGS.groupOrder) : "";
   const tokens = ARGS.hasGroupOrder
-    // 但如果命中的其实是“旧版 balanced 的历史固化序列”，这里改为自动升级成当前默认 preset。
-    ? (isLegacyBalancedGroupOrderTokens(ARGS.groupOrder) ? buildGroupOrderPresetTokens(DEFAULT_GROUP_ORDER_PRESET) : ARGS.groupOrder)
+    // 但如果命中的其实是“旧版内置 preset 的历史固化序列”，这里改为自动升级成当前对应 preset。
+    ? (legacyPreset ? buildGroupOrderPresetTokens(legacyPreset) : ARGS.groupOrder)
     : buildGroupOrderPresetTokens(ARGS.groupOrderPreset);
   // orderedNames 是布局展开后的“最终组名序列”；unresolvedTokens 则给告警层看哪些 token 根本没命中。
   const orderedNames = [];
