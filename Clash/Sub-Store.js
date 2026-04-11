@@ -373,11 +373,12 @@
  * 368. 代码托管规则继续审计：参考 blackmatrix7 当前目录，把 Gitee 并入开发服务组，补上 gitee.com / gitee.io 两条国内代码托管链路；Stackexchange / Teambition 仍暂不纳入，避免把更泛开发内容社区或混合协作域名继续硬塞进现有开发分组。
  * 369. 游戏引擎规则继续审计：参考 blackmatrix7 当前目录，把 Unity 并入开发服务组，补上 unity.com / unity3d.com / unitychina.cn / UnityHub.exe 等引擎、教育与编辑器分发链路；Stackexchange / Teambition 仍暂不纳入，避免把更泛开发内容社区或混合协作域名继续硬塞进现有开发分组。
  * 370. 开发问答规则继续审计：参考 blackmatrix7 当前目录，把 Stackexchange 并入开发服务组，补上 stackoverflow.com / stackexchange.com / serverfault.com / sstatic.net 等问答与开发社区域名；Teambition / TeamViewer 仍暂不纳入，避免把混合协作域名或低收益远程控制链路继续硬塞进现有开发分组。
+ * 371. 微软浏览器规则继续审计：参考 blackmatrix7 当前目录，把 MicrosoftEdge 并入微软服务组，补上 edge.microsoft.com / msedge.api.cdp.microsoft.com / iecvlist.microsoft.com 等浏览器更新与诊断链路；AppleMail / TeamViewer 仍暂不纳入，避免把低收益邮件细分链路或远程控制流量继续硬塞进现有分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.51";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.51。
+const SCRIPT_VERSION = "9.14.52";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.52。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -7339,6 +7340,8 @@ const ruleProviders = finalizeRuleProviders({
   LinkedIn: createCommunityClashRuleProvider("LinkedIn"),
   // Teams 规则：继续并入微软服务组，统一办公/协作类流量出口。
   Teams: createCommunityClashRuleProvider("Teams"),
+  // Microsoft Edge 浏览器更新 / 诊断规则也并入微软服务组。
+  MicrosoftEdge: createCommunityClashRuleProvider("MicrosoftEdge"),
   // 微软服务规则。
   Microsoft: createRuleProvider("domain", metaGeoSite("microsoft")),
   // Bing 规则。
@@ -7541,6 +7544,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "LinkedIn", target: GROUPS.MICROSOFT },
   // Teams 归并到微软服务组，继续把办公协作流量收口到微软服务。
   { provider: "Teams", target: GROUPS.MICROSOFT },
+  // Microsoft Edge 浏览器更新 / 诊断流量也交给微软服务组，并保持在宽泛 Microsoft 规则之前。
+  { provider: "MicrosoftEdge", target: GROUPS.MICROSOFT },
   // 其他微软流量交给微软服务组；它比较泛，默认应排在 GitHub / OneDrive / Bing 等细分规则之后。
   { provider: "Microsoft", target: GROUPS.MICROSOFT },
 
@@ -7781,6 +7786,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
   { provider: "LinkedIn", label: "LinkedIn", expectedTarget: GROUPS.MICROSOFT },
   { provider: "Teams", label: "Teams", expectedTarget: GROUPS.MICROSOFT },
+  { provider: "MicrosoftEdge", label: "MicrosoftEdge", expectedTarget: GROUPS.MICROSOFT },
   { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.WHATSAPP },
   { provider: "Line", label: "LINE", expectedTarget: GROUPS.LINE },
   { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.TWITTER },
@@ -8505,6 +8511,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Dropbox", label: "Dropbox", category: "dev" },
   { key: "LinkedIn", label: "LinkedIn", category: "dev" },
   { key: "Teams", label: "Teams", category: "dev" },
+  { key: "MicrosoftEdge", label: "MicrosoftEdge", category: "dev" },
   { key: "Discord", label: "Discord", category: "social" },
   { key: "WhatsApp", label: "WhatsApp", category: "social" },
   { key: "Line", label: "LINE", category: "social" },
@@ -11088,6 +11095,9 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   music126: "NetEaseMusic",
   linkedin: "LinkedIn",
   teams: "Teams",
+  microsoftedge: "MicrosoftEdge",
+  msedge: "MicrosoftEdge",
+  iecvlist: "MicrosoftEdge",
   riot: "Riot",
   battle: "Battle",
   battlenet: "Battle",
