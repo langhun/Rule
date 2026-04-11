@@ -379,6 +379,7 @@
  * 374. 旧布局兼容修正：对仍携带旧版 balanced `group-order` 显式序列的配置自动升级到新版默认顺序，避免即使脚本已更新，国家组仍继续卡在 Steam 与 Bing/Apple 等服务组中间。
  * 375. 云平台规则继续审计：参考 blackmatrix7 当前目录，把 UCloud 并入开发服务组，补上 ucloud.com.cn / ucloudapi.com / ucloudufile.com / u-cdn.com 等云平台、对象存储与 CDN 管理域名；Cloudflare / TeamViewer 仍暂不纳入，避免把更宽的共享 CDN / 远程控制链路继续硬塞进现有开发分组。
  * 376. 顶部历史审计结论补记：继续参考 blackmatrix7 当前目录，把 Claude / GoogleDrive / Bahamut / DAZN / Viki / ViuTV / friDay / HamiVideo / Emby / AppStore / AppleID / iCloud / SystemOTA / Abema / ITV / PBS / myTVSUPER / ZeeTV 补进现有 AI / Google / Apple / 流媒体组；BritboxUK / TVB / EncoreTVB / JOOX / MOOV / FOXNOW / Zee / TencentVideo / RemoteDesktop 等仍暂不纳入，继续避免把过宽、重复或低收益规则硬塞进现有面板。
+ * 377. 聊天社交分组收口：把 Telegram / Discord / WhatsApp / LINE / Twitter / Instagram / Facebook / Reddit 及 Pinterest / Pixiv / Imgur / Tumblr / Threads 等衍生社区统一并入单一“聊天社交”组；旧组名常量与 group-order / prefer-groups 别名继续保留兼容，避免历史参数直接失效。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
@@ -602,22 +603,17 @@ const GROUPS = {
   // OneDrive 专用策略组。
   ONEDRIVE: "☁️ OneDrive",
 
-  // Discord 专用策略组。
-  DISCORD: "💬 Discord",
-  // Telegram 专用策略组。
-  TELEGRAM: "✈️ Telegram",
-  // WhatsApp 专用策略组。
-  WHATSAPP: "🟢 WhatsApp",
-  // LINE 专用策略组。
-  LINE: "💚 LINE",
-  // Twitter / X 专用策略组。
-  TWITTER: "🐦 Twitter",
-  // Instagram 专用策略组。
-  INSTAGRAM: "📸 Instagram",
-  // Facebook 专用策略组。
-  FACEBOOK: "📘 Facebook",
-  // Reddit 专用策略组。
-  REDDIT: "👽 Reddit",
+  // 聊天 / 社交通讯统一策略组：把 Telegram / Discord / WhatsApp / LINE / Twitter / Instagram / Facebook / Reddit 等入口收口到同一面板。
+  CHAT: "💬 聊天社交",
+  // 下面这些旧常量继续保留为兼容别名；实际都统一指向同一个“聊天社交”组。
+  DISCORD: "💬 聊天社交",
+  TELEGRAM: "💬 聊天社交",
+  WHATSAPP: "💬 聊天社交",
+  LINE: "💬 聊天社交",
+  TWITTER: "💬 聊天社交",
+  INSTAGRAM: "💬 聊天社交",
+  FACEBOOK: "💬 聊天社交",
+  REDDIT: "💬 聊天社交",
   // YouTube 专用策略组。
   YOUTUBE: "📹 YouTube",
   // Netflix 专用策略组。
@@ -661,14 +657,7 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.DEV,
   GROUPS.BING,
   GROUPS.ONEDRIVE,
-  GROUPS.DISCORD,
-  GROUPS.TELEGRAM,
-  GROUPS.WHATSAPP,
-  GROUPS.LINE,
-  GROUPS.TWITTER,
-  GROUPS.INSTAGRAM,
-  GROUPS.FACEBOOK,
-  GROUPS.REDDIT,
+  GROUPS.CHAT,
   GROUPS.YOUTUBE,
   GROUPS.NETFLIX,
   GROUPS.DISNEY,
@@ -689,16 +678,16 @@ const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs"
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
   // token 列表里不是最终组名，而是布局阶段使用的抽象槽位；后面会再解析成实际 groups / region / country / helper 区块。
-  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  compact: ["select", "manual", "fallback", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"],
-  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "helpers", "extras"]
+  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "chat", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "chat", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "chat", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  compact: ["select", "manual", "fallback", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"],
+  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "extras"]
 };
 // 兼容旧版默认 balanced 显式顺序：如果用户历史链接把它原样固化进 group-order，后面会自动升级到当前默认布局。
 const LEGACY_BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]);
@@ -7250,15 +7239,15 @@ const ruleProviders = finalizeRuleProviders({
   Twitter: createCommunityClashRuleProvider("Twitter"),
   // Reddit 社区规则。
   Reddit: createCommunityClashRuleProvider("Reddit"),
-  // Threads 归并进 Facebook 组，避免和 Instagram / Facebook 再额外拆出一个低收益面板组。
+  // Threads 归并到聊天社交组，避免和 Meta / 图片社区再拆多条低收益面板。
   Threads: createCommunityClashRuleProvider("Threads"),
-  // Pinterest 归并进 Instagram 组，统一视觉社交流量。
+  // Pinterest 归并到聊天社交组，统一图文/视觉社交流量。
   Pinterest: createCommunityClashRuleProvider("Pinterest"),
-  // Pixiv / FANBOX / Booth 归并进 Instagram 组，继续统一视觉创作者社区入口。
+  // Pixiv / FANBOX / Booth 归并到聊天社交组，继续统一视觉创作者社区入口。
   Pixiv: createCommunityClashRuleProvider("Pixiv"),
-  // Imgur 图片社区也并入 Instagram 组，继续收口图片/视觉社交流量。
+  // Imgur 图片社区也并入聊天社交组，继续收口图片/视觉社交流量。
   Imgur: createCommunityClashRuleProvider("Imgur"),
-  // Tumblr 博客/创作社区也并入 Instagram 组，继续统一图片与内容创作平台入口。
+  // Tumblr 博客/创作社区也并入聊天社交组，继续统一图片与内容创作平台入口。
   Tumblr: createCommunityClashRuleProvider("Tumblr"),
   // YouTube Music 归并进 YouTube 组，保持影音平台的面板数量稳定。
   YouTubeMusic: createCommunityClashRuleProvider("YouTubeMusic"),
@@ -7593,8 +7582,8 @@ const RULE_SET_DEFINITIONS = (() => {
     ruleOrderAnchorKey: "githubRuleAnchor",
     ruleOrderPositionKey: "githubRulePosition"
   },
-  // Discord 流量交给 Discord 组。
-  { provider: "Discord", target: GROUPS.DISCORD },
+  // Discord 流量并入聊天社交组，统一收口通讯/社区面板。
+  { provider: "Discord", target: GROUPS.CHAT },
   // Bing 流量交给 Bing 组。
   { provider: "Bing", target: GROUPS.BING },
   // OneDrive 流量交给 OneDrive 组。
@@ -7629,32 +7618,22 @@ const RULE_SET_DEFINITIONS = (() => {
   // Apple IP 段交给 Apple 组，并关闭解析。
   { provider: "Apple_IP", target: GROUPS.APPLE, noResolve: true },
 
-  // Telegram 域名交给 Telegram 组。
-  { provider: "Telegram", target: GROUPS.TELEGRAM },
-  // Telegram IP 段交给 Telegram 组，并关闭解析。
-  { provider: "Telegram_IP", target: GROUPS.TELEGRAM, noResolve: true },
-  // WhatsApp 规则必须放在 Facebook 前面；其规则里包含 graph.facebook.com，避免被更宽泛的 Meta/Facebook 规则提前吃掉。
-  { provider: "WhatsApp", target: GROUPS.WHATSAPP },
-  // LINE 流量交给 LINE 组。
-  { provider: "Line", target: GROUPS.LINE },
-  // Twitter / X 流量交给 Twitter 组。
-  { provider: "Twitter", target: GROUPS.TWITTER },
-  // Pinterest 归并到 Instagram 组，保持“视觉社交”统一入口。
-  { provider: "Pinterest", target: GROUPS.INSTAGRAM },
-  // Pixiv / FANBOX / Booth 也归并到 Instagram 组，统一视觉创作者社区流量。
-  { provider: "Pixiv", target: GROUPS.INSTAGRAM },
-  // Imgur 继续并到 Instagram 组，避免再拆独立图片社区面板。
-  { provider: "Imgur", target: GROUPS.INSTAGRAM },
-  // Tumblr 也并到 Instagram 组，统一博客/图片/创作者社区流量。
-  { provider: "Tumblr", target: GROUPS.INSTAGRAM },
-  // Instagram 规则默认也放在 Facebook 前面，避免更宽泛的 Meta 规则抢先命中。
-  { provider: "Instagram", target: GROUPS.INSTAGRAM },
-  // Threads 归并到 Facebook 组，避免为 Meta 生态再拆出一条低收益单独组。
-  { provider: "Threads", target: GROUPS.FACEBOOK },
-  // Facebook / Meta 生态流量交给 Facebook 组。
-  { provider: "Facebook", target: GROUPS.FACEBOOK },
-  // Reddit 社区流量交给 Reddit 组。
-  { provider: "Reddit", target: GROUPS.REDDIT },
+  // Telegram 域名交给聊天社交组。
+  { provider: "Telegram", target: GROUPS.CHAT },
+  // Telegram IP 段也交给聊天社交组，并关闭解析。
+  { provider: "Telegram_IP", target: GROUPS.CHAT, noResolve: true },
+  // WhatsApp / LINE / Twitter / Instagram / Facebook / Reddit 及其衍生社区统一并入聊天社交组，不再拆一排独立面板。
+  { provider: "WhatsApp", target: GROUPS.CHAT },
+  { provider: "Line", target: GROUPS.CHAT },
+  { provider: "Twitter", target: GROUPS.CHAT },
+  { provider: "Pinterest", target: GROUPS.CHAT },
+  { provider: "Pixiv", target: GROUPS.CHAT },
+  { provider: "Imgur", target: GROUPS.CHAT },
+  { provider: "Tumblr", target: GROUPS.CHAT },
+  { provider: "Instagram", target: GROUPS.CHAT },
+  { provider: "Threads", target: GROUPS.CHAT },
+  { provider: "Facebook", target: GROUPS.CHAT },
+  { provider: "Reddit", target: GROUPS.CHAT },
   // AliPay / 支付宝支付链路优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
   { provider: "AliPay", target: GROUPS.DIRECT },
   // UnionPay / ChinaPay / 银联链路也优先直连，避免被后面的 Geo_Not_CN 或其它泛规则接走。
@@ -7875,22 +7854,23 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Figma", label: "Figma", expectedTarget: GROUPS.DEV },
   { provider: "Slack", label: "Slack", expectedTarget: GROUPS.DEV },
   { provider: "Dropbox", label: "Dropbox", expectedTarget: GROUPS.DEV },
-  { provider: "Discord", label: "Discord", expectedTarget: GROUPS.DISCORD },
+  { provider: "Telegram", label: "Telegram", expectedTarget: GROUPS.CHAT },
+  { provider: "Discord", label: "Discord", expectedTarget: GROUPS.CHAT },
   { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
   { provider: "LinkedIn", label: "LinkedIn", expectedTarget: GROUPS.MICROSOFT },
   { provider: "Teams", label: "Teams", expectedTarget: GROUPS.MICROSOFT },
   { provider: "MicrosoftEdge", label: "MicrosoftEdge", expectedTarget: GROUPS.MICROSOFT },
-  { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.WHATSAPP },
-  { provider: "Line", label: "LINE", expectedTarget: GROUPS.LINE },
-  { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.TWITTER },
-  { provider: "Pinterest", label: "Pinterest", expectedTarget: GROUPS.INSTAGRAM },
-  { provider: "Pixiv", label: "Pixiv", expectedTarget: GROUPS.INSTAGRAM },
-  { provider: "Imgur", label: "Imgur", expectedTarget: GROUPS.INSTAGRAM },
-  { provider: "Tumblr", label: "Tumblr", expectedTarget: GROUPS.INSTAGRAM },
-  { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.INSTAGRAM },
-  { provider: "Threads", label: "Threads", expectedTarget: GROUPS.FACEBOOK },
-  { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.FACEBOOK },
-  { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.REDDIT },
+  { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.CHAT },
+  { provider: "Line", label: "LINE", expectedTarget: GROUPS.CHAT },
+  { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.CHAT },
+  { provider: "Pinterest", label: "Pinterest", expectedTarget: GROUPS.CHAT },
+  { provider: "Pixiv", label: "Pixiv", expectedTarget: GROUPS.CHAT },
+  { provider: "Imgur", label: "Imgur", expectedTarget: GROUPS.CHAT },
+  { provider: "Tumblr", label: "Tumblr", expectedTarget: GROUPS.CHAT },
+  { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.CHAT },
+  { provider: "Threads", label: "Threads", expectedTarget: GROUPS.CHAT },
+  { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.CHAT },
+  { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.CHAT },
   { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
   { provider: "UnionPay", label: "UnionPay", expectedTarget: GROUPS.DIRECT },
   { provider: "ABC", label: "ABC Bank", expectedTarget: GROUPS.DIRECT },
@@ -8088,18 +8068,6 @@ const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
     blockerProvider: "Microsoft",
     blockedProvider: "Bing",
     message: "Bing 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，Bing 流量可能会先命中微软服务组而不是 Bing 独立组"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Facebook",
-    blockedProvider: "WhatsApp",
-    message: "WhatsApp 规则当前排在 Facebook 之后；WhatsApp 规则中包含 graph.facebook.com，而 Facebook 是更宽泛的 Meta 生态规则，相关流量可能会先命中 Facebook 组而不是 WhatsApp 独立组"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Facebook",
-    blockedProvider: "Instagram",
-    message: "Instagram 规则当前排在 Facebook 之后；Facebook 是更宽泛的 Meta 生态规则，Instagram 流量可能会先命中 Facebook 组而不是 Instagram 独立组"
   },
   {
     category: "platform",
@@ -10933,20 +10901,30 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   sharepoint: GROUPS.ONEDRIVE,
   skydrive: GROUPS.ONEDRIVE,
   "1drv": GROUPS.ONEDRIVE,
-  discord: GROUPS.DISCORD,
-  dc: GROUPS.DISCORD,
-  telegram: GROUPS.TELEGRAM,
-  whatsapp: GROUPS.WHATSAPP,
-  wa: GROUPS.WHATSAPP,
-  line: GROUPS.LINE,
-  twitter: GROUPS.TWITTER,
-  tweet: GROUPS.TWITTER,
-  pinterest: GROUPS.INSTAGRAM,
-  instagram: GROUPS.INSTAGRAM,
-  ig: GROUPS.INSTAGRAM,
-  facebook: GROUPS.FACEBOOK,
-  fb: GROUPS.FACEBOOK,
-  reddit: GROUPS.REDDIT,
+  chat: GROUPS.CHAT,
+  chats: GROUPS.CHAT,
+  social: GROUPS.CHAT,
+  socials: GROUPS.CHAT,
+  messaging: GROUPS.CHAT,
+  message: GROUPS.CHAT,
+  discord: GROUPS.CHAT,
+  dc: GROUPS.CHAT,
+  telegram: GROUPS.CHAT,
+  whatsapp: GROUPS.CHAT,
+  wa: GROUPS.CHAT,
+  line: GROUPS.CHAT,
+  twitter: GROUPS.CHAT,
+  tweet: GROUPS.CHAT,
+  pinterest: GROUPS.CHAT,
+  pixiv: GROUPS.CHAT,
+  imgur: GROUPS.CHAT,
+  tumblr: GROUPS.CHAT,
+  instagram: GROUPS.CHAT,
+  ig: GROUPS.CHAT,
+  threads: GROUPS.CHAT,
+  facebook: GROUPS.CHAT,
+  fb: GROUPS.CHAT,
+  reddit: GROUPS.CHAT,
   youtube: GROUPS.YOUTUBE,
   streaming: GROUPS.STREAMING,
   stream: GROUPS.STREAMING,
@@ -11095,7 +11073,7 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupN
     // core 是面板最顶层的主控组。
     core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.FALLBACK, GROUPS.DIRECT]),
     // services 把高频业务组打包成一桶，方便 preset 用一个 token 拉整段。
-    services: pickAvailable([GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GOOGLE, GROUPS.TELEGRAM, GROUPS.DISCORD, GROUPS.WHATSAPP, GROUPS.LINE, GROUPS.TWITTER, GROUPS.INSTAGRAM, GROUPS.FACEBOOK, GROUPS.REDDIT, GROUPS.STEAM, GROUPS.BING, GROUPS.APPLE, GROUPS.GAMES, GROUPS.PAYPAL, GROUPS.CRYPTO, GROUPS.PT, GROUPS.SPEEDTEST]),
+    services: pickAvailable([GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GOOGLE, GROUPS.CHAT, GROUPS.STEAM, GROUPS.BING, GROUPS.APPLE, GROUPS.GAMES, GROUPS.PAYPAL, GROUPS.CRYPTO, GROUPS.PT, GROUPS.SPEEDTEST]),
     // media 单独收流媒体服务，避免和普通业务组混在一起。
     media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK, GROUPS.STREAMING]),
     // regions / countries 则分别对应地理聚合组和国家组。
@@ -11240,19 +11218,30 @@ const PREFERRED_GROUP_ALIAS_MAP = Object.freeze(Object.assign({
   sharepoint: GROUPS.ONEDRIVE,
   skydrive: GROUPS.ONEDRIVE,
   "1drv": GROUPS.ONEDRIVE,
-  discord: GROUPS.DISCORD,
-  dc: GROUPS.DISCORD,
-  telegram: GROUPS.TELEGRAM,
-  whatsapp: GROUPS.WHATSAPP,
-  wa: GROUPS.WHATSAPP,
-  line: GROUPS.LINE,
-  twitter: GROUPS.TWITTER,
-  tweet: GROUPS.TWITTER,
-  instagram: GROUPS.INSTAGRAM,
-  ig: GROUPS.INSTAGRAM,
-  facebook: GROUPS.FACEBOOK,
-  fb: GROUPS.FACEBOOK,
-  reddit: GROUPS.REDDIT,
+  chat: GROUPS.CHAT,
+  chats: GROUPS.CHAT,
+  social: GROUPS.CHAT,
+  socials: GROUPS.CHAT,
+  messaging: GROUPS.CHAT,
+  message: GROUPS.CHAT,
+  discord: GROUPS.CHAT,
+  dc: GROUPS.CHAT,
+  telegram: GROUPS.CHAT,
+  whatsapp: GROUPS.CHAT,
+  wa: GROUPS.CHAT,
+  line: GROUPS.CHAT,
+  twitter: GROUPS.CHAT,
+  tweet: GROUPS.CHAT,
+  pinterest: GROUPS.CHAT,
+  pixiv: GROUPS.CHAT,
+  imgur: GROUPS.CHAT,
+  tumblr: GROUPS.CHAT,
+  instagram: GROUPS.CHAT,
+  ig: GROUPS.CHAT,
+  threads: GROUPS.CHAT,
+  facebook: GROUPS.CHAT,
+  fb: GROUPS.CHAT,
+  reddit: GROUPS.CHAT,
   youtube: GROUPS.YOUTUBE,
   streaming: GROUPS.STREAMING,
   stream: GROUPS.STREAMING,
@@ -16631,14 +16620,7 @@ const PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS = Object.freeze([
   ]),
   Object.freeze([
     createContextSelectGroupBuildDefinition(GROUPS.AI, "aiProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.TELEGRAM, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.DISCORD, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.WHATSAPP, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.LINE, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.TWITTER, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.INSTAGRAM, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.FACEBOOK, "baseProxies"),
-    createContextSelectGroupBuildDefinition(GROUPS.REDDIT, "baseProxies"),
+    createContextSelectGroupBuildDefinition(GROUPS.CHAT, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.GOOGLE, "baseProxies"),
     createServiceArtifactGroupBuildDefinition("github"),
     createServiceArtifactGroupBuildDefinition("dev"),
