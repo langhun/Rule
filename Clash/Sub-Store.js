@@ -374,11 +374,12 @@
  * 369. 游戏引擎规则继续审计：参考 blackmatrix7 当前目录，把 Unity 并入开发服务组，补上 unity.com / unity3d.com / unitychina.cn / UnityHub.exe 等引擎、教育与编辑器分发链路；Stackexchange / Teambition 仍暂不纳入，避免把更泛开发内容社区或混合协作域名继续硬塞进现有开发分组。
  * 370. 开发问答规则继续审计：参考 blackmatrix7 当前目录，把 Stackexchange 并入开发服务组，补上 stackoverflow.com / stackexchange.com / serverfault.com / sstatic.net 等问答与开发社区域名；Teambition / TeamViewer 仍暂不纳入，避免把混合协作域名或低收益远程控制链路继续硬塞进现有开发分组。
  * 371. 微软浏览器规则继续审计：参考 blackmatrix7 当前目录，把 MicrosoftEdge 并入微软服务组，补上 edge.microsoft.com / msedge.api.cdp.microsoft.com / iecvlist.microsoft.com 等浏览器更新与诊断链路；AppleMail / TeamViewer 仍暂不纳入，避免把低收益邮件细分链路或远程控制流量继续硬塞进现有分组。
+ * 372. 默认面板顺序修正：把 balanced 默认布局里的区域组/国家组重新后移到服务分组之后，避免国家组夹在 Steam 与 Bing/Apple 这类常用业务组中间，影响日常面板浏览顺序。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.52";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.52。
+const SCRIPT_VERSION = "9.14.53";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.53。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -684,7 +685,7 @@ const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs"
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
   // token 列表里不是最终组名，而是布局阶段使用的抽象槽位；后面会再解析成实际 groups / region / country / helper 区块。
-  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
   service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
