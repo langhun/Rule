@@ -10772,17 +10772,23 @@ function inspectProxyGroupOrderReference(availableNames, marker) {
 
 // 取出某个布局预设对应的 token 列表；若用户未传 preset，则回退脚本默认布局。
 function buildGroupOrderPresetTokens(preset) {
+  // 先把用户传进来的 preset 规范化；空值 / default / script 最终都会折回脚本默认布局。
   const normalizedPreset = normalizeGroupOrderPreset(preset, DEFAULT_GROUP_ORDER_PRESET);
+  // 再从预设表里取出对应 token 列表；这里拿到的还是抽象槽位，不是最终组名。
   const tokens = GROUP_ORDER_PRESET_TOKENS[normalizedPreset];
+  // 返回副本，避免调用方后续 splice / push 时把内置预设常量污染掉。
   return Array.isArray(tokens) ? tokens.slice() : GROUP_ORDER_PRESET_TOKENS[DEFAULT_GROUP_ORDER_PRESET].slice();
 }
 
 // 某些旧链接会把当时脚本内置的 balanced 顺序直接固化成 group-order；这里识别后自动迁移到当前默认布局。
 function isLegacyBalancedGroupOrderTokens(tokens) {
+  // 统一兜底成数组，避免传空值时直接访问 length 报错。
   const currentTokens = Array.isArray(tokens) ? tokens : [];
+  // 长度都不一致时无需继续比，对不上就肯定不是旧版 balanced 全量序列。
   if (currentTokens.length !== LEGACY_BALANCED_GROUP_ORDER_TOKENS.length) {
     return false;
   }
+  // 逐项做规范化比较：这样 `group-order=Regions` / `regions` 这种大小写或连字符差异也能识别出来。
   return currentTokens.every((token, index) => normalizeGroupMarkerToken(token) === normalizeGroupMarkerToken(LEGACY_BALANCED_GROUP_ORDER_TOKENS[index]));
 }
 
@@ -10866,6 +10872,7 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
   };
   // 显式 group-order 永远优先于 preset；只有没传 group-order 时才回退到预设布局。
   const tokens = ARGS.hasGroupOrder
+    // 但如果命中的其实是“旧版 balanced 的历史固化序列”，这里改为自动升级成当前默认 preset。
     ? (isLegacyBalancedGroupOrderTokens(ARGS.groupOrder) ? buildGroupOrderPresetTokens(DEFAULT_GROUP_ORDER_PRESET) : ARGS.groupOrder)
     : buildGroupOrderPresetTokens(ARGS.groupOrderPreset);
   // orderedNames 是布局展开后的“最终组名序列”；unresolvedTokens 则给告警层看哪些 token 根本没命中。
@@ -10888,6 +10895,7 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
     // 再尝试把 token 当成 bucket 名，例如 regions / countries / helpers。
     const bucketKey = bucketAliasMap[normalizeGroupMarkerToken(token)];
     if (bucketKey) {
+      // bucket 会一次性展开成一整段实际组名，例如 `countries` -> 当前所有国家组。
       orderedNames.push(...(Array.isArray(buckets[bucketKey]) ? buckets[bucketKey] : []));
       continue;
     }
@@ -10902,14 +10910,18 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
   const groupLookup = Object.create(null);
 
   for (const group of groups) {
+    // 同名组只保留首个命中对象，避免极端情况下重复组名把后面对象覆盖掉。
     if (group && typeof group.name === "string" && !groupLookup[group.name]) {
       groupLookup[group.name] = group;
     }
   }
 
   return {
+    // 最终输出时再按 finalNames 顺序还原成完整组对象数组。
     groups: finalNames.map((name) => groupLookup[name]).filter(Boolean),
+    // tokens 保留一份副本给诊断层打印，方便看当前到底是 preset 展开还是显式 group-order 在生效。
     tokens: tokens.slice(),
+    // unresolved 统一去重并滤空，避免同一个坏 token 重复刷满诊断日志。
     unresolvedTokens: uniqueStrings(unresolvedTokens.filter(Boolean))
   };
 }
