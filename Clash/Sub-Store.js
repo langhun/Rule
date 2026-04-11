@@ -10716,6 +10716,7 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
 
 // 对外保留函数式入口，调用点继续按旧接口取值；内部实际直接复用缓存常量。
 function createProxyGroupOrderAliasMap() {
+  // 直接返回只读缓存，不再每次动态构造一份 alias map，减少频繁排序时的重复分配。
   return PROXY_GROUP_ORDER_ALIAS_MAP;
 }
 
@@ -10728,6 +10729,7 @@ function inspectProxyGroupOrderReference(availableNames, marker) {
 
   // 空 token 直接视为无效引用。
   if (!token) {
+    // recognized=false 表示后续仍可继续尝试 bucket 名；这里只是单个组引用层面没命中。
     return { match: "", recognized: false };
   }
 
@@ -10739,8 +10741,10 @@ function inspectProxyGroupOrderReference(availableNames, marker) {
   // 再建一份忽略大小写的查找表，兼容用户手写组名时大小写不一致。
   const lowerLookup = Object.create(null);
   for (const name of names) {
+    // 所有名字统一降成小写 key；value 仍保留原始组名，便于最后输出真实展示名。
     const key = String(name || "").toLowerCase();
     if (key && !lowerLookup[key]) {
+      // 同一小写 key 只保留首个命中，避免极端同名大小写变体反复覆盖。
       lowerLookup[key] = name;
     }
   }
@@ -10755,6 +10759,7 @@ function inspectProxyGroupOrderReference(availableNames, marker) {
   const aliasTarget = createProxyGroupOrderAliasMap()[normalizeGroupMarkerToken(token)];
   if (aliasTarget) {
     return {
+      // 这里即使 alias 本身已识别，也仍要确认对应组当前真实存在；否则只返回 recognized=true 供上层静默跳过。
       match: names.includes(aliasTarget) ? aliasTarget : "",
       recognized: true
     };
@@ -10795,9 +10800,12 @@ function isLegacyBalancedGroupOrderTokens(tokens) {
 // 汇总“理论上属于脚本自动生成”的组名集合，便于把用户自定义组识别成 extras。
 function buildScriptManagedGroupNames(countryGroupNames, regionGroupNames) {
   return uniqueStrings(
+    // 先收脚本内置功能组常量。
     Object.keys(GROUPS)
       .map((key) => GROUPS[key])
+      // 再拼上当前实际生成出来的区域组。
       .concat(Array.isArray(regionGroupNames) ? regionGroupNames : [])
+      // 最后拼上国家组；三段统一去重后就是“脚本自己管理的组名全集”。
       .concat(Array.isArray(countryGroupNames) ? countryGroupNames : [])
   );
 }
@@ -10840,27 +10848,33 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
   const buckets = buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupNames);
   // bucketAliasMap 负责把 region / country / services / helpers 这类 token 归一化到固定桶名。
   const bucketAliasMap = {
+    // core / main 一组都指向主控组桶。
     core: "core",
     coregroup: "core",
     coregroups: "core",
     main: "core",
     maingroup: "core",
     maingroups: "core",
+    // service / business 一组都指向业务服务桶。
     service: "services",
     services: "services",
     business: "services",
     businesses: "services",
+    // media / streaming 一组都指向媒体桶。
     media: "media",
     streaming: "media",
     streamings: "media",
+    // region / continent 相关别名全部折叠到区域桶。
     region: "regions",
     regions: "regions",
     regional: "regions",
     regionals: "regions",
     continent: "regions",
     continents: "regions",
+    // country 别名折叠到国家桶。
     country: "countries",
     countries: "countries",
+    // helper / extra 这两类分别兜底辅助组和用户自定义组。
     helper: "helpers",
     helpers: "helpers",
     extra: "extras",
