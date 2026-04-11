@@ -8347,14 +8347,18 @@ function validateGroupOrderTokens(proxyGroups, countryConfigs) {
     return [];
   }
 
+  // 国家组名称必须按最终 countryConfigs 现算，确保校验看到的是实际会生成出来的国家组集合。
   const countryGroupNames = (Array.isArray(countryConfigs) ? countryConfigs : [])
     .map((country) => country && country.name)
     .filter(Boolean);
+  // 区域组也按当前 regionGroupKeys 和国家组结果重建，避免“校验用一套、实际排序用另一套”。
   const regionGroupNames = buildRegionGroupConfigs(countryConfigs, ARGS.regionGroupKeys)
     .map((region) => region && region.name)
     .filter(Boolean);
+  // 直接复用正式的排序解析器跑一遍，保证 unresolved token 的判断口径和最终布局完全一致。
   const orderState = resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, regionGroupNames);
 
+  // 最后把未命中的 token 翻成用户可读告警，方便在响应头 / 日志里直接定位坏参数。
   return orderState.unresolvedTokens.map((token) => `group-order 条目未匹配到当前策略组/分组桶: ${token}`);
 }
 
@@ -8437,12 +8441,15 @@ function analyzeRegionGroupVisibility(proxyGroups, countryConfigs) {
 
 // 把规则顺序参数格式化成单行摘要，便于日志与响应头快速观察实际启用的编排方式。
 function buildRuleOrderSummary(anchor, position) {
+  // anchor 先裁成干净 marker；空串和纯空白都按“未配置锚点”处理。
   const marker = normalizeStringArg(anchor);
 
   if (!marker) {
+    // 没传 anchor 时代表继续走脚本默认顺序，不额外拼 before / after。
     return "default";
   }
 
+  // 只有真正存在锚点时才输出 before:Geo_Not_CN 这种紧凑摘要格式。
   return `${normalizeRuleOrderPosition(position, "before")}:${marker}`;
 }
 
@@ -8462,6 +8469,7 @@ const BUILD_SUMMARY_RULE_ORDER_ENTRY_DEFINITIONS = Object.freeze([
 // 把规则顺序定义列表拼成统一摘要，避免 full 日志里继续手写长串模板。
 function formatRuleOrderPresentationSummary(definitions) {
   return definitions
+    // 每一项都压成 github=before:Geo_Not_CN 这种键值对，方便多类业务规则顺序并排展示。
     .map((definition) => `${definition.key}=${buildRuleOrderArgSummary(definition.anchorKey, definition.positionKey)}`)
     .join(", ");
 }
@@ -8634,16 +8642,20 @@ const SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY = Object.freeze({
 
 // 把单条最终规则压成可读摘要，便于快速观察“谁排在前面、谁会先吃到流量”。
 function describeTrafficRule(rule) {
+  // 统一裁掉空白差异，后面所有类型判断都基于同一份规范化字符串。
   const source = normalizeStringArg(rule);
 
   if (!source) {
+    // 空条目不参与摘要，返回空串让调用方自行过滤。
     return "";
   }
 
   if (/^AND,\(\(DST-PORT,443\),\(NETWORK,UDP\)\),REJECT$/i.test(source)) {
+    // QUIC 拦截规则单独折成固定标签，避免响应头里塞入整条长表达式。
     return "QUIC-REJECT";
   }
 
+  // 普通规则按逗号拆开；首段是类型，尾段通常是目标组或动作。
   const parts = source.split(",");
   const type = normalizeStringArg(parts[0]).toUpperCase();
   let targetIndex = parts.length - 1;
@@ -8653,39 +8665,50 @@ function describeTrafficRule(rule) {
     targetIndex -= 1;
   }
 
+  // target 统一走简化显示，防止目标组名太长把摘要挤爆。
   const target = sanitizeProviderPreviewName(parts[targetIndex] || "");
 
   if (type === "RULE-SET") {
+    // RULE-SET 规则最有价值的是“哪个 provider 打到哪个组”，所以额外拼出 provider->group。
     const provider = sanitizeProviderPreviewName(parts[1] || "");
     const group = sanitizeProviderPreviewName(parts[2] || "");
     return `${provider}->${group}${/no-resolve/i.test(source) ? ":NR" : ""}`;
   }
 
   if (type === "MATCH") {
+    // MATCH 没写目标时理论上回落到主代理组，这里一并兜底。
     return `MATCH->${target || GROUPS.SELECT}`;
   }
 
+  // 其余规则统一输出 TYPE->TARGET，保证摘要风格一致。
   return `${type || "RULE"}->${target || "unknown"}`;
 }
 
 // 把最终规则链的优先级压成单行摘要，便于直接看出实际匹配顺序。
 function buildTrafficPrioritySummary(rules, generatedRules, configuredRules, ruleAnalysis) {
+  // 诊断入口很多，这里优先复用已经算好的规则缓存，避免重复 split / classify。
   const currentRules = Array.isArray(rules) ? rules : [];
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
+  // baseRules 代表脚本原生生成的规则全集；后面会再拆掉 MATCH 和重复项。
   const baseRules = Array.isArray(generatedRules) ? uniqueStrings(generatedRules) : [];
   const generatedBodyRules = baseRules.filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)));
+  // 外部 config.rules 先去重，但仍保留“是否显式写过 MATCH”的判断机会。
   const rawConfiguredRuleList = Array.isArray(configuredRules) ? uniqueStrings(configuredRules) : [];
+  // effectiveExtraRules 才是真正插进最终链路的新规则：既不是 MATCH，也不是脚本本来就有的规则。
   const effectiveExtraRules = rawConfiguredRuleList
     .filter((rule) => !/^MATCH,/i.test(normalizeStringArg(rule)))
     .filter((rule) => !generatedBodyRules.includes(rule));
+  // 头 6 条 / 尾 4 条通常足够看出“开头谁优先、末尾如何收口”。
   const head = currentRuleAnalysis.describedRules.slice(0, 6).filter(Boolean);
   const tail = currentRuleAnalysis.describedRules.slice(-4).filter(Boolean);
+  // mergeOrder 用一句话说明脚本规则、自定义规则、MATCH 的拼接关系。
   const mergeOrder = effectiveExtraRules.length
     ? (ARGS.hasCustomRuleAnchor
       ? `script+config@${buildRuleOrderSummary(ARGS.customRuleAnchor, ARGS.customRulePosition)}>match`
       : "script>config>match")
     : "script>match";
 
+  // 最终摘要同时带顺序说明、头部样本、尾部样本，便于一眼确认匹配优先级。
   return `match=first,order=${mergeOrder},head=${formatProviderPreviewNames(head, 6, 24)},tail=${formatProviderPreviewNames(tail, 4, 24)}`;
 }
 
@@ -8694,10 +8717,12 @@ function classifyTrafficRuleLayer(rule) {
   const source = normalizeStringArg(rule);
 
   if (!source) {
+    // 空规则没有层级意义，统一记成 unknown。
     return "unknown";
   }
 
   if (/^AND,\(\(DST-PORT,443\),\(NETWORK,UDP\)\),REJECT$/i.test(source)) {
+    // QUIC REJECT 属于拦截层。
     return "block";
   }
 
@@ -8714,6 +8739,7 @@ function classifyTrafficRuleLayer(rule) {
     return "custom";
   }
 
+  // RULE-SET 的核心观测维度是 provider 名；后续分层基本都靠它来判定。
   const provider = normalizeStringArg(parts[1]);
 
   if (provider === "ADBlock") {
@@ -8722,34 +8748,42 @@ function classifyTrafficRuleLayer(rule) {
   }
 
   if (["Private", "Private_IP"].includes(provider)) {
+    // 私网 / 局域网规则属于本地直连层。
     return "local";
   }
 
   if (["ChatGPT", "OpenAI", "Anthropic", "Gemini", "AI", "Crypto"].includes(provider)) {
+    // AI 与交易站点通常是最先单独分流的一批，这里合并成单独层。
     return "ai-crypto";
   }
 
   if (provider === "DirectList") {
+    // DirectList 代表脚本明确要求直连的海外站点白名单。
     return "direct";
   }
 
   if (provider === "Geo_Not_CN") {
+    // Geo_Not_CN 是非中国大陆主干分流层，单独标出来最容易判断大盘顺序。
     return "overseas";
   }
 
   if (["CN", "CN_IP"].includes(provider)) {
+    // 国内域名 / IP 规则归到大陆层。
     return "cn";
   }
 
   if (ruleProviders[provider]) {
+    // 其余命中脚本规则源表的业务 provider，一律视作业务服务层。
     return "service";
   }
 
+  // 剩下的非标准 provider / 手写规则都视作 custom。
   return "custom";
 }
 
 // 给规则层级打短标签，便于压进响应调试头与 full 日志。
 function formatTrafficRuleLayerTag(layer) {
+  // 对外展示时尽量使用短、稳定的标签名，避免后面改中文文案时影响诊断格式。
   const aliasMap = {
     block: "block",
     local: "local",
@@ -8769,10 +8803,12 @@ function formatTrafficRuleLayerTag(layer) {
 // 把最终规则按层级聚合成区间统计，便于快速观察每一层占了多少条、排在第几段。
 function analyzeRuleLayering(rules, ruleAnalysis) {
   const currentRules = Array.isArray(rules) ? rules : [];
+  // currentRuleAnalysis 里已经带好 described / tag / layer，后面只需按顺序扫描一次。
   const currentRuleAnalysis = getRuleAnalysis(currentRules, ruleAnalysis);
   // layerEntries 记录“连续同层规则区间”；previewEntries 只保留每个区间的第一条样本。
   const layerEntries = [];
   const previewEntries = [];
+  // customCount 用来看外部手写规则是否过多；matchIndex 则观察 MATCH 是否真的落在末尾。
   let customCount = 0;
   let matchIndex = -1;
 
@@ -8807,16 +8843,19 @@ function analyzeRuleLayering(rules, ruleAnalysis) {
     currentLayerEntry.count += 1;
     currentLayerEntry.end = index;
 
+    // 同一个区间只保留一条样本，避免 preview 被连续同层规则刷满。
     if (currentLayerEntry.sample && !previewEntries.includes(`${currentLayerEntry.tag}@${currentLayerEntry.start + 1}=${currentLayerEntry.sample}`)) {
       previewEntries.push(`${currentLayerEntry.tag}@${currentLayerEntry.start + 1}=${currentLayerEntry.sample}`);
     }
   }
 
   return {
+    // total / layers / customCount / matchIndex 提供“总量、分段、自定义、兜底位置”四个核心视角。
     total: currentRules.length,
     layers: layerEntries.length,
     customCount,
     matchIndex: matchIndex === -1 ? currentRules.length - 1 : matchIndex,
+    // orderEntries 记录每个层段的范围，previewEntries 记录每段第一条代表规则。
     orderEntries: layerEntries.map((entry) => `${entry.tag}:${entry.count}@${entry.start + 1}-${entry.end + 1}`),
     previewEntries
   };
@@ -8836,6 +8875,7 @@ function formatRuleLayeringPreview(source) {
 
 // 提取单条规则的类型与目标组，便于统计自定义规则主要是什么类型、最终打到哪里。
 function inspectTrafficRuleShape(rule) {
+  // 这里不关心 provider 文案，只关心“规则类型 + 最终目标”两个统计维度。
   const source = normalizeStringArg(rule);
 
   if (!source) {
@@ -8850,6 +8890,7 @@ function inspectTrafficRuleShape(rule) {
   const type = normalizeStringArg(parts[0]).toUpperCase();
   let targetIndex = parts.length - 1;
 
+  // 与 describeTrafficRule 一样，需要先跳过 no-resolve / src 等尾部修饰项再取目标。
   while (targetIndex > 0 && ["no-resolve", "src"].includes(normalizeStringArg(parts[targetIndex]).toLowerCase())) {
     targetIndex -= 1;
   }
@@ -8871,12 +8912,15 @@ function analyzeRuleCollection(rules) {
 
   for (let index = 0; index < currentRules.length; index += 1) {
     const rule = currentRules[index];
+    // 这一段把每条规则常用的诊断维度一次性算齐，后续分析函数都直接复用缓存结果。
     const normalized = normalizeStringArg(rule);
     const described = describeTrafficRule(normalized);
     const layer = classifyTrafficRuleLayer(normalized);
     const tag = formatTrafficRuleLayerTag(layer);
     const shape = inspectTrafficRuleShape(normalized);
+    // target 会在自定义规则统计里复用，所以这里先做一遍简化显示。
     const target = sanitizeProviderPreviewName(shape.target || "unknown");
+    // key 尽量抽成稳定主键：优先 MATCH，其次 provider / 摘要前缀，方便快速索引首个出现位置。
     const key = /^MATCH->/i.test(described)
       ? "MATCH"
       : (described.includes("->") ? normalizeStringArg(described.split("->")[0]) : "");
@@ -8891,6 +8935,7 @@ function analyzeRuleCollection(rules) {
     }
 
     entries.push({
+      // index 保留原始顺序，剩余字段则是各种诊断视图复用的预解析结果。
       index,
       rule,
       normalized,
@@ -8901,6 +8946,7 @@ function analyzeRuleCollection(rules) {
       target,
       key
     });
+    // describedRules 专门给 head/tail 摘要使用，避免每次再从 entries 里手动 map。
     describedRules.push(described);
   }
 
