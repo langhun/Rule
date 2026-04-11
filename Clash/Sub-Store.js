@@ -376,11 +376,12 @@
  * 371. 微软浏览器规则继续审计：参考 blackmatrix7 当前目录，把 MicrosoftEdge 并入微软服务组，补上 edge.microsoft.com / msedge.api.cdp.microsoft.com / iecvlist.microsoft.com 等浏览器更新与诊断链路；AppleMail / TeamViewer 仍暂不纳入，避免把低收益邮件细分链路或远程控制流量继续硬塞进现有分组。
  * 372. 默认面板顺序修正：把 balanced 默认布局里的区域组/国家组重新后移到服务分组之后，避免国家组夹在 Steam 与 Bing/Apple 这类常用业务组中间，影响日常面板浏览顺序。
  * 373. 云平台规则继续审计：参考 blackmatrix7 当前目录，把 QingCloud 并入开发服务组，补上 qingcloud.com / qingstor.com / yunify.com / kubesphere.com.cn 等云平台与对象存储域名；UCloud / TeamViewer 仍暂不纳入，避免把域名更杂的云平台链路或低收益远程控制流量继续硬塞进现有开发分组。
+ * 374. 旧布局兼容修正：对仍携带旧版 balanced `group-order` 显式序列的配置自动升级到新版默认顺序，避免即使脚本已更新，国家组仍继续卡在 Steam 与 Bing/Apple 等服务组中间。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.54";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.54。
+const SCRIPT_VERSION = "9.14.55";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.55。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -697,6 +698,8 @@ const GROUP_ORDER_PRESET_TOKENS = {
   compact: ["select", "manual", "fallback", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "regions", "countries", "helpers", "extras"],
   "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "paypal", "steam", "media", "helpers", "extras"]
 };
+// 兼容旧版默认 balanced 显式顺序：如果用户历史链接把它原样固化进 group-order，后面会自动升级到当前默认布局。
+const LEGACY_BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]);
 
 // 某些自动分组天然允许为空，不必为此输出告警。
 const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
@@ -10767,6 +10770,15 @@ function buildGroupOrderPresetTokens(preset) {
   return Array.isArray(tokens) ? tokens.slice() : GROUP_ORDER_PRESET_TOKENS[DEFAULT_GROUP_ORDER_PRESET].slice();
 }
 
+// 某些旧链接会把当时脚本内置的 balanced 顺序直接固化成 group-order；这里识别后自动迁移到当前默认布局。
+function isLegacyBalancedGroupOrderTokens(tokens) {
+  const currentTokens = Array.isArray(tokens) ? tokens : [];
+  if (currentTokens.length !== LEGACY_BALANCED_GROUP_ORDER_TOKENS.length) {
+    return false;
+  }
+  return currentTokens.every((token, index) => normalizeGroupMarkerToken(token) === normalizeGroupMarkerToken(LEGACY_BALANCED_GROUP_ORDER_TOKENS[index]));
+}
+
 // 汇总“理论上属于脚本自动生成”的组名集合，便于把用户自定义组识别成 extras。
 function buildScriptManagedGroupNames(countryGroupNames, regionGroupNames) {
   return uniqueStrings(
@@ -10846,7 +10858,9 @@ function resolveConfiguredProxyGroupOrder(proxyGroups, countryGroupNames, region
     users: "extras"
   };
   // 显式 group-order 永远优先于 preset；只有没传 group-order 时才回退到预设布局。
-  const tokens = ARGS.hasGroupOrder ? ARGS.groupOrder : buildGroupOrderPresetTokens(ARGS.groupOrderPreset);
+  const tokens = ARGS.hasGroupOrder
+    ? (isLegacyBalancedGroupOrderTokens(ARGS.groupOrder) ? buildGroupOrderPresetTokens(DEFAULT_GROUP_ORDER_PRESET) : ARGS.groupOrder)
+    : buildGroupOrderPresetTokens(ARGS.groupOrderPreset);
   // orderedNames 是布局展开后的“最终组名序列”；unresolvedTokens 则给告警层看哪些 token 根本没命中。
   const orderedNames = [];
   const unresolvedTokens = [];
