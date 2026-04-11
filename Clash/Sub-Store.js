@@ -375,11 +375,12 @@
  * 370. 开发问答规则继续审计：参考 blackmatrix7 当前目录，把 Stackexchange 并入开发服务组，补上 stackoverflow.com / stackexchange.com / serverfault.com / sstatic.net 等问答与开发社区域名；Teambition / TeamViewer 仍暂不纳入，避免把混合协作域名或低收益远程控制链路继续硬塞进现有开发分组。
  * 371. 微软浏览器规则继续审计：参考 blackmatrix7 当前目录，把 MicrosoftEdge 并入微软服务组，补上 edge.microsoft.com / msedge.api.cdp.microsoft.com / iecvlist.microsoft.com 等浏览器更新与诊断链路；AppleMail / TeamViewer 仍暂不纳入，避免把低收益邮件细分链路或远程控制流量继续硬塞进现有分组。
  * 372. 默认面板顺序修正：把 balanced 默认布局里的区域组/国家组重新后移到服务分组之后，避免国家组夹在 Steam 与 Bing/Apple 这类常用业务组中间，影响日常面板浏览顺序。
+ * 373. 云平台规则继续审计：参考 blackmatrix7 当前目录，把 QingCloud 并入开发服务组，补上 qingcloud.com / qingstor.com / yunify.com / kubesphere.com.cn 等云平台与对象存储域名；UCloud / TeamViewer 仍暂不纳入，避免把域名更杂的云平台链路或低收益远程控制流量继续硬塞进现有开发分组。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.53";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.53。
+const SCRIPT_VERSION = "9.14.54";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.54。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -678,9 +679,9 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   GROUPS.ADS
 ]);
 
-// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Apifox / Bootcss / Electron / Ubuntu / Stackexchange / CSDN / Gitee / Contentful / Wordpress / AppleDev / HashiCorp / Unity / Collabora / SourceForge / DigitalOcean / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
+// 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Apifox / Bootcss / Electron / Ubuntu / Stackexchange / CSDN / Gitee / Contentful / Wordpress / AppleDev / HashiCorp / Unity / Collabora / SourceForge / DigitalOcean / QingCloud / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
 // 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
-const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
+const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
@@ -7204,6 +7205,8 @@ const ruleProviders = finalizeRuleProviders({
   SourceForge: createDeveloperRuleProvider("SourceForge"),
   // DigitalOcean 云平台/对象存储规则。
   DigitalOcean: createDeveloperRuleProvider("DigitalOcean"),
+  // QingCloud / QingStor / Yunify 云平台与对象存储规则。
+  QingCloud: createDeveloperRuleProvider("QingCloud"),
   // Anaconda / conda 数据科学与 Python 包生态规则。
   Anaconda: createDeveloperRuleProvider("Anaconda"),
   // Atlassian / Bitbucket / Trello / Statuspage 协作平台规则。
@@ -7510,6 +7513,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "SourceForge", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // DigitalOcean 云平台流量交给开发服务组。
   { provider: "DigitalOcean", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // QingCloud / QingStor / Yunify 云平台与对象存储流量交给开发服务组。
+  { provider: "QingCloud", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Anaconda / conda 数据科学开发流量交给开发服务组。
   { provider: "Anaconda", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Atlassian / Bitbucket / Trello / Statuspage 协作平台流量交给开发服务组。
@@ -7777,6 +7782,7 @@ const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
   { provider: "Collabora", label: "Collabora", expectedTarget: GROUPS.DEV },
   { provider: "SourceForge", label: "SourceForge", expectedTarget: GROUPS.DEV },
   { provider: "DigitalOcean", label: "DigitalOcean", expectedTarget: GROUPS.DEV },
+  { provider: "QingCloud", label: "QingCloud", expectedTarget: GROUPS.DEV },
   { provider: "Anaconda", label: "Anaconda", expectedTarget: GROUPS.DEV },
   { provider: "Atlassian", label: "Atlassian", expectedTarget: GROUPS.DEV },
   { provider: "Notion", label: "Notion", expectedTarget: GROUPS.DEV },
@@ -8504,6 +8510,7 @@ const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
   { key: "Collabora", label: "Collabora", category: "dev" },
   { key: "SourceForge", label: "SourceForge", category: "dev" },
   { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
+  { key: "QingCloud", label: "QingCloud", category: "dev" },
   { key: "Anaconda", label: "Anaconda", category: "dev" },
   { key: "Atlassian", label: "Atlassian", category: "dev" },
   { key: "Notion", label: "Notion", category: "dev" },
@@ -10355,7 +10362,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   // 这里只挑一批最关键的 provider 观察其规则落点，避免预览过长。
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
-    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
+    .concat(["GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "OneDrive", "Steam", "SteamCN", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     .map((provider) => {
       const definition = definitionLookup[provider];
@@ -11245,6 +11252,11 @@ const RULE_PROVIDER_ALIAS_MAP = Object.freeze({
   digitalocean: "DigitalOcean",
   digitaloceanspaces: "DigitalOcean",
   doco: "DigitalOcean",
+  qingcloud: "QingCloud",
+  qingstor: "QingCloud",
+  yunify: "QingCloud",
+  kubesphere: "QingCloud",
+  qingcache: "QingCloud",
   anaconda: "Anaconda",
   conda: "Anaconda",
   atlassian: "Atlassian",
