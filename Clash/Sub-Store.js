@@ -378,6 +378,7 @@
  * 373. 云平台规则继续审计：参考 blackmatrix7 当前目录，把 QingCloud 并入开发服务组，补上 qingcloud.com / qingstor.com / yunify.com / kubesphere.com.cn 等云平台与对象存储域名；UCloud / TeamViewer 仍暂不纳入，避免把域名更杂的云平台链路或低收益远程控制流量继续硬塞进现有开发分组。
  * 374. 旧布局兼容修正：对仍携带旧版 balanced `group-order` 显式序列的配置自动升级到新版默认顺序，避免即使脚本已更新，国家组仍继续卡在 Steam 与 Bing/Apple 等服务组中间。
  * 375. 云平台规则继续审计：参考 blackmatrix7 当前目录，把 UCloud 并入开发服务组，补上 ucloud.com.cn / ucloudapi.com / ucloudufile.com / u-cdn.com 等云平台、对象存储与 CDN 管理域名；Cloudflare / TeamViewer 仍暂不纳入，避免把更宽的共享 CDN / 远程控制链路继续硬塞进现有开发分组。
+ * 376. 顶部历史审计结论补记：继续参考 blackmatrix7 当前目录，把 Claude / GoogleDrive / Bahamut / DAZN / Viki / ViuTV / friDay / HamiVideo / Emby / AppStore / AppleID / iCloud / SystemOTA / Abema / ITV / PBS / myTVSUPER / ZeeTV 补进现有 AI / Google / Apple / 流媒体组；BritboxUK / TVB / EncoreTVB / JOOX / MOOV / FOXNOW / Zee / TencentVideo / RemoteDesktop 等仍暂不纳入，继续避免把过宽、重复或低收益规则硬塞进现有面板。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
