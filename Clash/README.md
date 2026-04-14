@@ -2,7 +2,7 @@
 
 > 当前主脚本：`Clash/Sub-Store.js`
 > 
-> 当前版本：`V9.14.58`
+> 当前版本：`V9.14.59`
 > 
 > 适用内核：`Mihomo / Clash.Meta / OpenClash`
 
@@ -218,6 +218,14 @@
 4. 功能新增尽量和现有 diagnostics / response headers 保持同步
 
 ## 近期版本说明
+
+### V9.14.59
+
+这一版顺手修了一个响应头可见性问题：
+
+- 修复 `responseHeaders=true` 下普通 definition 响应头 section 的装配顺序错误
+- 之前很多非摘要类调试头不会真正写回 `_res.headers`
+- 现在 `betterFallbackTolerance / betterFallbackHidden / extraDirectDomains` 这类新增字段也能正常进入响应头
 
 ### V9.14.58
 

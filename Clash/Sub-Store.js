@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.58
+ * Sub-Store 终极策略增强脚本 V9.14.59
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -383,8 +383,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.58";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.58。
+const SCRIPT_VERSION = "9.14.59";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.59。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -15316,7 +15316,7 @@ function buildRuntimeResponseHeaderDefinitionEntryList(definition, diagnostics) 
 }
 
 // 普通 definitions 形式的运行时响应头走这条批量装配通路。
-function buildRuntimeResponseHeaderEntries(prefix, definitions, diagnostics) {
+function buildRuntimeResponseHeaderEntries(prefix, diagnostics, definitions) {
   return buildMappedResponseHeaders(prefix, diagnostics, definitions, buildRuntimeResponseHeaderDefinitionEntryList);
 }
 
