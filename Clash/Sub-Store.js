@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.59
+ * Sub-Store 终极策略增强脚本 V9.14.60
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -383,8 +383,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.59";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.59。
+const SCRIPT_VERSION = "9.14.60";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.60。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -4603,6 +4603,11 @@ function buildResolveArgBetterFallbackResultPayload(betterFallbackState) {
   };
 }
 
+// GitHub 和开发服务是否按“并组模式”运行：仅在开启 merge-github-to-dev 且未显式指定 github-rule-target 时生效。
+function isGithubMergedIntoDev() {
+  return !!(ARGS.mergeGithubToDev && !ARGS.hasGithubRuleTarget);
+}
+
 // 把布局状态拍平成 resolveArgs 返回对象里的字段。
 function buildResolveArgGroupLayoutResultPayload(layoutState) {
   const current = isObject(layoutState) ? layoutState : buildResolveArgGroupLayoutState();
@@ -4946,6 +4951,8 @@ function resolveArgs(rawArgs) {
   const rawGroupRoutingMark = pickArg(args, ["groupRoutingMark", "group-routing-mark", "proxyGroupRoutingMark", "proxy-group-routing-mark"]);
   // 读取“稳定优选”组 hidden 参数原始值。
   const rawBetterFallbackHidden = pickArg(args, ["betterFallbackHidden", "better-fallback-hidden", "betterfbHidden", "betterfb-hidden", "stableHidden", "stable-hidden"]);
+  // 读取“GitHub 规则并入开发服务”开关参数原始值。
+  const rawMergeGithubToDev = pickArg(args, ["mergeGithubToDev", "merge-github-to-dev", "githubAsDev", "github-as-dev", "githubWithDev", "github-with-dev"]);
   // 读取策略组布局预设参数原始值。
   const rawGroupOrderPreset = pickArg(args, ["groupOrderPreset", "group-order-preset", "proxyGroupOrderPreset", "proxy-group-order-preset", "groupLayoutPreset", "group-layout-preset"]);
   // 读取策略组显式布局顺序参数原始值。
@@ -5601,6 +5608,8 @@ function resolveArgs(rawArgs) {
     // 全局测速组与布局字段也统一由状态表展开，避免 return 区继续堆积重复属性。
     ...resolvedGroupArgPayload,
     ...buildResolveArgBetterFallbackResultPayload(betterFallbackResolveState),
+    mergeGithubToDev: parseBool(rawMergeGithubToDev, false),
+    hasMergeGithubToDev: rawMergeGithubToDev !== undefined,
     ...resolvedGroupLayoutArgPayload,
     // GitHub / Steam / Dev 三类独立组的解析字段统一由状态表展开，避免 return 区继续维护三套重复键。
     ...resolvedServiceArgPayload,
@@ -8360,6 +8369,12 @@ function buildRule(provider, target, noResolve) {
 // 根据用户参数把 GitHub / Steam / SteamCN 的规则目标解析成最终可用目标；解析失败时自动回退默认值。
 function resolveRuleSetDefinitions(availableTargets) {
   return RULE_SET_DEFINITIONS.map((definition) => {
+    if (definition && definition.provider === "GitHub" && isGithubMergedIntoDev()) {
+      return Object.assign({}, definition, {
+        target: GROUPS.DEV
+      });
+    }
+
     if (!definition || !definition.overrideKey || !definition.overrideFlagKey || !ARGS[definition.overrideFlagKey]) {
       return definition;
     }
@@ -10174,7 +10189,15 @@ function buildServiceProviderCollectionOptions(argToken, providerReferences) {
 
 // GitHub / Steam / Dev 的展示与网络高级项统一 definitions 化，避免 buildProxyGroups 里重复写 hidden/icon/udp/interface/routing-mark。
 function buildServiceAdvancedOptions(argToken) {
-  return buildServiceArgPayload(argToken, SERVICE_ADVANCED_OPTION_FIELD_DEFINITIONS);
+  const payload = buildServiceArgPayload(argToken, SERVICE_ADVANCED_OPTION_FIELD_DEFINITIONS);
+
+  if (argToken === "Github" && isGithubMergedIntoDev() && !ARGS.hasGithubHidden) {
+    // 并组模式下 GitHub 组默认仅作为开发服务组的前置链路存在，因此默认隐藏，避免面板重复占位。
+    payload.hidden = true;
+    payload.hasHidden = true;
+  }
+
+  return payload;
 }
 
 // 统一解析 GitHub / Steam / Dev 的前置组、点名节点与 provider 引用，避免 buildProxyGroups 里重复写三组相同分支。
@@ -10748,8 +10771,11 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
 
   for (const profile of SERVICE_ROUTING_PROFILE_DEFINITIONS) {
     const definition = definitionLookup[profile.provider];
+    const expectedTarget = profile.provider === "GitHub" && isGithubMergedIntoDev()
+      ? GROUPS.DEV
+      : profile.expectedTarget;
     // 若规则缺失则退回 profile 自带的期望目标，便于同时观察“实际值”和“预期值”。
-    const target = normalizeStringArg(definition && definition.target) || profile.expectedTarget;
+    const target = normalizeStringArg(definition && definition.target) || expectedTarget;
     const targetGroup = proxyGroupLookup[target] || null;
     const groupType = targetGroup
       ? (normalizeStringArg(targetGroup.type) || "select")
@@ -10761,7 +10787,7 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
 
     result.total += 1;
     // 下面这些计数是为了快速看出关键业务链路是否大量偏离预期。
-    if (target === profile.expectedTarget) {
+    if (target === expectedTarget) {
       result.expectedTargetCount += 1;
     }
     if (target === GROUPS.SELECT) {
@@ -10788,6 +10814,10 @@ function analyzeServiceRoutingProfiles(ruleDefinitions, proxyGroups, countryConf
     // 以下 warning 都是“虽然配置能跑，但流量行为可能偏离直觉”的高价值提示。
     if (profile.provider === "GitHub" && [BUILTIN_DIRECT, GROUPS.DIRECT].includes(target)) {
       result.warnings.push(`GitHub 规则当前直接打到 ${target}；这会绕过 GitHub 独立组，相关流量会更偏向直连而不是 GitHub 专属候选链`);
+    }
+
+    if (profile.provider === "GitHub" && isGithubMergedIntoDev() && target !== GROUPS.DEV) {
+      result.warnings.push(`merge-github-to-dev 已开启，但 GitHub 规则当前实际目标是 ${target}；若这是有意覆盖，可忽略，否则请检查 github-rule-target`);
     }
 
     if (DEV_RULE_PROVIDERS.includes(profile.provider) && target === GROUPS.DEV && expectedDeveloperFirstProxy && firstProxy && firstProxy !== expectedDeveloperFirstProxy) {
@@ -14453,6 +14483,7 @@ const BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS = Object.freeze([
       { key: "profile-cache", value: () => ARGS.hasProfileCache ? ARGS.profileCache : "auto" },
       { key: "geo-auto-update", value: () => ARGS.hasGeoAutoUpdate ? ARGS.geoAutoUpdate : "config" },
       { key: "geo-update-interval", value: () => ARGS.hasGeoUpdateInterval ? ARGS.geoUpdateInterval : "config" },
+      { key: "merge-github-to-dev", value: () => ARGS.hasMergeGithubToDev ? ARGS.mergeGithubToDev : false },
       { key: "threshold", value: () => ARGS.threshold }
     ]
   },
@@ -14717,6 +14748,7 @@ const GEO_RUNTIME_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
   createArgConfiguredResponseHeaderDefinition("Group-Routing-Mark", "hasGroupRoutingMark", "groupRoutingMark", "default"),
   createArgConfiguredResponseHeaderDefinition("Better-Fallback-Tolerance", "hasBetterFallbackTolerance", "betterFallbackTolerance", BETTER_FALLBACK_GROUP_TOLERANCE),
   createArgConfiguredResponseHeaderDefinition("Better-Fallback-Hidden", "hasBetterFallbackHidden", "betterFallbackHidden", "default"),
+  createArgConfiguredResponseHeaderDefinition("Merge-GitHub-To-Dev", "hasMergeGithubToDev", "mergeGithubToDev", false),
   { headerSuffix: "Group-Order-Preset", value: () => ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET) },
   { headerSuffix: "Group-Order-Config", value: () => ARGS.hasGroupOrder ? formatProviderPreviewNames(ARGS.groupOrder, 8, 12) : "preset-only" },
   createArgConfiguredResponseHeaderDefinition("Country-Group-Sort", "hasCountryGroupSort", "countryGroupSort", "definition/default"),

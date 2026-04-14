@@ -2,7 +2,7 @@
 
 > 当前主脚本：`Clash/Sub-Store.js`
 > 
-> 当前版本：`V9.14.59`
+> 当前版本：`V9.14.60`
 > 
 > 适用内核：`Mihomo / Clash.Meta / OpenClash`
 
@@ -169,6 +169,7 @@
 - `directListUrl / cryptoListUrl / chatGptListUrl / aiExtraListUrl / devListUrl`
 - `extraDirectDomains`：额外直连域名，自动同时写入 rules 与 `fake-ip-filter`
 - `betterFallbackTolerance / betterFallbackHidden`：控制 `🪄 稳定优选` 的容差与显隐
+- `mergeGithubToDev`：把 GitHub 规则默认并入开发服务组，且在未显式配置 `githubHidden` 时自动隐藏 GitHub 面板
 
 ### rule-provider
 
@@ -218,6 +219,15 @@
 4. 功能新增尽量和现有 diagnostics / response headers 保持同步
 
 ## 近期版本说明
+
+### V9.14.60
+
+这一版补了 GitHub / 开发服务的“轻量并组模式”：
+
+- 新增 `mergeGithubToDev`
+- 开启后，在未显式指定 `githubRuleTarget` 时，GitHub 规则默认改打到 `🧑‍💻 开发服务`
+- 同时在未显式指定 `githubHidden` 时，GitHub 组默认隐藏
+- 但 GitHub 组本身仍保留，继续给开发服务组当默认前置链路，不会把现有候选链逻辑打散
 
 ### V9.14.59
 
