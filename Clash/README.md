@@ -2,7 +2,7 @@
 
 > 当前主脚本：`Clash/Sub-Store.js`
 > 
-> 当前版本：`V9.12.9`
+> 当前版本：`V9.14.58`
 > 
 > 适用内核：`Mihomo / Clash.Meta / OpenClash`
 
@@ -21,10 +21,13 @@
 ### 1. 自动整理节点与策略组
 
 - 自动规范节点名称、处理重复名
+- 自动隔离“剩余流量 / 到期 / 官网 / 客服 / 电报群”等信息节点，单独收口到 `ℹ️ 订阅信息`
 - 国家识别与国家分组
 - 区域分组与区域别名
 - `AI / GitHub / Dev / Discord / WhatsApp / LINE / Instagram / Facebook / PayPal / Steam / Crypto / Games / Media` 等业务组
 - `select / url-test / fallback / load-balance` 多种组类型
+- 新增 `🪄 稳定优选` 组：沿用 `url-test`，但提高切换容差，减少频繁抖动
+- `🪄 稳定优选` 继续开放专属参数：`betterFallbackTolerance / betterFallbackHidden`
 - 支持组顺序布局预设与显式排序
 
 ### 2. 规则与规则源增强
@@ -164,6 +167,8 @@
 - `ruleSourcePreset`
 - `steamFix / steamFixUrl`
 - `directListUrl / cryptoListUrl / chatGptListUrl / aiExtraListUrl / devListUrl`
+- `extraDirectDomains`：额外直连域名，自动同时写入 rules 与 `fake-ip-filter`
+- `betterFallbackTolerance / betterFallbackHidden`：控制 `🪄 稳定优选` 的容差与显隐
 
 ### rule-provider
 
@@ -213,6 +218,22 @@
 4. 功能新增尽量和现有 diagnostics / response headers 保持同步
 
 ## 近期版本说明
+
+### V9.14.58
+
+这一版继续把 `🪄 稳定优选` 做成可调预设：
+
+- 新增 `betterFallbackTolerance`：单独调整稳定优选组的 tolerance，默认 `1000`
+- 新增 `betterFallbackHidden`：单独控制稳定优选组是否隐藏
+- 保持和全局 `group-tolerance / hidden` 分离，避免为了一个组改全局行为
+
+### V9.14.57
+
+这一版补了 3 个偏实用的小增强：
+
+- 新增 `🪄 稳定优选` 组：本质仍是 `url-test`，但使用更高 tolerance，减少自动切换抖动
+- 新增 `ℹ️ 订阅信息` 组：把“剩余流量 / 到期 / 官网 / 客服 / 电报群”等说明型节点从自动测速、国家分组里隔离出来
+- 新增 `extraDirectDomains` 参数：手工补充的直连域名会同时进入最终 rules 与 DNS `fake-ip-filter`
 
 ### V9.12.9
 
