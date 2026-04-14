@@ -2,7 +2,7 @@
 
 > 当前主脚本：`Clash/Sub-Store.js`
 > 
-> 当前版本：`V9.14.60`
+> 当前版本：`V9.14.61`
 > 
 > 适用内核：`Mihomo / Clash.Meta / OpenClash`
 
@@ -26,8 +26,6 @@
 - 区域分组与区域别名
 - `AI / GitHub / Dev / Discord / WhatsApp / LINE / Instagram / Facebook / PayPal / Steam / Crypto / Games / Media` 等业务组
 - `select / url-test / fallback / load-balance` 多种组类型
-- 新增 `🪄 稳定优选` 组：沿用 `url-test`，但提高切换容差，减少频繁抖动
-- `🪄 稳定优选` 继续开放专属参数：`betterFallbackTolerance / betterFallbackHidden`
 - 支持组顺序布局预设与显式排序
 
 ### 2. 规则与规则源增强
@@ -168,7 +166,6 @@
 - `steamFix / steamFixUrl`
 - `directListUrl / cryptoListUrl / chatGptListUrl / aiExtraListUrl / devListUrl`
 - `extraDirectDomains`：额外直连域名，自动同时写入 rules 与 `fake-ip-filter`
-- `betterFallbackTolerance / betterFallbackHidden`：控制 `🪄 稳定优选` 的容差与显隐
 - `mergeGithubToDev`：把 GitHub 规则默认并入开发服务组，且在未显式配置 `githubHidden` 时自动隐藏 GitHub 面板
 
 ### rule-provider
@@ -219,6 +216,14 @@
 4. 功能新增尽量和现有 diagnostics / response headers 保持同步
 
 ## 近期版本说明
+
+### V9.14.61
+
+这一版按当前默认使用习惯收回了 `🪄 稳定优选`：
+
+- 移除 `🪄 稳定优选` 组，主选择链只保留 `⚡ 自动切换`
+- 同步移除 `betterFallbackTolerance / betterFallbackHidden`
+- 保留此前的 GitHub / 开发服务轻量并组模式
 
 ### V9.14.60
 

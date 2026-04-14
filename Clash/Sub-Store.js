@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.60
+ * Sub-Store 终极策略增强脚本 V9.14.61
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -383,8 +383,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.60";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.60。
+const SCRIPT_VERSION = "9.14.61";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.61。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -490,8 +490,6 @@ const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
 const REGEX_LANDING_ISOLATE = /落地|Relay|To-user|中转/i;
 // 这类节点通常只是订阅信息/公告，不适合混入自动测速与国家分组。
 const REGEX_INFO_NODE = /群|邀请|返利|官网|官方|网址|订阅|购买|续费|剩余|到期|过期|流量|备用|邮箱|客服|联系|工单|倒卖|防止|梯子|telegram|电报|\btg\b/i;
-// BetterFB 的核心思路就是“仍然用 url-test，但把切换容差显著拉高”。
-const BETTER_FALLBACK_GROUP_TOLERANCE = 1000;
 // 这些名称属于策略引擎内置保留策略，不需要在 proxy-groups 中额外定义。
 const BUILTIN_POLICY_NAMES = ["DIRECT", "REJECT", "REJECT-DROP", "PASS", "GLOBAL", "COMPATIBLE"];
 // 规则顺序编排时，用这两个哨兵值表示“移到最前 / 移到最后（MATCH 之前）”。
@@ -575,8 +573,6 @@ const GROUPS = {
   SELECT: "🚀 节点选择",
   // 手动切换组，直接列出所有节点供用户人工挑选。
   MANUAL: "🎯 手动切换",
-  // 稳定优选组：沿用 url-test，但显著提高 tolerance，减少频繁来回切换。
-  BETTER_FALLBACK: "🪄 稳定优选",
   // 自动切换组，给自动优选、故障转移场景使用。
   FALLBACK: "⚡ 自动切换",
   // 全局直连组，给国内服务或特殊服务优先直连使用。
@@ -652,7 +648,6 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
   // 这里只放“稳定生成”的功能组；像 LANDING / LOW_COST 会按条件生成，所以不放进这份稳定名单。
   GROUPS.SELECT,
   GROUPS.MANUAL,
-  GROUPS.BETTER_FALLBACK,
   GROUPS.FALLBACK,
   GROUPS.DIRECT,
   GROUPS.OTHER,
@@ -687,16 +682,16 @@ const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs"
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const GROUP_ORDER_PRESET_TOKENS = {
   // token 列表里不是最终组名，而是布局阶段使用的抽象槽位；后面会再解析成实际 groups / region / country / helper 区块。
-  balanced: ["select", "manual", "stable", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  core: ["select", "manual", "stable", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "chat", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  service: ["select", "manual", "stable", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  media: ["select", "manual", "stable", "fallback", "media", "ai", "github", "dev", "chat", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  region: ["select", "manual", "stable", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  national: ["select", "manual", "stable", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
-  workspace: ["select", "manual", "stable", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  dashboard: ["select", "manual", "stable", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "chat", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  compact: ["select", "manual", "stable", "fallback", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"],
-  "geo-compact": ["select", "manual", "stable", "fallback", "regions", "countries", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "extras"]
+  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "chat", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "chat", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
+  workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "chat", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  compact: ["select", "manual", "fallback", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"],
+  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "extras"]
 };
 // 兼容旧版默认 balanced 显式顺序：如果用户历史链接把它原样固化进 group-order，后面会自动升级到当前默认布局。
 const LEGACY_BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]);
@@ -708,7 +703,7 @@ const LEGACY_COMPACT_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fa
 // 某些自动分组天然允许为空，不必为此输出告警。
 const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
 // 允许通过参数隐藏的辅助策略组。
-const HIDEABLE_GROUPS = [GROUPS.BETTER_FALLBACK, GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.INFO];
+const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.INFO];
 // AI 默认优先国家链：新加坡 -> 日本 -> 美国 -> 香港。
 // 这里的每一项都是“可匹配 marker 列表”，后面会依次尝试命中国家名、旗帜、别名或区域 token。
 const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"], ["🇭🇰", "香港"]];
@@ -4471,20 +4466,6 @@ function buildResolveArgGroupState(payload) {
   };
 }
 
-// “稳定优选”组只开放少量固定参数：高容差与显式 hidden，保持它仍然是轻量预设而不是又一套完整独立组。
-function buildResolveArgBetterFallbackState(payload) {
-  const current = isObject(payload) ? payload : {};
-  const parsedTolerance = parseNumber(current.rawTolerance, BETTER_FALLBACK_GROUP_TOLERANCE);
-
-  return {
-    rawTolerance: current.rawTolerance,
-    parsedTolerance,
-    tolerance: Math.max(0, parsedTolerance),
-    rawHidden: current.rawHidden,
-    hidden: parseBool(current.rawHidden, false)
-  };
-}
-
 // 策略组布局参数属于另一块高频重复字段，这里也统一收口成状态对象。
 function buildResolveArgGroupLayoutState(payload) {
   const current = isObject(payload) ? payload : {};
@@ -4522,17 +4503,6 @@ function warnResolveArgGroupState(groupState) {
     current.normalizedExpectedStatus,
     current.groupExpectedStatus,
     "group-expected-status"
-  );
-}
-
-// “稳定优选”预设只需要提示容差修正；hidden 本身是布尔量，不需要额外告警。
-function warnResolveArgBetterFallbackState(betterFallbackState) {
-  const current = isObject(betterFallbackState) ? betterFallbackState : buildResolveArgBetterFallbackState();
-  warnAdjustedNumericArg(
-    current.rawTolerance,
-    current.parsedTolerance,
-    current.tolerance,
-    "better-fallback-tolerance"
   );
 }
 
@@ -4588,18 +4558,6 @@ function buildResolveArgGroupResultPayload(groupState) {
     hasGroupRoutingMark: current.routingMark !== null,
     groupLazy: current.groupLazy,
     hasGroupLazy: current.rawGroupLazy !== undefined
-  };
-}
-
-// 把“稳定优选”组状态拍平成 resolveArgs 返回对象里的字段。
-function buildResolveArgBetterFallbackResultPayload(betterFallbackState) {
-  const current = isObject(betterFallbackState) ? betterFallbackState : buildResolveArgBetterFallbackState();
-
-  return {
-    betterFallbackTolerance: current.tolerance,
-    hasBetterFallbackTolerance: current.rawTolerance !== undefined,
-    betterFallbackHidden: current.hidden,
-    hasBetterFallbackHidden: current.rawHidden !== undefined
   };
 }
 
@@ -4933,8 +4891,6 @@ function resolveArgs(rawArgs) {
   const rawGroupInterval = pickArg(args, ["groupInterval", "group-interval"]);
   // 读取测速组 tolerance 参数原始值。
   const rawGroupTolerance = pickArg(args, ["groupTolerance", "group-tolerance"]);
-  // 读取“稳定优选”组 tolerance 参数原始值。
-  const rawBetterFallbackTolerance = pickArg(args, ["betterFallbackTolerance", "better-fallback-tolerance", "betterfbTolerance", "betterfb-tolerance", "stableTolerance", "stable-tolerance"]);
   // 读取测速组 timeout 参数原始值。
   const rawGroupTimeout = pickArg(args, ["groupTimeout", "group-timeout"]);
   // 读取测速组最大失败次数参数原始值。
@@ -4949,8 +4905,6 @@ function resolveArgs(rawArgs) {
   const rawGroupInterfaceName = pickArg(args, ["groupInterfaceName", "group-interface-name", "proxyGroupInterfaceName", "proxy-group-interface-name"]);
   // 读取全局 proxy-group routing-mark 参数原始值。
   const rawGroupRoutingMark = pickArg(args, ["groupRoutingMark", "group-routing-mark", "proxyGroupRoutingMark", "proxy-group-routing-mark"]);
-  // 读取“稳定优选”组 hidden 参数原始值。
-  const rawBetterFallbackHidden = pickArg(args, ["betterFallbackHidden", "better-fallback-hidden", "betterfbHidden", "betterfb-hidden", "stableHidden", "stable-hidden"]);
   // 读取“GitHub 规则并入开发服务”开关参数原始值。
   const rawMergeGithubToDev = pickArg(args, ["mergeGithubToDev", "merge-github-to-dev", "githubAsDev", "github-as-dev", "githubWithDev", "github-with-dev"]);
   // 读取策略组布局预设参数原始值。
@@ -5337,10 +5291,6 @@ function resolveArgs(rawArgs) {
     rawInterfaceName: rawGroupInterfaceName,
     rawRoutingMark: rawGroupRoutingMark
   });
-  const betterFallbackResolveState = buildResolveArgBetterFallbackState({
-    rawTolerance: rawBetterFallbackTolerance,
-    rawHidden: rawBetterFallbackHidden
-  });
   const ruleProviderResolveState = buildResolveArgRuleProviderState({
     rawPathDir: rawRuleProviderPathDir,
     rawInterval: rawRuleProviderInterval,
@@ -5531,7 +5481,6 @@ function resolveArgs(rawArgs) {
 
   // 全局测速组的规范化与诊断逻辑已收口到状态 helper，这里直接复用。
   warnResolveArgGroupState(groupResolveState);
-  warnResolveArgBetterFallbackState(betterFallbackResolveState);
 
   // 规则源参数与 country-extra-aliases 的告警也统一收口，减少 resolveArgs 主体里的样板判断。
   warnResolveArgRuleSourceState(ruleSourceResolveState);
@@ -5607,7 +5556,6 @@ function resolveArgs(rawArgs) {
     ...resolvedCountryAliasArgPayload,
     // 全局测速组与布局字段也统一由状态表展开，避免 return 区继续堆积重复属性。
     ...resolvedGroupArgPayload,
-    ...buildResolveArgBetterFallbackResultPayload(betterFallbackResolveState),
     mergeGithubToDev: parseBool(rawMergeGithubToDev, false),
     hasMergeGithubToDev: rawMergeGithubToDev !== undefined,
     ...resolvedGroupLayoutArgPayload,
@@ -9704,7 +9652,7 @@ function buildProxyGroupOrderSummary(proxyGroups) {
 function buildProxyGroupPrioritySummary(proxyGroups) {
   const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   // 只看最关键的几个组，避免把完整 proxy-groups 打进摘要导致过长。
-  const keyNames = [GROUPS.SELECT, GROUPS.BETTER_FALLBACK, GROUPS.FALLBACK, GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS];
+  const keyNames = [GROUPS.SELECT, GROUPS.FALLBACK, GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS];
   const entries = keyNames
     .map((name) => formatProxyGroupPriorityEntry(proxyGroupLookup[name] || null))
     .filter(Boolean);
@@ -10693,7 +10641,7 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
       return definition ? `${sanitizeProviderPreviewName(provider)}->${sanitizeProviderPreviewName(definition.target)}${definition.noResolve ? ":NR" : ""}` : "";
     })
     .filter(Boolean);
-  const groupEntries = [GROUPS.SELECT, GROUPS.BETTER_FALLBACK, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS]
+  const groupEntries = [GROUPS.SELECT, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS]
     .map((groupName) => buildTrafficChainGroupEntry(proxyGroupLookup[groupName] || null))
     .filter(Boolean);
   const matchRule = currentRules.find((rule) => /^MATCH,/i.test(normalizeStringArg(rule)));
@@ -11049,10 +10997,6 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   pp: GROUPS.PAYPAL,
   pt: GROUPS.PT,
   speedtest: GROUPS.SPEEDTEST,
-  betterfallback: GROUPS.BETTER_FALLBACK,
-  betterfb: GROUPS.BETTER_FALLBACK,
-  stable: GROUPS.BETTER_FALLBACK,
-  stableauto: GROUPS.BETTER_FALLBACK,
   ads: GROUPS.ADS,
   ad: GROUPS.ADS,
   other: GROUPS.OTHER,
@@ -11184,7 +11128,7 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupN
 
   return {
     // core 是面板最顶层的主控组。
-    core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.BETTER_FALLBACK, GROUPS.FALLBACK, GROUPS.DIRECT]),
+    core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.FALLBACK, GROUPS.DIRECT]),
     // services 把高频业务组打包成一桶，方便 preset 用一个 token 拉整段。
     services: pickAvailable([GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GOOGLE, GROUPS.CHAT, GROUPS.STEAM, GROUPS.BING, GROUPS.APPLE, GROUPS.GAMES, GROUPS.PAYPAL, GROUPS.CRYPTO, GROUPS.PT, GROUPS.SPEEDTEST]),
     // media 单独收流媒体服务，避免和普通业务组混在一起。
@@ -14493,13 +14437,11 @@ const BUILD_SUMMARY_CORE_ARG_LINE_DEFINITIONS = Object.freeze([
       { key: "test-url", value: () => ARGS.hasTestUrl ? ARGS.testUrl : "default" },
       { key: "group-interval", value: () => ARGS.hasGroupInterval ? ARGS.groupInterval : "default" },
       { key: "group-tolerance", value: () => ARGS.hasGroupTolerance ? ARGS.groupTolerance : "default" },
-      { key: "better-fallback-tolerance", value: () => ARGS.hasBetterFallbackTolerance ? ARGS.betterFallbackTolerance : BETTER_FALLBACK_GROUP_TOLERANCE },
       { key: "group-timeout", value: () => ARGS.hasGroupTimeout ? ARGS.groupTimeout : "default" },
       { key: "group-max-failed-times", value: () => ARGS.hasGroupMaxFailedTimes ? ARGS.groupMaxFailedTimes : "default" },
       { key: "group-expected-status", value: () => ARGS.hasGroupExpectedStatus ? ARGS.groupExpectedStatus : "default" },
       { key: "group-lazy", value: () => ARGS.hasGroupLazy ? ARGS.groupLazy : "default" },
-      { key: "group-strategy", value: () => ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default" },
-      { key: "better-fallback-hidden", value: () => ARGS.hasBetterFallbackHidden ? ARGS.betterFallbackHidden : "default" }
+      { key: "group-strategy", value: () => ARGS.hasGroupStrategy ? ARGS.groupStrategy : "default" }
     ]
   },
   {
@@ -14746,8 +14688,6 @@ const GEO_RUNTIME_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
   createArgConfiguredResponseHeaderDefinition("Group-Strategy", "hasGroupStrategy", "groupStrategy", "default"),
   createArgConfiguredResponseHeaderDefinition("Group-Interface-Name", "hasGroupInterfaceName", "groupInterfaceName", "default"),
   createArgConfiguredResponseHeaderDefinition("Group-Routing-Mark", "hasGroupRoutingMark", "groupRoutingMark", "default"),
-  createArgConfiguredResponseHeaderDefinition("Better-Fallback-Tolerance", "hasBetterFallbackTolerance", "betterFallbackTolerance", BETTER_FALLBACK_GROUP_TOLERANCE),
-  createArgConfiguredResponseHeaderDefinition("Better-Fallback-Hidden", "hasBetterFallbackHidden", "betterFallbackHidden", "default"),
   createArgConfiguredResponseHeaderDefinition("Merge-GitHub-To-Dev", "hasMergeGithubToDev", "mergeGithubToDev", false),
   { headerSuffix: "Group-Order-Preset", value: () => ARGS.hasGroupOrder ? "custom" : (ARGS.hasGroupOrderPreset ? ARGS.groupOrderPreset : DEFAULT_GROUP_ORDER_PRESET) },
   { headerSuffix: "Group-Order-Config", value: () => ARGS.hasGroupOrder ? formatProviderPreviewNames(ARGS.groupOrder, 8, 12) : "preset-only" },
@@ -16826,24 +16766,6 @@ const PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS = Object.freeze([
   Object.freeze([
     createContextSelectGroupBuildDefinition(GROUPS.SELECT, "baseProxies"),
     { build: () => createIncludeAllSelectGroup(GROUPS.MANUAL) },
-    {
-      build: (context) => createServiceGroup(
-        GROUPS.BETTER_FALLBACK,
-        context.fallbackProxies,
-        "url-test",
-        {
-          hasGroupTolerance: true,
-          groupTolerance: ARGS.hasBetterFallbackTolerance
-            ? ARGS.betterFallbackTolerance
-            : BETTER_FALLBACK_GROUP_TOLERANCE
-        },
-        null,
-        {
-          hidden: ARGS.betterFallbackHidden,
-          hasHidden: ARGS.hasBetterFallbackHidden
-        }
-      )
-    },
     createContextLatencyGroupBuildDefinition(GROUPS.FALLBACK, "fallbackProxies")
   ]),
   Object.freeze([
@@ -16989,7 +16911,6 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
   {
     key: "baseProxies",
     value: (context) => uniqueStrings([
-      GROUPS.BETTER_FALLBACK,
       GROUPS.FALLBACK,
       ...(Array.isArray(context.functionalPool) ? context.functionalPool : []),
       GROUPS.MANUAL,
