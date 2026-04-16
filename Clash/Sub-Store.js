@@ -16739,6 +16739,32 @@ function createConditionalProxyGroupBuildDefinition(predicate, builder) {
   };
 }
 
+// 兜底节点组只在确实还能吸到剩余节点时才生成，避免客户端里出现只有 COMPATIBLE 占位的空组。
+function buildOtherCatchAllProxyGroup(context) {
+  const current = isObject(context) ? context : {};
+  return createIncludeAllSelectGroup(GROUPS.OTHER, "", current.otherExcludeFilter);
+}
+
+function shouldGenerateOtherCatchAllProxyGroup(context) {
+  const current = isObject(context) ? context : {};
+  return countAutoGroupMatches(buildOtherCatchAllProxyGroup(current), current.proxies) > 0;
+}
+
+// 落地节点组同样只在真的存在中转/落地节点时才生成，避免开启 landing 后面板里出现空壳组。
+function buildLandingProxyGroup(context) {
+  const current = isObject(context) ? context : {};
+  return createIncludeAllSelectGroup(
+    GROUPS.LANDING,
+    composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]),
+    current.infoExcludeFilter
+  );
+}
+
+function shouldGenerateLandingProxyGroup(context) {
+  const current = isObject(context) ? context : {};
+  return !!current.landingEnabled && countAutoGroupMatches(buildLandingProxyGroup(current), current.proxies) > 0;
+}
+
 // 某些策略组需要对 context 中的一组条目逐个映射生成，这里统一封装批量映射逻辑。
 function createMappedContextProxyGroupBuildDefinition(contextKey, builder) {
   return {
@@ -16805,12 +16831,8 @@ const PROXY_GROUP_FIXED_GROUP_DEFINITIONS = Object.freeze(
 const PROXY_GROUP_EXTRA_GROUP_DEFINITION_SECTIONS = Object.freeze([
   Object.freeze([
     createConditionalProxyGroupBuildDefinition(
-      (context) => context.landingEnabled,
-      (context) => createIncludeAllSelectGroup(
-        GROUPS.LANDING,
-        composeCaseInsensitivePattern([REGEX_LANDING_ISOLATE.source]),
-        context.infoExcludeFilter
-      )
+      shouldGenerateLandingProxyGroup,
+      buildLandingProxyGroup
     ),
     createConditionalProxyGroupBuildDefinition(
       (context) => context.hasLowCost,
@@ -16837,9 +16859,10 @@ const PROXY_GROUP_EXTRA_GROUP_DEFINITION_SECTIONS = Object.freeze([
     createMappedContextProxyGroupBuildDefinition("resolvedRegionConfigs", (region) => createSelectGroup(region.name, region.proxies))
   ]),
   Object.freeze([
-    {
-      build: (context) => createIncludeAllSelectGroup(GROUPS.OTHER, "", context.otherExcludeFilter)
-    }
+    createConditionalProxyGroupBuildDefinition(
+      shouldGenerateOtherCatchAllProxyGroup,
+      buildOtherCatchAllProxyGroup
+    )
   ])
 ]);
 const PROXY_GROUP_EXTRA_GROUP_DEFINITIONS = Object.freeze(
