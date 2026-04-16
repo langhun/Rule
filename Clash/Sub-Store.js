@@ -704,9 +704,9 @@ const LEGACY_COMPACT_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fa
 const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
 // 允许通过参数隐藏的辅助策略组。
 const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.INFO];
-// AI 默认优先国家链：新加坡 -> 日本 -> 美国 -> 香港。
+// AI 默认优先国家链：新加坡 -> 日本 -> 美国。
 // 这里的每一项都是“可匹配 marker 列表”，后面会依次尝试命中国家名、旗帜、别名或区域 token。
-const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"], ["🇭🇰", "香港"]];
+const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"]];
 // Crypto 默认优先国家链：日本 -> 新加坡 -> 香港。
 const DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS = [["🇯🇵", "日本"], ["🇸🇬", "狮城", "新加坡"], ["🇭🇰", "香港"]];
 // Prefer-Countries 预设包：让 AI / Crypto / GitHub / Steam / Dev 等优先链不用每次手写长串国家/区域标记。
@@ -717,7 +717,7 @@ const PREFERRED_COUNTRY_PRESET_DEFINITIONS = Object.freeze([
     key: "ai-core",
     name: "🤖 AI核心链",
     aliases: ["aicore", "ai-core", "aihot", "ai-hot", "ai核心"],
-    markers: ["狮城", "日本", "美国", "香港"]
+    markers: ["狮城", "日本", "美国"]
   },
   {
     key: "crypto-core",
@@ -16941,6 +16941,24 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
     ])
   },
   {
+    key: "aiFunctionalPool",
+    value: (context) => uniqueStrings([
+      ARGS.landing ? GROUPS.LANDING : "",
+      ...(Array.isArray(context.countryConfigs) ? context.countryConfigs : [])
+        .filter((country) => country && country.key !== "香港")
+        .map((country) => country.name),
+      GROUPS.OTHER
+    ])
+  },
+  {
+    key: "aiBaseProxies",
+    value: (context) => uniqueStrings([
+      ...(Array.isArray(context.aiFunctionalPool) ? context.aiFunctionalPool : []),
+      GROUPS.MANUAL,
+      BUILTIN_DIRECT
+    ])
+  },
+  {
     key: "fallbackProxies",
     value: (context) => uniqueStrings(
       Array.isArray(context.functionalPool) && context.functionalPool.length
@@ -16998,8 +17016,9 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
   {
     key: "aiProxies",
     value: (context) => prependPreferredGroups(
-      context.preferredCountryGroups && context.preferredCountryGroups.aiPreferredGroups,
-      context.baseProxies
+      toStringArray(context.preferredCountryGroups && context.preferredCountryGroups.aiPreferredGroups)
+        .filter((groupName) => !/香港/.test(groupName)),
+      context.aiBaseProxies
     )
   },
   {
