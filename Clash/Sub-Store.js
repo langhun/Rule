@@ -582,7 +582,7 @@ const GROUPS = {
   // 低倍率节点集合，只在检测到对应节点时生成。
   LOW_COST: "🐢 低倍率",
   // 真正的兜底分组，接住没有被国家分组吸收的剩余节点。
-  OTHER: "🐟 兜底节点",
+  OTHER: "🐯 兜底节点",
   // 订阅说明 / 公告类节点单独收口，避免误混入测速与国家分组。
   INFO: "ℹ️ 订阅信息",
 
@@ -16746,8 +16746,7 @@ function buildOtherCatchAllProxyGroup(context) {
 }
 
 function shouldGenerateOtherCatchAllProxyGroup(context) {
-  const current = isObject(context) ? context : {};
-  return countAutoGroupMatches(buildOtherCatchAllProxyGroup(current), current.proxies) > 0;
+  return true;
 }
 
 // 落地节点组同样只在真的存在中转/落地节点时才生成，避免开启 landing 后面板里出现空壳组。
