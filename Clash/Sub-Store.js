@@ -16927,7 +16927,7 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
     value: (context) => uniqueStrings([
       ARGS.landing ? GROUPS.LANDING : "",
       ...(Array.isArray(context.countryGroupNames) ? context.countryGroupNames : []),
-      GROUPS.OTHER,
+      shouldGenerateOtherCatchAllProxyGroup(context) ? GROUPS.OTHER : "",
       context.hasLowCost ? GROUPS.LOW_COST : ""
     ])
   },
@@ -16947,7 +16947,7 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
       ...(Array.isArray(context.countryConfigs) ? context.countryConfigs : [])
         .filter((country) => country && country.key !== "香港")
         .map((country) => country.name),
-      GROUPS.OTHER
+      shouldGenerateOtherCatchAllProxyGroup(context) ? GROUPS.OTHER : ""
     ])
   },
   {
@@ -16978,7 +16978,7 @@ const PROXY_GROUP_RUNTIME_CONTEXT_DEFINITIONS = Object.freeze([
     key: "mediaProxies",
     value: (context) => uniqueStrings([GROUPS.SELECT].concat(
       toStringArray(context.countryGroupNames),
-      [GROUPS.OTHER, GROUPS.MANUAL]
+      [shouldGenerateOtherCatchAllProxyGroup(context) ? GROUPS.OTHER : "", GROUPS.MANUAL]
     ))
   },
   {
