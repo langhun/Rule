@@ -17245,6 +17245,9 @@ function buildDnsConfig(existingDns) {
 
   // 两组 policy 也统一走 definitions 批量装配，保持默认 policy 优先、用户 policy 追加合并的顺序不变。
   Object.assign(dns, buildDnsPolicyPayload(dnsRuntimeContext));
+  // 某些较老的 Mihomo/Clash 内核会在存在 proxy-server-nameserver-policy 时，
+  // 额外要求 proxy-server-nameserver 必须被识别为非空；为兼容这类内核，这里直接关闭该高级项。
+  delete dns["proxy-server-nameserver-policy"];
   // 返回最终 DNS 配置。
   return dns;
 }
