@@ -643,56 +643,68 @@ const GROUPS = {
   ADS: "🛑 广告拦截"
 };
 
-// 这批功能组在脚本正常构建时始终会生成，可供规则目标解析与前置组引用直接复用。
-const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze([
-  // 这里只放“稳定生成”的功能组；像 LANDING / LOW_COST 会按条件生成，所以不放进这份稳定名单。
-  GROUPS.SELECT,
-  GROUPS.MANUAL,
-  GROUPS.FALLBACK,
-  GROUPS.DIRECT,
-  GROUPS.OTHER,
-  GROUPS.AI,
-  GROUPS.CRYPTO,
-  GROUPS.PAYPAL,
-  GROUPS.APPLE,
-  GROUPS.MICROSOFT,
-  GROUPS.GOOGLE,
-  GROUPS.GITHUB,
-  GROUPS.DEV,
-  GROUPS.BING,
-  GROUPS.ONEDRIVE,
-  GROUPS.CHAT,
-  GROUPS.YOUTUBE,
-  GROUPS.NETFLIX,
-  GROUPS.DISNEY,
-  GROUPS.SPOTIFY,
-  GROUPS.TIKTOK,
-  GROUPS.STREAMING,
-  GROUPS.STEAM,
-  GROUPS.GAMES,
-  GROUPS.PT,
-  GROUPS.SPEEDTEST,
-  GROUPS.ADS
+// 统一维护策略组 registry，减少“稳定生成名单 / 布局桶 / 候选链摘要 / 风险策略”多处手写同一批组名。
+const PROXY_GROUP_PROFILE_DEFINITIONS = Object.freeze([
+  { name: GROUPS.SELECT, label: "主选择组", alwaysGenerated: true, orderBucket: "core", prioritySummary: true },
+  { name: GROUPS.MANUAL, label: "手动切换组", alwaysGenerated: true, orderBucket: "core" },
+  { name: GROUPS.FALLBACK, label: "自动切换组", alwaysGenerated: true, orderBucket: "core", prioritySummary: true },
+  { name: GROUPS.DIRECT, label: "全球直连组", alwaysGenerated: true, orderBuckets: ["core", "helpers"], prioritySummary: true },
+  { name: GROUPS.LANDING, label: "落地节点组", orderBucket: "helpers" },
+  { name: GROUPS.LOW_COST, label: "低倍率组", orderBucket: "helpers" },
+  { name: GROUPS.OTHER, label: "兜底节点组", alwaysGenerated: true, orderBucket: "helpers" },
+  { name: GROUPS.INFO, label: "信息组", orderBucket: "helpers" },
+  { name: GROUPS.AI, label: "AI 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true },
+  { name: GROUPS.CRYPTO, label: "Crypto 组", alwaysGenerated: true, orderBucket: "services" },
+  { name: GROUPS.PAYPAL, label: "PayPal 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
+  { name: GROUPS.APPLE, label: "Apple 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "direct-first" },
+  { name: GROUPS.MICROSOFT, label: "微软服务组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
+  { name: GROUPS.GOOGLE, label: "Google 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
+  { name: GROUPS.GITHUB, label: "GitHub 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true },
+  { name: GROUPS.DEV, label: "开发服务组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true },
+  { name: GROUPS.BING, label: "Bing 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "direct-first" },
+  { name: GROUPS.ONEDRIVE, label: "OneDrive 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
+  { name: GROUPS.CHAT, label: "聊天社交组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
+  { name: GROUPS.YOUTUBE, label: "YouTube 组", alwaysGenerated: true, orderBucket: "media", priorityRiskPolicy: "select-first" },
+  { name: GROUPS.NETFLIX, label: "Netflix 组", alwaysGenerated: true, orderBucket: "media", priorityRiskPolicy: "select-first" },
+  { name: GROUPS.DISNEY, label: "Disney+ 组", alwaysGenerated: true, orderBucket: "media", priorityRiskPolicy: "select-first" },
+  { name: GROUPS.SPOTIFY, label: "Spotify 组", alwaysGenerated: true, orderBucket: "media", priorityRiskPolicy: "select-first" },
+  { name: GROUPS.TIKTOK, label: "TikTok 组", alwaysGenerated: true, orderBucket: "media", priorityRiskPolicy: "select-first" },
+  { name: GROUPS.STREAMING, label: "流媒体组", alwaysGenerated: true, orderBucket: "media", prioritySummary: true, priorityRiskPolicy: "select-first" },
+  { name: GROUPS.STEAM, label: "Steam 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true },
+  { name: GROUPS.GAMES, label: "游戏加速组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
+  { name: GROUPS.PT, label: "PT 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "direct-first" },
+  { name: GROUPS.SPEEDTEST, label: "Speedtest 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "direct-first" },
+  { name: GROUPS.ADS, label: "广告拦截组", alwaysGenerated: true, orderBucket: "helpers", prioritySummary: true }
 ]);
+// 这批功能组在脚本正常构建时始终会生成，可供规则目标解析与前置组引用直接复用。
+const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze(
+  PROXY_GROUP_PROFILE_DEFINITIONS
+    .filter((definition) => definition.alwaysGenerated)
+    .map((definition) => definition.name)
+);
 
 // 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Apifox / Bootcss / Electron / Ubuntu / Stackexchange / CSDN / Gitee / Contentful / Wordpress / AppleDev / HashiCorp / Unity / Collabora / SourceForge / DigitalOcean / QingCloud / UCloud / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
 // 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
 const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
-const GROUP_ORDER_PRESET_TOKENS = {
+const BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"]);
+const COMPACT_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"]);
+const GEO_COMPACT_GROUP_ORDER_TOKENS = Object.freeze(["regions", "countries"].concat(COMPACT_GROUP_ORDER_TOKENS.filter((token) => !["regions", "countries"].includes(token))));
+const GROUP_ORDER_PRESET_TOKENS = Object.freeze({
   // token 列表里不是最终组名，而是布局阶段使用的抽象槽位；后面会再解析成实际 groups / region / country / helper 区块。
-  balanced: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  balanced: BALANCED_GROUP_ORDER_TOKENS,
   core: ["select", "manual", "fallback", "direct", "ads", "ai", "github", "dev", "steam", "crypto", "paypal", "google", "microsoft", "onedrive", "chat", "apple", "bing", "games", "pt", "speedtest", "media", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  service: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
+  // service 继续保留独立 preset 名称，但顺序直接复用 balanced，避免两份完全相同的 token 数组继续分叉。
+  service: BALANCED_GROUP_ORDER_TOKENS,
   media: ["select", "manual", "fallback", "media", "ai", "github", "dev", "chat", "google", "steam", "apple", "microsoft", "onedrive", "bing", "games", "paypal", "crypto", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   region: ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   national: ["select", "manual", "fallback", "countries", "regions", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"],
   workspace: ["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "media", "pt", "speedtest", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"],
   dashboard: ["select", "manual", "fallback", "direct", "ai", "github", "dev", "crypto", "paypal", "steam", "games", "chat", "microsoft", "onedrive", "google", "media", "bing", "apple", "pt", "speedtest", "ads", "landing", "lowcost", "regions", "countries", "other", "extras"],
-  compact: ["select", "manual", "fallback", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "regions", "countries", "extras"],
-  "geo-compact": ["select", "manual", "fallback", "regions", "countries", "ai", "github", "dev", "chat", "paypal", "steam", "media", "helpers", "extras"]
-};
+  compact: COMPACT_GROUP_ORDER_TOKENS,
+  "geo-compact": GEO_COMPACT_GROUP_ORDER_TOKENS
+});
 // 兼容旧版默认 balanced 显式顺序：如果用户历史链接把它原样固化进 group-order，后面会自动升级到当前默认布局。
 const LEGACY_BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "telegram", "discord", "whatsapp", "line", "twitter", "instagram", "facebook", "reddit", "steam", "regions", "countries", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "other", "extras"]);
 // 兼容旧版 workspace / dashboard / compact 显式顺序：如果历史链接把当时内置布局固化进 group-order，也自动升级到当前新版布局。
@@ -4879,586 +4891,535 @@ function buildResolveArgSnifferResultPayload(snifferState) {
   };
 }
 
-// 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
-function resolveArgs(rawArgs) {
-  // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
-  const args = normalizeScriptArgs(rawArgs);
-  // 读取 threshold 原始值。
-  const rawThreshold = pickArg(args, ["threshold"]);
-  // 读取测速组探测地址参数原始值。
-  const rawTestUrl = pickArg(args, ["testUrl", "test-url", "groupTestUrl", "group-test-url"]);
-  // 读取测速组 interval 参数原始值。
-  const rawGroupInterval = pickArg(args, ["groupInterval", "group-interval"]);
-  // 读取测速组 tolerance 参数原始值。
-  const rawGroupTolerance = pickArg(args, ["groupTolerance", "group-tolerance"]);
-  // 读取测速组 timeout 参数原始值。
-  const rawGroupTimeout = pickArg(args, ["groupTimeout", "group-timeout"]);
-  // 读取测速组最大失败次数参数原始值。
-  const rawGroupMaxFailedTimes = pickArg(args, ["groupMaxFailedTimes", "group-max-failed-times"]);
-  // 读取测速组 expected-status 参数原始值。
-  const rawGroupExpectedStatus = pickArg(args, ["groupExpectedStatus", "group-expected-status"]);
-  // 读取测速组 lazy 参数原始值。
-  const rawGroupLazy = pickArg(args, ["groupLazy", "group-lazy"]);
-  // 读取 load-balance strategy 参数原始值。
-  const rawGroupStrategy = pickArg(args, ["groupStrategy", "group-strategy", "loadBalanceStrategy", "load-balance-strategy"]);
-  // 读取全局 proxy-group interface-name 参数原始值。
-  const rawGroupInterfaceName = pickArg(args, ["groupInterfaceName", "group-interface-name", "proxyGroupInterfaceName", "proxy-group-interface-name"]);
-  // 读取全局 proxy-group routing-mark 参数原始值。
-  const rawGroupRoutingMark = pickArg(args, ["groupRoutingMark", "group-routing-mark", "proxyGroupRoutingMark", "proxy-group-routing-mark"]);
-  // 读取“GitHub 规则并入开发服务”开关参数原始值。
-  const rawMergeGithubToDev = pickArg(args, ["mergeGithubToDev", "merge-github-to-dev", "githubAsDev", "github-as-dev", "githubWithDev", "github-with-dev"]);
-  // 读取策略组布局预设参数原始值。
-  const rawGroupOrderPreset = pickArg(args, ["groupOrderPreset", "group-order-preset", "proxyGroupOrderPreset", "proxy-group-order-preset", "groupLayoutPreset", "group-layout-preset"]);
-  // 读取策略组显式布局顺序参数原始值。
-  const rawGroupOrder = pickArg(args, ["groupOrder", "group-order", "proxyGroupOrder", "proxy-group-order", "groupLayout", "group-layout"]);
-  // 读取国家组排序参数原始值。
-  const rawCountryGroupSort = pickArg(args, ["countryGroupSort", "country-group-sort", "countrySort", "country-sort", "countryOrder", "country-order"]);
-  // 读取区域组排序参数原始值。
-  const rawRegionGroupSort = pickArg(args, ["regionGroupSort", "region-group-sort", "regionSort", "region-sort", "regionOrder", "region-order"]);
-  // 读取区域分组参数原始值。
-  const rawRegionGroups = pickArg(args, ["regionGroups", "region-groups", "regionalGroups", "regional-groups", "continentGroups", "continent-groups"]);
-  // 读取 Direct.list 规则源地址参数原始值。
-  const rawDirectListUrl = pickArg(args, ["directListUrl", "direct-list-url"]);
-  // 读取额外直连域名参数原始值；这些域名会同时写入 rules 与 fake-ip-filter。
-  const rawExtraDirectDomains = pickArg(args, ["extraDirectDomains", "extra-direct-domains", "bypassDomains", "bypass-domains", "directDomains", "direct-domains"]);
-  // 读取 Crypto.list 规则源地址参数原始值。
-  const rawCryptoListUrl = pickArg(args, ["cryptoListUrl", "crypto-list-url"]);
-  // 读取 ChatGPT.list 规则源地址参数原始值。
-  const rawChatGptListUrl = pickArg(args, ["chatgptListUrl", "chatgpt-list-url", "chatGPTListUrl", "chatGPT-list-url"]);
-  // 读取 AIExtra.list 规则源地址参数原始值。
-  const rawAiExtraListUrl = pickArg(args, ["aiExtraListUrl", "ai-extra-list-url", "moreAiListUrl", "more-ai-list-url", "aiSupplementListUrl", "ai-supplement-list-url"]);
-  // 读取 Dev.list 规则源地址参数原始值。
-  const rawDevListUrl = pickArg(args, ["devListUrl", "dev-list-url", "devExtraListUrl", "dev-extra-list-url", "developerListUrl", "developer-list-url"]);
-  // 读取内置社区规则源预设参数原始值。
-  const rawRuleSourcePreset = pickArg(args, ["ruleSourcePreset", "rule-source-preset", "rulesetPreset", "ruleset-preset"]);
-  // 读取 SteamFix 开关参数原始值。
-  const rawSteamFix = pickArg(args, ["steamFix", "steam-fix"]);
-  // 读取 SteamFix 规则源地址参数原始值。
-  const rawSteamFixUrl = pickArg(args, ["steamFixUrl", "steam-fix-url"]);
-  // 读取 rule-provider 本地缓存目录参数原始值。
-  const rawRuleProviderPathDir = pickArg(args, ["ruleProviderPathDir", "rule-provider-path-dir", "providerPathDir", "provider-path-dir"]);
-  // 读取 rule-provider 刷新间隔参数原始值。
-  const rawRuleProviderInterval = pickArg(args, ["ruleProviderInterval", "rule-provider-interval", "providerInterval", "provider-interval"]);
-  // 读取 rule-provider 下载代理参数原始值。
-  const rawRuleProviderProxy = pickArg(args, ["ruleProviderProxy", "rule-provider-proxy", "providerProxy", "provider-proxy"]);
-  // 读取 rule-provider 大小限制参数原始值。
-  const rawRuleProviderSizeLimit = pickArg(args, ["ruleProviderSizeLimit", "rule-provider-size-limit", "providerSizeLimit", "provider-size-limit"]);
-  // 读取 rule-provider 请求 User-Agent 参数原始值。
-  const rawRuleProviderUserAgent = pickArg(args, ["ruleProviderUserAgent", "rule-provider-user-agent", "providerUserAgent", "provider-user-agent", "ruleProviderUA", "rule-provider-ua"]);
-  // 读取 rule-provider 请求 Authorization 参数原始值。
-  const rawRuleProviderAuthorization = pickArg(args, ["ruleProviderAuthorization", "rule-provider-authorization", "providerAuthorization", "provider-authorization", "ruleProviderAuth", "rule-provider-auth"]);
-  // 读取 rule-provider 通用自定义请求头参数原始值。
-  const rawRuleProviderHeader = pickArg(args, ["ruleProviderHeader", "rule-provider-header", "providerHeader", "provider-header", "ruleProviderHeaders", "rule-provider-headers"]);
-  // 读取 rule-provider inline payload 参数原始值。
-  const rawRuleProviderPayload = pickArg(args, ["ruleProviderPayload", "rule-provider-payload"]);
-  // 读取 proxy-provider 刷新间隔参数原始值。
-  const rawProxyProviderInterval = pickArg(args, ["proxyProviderInterval", "proxy-provider-interval"]);
-  // 读取 proxy-provider 下载代理参数原始值。
-  const rawProxyProviderProxy = pickArg(args, ["proxyProviderProxy", "proxy-provider-proxy"]);
-  // 读取 proxy-provider 大小限制参数原始值。
-  const rawProxyProviderSizeLimit = pickArg(args, ["proxyProviderSizeLimit", "proxy-provider-size-limit"]);
-  // 读取 proxy-provider 请求 User-Agent 参数原始值。
-  const rawProxyProviderUserAgent = pickArg(args, ["proxyProviderUserAgent", "proxy-provider-user-agent", "proxyProviderUA", "proxy-provider-ua"]);
-  // 读取 proxy-provider 请求 Authorization 参数原始值。
-  const rawProxyProviderAuthorization = pickArg(args, ["proxyProviderAuthorization", "proxy-provider-authorization", "proxyProviderAuth", "proxy-provider-auth"]);
-  // 读取 proxy-provider 通用自定义请求头参数原始值。
-  const rawProxyProviderHeader = pickArg(args, ["proxyProviderHeader", "proxy-provider-header", "proxyProviderHeaders", "proxy-provider-headers"]);
-  // 读取 proxy-provider fallback/inline payload 参数原始值。
-  const rawProxyProviderPayload = pickArg(args, ["proxyProviderPayload", "proxy-provider-payload"]);
-  // 读取 proxy-provider 本地缓存目录参数原始值。
-  const rawProxyProviderPathDir = pickArg(args, ["proxyProviderPathDir", "proxy-provider-path-dir", "proxyProviderDir", "proxy-provider-dir"]);
-  // 读取 proxy-provider 节点筛选 filter 参数原始值。
-  const rawProxyProviderFilter = pickArg(args, ["proxyProviderFilter", "proxy-provider-filter"]);
-  // 读取 proxy-provider 节点排除 exclude-filter 参数原始值。
-  const rawProxyProviderExcludeFilter = pickArg(args, ["proxyProviderExcludeFilter", "proxy-provider-exclude-filter"]);
-  // 读取 proxy-provider 协议排除 exclude-type 参数原始值。
-  const rawProxyProviderExcludeType = pickArg(args, ["proxyProviderExcludeType", "proxy-provider-exclude-type"]);
-  // 读取 proxy-provider override additional-prefix 参数原始值。
-  const rawProxyProviderOverrideAdditionalPrefix = pickArg(args, ["proxyProviderOverrideAdditionalPrefix", "proxy-provider-override-additional-prefix", "proxyProviderAdditionalPrefix", "proxy-provider-additional-prefix"]);
-  // 读取 proxy-provider override additional-suffix 参数原始值。
-  const rawProxyProviderOverrideAdditionalSuffix = pickArg(args, ["proxyProviderOverrideAdditionalSuffix", "proxy-provider-override-additional-suffix", "proxyProviderAdditionalSuffix", "proxy-provider-additional-suffix"]);
-  // 读取 proxy-provider override udp 参数原始值。
-  const rawProxyProviderOverrideUdp = pickArg(args, ["proxyProviderOverrideUdp", "proxy-provider-override-udp"]);
-  // 读取 proxy-provider override udp-over-tcp 参数原始值。
-  const rawProxyProviderOverrideUdpOverTcp = pickArg(args, ["proxyProviderOverrideUdpOverTcp", "proxy-provider-override-udp-over-tcp"]);
-  // 读取 proxy-provider override down 参数原始值。
-  const rawProxyProviderOverrideDown = pickArg(args, ["proxyProviderOverrideDown", "proxy-provider-override-down"]);
-  // 读取 proxy-provider override up 参数原始值。
-  const rawProxyProviderOverrideUp = pickArg(args, ["proxyProviderOverrideUp", "proxy-provider-override-up"]);
-  // 读取 proxy-provider override tfo 参数原始值。
-  const rawProxyProviderOverrideTfo = pickArg(args, ["proxyProviderOverrideTfo", "proxy-provider-override-tfo"]);
-  // 读取 proxy-provider override mptcp 参数原始值。
-  const rawProxyProviderOverrideMptcp = pickArg(args, ["proxyProviderOverrideMptcp", "proxy-provider-override-mptcp"]);
-  // 读取 proxy-provider override skip-cert-verify 参数原始值。
-  const rawProxyProviderOverrideSkipCertVerify = pickArg(args, ["proxyProviderOverrideSkipCertVerify", "proxy-provider-override-skip-cert-verify"]);
-  // 读取 proxy-provider override dialer-proxy 参数原始值。
-  const rawProxyProviderOverrideDialerProxy = pickArg(args, ["proxyProviderOverrideDialerProxy", "proxy-provider-override-dialer-proxy"]);
-  // 读取 proxy-provider override interface-name 参数原始值。
-  const rawProxyProviderOverrideInterfaceName = pickArg(args, ["proxyProviderOverrideInterfaceName", "proxy-provider-override-interface-name"]);
-  // 读取 proxy-provider override routing-mark 参数原始值。
-  const rawProxyProviderOverrideRoutingMark = pickArg(args, ["proxyProviderOverrideRoutingMark", "proxy-provider-override-routing-mark"]);
-  // 读取 proxy-provider override ip-version 参数原始值。
-  const rawProxyProviderOverrideIpVersion = pickArg(args, ["proxyProviderOverrideIpVersion", "proxy-provider-override-ip-version"]);
-  // 读取 proxy-provider override proxy-name 正则改名参数原始值。
-  const rawProxyProviderOverrideProxyName = pickArg(args, ["proxyProviderOverrideProxyName", "proxy-provider-override-proxy-name"]);
-  // 读取 proxy-provider health-check enable 参数原始值。
-  const rawProxyProviderHealthCheckEnable = pickArg(args, ["proxyProviderHealthCheckEnable", "proxy-provider-health-check-enable", "proxyProviderHealthCheck", "proxy-provider-health-check"]);
-  // 读取 proxy-provider health-check url 参数原始值。
-  const rawProxyProviderHealthCheckUrl = pickArg(args, ["proxyProviderHealthCheckUrl", "proxy-provider-health-check-url"]);
-  // 读取 proxy-provider health-check interval 参数原始值。
-  const rawProxyProviderHealthCheckInterval = pickArg(args, ["proxyProviderHealthCheckInterval", "proxy-provider-health-check-interval"]);
-  // 读取 proxy-provider health-check timeout 参数原始值。
-  const rawProxyProviderHealthCheckTimeout = pickArg(args, ["proxyProviderHealthCheckTimeout", "proxy-provider-health-check-timeout"]);
-  // 读取 proxy-provider health-check lazy 参数原始值。
-  const rawProxyProviderHealthCheckLazy = pickArg(args, ["proxyProviderHealthCheckLazy", "proxy-provider-health-check-lazy"]);
-  // 读取 proxy-provider health-check expected-status 参数原始值。
-  const rawProxyProviderHealthCheckExpectedStatus = pickArg(args, ["proxyProviderHealthCheckExpectedStatus", "proxy-provider-health-check-expected-status"]);
-  // 读取 AI 国家优先链参数原始值。
-  const rawAiPreferCountries = pickArg(args, ["aiPreferCountries", "ai-prefer-countries", "aiPrefer", "ai-prefer"]);
-  // 读取加密货币国家优先链参数原始值。
-  const rawCryptoPreferCountries = pickArg(args, ["cryptoPreferCountries", "crypto-prefer-countries", "cryptoPrefer", "crypto-prefer"]);
-  // 读取 GitHub 国家优先链参数原始值。
-  const rawGithubPreferCountries = pickArg(args, ["githubPreferCountries", "github-prefer-countries", "githubPrefer", "github-prefer"]);
-  // 读取 Steam 国家优先链参数原始值。
-  const rawSteamPreferCountries = pickArg(args, ["steamPreferCountries", "steam-prefer-countries", "steamPrefer", "steam-prefer"]);
-  // 读取开发服务组国家优先链参数原始值。
-  const rawDevPreferCountries = pickArg(args, ["devPreferCountries", "dev-prefer-countries", "developerPreferCountries", "developer-prefer-countries", "devPreferCountry", "dev-prefer-country"]);
-  // 读取自定义国家别名追加参数原始值。
-  const rawCountryExtraAliases = pickArg(args, ["countryExtraAliases", "country-extra-aliases", "countryAliases", "country-aliases", "countryAliasMap", "country-alias-map"]);
-  // 读取 GitHub 独立组额外前置组参数原始值。
-  const rawGithubPreferGroups = pickArg(args, ["githubPreferGroups", "github-prefer-groups", "githubPreferredGroups", "github-preferred-groups"]);
-  // 读取 Steam 独立组额外前置组参数原始值。
-  const rawSteamPreferGroups = pickArg(args, ["steamPreferGroups", "steam-prefer-groups", "steamPreferredGroups", "steam-preferred-groups"]);
-  // 读取开发服务组额外前置组参数原始值。
-  const rawDevPreferGroups = pickArg(args, ["devPreferGroups", "dev-prefer-groups", "developerPreferGroups", "developer-prefer-groups"]);
-  // 读取 GitHub 独立组指定节点优先参数原始值。
-  const rawGithubPreferNodes = pickArg(args, ["githubPreferNodes", "github-prefer-nodes", "githubPreferredNodes", "github-preferred-nodes"]);
-  // 读取 Steam 独立组指定节点优先参数原始值。
-  const rawSteamPreferNodes = pickArg(args, ["steamPreferNodes", "steam-prefer-nodes", "steamPreferredNodes", "steam-preferred-nodes"]);
-  // 读取开发服务组指定节点优先参数原始值。
-  const rawDevPreferNodes = pickArg(args, ["devPreferNodes", "dev-prefer-nodes", "developerPreferNodes", "developer-prefer-nodes"]);
-  // 读取 GitHub 规则目标参数原始值。
-  const rawGithubRuleTarget = pickArg(args, ["githubRuleTarget", "github-rule-target"]);
-  // 读取 Steam 全球规则目标参数原始值。
-  const rawSteamRuleTarget = pickArg(args, ["steamRuleTarget", "steam-rule-target"]);
-  // 读取 Steam 中国区规则目标参数原始值。
-  const rawSteamCnRuleTarget = pickArg(args, ["steamCnRuleTarget", "steam-cn-rule-target", "steamCNRuleTarget", "steam-cn-rule-target"]);
-  // 读取开发服务规则目标参数原始值。
-  const rawDevRuleTarget = pickArg(args, ["devRuleTarget", "dev-rule-target", "developerRuleTarget", "developer-rule-target"]);
-  // 读取 GitHub 规则顺序锚点参数原始值。
-  const rawGithubRuleAnchor = pickArg(args, ["githubRuleAnchor", "github-rule-anchor"]);
-  // 读取 GitHub 规则顺序前后位置参数原始值。
-  const rawGithubRulePosition = pickArg(args, ["githubRulePosition", "github-rule-position"]);
-  // 读取 Steam 全球规则顺序锚点参数原始值。
-  const rawSteamRuleAnchor = pickArg(args, ["steamRuleAnchor", "steam-rule-anchor"]);
-  // 读取 Steam 全球规则顺序前后位置参数原始值。
-  const rawSteamRulePosition = pickArg(args, ["steamRulePosition", "steam-rule-position"]);
-  // 读取 Steam 中国区规则顺序锚点参数原始值。
-  const rawSteamCnRuleAnchor = pickArg(args, ["steamCnRuleAnchor", "steam-cn-rule-anchor", "steamCNRuleAnchor", "steam-cn-rule-anchor"]);
-  // 读取 Steam 中国区规则顺序前后位置参数原始值。
-  const rawSteamCnRulePosition = pickArg(args, ["steamCnRulePosition", "steam-cn-rule-position", "steamCNRulePosition", "steam-cn-rule-position"]);
-  // 读取开发服务规则顺序锚点参数原始值。
-  const rawDevRuleAnchor = pickArg(args, ["devRuleAnchor", "dev-rule-anchor", "developerRuleAnchor", "developer-rule-anchor"]);
-  // 读取开发服务规则顺序前后位置参数原始值。
-  const rawDevRulePosition = pickArg(args, ["devRulePosition", "dev-rule-position", "developerRulePosition", "developer-rule-position"]);
-  // 读取 config.rules 自定义规则区间锚点参数原始值。
-  const rawCustomRuleAnchor = pickArg(args, ["customRuleAnchor", "custom-rule-anchor", "configRulesAnchor", "config-rules-anchor", "rulesAnchor", "rules-anchor"]);
-  // 读取 config.rules 自定义规则区间前后位置参数原始值。
-  const rawCustomRulePosition = pickArg(args, ["customRulePosition", "custom-rule-position", "configRulesPosition", "config-rules-position", "rulesPosition", "rules-position"]);
-  // 读取 GitHub 独立组模式参数原始值。
-  const rawGithubMode = pickArg(args, ["githubMode", "github-mode"]);
-  // 读取 Steam 独立组模式参数原始值。
-  const rawSteamMode = pickArg(args, ["steamMode", "steam-mode"]);
-  // 读取开发服务组模式参数原始值。
-  const rawDevMode = pickArg(args, ["devMode", "dev-mode", "developerMode", "developer-mode"]);
-  // 读取 GitHub 独立组类型参数原始值。
-  const rawGithubType = pickArg(args, ["githubType", "github-type", "githubGroupType", "github-group-type"]);
-  // 读取 Steam 独立组类型参数原始值。
-  const rawSteamType = pickArg(args, ["steamType", "steam-type", "steamGroupType", "steam-group-type"]);
-  // 读取开发服务组类型参数原始值。
-  const rawDevType = pickArg(args, ["devType", "dev-type", "developerType", "developer-type", "devGroupType", "dev-group-type"]);
-  // 读取 GitHub 独立组专属测速地址参数原始值。
-  const rawGithubTestUrl = pickArg(args, ["githubTestUrl", "github-test-url"]);
-  // 读取 Steam 独立组专属测速地址参数原始值。
-  const rawSteamTestUrl = pickArg(args, ["steamTestUrl", "steam-test-url"]);
-  // 读取开发服务组专属测速地址参数原始值。
-  const rawDevTestUrl = pickArg(args, ["devTestUrl", "dev-test-url", "developerTestUrl", "developer-test-url"]);
-  // 读取 GitHub 独立组专属测速间隔参数原始值。
-  const rawGithubGroupInterval = pickArg(args, ["githubGroupInterval", "github-group-interval"]);
-  // 读取 Steam 独立组专属测速间隔参数原始值。
-  const rawSteamGroupInterval = pickArg(args, ["steamGroupInterval", "steam-group-interval"]);
-  // 读取开发服务组专属测速间隔参数原始值。
-  const rawDevGroupInterval = pickArg(args, ["devGroupInterval", "dev-group-interval", "developerGroupInterval", "developer-group-interval"]);
-  // 读取 GitHub 独立组专属测速容差参数原始值。
-  const rawGithubGroupTolerance = pickArg(args, ["githubGroupTolerance", "github-group-tolerance"]);
-  // 读取 Steam 独立组专属测速容差参数原始值。
-  const rawSteamGroupTolerance = pickArg(args, ["steamGroupTolerance", "steam-group-tolerance"]);
-  // 读取开发服务组专属测速容差参数原始值。
-  const rawDevGroupTolerance = pickArg(args, ["devGroupTolerance", "dev-group-tolerance", "developerGroupTolerance", "developer-group-tolerance"]);
-  // 读取 GitHub 独立组专属测速超时参数原始值。
-  const rawGithubGroupTimeout = pickArg(args, ["githubGroupTimeout", "github-group-timeout"]);
-  // 读取 Steam 独立组专属测速超时参数原始值。
-  const rawSteamGroupTimeout = pickArg(args, ["steamGroupTimeout", "steam-group-timeout"]);
-  // 读取开发服务组专属测速超时参数原始值。
-  const rawDevGroupTimeout = pickArg(args, ["devGroupTimeout", "dev-group-timeout", "developerGroupTimeout", "developer-group-timeout"]);
-  // 读取 GitHub 独立组专属 lazy 参数原始值。
-  const rawGithubGroupLazy = pickArg(args, ["githubGroupLazy", "github-group-lazy"]);
-  // 读取 Steam 独立组专属 lazy 参数原始值。
-  const rawSteamGroupLazy = pickArg(args, ["steamGroupLazy", "steam-group-lazy"]);
-  // 读取开发服务组专属 lazy 参数原始值。
-  const rawDevGroupLazy = pickArg(args, ["devGroupLazy", "dev-group-lazy", "developerGroupLazy", "developer-group-lazy"]);
-  // 读取 GitHub 独立组专属最大失败次数参数原始值。
-  const rawGithubGroupMaxFailedTimes = pickArg(args, ["githubGroupMaxFailedTimes", "github-group-max-failed-times"]);
-  // 读取 Steam 独立组专属最大失败次数参数原始值。
-  const rawSteamGroupMaxFailedTimes = pickArg(args, ["steamGroupMaxFailedTimes", "steam-group-max-failed-times"]);
-  // 读取开发服务组专属最大失败次数参数原始值。
-  const rawDevGroupMaxFailedTimes = pickArg(args, ["devGroupMaxFailedTimes", "dev-group-max-failed-times", "developerGroupMaxFailedTimes", "developer-group-max-failed-times"]);
-  // 读取 GitHub 独立组专属 expected-status 参数原始值。
-  const rawGithubGroupExpectedStatus = pickArg(args, ["githubGroupExpectedStatus", "github-group-expected-status"]);
-  // 读取 GitHub 独立组专属 load-balance strategy 参数原始值。
-  const rawGithubGroupStrategy = pickArg(args, ["githubGroupStrategy", "github-group-strategy", "githubLoadBalanceStrategy", "github-load-balance-strategy"]);
-  // 读取 Steam 独立组专属 expected-status 参数原始值。
-  const rawSteamGroupExpectedStatus = pickArg(args, ["steamGroupExpectedStatus", "steam-group-expected-status"]);
-  // 读取 Steam 独立组专属 load-balance strategy 参数原始值。
-  const rawSteamGroupStrategy = pickArg(args, ["steamGroupStrategy", "steam-group-strategy", "steamLoadBalanceStrategy", "steam-load-balance-strategy"]);
-  // 读取开发服务组专属 expected-status 参数原始值。
-  const rawDevGroupExpectedStatus = pickArg(args, ["devGroupExpectedStatus", "dev-group-expected-status", "developerGroupExpectedStatus", "developer-group-expected-status"]);
-  // 读取开发服务组专属 load-balance strategy 参数原始值。
-  const rawDevGroupStrategy = pickArg(args, ["devGroupStrategy", "dev-group-strategy", "developerGroupStrategy", "developer-group-strategy", "devLoadBalanceStrategy", "dev-load-balance-strategy"]);
-  // 读取 GitHub 独立组 proxy-provider 引用参数原始值。
-  const rawGithubUseProviders = pickArg(args, ["githubUseProviders", "github-use-providers", "githubUseProvider", "github-use-provider"]);
-  // 读取 Steam 独立组 proxy-provider 引用参数原始值。
-  const rawSteamUseProviders = pickArg(args, ["steamUseProviders", "steam-use-providers", "steamUseProvider", "steam-use-provider"]);
-  // 读取开发服务组 proxy-provider 引用参数原始值。
-  const rawDevUseProviders = pickArg(args, ["devUseProviders", "dev-use-providers", "developerUseProviders", "developer-use-providers", "devUseProvider", "dev-use-provider"]);
-  // 读取 GitHub 独立组 include-all 参数原始值。
-  const rawGithubIncludeAll = pickArg(args, ["githubIncludeAll", "github-include-all", "githubAll", "github-all"]);
-  // 读取 Steam 独立组 include-all 参数原始值。
-  const rawSteamIncludeAll = pickArg(args, ["steamIncludeAll", "steam-include-all", "steamAll", "steam-all"]);
-  // 读取开发服务组 include-all 参数原始值。
-  const rawDevIncludeAll = pickArg(args, ["devIncludeAll", "dev-include-all", "developerIncludeAll", "developer-include-all", "devAll", "dev-all"]);
-  // 读取 GitHub 独立组 include-all-proxies 参数原始值。
-  const rawGithubIncludeAllProxies = pickArg(args, ["githubIncludeAllProxies", "github-include-all-proxies", "githubAllProxies", "github-all-proxies"]);
-  // 读取 Steam 独立组 include-all-proxies 参数原始值。
-  const rawSteamIncludeAllProxies = pickArg(args, ["steamIncludeAllProxies", "steam-include-all-proxies", "steamAllProxies", "steam-all-proxies"]);
-  // 读取开发服务组 include-all-proxies 参数原始值。
-  const rawDevIncludeAllProxies = pickArg(args, ["devIncludeAllProxies", "dev-include-all-proxies", "developerIncludeAllProxies", "developer-include-all-proxies", "devAllProxies", "dev-all-proxies"]);
-  // 读取 GitHub 独立组 include-all-providers 参数原始值。
-  const rawGithubIncludeAllProviders = pickArg(args, ["githubIncludeAllProviders", "github-include-all-providers", "githubAllProviders", "github-all-providers"]);
-  // 读取 Steam 独立组 include-all-providers 参数原始值。
-  const rawSteamIncludeAllProviders = pickArg(args, ["steamIncludeAllProviders", "steam-include-all-providers", "steamAllProviders", "steam-all-providers"]);
-  // 读取开发服务组 include-all-providers 参数原始值。
-  const rawDevIncludeAllProviders = pickArg(args, ["devIncludeAllProviders", "dev-include-all-providers", "developerIncludeAllProviders", "developer-include-all-providers", "devAllProviders", "dev-all-providers"]);
-  // 读取 GitHub 独立组 hidden 参数原始值。
-  const rawGithubHidden = pickArg(args, ["githubHidden", "github-hidden", "githubGroupHidden", "github-group-hidden"]);
-  // 读取 Steam 独立组 hidden 参数原始值。
-  const rawSteamHidden = pickArg(args, ["steamHidden", "steam-hidden", "steamGroupHidden", "steam-group-hidden"]);
-  // 读取开发服务组 hidden 参数原始值。
-  const rawDevHidden = pickArg(args, ["devHidden", "dev-hidden", "developerHidden", "developer-hidden", "devGroupHidden", "dev-group-hidden"]);
-  // 读取 GitHub 独立组 disable-udp 参数原始值。
-  const rawGithubDisableUdp = pickArg(args, ["githubDisableUdp", "github-disable-udp", "githubDisableUDP", "github-group-disable-udp", "githubGroupDisableUdp"]);
-  // 读取 Steam 独立组 disable-udp 参数原始值。
-  const rawSteamDisableUdp = pickArg(args, ["steamDisableUdp", "steam-disable-udp", "steamDisableUDP", "steam-group-disable-udp", "steamGroupDisableUdp"]);
-  // 读取开发服务组 disable-udp 参数原始值。
-  const rawDevDisableUdp = pickArg(args, ["devDisableUdp", "dev-disable-udp", "devDisableUDP", "developerDisableUdp", "developer-disable-udp", "devGroupDisableUdp", "dev-group-disable-udp"]);
-  // 读取 GitHub 独立组 icon 参数原始值。
-  const rawGithubIcon = pickArg(args, ["githubIcon", "github-icon", "githubGroupIcon", "github-group-icon"]);
-  // 读取 Steam 独立组 icon 参数原始值。
-  const rawSteamIcon = pickArg(args, ["steamIcon", "steam-icon", "steamGroupIcon", "steam-group-icon"]);
-  // 读取开发服务组 icon 参数原始值。
-  const rawDevIcon = pickArg(args, ["devIcon", "dev-icon", "developerIcon", "developer-icon", "devGroupIcon", "dev-group-icon"]);
-  // 读取 GitHub 独立组 interface-name 参数原始值。
-  const rawGithubInterfaceName = pickArg(args, ["githubInterfaceName", "github-interface-name", "githubGroupInterfaceName", "github-group-interface-name"]);
-  // 读取 Steam 独立组 interface-name 参数原始值。
-  const rawSteamInterfaceName = pickArg(args, ["steamInterfaceName", "steam-interface-name", "steamGroupInterfaceName", "steam-group-interface-name"]);
-  // 读取开发服务组 interface-name 参数原始值。
-  const rawDevInterfaceName = pickArg(args, ["devInterfaceName", "dev-interface-name", "developerInterfaceName", "developer-interface-name", "devGroupInterfaceName", "dev-group-interface-name"]);
-  // 读取 GitHub 独立组 routing-mark 参数原始值。
-  const rawGithubRoutingMark = pickArg(args, ["githubRoutingMark", "github-routing-mark", "githubGroupRoutingMark", "github-group-routing-mark"]);
-  // 读取 Steam 独立组 routing-mark 参数原始值。
-  const rawSteamRoutingMark = pickArg(args, ["steamRoutingMark", "steam-routing-mark", "steamGroupRoutingMark", "steam-group-routing-mark"]);
-  // 读取开发服务组 routing-mark 参数原始值。
-  const rawDevRoutingMark = pickArg(args, ["devRoutingMark", "dev-routing-mark", "developerRoutingMark", "developer-routing-mark", "devGroupRoutingMark", "dev-group-routing-mark"]);
-  // 读取 GitHub 独立组原始节点筛选参数原始值。
-  const rawGithubNodeFilter = pickArg(args, ["githubNodeFilter", "github-node-filter", "githubFilter", "github-filter"]);
-  // 读取 Steam 独立组原始节点筛选参数原始值。
-  const rawSteamNodeFilter = pickArg(args, ["steamNodeFilter", "steam-node-filter", "steamFilter", "steam-filter"]);
-  // 读取开发服务组原始节点筛选参数原始值。
-  const rawDevNodeFilter = pickArg(args, ["devNodeFilter", "dev-node-filter", "developerNodeFilter", "developer-node-filter", "devFilter", "dev-filter"]);
-  // 读取 GitHub 独立组原始节点排除筛选参数原始值。
-  const rawGithubNodeExcludeFilter = pickArg(args, ["githubNodeExcludeFilter", "github-node-exclude-filter", "githubExcludeFilter", "github-exclude-filter"]);
-  // 读取 Steam 独立组原始节点排除筛选参数原始值。
-  const rawSteamNodeExcludeFilter = pickArg(args, ["steamNodeExcludeFilter", "steam-node-exclude-filter", "steamExcludeFilter", "steam-exclude-filter"]);
-  // 读取开发服务组原始节点排除筛选参数原始值。
-  const rawDevNodeExcludeFilter = pickArg(args, ["devNodeExcludeFilter", "dev-node-exclude-filter", "developerNodeExcludeFilter", "developer-node-exclude-filter", "devExcludeFilter", "dev-exclude-filter"]);
-  // 读取 GitHub 独立组协议排除参数原始值。
-  const rawGithubNodeExcludeType = pickArg(args, ["githubNodeExcludeType", "github-node-exclude-type", "githubExcludeType", "github-exclude-type"]);
-  // 读取 Steam 独立组协议排除参数原始值。
-  const rawSteamNodeExcludeType = pickArg(args, ["steamNodeExcludeType", "steam-node-exclude-type", "steamExcludeType", "steam-exclude-type"]);
-  // 读取开发服务组协议排除参数原始值。
-  const rawDevNodeExcludeType = pickArg(args, ["devNodeExcludeType", "dev-node-exclude-type", "developerNodeExcludeType", "developer-node-exclude-type", "devExcludeType", "dev-exclude-type"]);
-  // 读取 profile 缓存参数原始值。
-  const rawProfileCache = pickArg(args, ["profileCache", "profile-cache", "cacheProfile", "cache-profile"]);
-  // 读取 profile.store-selected 参数原始值。
-  const rawProfileSelected = pickArg(args, ["profileSelected", "profile-selected", "storeSelected", "store-selected"]);
-  // 读取 profile.store-fake-ip 参数原始值。
-  const rawProfileFakeIp = pickArg(args, ["profileFakeIP", "profileFakeIp", "profile-fake-ip", "storeFakeIP", "storeFakeIp", "store-fake-ip"]);
-  // 读取 geo 自动更新参数原始值。
-  const rawGeoAutoUpdate = pickArg(args, ["geoAutoUpdate", "geo-auto-update", "geoUpdate", "geo-update"]);
-  // 读取 geo 更新间隔参数原始值。
-  const rawGeoUpdateInterval = pickArg(args, ["geoUpdateInterval", "geo-update-interval"]);
-  // 读取全局 UA 参数原始值。
-  const rawGlobalUa = pickArg(args, ["globalUA", "globalUa", "global-ua"]);
-  // 读取调试响应头开关参数原始值。
-  const rawResponseHeaders = pickArg(args, ["responseHeaders", "response-headers", "debugHeaders", "debug-headers", "resHeaders", "res-headers"]);
-  // 读取调试响应头前缀参数原始值。
-  const rawResponseHeaderPrefix = pickArg(args, ["responseHeaderPrefix", "response-header-prefix", "debugHeaderPrefix", "debug-header-prefix", "resHeaderPrefix", "res-header-prefix"]);
-  // 读取 DNS prefer-h3 参数原始值。
-  const rawDnsPreferH3 = pickArg(args, ["dnsPreferH3", "dns-prefer-h3", "preferH3", "prefer-h3"]);
-  // 读取 DNS respect-rules 参数原始值。
-  const rawDnsRespectRules = pickArg(args, ["dnsRespectRules", "dns-respect-rules", "respectRules", "respect-rules"]);
-  // 读取 DNS cache-algorithm 参数原始值。
-  const rawDnsCacheAlgorithm = pickArg(args, ["dnsCacheAlgorithm", "dns-cache-algorithm", "cacheAlgorithm", "cache-algorithm"]);
-  // 读取 use-system-hosts 参数原始值。
-  const rawDnsUseSystemHosts = pickArg(args, ["dnsUseSystemHosts", "dns-use-system-hosts", "useSystemHosts", "use-system-hosts"]);
-  // 读取 DNS listen 参数原始值。
-  const rawDnsListen = pickArg(args, ["dnsListen", "dns-listen"]);
-  // 读取 fake-ip-filter-mode 参数原始值。
-  const rawFakeIpFilterMode = pickArg(args, ["fakeIpFilterMode", "fake-ip-filter-mode"]);
-  // 读取 fake-ip-ttl 参数原始值。
-  const rawFakeIpTtl = pickArg(args, ["fakeIpTTL", "fakeIpTtl", "fake-ip-ttl"]);
-  // 读取 fake-ip-range 参数原始值。
-  const rawFakeIpRange = pickArg(args, ["fakeIpRange", "fake-ip-range"]);
-  // 读取 fake-ip-range6 参数原始值。
-  const rawFakeIpRange6 = pickArg(args, ["fakeIpRange6", "fake-ip-range6"]);
-  // 读取 unified-delay 参数原始值。
-  const rawUnifiedDelay = pickArg(args, ["unifiedDelay", "unified-delay"]);
-  // 读取 tcp-concurrent 参数原始值。
-  const rawTcpConcurrent = pickArg(args, ["tcpConcurrent", "tcp-concurrent"]);
-  // 读取进程识别模式参数原始值。
-  const rawProcessMode = pickArg(args, ["processMode", "process-mode", "findProcessMode", "find-process-mode"]);
-  // 读取 geodata-loader 参数原始值。
-  const rawGeodataLoader = pickArg(args, ["geodataLoader", "geodata-loader"]);
-  // 读取 geodata-mode 参数原始值。
-  const rawGeodataMode = pickArg(args, ["geodataMode", "geodata-mode"]);
-  // 读取 Sniffer force-dns-mapping 参数原始值。
-  const rawSnifferForceDnsMapping = pickArg(args, ["snifferForceDnsMapping", "sniffer-force-dns-mapping"]);
-  // 读取 Sniffer parse-pure-ip 参数原始值。
-  const rawSnifferParsePureIp = pickArg(args, ["snifferParsePureIp", "sniffer-parse-pure-ip"]);
-  // 读取 Sniffer 全局 override-destination 参数原始值。
-  const rawSnifferOverrideDestination = pickArg(args, ["snifferOverrideDestination", "sniffer-override-destination"]);
-  // 读取 HTTP Sniffer override-destination 参数原始值。
-  const rawSnifferHttpOverrideDestination = pickArg(args, ["snifferHttpOverrideDestination", "sniffer-http-override-destination"]);
-  // 读取 Sniffer force-domain 追加参数原始值。
-  const rawSnifferForceDomains = pickArg(args, ["snifferForceDomains", "sniffer-force-domains", "forceDomains", "force-domains"]);
-  // 读取 Sniffer skip-domain 追加参数原始值。
-  const rawSnifferSkipDomains = pickArg(args, ["snifferSkipDomains", "sniffer-skip-domains", "skipDomains", "skip-domains"]);
-  // 尝试把 threshold 转成数字。
-  const parsedThreshold = parseNumber(rawThreshold, 0);
-  // 尝试把 geo 更新间隔转成数字。
-  const parsedGeoUpdateInterval = parseNumber(rawGeoUpdateInterval, 24);
-  // 尝试把 fake-ip-ttl 转成数字。
-  const parsedFakeIpTtl = parseNumber(rawFakeIpTtl, 1);
-  // 再把 threshold 限制在允许范围内。
-  const threshold = clampNumber(parsedThreshold, 0, MAX_THRESHOLD);
-  // geo 更新间隔至少为 1 小时，避免生成非法配置。
-  const geoUpdateInterval = Math.max(1, parsedGeoUpdateInterval);
-  // fake-ip-ttl 至少为 1，避免生成非法配置。
-  const fakeIpTtl = Math.max(1, parsedFakeIpTtl);
-  // 把字符串类参数统一做 trim，后面复用时就不用反复判断。
-  const dnsListen = normalizeStringArg(rawDnsListen);
-  const fakeIpRange = normalizeStringArg(rawFakeIpRange);
-  const fakeIpRange6 = normalizeStringArg(rawFakeIpRange6);
-  const ruleSourceResolveState = buildResolveArgRuleSourceState({
-    rawDirectListUrl,
-    rawCryptoListUrl,
-    rawChatGptListUrl,
-    rawAiExtraListUrl,
-    rawDevListUrl,
-    rawRuleSourcePreset,
-    rawSteamFix,
-    rawSteamFixUrl
-  });
-  const groupResolveState = buildResolveArgGroupState({
-    rawTestUrl,
-    rawGroupInterval,
-    rawGroupTolerance,
-    rawGroupTimeout,
-    rawGroupLazy,
-    rawGroupMaxFailedTimes,
-    rawGroupExpectedStatus,
-    rawGroupStrategy,
-    rawInterfaceName: rawGroupInterfaceName,
-    rawRoutingMark: rawGroupRoutingMark
-  });
-  const ruleProviderResolveState = buildResolveArgRuleProviderState({
-    rawPathDir: rawRuleProviderPathDir,
-    rawInterval: rawRuleProviderInterval,
-    rawProxy: rawRuleProviderProxy,
-    rawSizeLimit: rawRuleProviderSizeLimit,
-    rawUserAgent: rawRuleProviderUserAgent,
-    rawAuthorization: rawRuleProviderAuthorization,
-    rawHeader: rawRuleProviderHeader,
-    rawPayload: rawRuleProviderPayload
-  });
-  const proxyProviderResolveState = buildResolveArgProxyProviderState({
-    rawInterval: rawProxyProviderInterval,
-    rawProxy: rawProxyProviderProxy,
-    rawSizeLimit: rawProxyProviderSizeLimit,
-    rawUserAgent: rawProxyProviderUserAgent,
-    rawAuthorization: rawProxyProviderAuthorization,
-    rawHeader: rawProxyProviderHeader,
-    rawPayload: rawProxyProviderPayload,
-    rawPathDir: rawProxyProviderPathDir,
-    rawFilter: rawProxyProviderFilter,
-    rawExcludeFilter: rawProxyProviderExcludeFilter,
-    rawExcludeType: rawProxyProviderExcludeType,
-    rawOverrideAdditionalPrefix: rawProxyProviderOverrideAdditionalPrefix,
-    rawOverrideAdditionalSuffix: rawProxyProviderOverrideAdditionalSuffix,
-    rawOverrideUdp: rawProxyProviderOverrideUdp,
-    rawOverrideUdpOverTcp: rawProxyProviderOverrideUdpOverTcp,
-    rawOverrideDown: rawProxyProviderOverrideDown,
-    rawOverrideUp: rawProxyProviderOverrideUp,
-    rawOverrideTfo: rawProxyProviderOverrideTfo,
-    rawOverrideMptcp: rawProxyProviderOverrideMptcp,
-    rawOverrideSkipCertVerify: rawProxyProviderOverrideSkipCertVerify,
-    rawOverrideDialerProxy: rawProxyProviderOverrideDialerProxy,
-    rawOverrideInterfaceName: rawProxyProviderOverrideInterfaceName,
-    rawOverrideRoutingMark: rawProxyProviderOverrideRoutingMark,
-    rawOverrideIpVersion: rawProxyProviderOverrideIpVersion,
-    rawOverrideProxyName: rawProxyProviderOverrideProxyName,
-    rawHealthCheckEnable: rawProxyProviderHealthCheckEnable,
-    rawHealthCheckUrl: rawProxyProviderHealthCheckUrl,
-    rawHealthCheckInterval: rawProxyProviderHealthCheckInterval,
-    rawHealthCheckTimeout: rawProxyProviderHealthCheckTimeout,
-    rawHealthCheckLazy: rawProxyProviderHealthCheckLazy,
-    rawHealthCheckExpectedStatus: rawProxyProviderHealthCheckExpectedStatus
-  });
-  const aiPreferCountries = toStringList(rawAiPreferCountries);
-  const cryptoPreferCountries = toStringList(rawCryptoPreferCountries);
-  const extraDirectDomains = normalizeDirectDomainEntries(rawExtraDirectDomains);
-  const countryAliasResolveState = buildResolveArgCountryAliasState({
-    rawCountryExtraAliases
-  });
-  // 解析完成后立刻刷新运行态缓存，确保后续 parseCountries / preferred-country 等流程读取到的是本轮最新别名。
-  COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = isObject(countryAliasResolveState.countryExtraAliasesMap) ? countryAliasResolveState.countryExtraAliasesMap : Object.create(null);
-  const steamCnRuleTarget = normalizeStringArg(rawSteamCnRuleTarget);
-  const steamCnRuleAnchor = normalizeStringArg(rawSteamCnRuleAnchor);
-  const steamCnRulePosition = normalizeRuleOrderPosition(rawSteamCnRulePosition, "before");
-  const customRuleAnchor = normalizeStringArg(rawCustomRuleAnchor);
-  const customRulePosition = normalizeRuleOrderPosition(rawCustomRulePosition, "before");
-  const groupLayoutResolveState = buildResolveArgGroupLayoutState({
-    rawGroupOrderPreset,
-    rawGroupOrder,
-    rawCountryGroupSort,
-    rawRegionGroupSort,
-    rawRegionGroups
-  });
-  const snifferForceDomains = toStringList(rawSnifferForceDomains);
-  const snifferSkipDomains = toStringList(rawSnifferSkipDomains);
-  const responseHeaderPrefix = normalizeHeaderPrefix(rawResponseHeaderPrefix);
-  // GitHub / Steam / Dev 三类独立组的大部分参数语义一致，这里统一收口成服务状态表，供告警与最终返回复用。
-  const serviceResolveStates = [
+// resolveArgs 原始参数按模块拆开采集，避免把 100+ 个 pickArg 长时间堆在同一个函数里。
+function collectResolveArgCoreRawValues(currentArgs) {
+  return {
+    rawThreshold: pickArg(currentArgs, ["threshold"]),
+    rawTestUrl: pickArg(currentArgs, ["testUrl", "test-url", "groupTestUrl", "group-test-url"]),
+    rawGroupInterval: pickArg(currentArgs, ["groupInterval", "group-interval"]),
+    rawGroupTolerance: pickArg(currentArgs, ["groupTolerance", "group-tolerance"]),
+    rawGroupTimeout: pickArg(currentArgs, ["groupTimeout", "group-timeout"]),
+    rawGroupMaxFailedTimes: pickArg(currentArgs, ["groupMaxFailedTimes", "group-max-failed-times"]),
+    rawGroupExpectedStatus: pickArg(currentArgs, ["groupExpectedStatus", "group-expected-status"]),
+    rawGroupLazy: pickArg(currentArgs, ["groupLazy", "group-lazy"]),
+    rawGroupStrategy: pickArg(currentArgs, ["groupStrategy", "group-strategy", "loadBalanceStrategy", "load-balance-strategy"]),
+    rawGroupInterfaceName: pickArg(currentArgs, ["groupInterfaceName", "group-interface-name", "proxyGroupInterfaceName", "proxy-group-interface-name"]),
+    rawGroupRoutingMark: pickArg(currentArgs, ["groupRoutingMark", "group-routing-mark", "proxyGroupRoutingMark", "proxy-group-routing-mark"]),
+    rawMergeGithubToDev: pickArg(currentArgs, ["mergeGithubToDev", "merge-github-to-dev", "githubAsDev", "github-as-dev", "githubWithDev", "github-with-dev"]),
+    rawGroupOrderPreset: pickArg(currentArgs, ["groupOrderPreset", "group-order-preset", "proxyGroupOrderPreset", "proxy-group-order-preset", "groupLayoutPreset", "group-layout-preset"]),
+    rawGroupOrder: pickArg(currentArgs, ["groupOrder", "group-order", "proxyGroupOrder", "proxy-group-order", "groupLayout", "group-layout"]),
+    rawCountryGroupSort: pickArg(currentArgs, ["countryGroupSort", "country-group-sort", "countrySort", "country-sort", "countryOrder", "country-order"]),
+    rawRegionGroupSort: pickArg(currentArgs, ["regionGroupSort", "region-group-sort", "regionSort", "region-sort", "regionOrder", "region-order"]),
+    rawRegionGroups: pickArg(currentArgs, ["regionGroups", "region-groups", "regionalGroups", "regional-groups", "continentGroups", "continent-groups"]),
+    rawDirectListUrl: pickArg(currentArgs, ["directListUrl", "direct-list-url"]),
+    rawExtraDirectDomains: pickArg(currentArgs, ["extraDirectDomains", "extra-direct-domains", "bypassDomains", "bypass-domains", "directDomains", "direct-domains"]),
+    rawCryptoListUrl: pickArg(currentArgs, ["cryptoListUrl", "crypto-list-url"]),
+    rawChatGptListUrl: pickArg(currentArgs, ["chatgptListUrl", "chatgpt-list-url", "chatGPTListUrl", "chatGPT-list-url"]),
+    rawAiExtraListUrl: pickArg(currentArgs, ["aiExtraListUrl", "ai-extra-list-url", "moreAiListUrl", "more-ai-list-url", "aiSupplementListUrl", "ai-supplement-list-url"]),
+    rawDevListUrl: pickArg(currentArgs, ["devListUrl", "dev-list-url", "devExtraListUrl", "dev-extra-list-url", "developerListUrl", "developer-list-url"]),
+    rawRuleSourcePreset: pickArg(currentArgs, ["ruleSourcePreset", "rule-source-preset", "rulesetPreset", "ruleset-preset"]),
+    rawSteamFix: pickArg(currentArgs, ["steamFix", "steam-fix"]),
+    rawSteamFixUrl: pickArg(currentArgs, ["steamFixUrl", "steam-fix-url"])
+  };
+}
+
+function collectResolveArgProviderRawValues(currentArgs) {
+  return {
+    rawRuleProviderPathDir: pickArg(currentArgs, ["ruleProviderPathDir", "rule-provider-path-dir", "providerPathDir", "provider-path-dir"]),
+    rawRuleProviderInterval: pickArg(currentArgs, ["ruleProviderInterval", "rule-provider-interval", "providerInterval", "provider-interval"]),
+    rawRuleProviderProxy: pickArg(currentArgs, ["ruleProviderProxy", "rule-provider-proxy", "providerProxy", "provider-proxy"]),
+    rawRuleProviderSizeLimit: pickArg(currentArgs, ["ruleProviderSizeLimit", "rule-provider-size-limit", "providerSizeLimit", "provider-size-limit"]),
+    rawRuleProviderUserAgent: pickArg(currentArgs, ["ruleProviderUserAgent", "rule-provider-user-agent", "providerUserAgent", "provider-user-agent", "ruleProviderUA", "rule-provider-ua"]),
+    rawRuleProviderAuthorization: pickArg(currentArgs, ["ruleProviderAuthorization", "rule-provider-authorization", "providerAuthorization", "provider-authorization", "ruleProviderAuth", "rule-provider-auth"]),
+    rawRuleProviderHeader: pickArg(currentArgs, ["ruleProviderHeader", "rule-provider-header", "providerHeader", "provider-header", "ruleProviderHeaders", "rule-provider-headers"]),
+    rawRuleProviderPayload: pickArg(currentArgs, ["ruleProviderPayload", "rule-provider-payload"]),
+    rawProxyProviderInterval: pickArg(currentArgs, ["proxyProviderInterval", "proxy-provider-interval"]),
+    rawProxyProviderProxy: pickArg(currentArgs, ["proxyProviderProxy", "proxy-provider-proxy"]),
+    rawProxyProviderSizeLimit: pickArg(currentArgs, ["proxyProviderSizeLimit", "proxy-provider-size-limit"]),
+    rawProxyProviderUserAgent: pickArg(currentArgs, ["proxyProviderUserAgent", "proxy-provider-user-agent", "proxyProviderUA", "proxy-provider-ua"]),
+    rawProxyProviderAuthorization: pickArg(currentArgs, ["proxyProviderAuthorization", "proxy-provider-authorization", "proxyProviderAuth", "proxy-provider-auth"]),
+    rawProxyProviderHeader: pickArg(currentArgs, ["proxyProviderHeader", "proxy-provider-header", "proxyProviderHeaders", "proxy-provider-headers"]),
+    rawProxyProviderPayload: pickArg(currentArgs, ["proxyProviderPayload", "proxy-provider-payload"]),
+    rawProxyProviderPathDir: pickArg(currentArgs, ["proxyProviderPathDir", "proxy-provider-path-dir", "proxyProviderDir", "proxy-provider-dir"]),
+    rawProxyProviderFilter: pickArg(currentArgs, ["proxyProviderFilter", "proxy-provider-filter"]),
+    rawProxyProviderExcludeFilter: pickArg(currentArgs, ["proxyProviderExcludeFilter", "proxy-provider-exclude-filter"]),
+    rawProxyProviderExcludeType: pickArg(currentArgs, ["proxyProviderExcludeType", "proxy-provider-exclude-type"]),
+    rawProxyProviderOverrideAdditionalPrefix: pickArg(currentArgs, ["proxyProviderOverrideAdditionalPrefix", "proxy-provider-override-additional-prefix", "proxyProviderAdditionalPrefix", "proxy-provider-additional-prefix"]),
+    rawProxyProviderOverrideAdditionalSuffix: pickArg(currentArgs, ["proxyProviderOverrideAdditionalSuffix", "proxy-provider-override-additional-suffix", "proxyProviderAdditionalSuffix", "proxy-provider-additional-suffix"]),
+    rawProxyProviderOverrideUdp: pickArg(currentArgs, ["proxyProviderOverrideUdp", "proxy-provider-override-udp"]),
+    rawProxyProviderOverrideUdpOverTcp: pickArg(currentArgs, ["proxyProviderOverrideUdpOverTcp", "proxy-provider-override-udp-over-tcp"]),
+    rawProxyProviderOverrideDown: pickArg(currentArgs, ["proxyProviderOverrideDown", "proxy-provider-override-down"]),
+    rawProxyProviderOverrideUp: pickArg(currentArgs, ["proxyProviderOverrideUp", "proxy-provider-override-up"]),
+    rawProxyProviderOverrideTfo: pickArg(currentArgs, ["proxyProviderOverrideTfo", "proxy-provider-override-tfo"]),
+    rawProxyProviderOverrideMptcp: pickArg(currentArgs, ["proxyProviderOverrideMptcp", "proxy-provider-override-mptcp"]),
+    rawProxyProviderOverrideSkipCertVerify: pickArg(currentArgs, ["proxyProviderOverrideSkipCertVerify", "proxy-provider-override-skip-cert-verify"]),
+    rawProxyProviderOverrideDialerProxy: pickArg(currentArgs, ["proxyProviderOverrideDialerProxy", "proxy-provider-override-dialer-proxy"]),
+    rawProxyProviderOverrideInterfaceName: pickArg(currentArgs, ["proxyProviderOverrideInterfaceName", "proxy-provider-override-interface-name"]),
+    rawProxyProviderOverrideRoutingMark: pickArg(currentArgs, ["proxyProviderOverrideRoutingMark", "proxy-provider-override-routing-mark"]),
+    rawProxyProviderOverrideIpVersion: pickArg(currentArgs, ["proxyProviderOverrideIpVersion", "proxy-provider-override-ip-version"]),
+    rawProxyProviderOverrideProxyName: pickArg(currentArgs, ["proxyProviderOverrideProxyName", "proxy-provider-override-proxy-name"]),
+    rawProxyProviderHealthCheckEnable: pickArg(currentArgs, ["proxyProviderHealthCheckEnable", "proxy-provider-health-check-enable", "proxyProviderHealthCheck", "proxy-provider-health-check"]),
+    rawProxyProviderHealthCheckUrl: pickArg(currentArgs, ["proxyProviderHealthCheckUrl", "proxy-provider-health-check-url"]),
+    rawProxyProviderHealthCheckInterval: pickArg(currentArgs, ["proxyProviderHealthCheckInterval", "proxy-provider-health-check-interval"]),
+    rawProxyProviderHealthCheckTimeout: pickArg(currentArgs, ["proxyProviderHealthCheckTimeout", "proxy-provider-health-check-timeout"]),
+    rawProxyProviderHealthCheckLazy: pickArg(currentArgs, ["proxyProviderHealthCheckLazy", "proxy-provider-health-check-lazy"]),
+    rawProxyProviderHealthCheckExpectedStatus: pickArg(currentArgs, ["proxyProviderHealthCheckExpectedStatus", "proxy-provider-health-check-expected-status"])
+  };
+}
+
+function collectResolveArgPreferenceRawValues(currentArgs) {
+  return {
+    rawAiPreferCountries: pickArg(currentArgs, ["aiPreferCountries", "ai-prefer-countries", "aiPrefer", "ai-prefer"]),
+    rawCryptoPreferCountries: pickArg(currentArgs, ["cryptoPreferCountries", "crypto-prefer-countries", "cryptoPrefer", "crypto-prefer"]),
+    rawGithubPreferCountries: pickArg(currentArgs, ["githubPreferCountries", "github-prefer-countries", "githubPrefer", "github-prefer"]),
+    rawSteamPreferCountries: pickArg(currentArgs, ["steamPreferCountries", "steam-prefer-countries", "steamPrefer", "steam-prefer"]),
+    rawDevPreferCountries: pickArg(currentArgs, ["devPreferCountries", "dev-prefer-countries", "developerPreferCountries", "developer-prefer-countries", "devPreferCountry", "dev-prefer-country"]),
+    rawCountryExtraAliases: pickArg(currentArgs, ["countryExtraAliases", "country-extra-aliases", "countryAliases", "country-aliases", "countryAliasMap", "country-alias-map"]),
+    rawGithubPreferGroups: pickArg(currentArgs, ["githubPreferGroups", "github-prefer-groups", "githubPreferredGroups", "github-preferred-groups"]),
+    rawSteamPreferGroups: pickArg(currentArgs, ["steamPreferGroups", "steam-prefer-groups", "steamPreferredGroups", "steam-preferred-groups"]),
+    rawDevPreferGroups: pickArg(currentArgs, ["devPreferGroups", "dev-prefer-groups", "developerPreferGroups", "developer-prefer-groups"]),
+    rawGithubPreferNodes: pickArg(currentArgs, ["githubPreferNodes", "github-prefer-nodes", "githubPreferredNodes", "github-preferred-nodes"]),
+    rawSteamPreferNodes: pickArg(currentArgs, ["steamPreferNodes", "steam-prefer-nodes", "steamPreferredNodes", "steam-preferred-nodes"]),
+    rawDevPreferNodes: pickArg(currentArgs, ["devPreferNodes", "dev-prefer-nodes", "developerPreferNodes", "developer-prefer-nodes"])
+  };
+}
+
+function collectResolveArgGithubServiceRawValues(currentArgs) {
+  return {
+    rawGithubRuleTarget: pickArg(currentArgs, ["githubRuleTarget", "github-rule-target"]),
+    rawGithubRuleAnchor: pickArg(currentArgs, ["githubRuleAnchor", "github-rule-anchor"]),
+    rawGithubRulePosition: pickArg(currentArgs, ["githubRulePosition", "github-rule-position"]),
+    rawGithubMode: pickArg(currentArgs, ["githubMode", "github-mode"]),
+    rawGithubType: pickArg(currentArgs, ["githubType", "github-type", "githubGroupType", "github-group-type"]),
+    rawGithubTestUrl: pickArg(currentArgs, ["githubTestUrl", "github-test-url"]),
+    rawGithubGroupInterval: pickArg(currentArgs, ["githubGroupInterval", "github-group-interval"]),
+    rawGithubGroupTolerance: pickArg(currentArgs, ["githubGroupTolerance", "github-group-tolerance"]),
+    rawGithubGroupTimeout: pickArg(currentArgs, ["githubGroupTimeout", "github-group-timeout"]),
+    rawGithubGroupLazy: pickArg(currentArgs, ["githubGroupLazy", "github-group-lazy"]),
+    rawGithubGroupMaxFailedTimes: pickArg(currentArgs, ["githubGroupMaxFailedTimes", "github-group-max-failed-times"]),
+    rawGithubGroupExpectedStatus: pickArg(currentArgs, ["githubGroupExpectedStatus", "github-group-expected-status"]),
+    rawGithubGroupStrategy: pickArg(currentArgs, ["githubGroupStrategy", "github-group-strategy", "githubLoadBalanceStrategy", "github-load-balance-strategy"]),
+    rawGithubUseProviders: pickArg(currentArgs, ["githubUseProviders", "github-use-providers", "githubUseProvider", "github-use-provider"]),
+    rawGithubIncludeAll: pickArg(currentArgs, ["githubIncludeAll", "github-include-all", "githubAll", "github-all"]),
+    rawGithubIncludeAllProxies: pickArg(currentArgs, ["githubIncludeAllProxies", "github-include-all-proxies", "githubAllProxies", "github-all-proxies"]),
+    rawGithubIncludeAllProviders: pickArg(currentArgs, ["githubIncludeAllProviders", "github-include-all-providers", "githubAllProviders", "github-all-providers"]),
+    rawGithubHidden: pickArg(currentArgs, ["githubHidden", "github-hidden", "githubGroupHidden", "github-group-hidden"]),
+    rawGithubDisableUdp: pickArg(currentArgs, ["githubDisableUdp", "github-disable-udp", "githubDisableUDP", "github-group-disable-udp", "githubGroupDisableUdp"]),
+    rawGithubIcon: pickArg(currentArgs, ["githubIcon", "github-icon", "githubGroupIcon", "github-group-icon"]),
+    rawGithubInterfaceName: pickArg(currentArgs, ["githubInterfaceName", "github-interface-name", "githubGroupInterfaceName", "github-group-interface-name"]),
+    rawGithubRoutingMark: pickArg(currentArgs, ["githubRoutingMark", "github-routing-mark", "githubGroupRoutingMark", "github-group-routing-mark"]),
+    rawGithubNodeFilter: pickArg(currentArgs, ["githubNodeFilter", "github-node-filter", "githubFilter", "github-filter"]),
+    rawGithubNodeExcludeFilter: pickArg(currentArgs, ["githubNodeExcludeFilter", "github-node-exclude-filter", "githubExcludeFilter", "github-exclude-filter"]),
+    rawGithubNodeExcludeType: pickArg(currentArgs, ["githubNodeExcludeType", "github-node-exclude-type", "githubExcludeType", "github-exclude-type"])
+  };
+}
+
+function collectResolveArgSteamServiceRawValues(currentArgs) {
+  return {
+    rawSteamRuleTarget: pickArg(currentArgs, ["steamRuleTarget", "steam-rule-target"]),
+    rawSteamRuleAnchor: pickArg(currentArgs, ["steamRuleAnchor", "steam-rule-anchor"]),
+    rawSteamRulePosition: pickArg(currentArgs, ["steamRulePosition", "steam-rule-position"]),
+    rawSteamMode: pickArg(currentArgs, ["steamMode", "steam-mode"]),
+    rawSteamType: pickArg(currentArgs, ["steamType", "steam-type", "steamGroupType", "steam-group-type"]),
+    rawSteamTestUrl: pickArg(currentArgs, ["steamTestUrl", "steam-test-url"]),
+    rawSteamGroupInterval: pickArg(currentArgs, ["steamGroupInterval", "steam-group-interval"]),
+    rawSteamGroupTolerance: pickArg(currentArgs, ["steamGroupTolerance", "steam-group-tolerance"]),
+    rawSteamGroupTimeout: pickArg(currentArgs, ["steamGroupTimeout", "steam-group-timeout"]),
+    rawSteamGroupLazy: pickArg(currentArgs, ["steamGroupLazy", "steam-group-lazy"]),
+    rawSteamGroupMaxFailedTimes: pickArg(currentArgs, ["steamGroupMaxFailedTimes", "steam-group-max-failed-times"]),
+    rawSteamGroupExpectedStatus: pickArg(currentArgs, ["steamGroupExpectedStatus", "steam-group-expected-status"]),
+    rawSteamGroupStrategy: pickArg(currentArgs, ["steamGroupStrategy", "steam-group-strategy", "steamLoadBalanceStrategy", "steam-load-balance-strategy"]),
+    rawSteamUseProviders: pickArg(currentArgs, ["steamUseProviders", "steam-use-providers", "steamUseProvider", "steam-use-provider"]),
+    rawSteamIncludeAll: pickArg(currentArgs, ["steamIncludeAll", "steam-include-all", "steamAll", "steam-all"]),
+    rawSteamIncludeAllProxies: pickArg(currentArgs, ["steamIncludeAllProxies", "steam-include-all-proxies", "steamAllProxies", "steam-all-proxies"]),
+    rawSteamIncludeAllProviders: pickArg(currentArgs, ["steamIncludeAllProviders", "steam-include-all-providers", "steamAllProviders", "steam-all-providers"]),
+    rawSteamHidden: pickArg(currentArgs, ["steamHidden", "steam-hidden", "steamGroupHidden", "steam-group-hidden"]),
+    rawSteamDisableUdp: pickArg(currentArgs, ["steamDisableUdp", "steam-disable-udp", "steamDisableUDP", "steam-group-disable-udp", "steamGroupDisableUdp"]),
+    rawSteamIcon: pickArg(currentArgs, ["steamIcon", "steam-icon", "steamGroupIcon", "steam-group-icon"]),
+    rawSteamInterfaceName: pickArg(currentArgs, ["steamInterfaceName", "steam-interface-name", "steamGroupInterfaceName", "steam-group-interface-name"]),
+    rawSteamRoutingMark: pickArg(currentArgs, ["steamRoutingMark", "steam-routing-mark", "steamGroupRoutingMark", "steam-group-routing-mark"]),
+    rawSteamNodeFilter: pickArg(currentArgs, ["steamNodeFilter", "steam-node-filter", "steamFilter", "steam-filter"]),
+    rawSteamNodeExcludeFilter: pickArg(currentArgs, ["steamNodeExcludeFilter", "steam-node-exclude-filter", "steamExcludeFilter", "steam-exclude-filter"]),
+    rawSteamNodeExcludeType: pickArg(currentArgs, ["steamNodeExcludeType", "steam-node-exclude-type", "steamExcludeType", "steam-exclude-type"])
+  };
+}
+
+function collectResolveArgDevServiceRawValues(currentArgs) {
+  return {
+    rawDevRuleTarget: pickArg(currentArgs, ["devRuleTarget", "dev-rule-target", "developerRuleTarget", "developer-rule-target"]),
+    rawDevRuleAnchor: pickArg(currentArgs, ["devRuleAnchor", "dev-rule-anchor", "developerRuleAnchor", "developer-rule-anchor"]),
+    rawDevRulePosition: pickArg(currentArgs, ["devRulePosition", "dev-rule-position", "developerRulePosition", "developer-rule-position"]),
+    rawDevMode: pickArg(currentArgs, ["devMode", "dev-mode", "developerMode", "developer-mode"]),
+    rawDevType: pickArg(currentArgs, ["devType", "dev-type", "developerType", "developer-type", "devGroupType", "dev-group-type"]),
+    rawDevTestUrl: pickArg(currentArgs, ["devTestUrl", "dev-test-url", "developerTestUrl", "developer-test-url"]),
+    rawDevGroupInterval: pickArg(currentArgs, ["devGroupInterval", "dev-group-interval", "developerGroupInterval", "developer-group-interval"]),
+    rawDevGroupTolerance: pickArg(currentArgs, ["devGroupTolerance", "dev-group-tolerance", "developerGroupTolerance", "developer-group-tolerance"]),
+    rawDevGroupTimeout: pickArg(currentArgs, ["devGroupTimeout", "dev-group-timeout", "developerGroupTimeout", "developer-group-timeout"]),
+    rawDevGroupLazy: pickArg(currentArgs, ["devGroupLazy", "dev-group-lazy", "developerGroupLazy", "developer-group-lazy"]),
+    rawDevGroupMaxFailedTimes: pickArg(currentArgs, ["devGroupMaxFailedTimes", "dev-group-max-failed-times", "developerGroupMaxFailedTimes", "developer-group-max-failed-times"]),
+    rawDevGroupExpectedStatus: pickArg(currentArgs, ["devGroupExpectedStatus", "dev-group-expected-status", "developerGroupExpectedStatus", "developer-group-expected-status"]),
+    rawDevGroupStrategy: pickArg(currentArgs, ["devGroupStrategy", "dev-group-strategy", "developerGroupStrategy", "developer-group-strategy", "devLoadBalanceStrategy", "dev-load-balance-strategy"]),
+    rawDevUseProviders: pickArg(currentArgs, ["devUseProviders", "dev-use-providers", "developerUseProviders", "developer-use-providers", "devUseProvider", "dev-use-provider"]),
+    rawDevIncludeAll: pickArg(currentArgs, ["devIncludeAll", "dev-include-all", "developerIncludeAll", "developer-include-all", "devAll", "dev-all"]),
+    rawDevIncludeAllProxies: pickArg(currentArgs, ["devIncludeAllProxies", "dev-include-all-proxies", "developerIncludeAllProxies", "developer-include-all-proxies", "devAllProxies", "dev-all-proxies"]),
+    rawDevIncludeAllProviders: pickArg(currentArgs, ["devIncludeAllProviders", "dev-include-all-providers", "developerIncludeAllProviders", "developer-include-all-providers", "devAllProviders", "dev-all-providers"]),
+    rawDevHidden: pickArg(currentArgs, ["devHidden", "dev-hidden", "developerHidden", "developer-hidden", "devGroupHidden", "dev-group-hidden"]),
+    rawDevDisableUdp: pickArg(currentArgs, ["devDisableUdp", "dev-disable-udp", "devDisableUDP", "developerDisableUdp", "developer-disable-udp", "devGroupDisableUdp", "dev-group-disable-udp"]),
+    rawDevIcon: pickArg(currentArgs, ["devIcon", "dev-icon", "developerIcon", "developer-icon", "devGroupIcon", "dev-group-icon"]),
+    rawDevInterfaceName: pickArg(currentArgs, ["devInterfaceName", "dev-interface-name", "developerInterfaceName", "developer-interface-name", "devGroupInterfaceName", "dev-group-interface-name"]),
+    rawDevRoutingMark: pickArg(currentArgs, ["devRoutingMark", "dev-routing-mark", "developerRoutingMark", "developer-routing-mark", "devGroupRoutingMark", "dev-group-routing-mark"]),
+    rawDevNodeFilter: pickArg(currentArgs, ["devNodeFilter", "dev-node-filter", "developerNodeFilter", "developer-node-filter", "devFilter", "dev-filter"]),
+    rawDevNodeExcludeFilter: pickArg(currentArgs, ["devNodeExcludeFilter", "dev-node-exclude-filter", "developerNodeExcludeFilter", "developer-node-exclude-filter", "devExcludeFilter", "dev-exclude-filter"]),
+    rawDevNodeExcludeType: pickArg(currentArgs, ["devNodeExcludeType", "dev-node-exclude-type", "developerNodeExcludeType", "developer-node-exclude-type", "devExcludeType", "dev-exclude-type"])
+  };
+}
+
+function collectResolveArgServiceRuleRawValues(currentArgs) {
+  return {
+    rawSteamCnRuleTarget: pickArg(currentArgs, ["steamCnRuleTarget", "steam-cn-rule-target", "steamCNRuleTarget"]),
+    rawSteamCnRuleAnchor: pickArg(currentArgs, ["steamCnRuleAnchor", "steam-cn-rule-anchor", "steamCNRuleAnchor"]),
+    rawSteamCnRulePosition: pickArg(currentArgs, ["steamCnRulePosition", "steam-cn-rule-position", "steamCNRulePosition"]),
+    rawCustomRuleAnchor: pickArg(currentArgs, ["customRuleAnchor", "custom-rule-anchor", "configRulesAnchor", "config-rules-anchor", "rulesAnchor", "rules-anchor"]),
+    rawCustomRulePosition: pickArg(currentArgs, ["customRulePosition", "custom-rule-position", "configRulesPosition", "config-rules-position", "rulesPosition", "rules-position"])
+  };
+}
+
+function collectResolveArgRuntimeRawValues(currentArgs) {
+  return {
+    rawProfileCache: pickArg(currentArgs, ["profileCache", "profile-cache", "cacheProfile", "cache-profile"]),
+    rawProfileSelected: pickArg(currentArgs, ["profileSelected", "profile-selected", "storeSelected", "store-selected"]),
+    rawProfileFakeIp: pickArg(currentArgs, ["profileFakeIP", "profileFakeIp", "profile-fake-ip", "storeFakeIP", "storeFakeIp", "store-fake-ip"]),
+    rawGeoAutoUpdate: pickArg(currentArgs, ["geoAutoUpdate", "geo-auto-update", "geoUpdate", "geo-update"]),
+    rawGeoUpdateInterval: pickArg(currentArgs, ["geoUpdateInterval", "geo-update-interval"]),
+    rawGlobalUa: pickArg(currentArgs, ["globalUA", "globalUa", "global-ua"]),
+    rawResponseHeaders: pickArg(currentArgs, ["responseHeaders", "response-headers", "debugHeaders", "debug-headers", "resHeaders", "res-headers"]),
+    rawResponseHeaderPrefix: pickArg(currentArgs, ["responseHeaderPrefix", "response-header-prefix", "debugHeaderPrefix", "debug-header-prefix", "resHeaderPrefix", "res-header-prefix"]),
+    rawDnsPreferH3: pickArg(currentArgs, ["dnsPreferH3", "dns-prefer-h3", "preferH3", "prefer-h3"]),
+    rawDnsRespectRules: pickArg(currentArgs, ["dnsRespectRules", "dns-respect-rules", "respectRules", "respect-rules"]),
+    rawDnsCacheAlgorithm: pickArg(currentArgs, ["dnsCacheAlgorithm", "dns-cache-algorithm", "cacheAlgorithm", "cache-algorithm"]),
+    rawDnsUseSystemHosts: pickArg(currentArgs, ["dnsUseSystemHosts", "dns-use-system-hosts", "useSystemHosts", "use-system-hosts"]),
+    rawDnsListen: pickArg(currentArgs, ["dnsListen", "dns-listen"]),
+    rawFakeIpFilterMode: pickArg(currentArgs, ["fakeIpFilterMode", "fake-ip-filter-mode"]),
+    rawFakeIpTtl: pickArg(currentArgs, ["fakeIpTTL", "fakeIpTtl", "fake-ip-ttl"]),
+    rawFakeIpRange: pickArg(currentArgs, ["fakeIpRange", "fake-ip-range"]),
+    rawFakeIpRange6: pickArg(currentArgs, ["fakeIpRange6", "fake-ip-range6"]),
+    rawUnifiedDelay: pickArg(currentArgs, ["unifiedDelay", "unified-delay"]),
+    rawTcpConcurrent: pickArg(currentArgs, ["tcpConcurrent", "tcp-concurrent"]),
+    rawProcessMode: pickArg(currentArgs, ["processMode", "process-mode", "findProcessMode", "find-process-mode"]),
+    rawGeodataLoader: pickArg(currentArgs, ["geodataLoader", "geodata-loader"]),
+    rawGeodataMode: pickArg(currentArgs, ["geodataMode", "geodata-mode"]),
+    rawSnifferForceDnsMapping: pickArg(currentArgs, ["snifferForceDnsMapping", "sniffer-force-dns-mapping"]),
+    rawSnifferParsePureIp: pickArg(currentArgs, ["snifferParsePureIp", "sniffer-parse-pure-ip"]),
+    rawSnifferOverrideDestination: pickArg(currentArgs, ["snifferOverrideDestination", "sniffer-override-destination"]),
+    rawSnifferHttpOverrideDestination: pickArg(currentArgs, ["snifferHttpOverrideDestination", "sniffer-http-override-destination"]),
+    rawSnifferForceDomains: pickArg(currentArgs, ["snifferForceDomains", "sniffer-force-domains", "forceDomains", "force-domains"]),
+    rawSnifferSkipDomains: pickArg(currentArgs, ["snifferSkipDomains", "sniffer-skip-domains", "skipDomains", "skip-domains"]),
+    rawIpv6Enabled: pickArg(currentArgs, ["ipv6Enabled", "ipv6"]),
+    rawLoadBalance: pickArg(currentArgs, ["loadBalance", "loadbalance", "load-balance", "lb"]),
+    rawLanding: pickArg(currentArgs, ["landing"]),
+    rawHiddenGroups: pickArg(currentArgs, ["hiddenGroups", "hiddengroups", "hidden-groups", "hidden"]),
+    rawFullConfig: pickArg(currentArgs, ["fullConfig", "fullconfig", "full"]),
+    rawFakeIpEnabled: pickArg(currentArgs, ["fakeIPEnabled", "fakeIpEnabled", "fakeip", "fake-ip"]),
+    rawQuicEnabled: pickArg(currentArgs, ["quicEnabled", "quic"])
+  };
+}
+
+function collectResolveArgRawValues(args) {
+  const currentArgs = isObject(args) ? args : {};
+  return Object.assign(
+    {},
+    collectResolveArgCoreRawValues(currentArgs),
+    collectResolveArgProviderRawValues(currentArgs),
+    collectResolveArgPreferenceRawValues(currentArgs),
+    collectResolveArgGithubServiceRawValues(currentArgs),
+    collectResolveArgSteamServiceRawValues(currentArgs),
+    collectResolveArgDevServiceRawValues(currentArgs),
+    collectResolveArgServiceRuleRawValues(currentArgs),
+    collectResolveArgRuntimeRawValues(currentArgs)
+  );
+}
+
+// SteamCN / config.rules 这种非共享服务参数也先统一规范，避免 resolveArgs 主体继续手写散点解析。
+function buildResolveArgRuleOrderState(payload) {
+  const current = isObject(payload) ? payload : {};
+  return {
+    rawSteamCnRuleTarget: current.rawSteamCnRuleTarget,
+    steamCnRuleTarget: normalizeStringArg(current.rawSteamCnRuleTarget),
+    rawSteamCnRuleAnchor: current.rawSteamCnRuleAnchor,
+    steamCnRuleAnchor: normalizeStringArg(current.rawSteamCnRuleAnchor),
+    rawSteamCnRulePosition: current.rawSteamCnRulePosition,
+    steamCnRulePosition: normalizeRuleOrderPosition(current.rawSteamCnRulePosition, "before"),
+    rawCustomRuleAnchor: current.rawCustomRuleAnchor,
+    customRuleAnchor: normalizeStringArg(current.rawCustomRuleAnchor),
+    rawCustomRulePosition: current.rawCustomRulePosition,
+    customRulePosition: normalizeRuleOrderPosition(current.rawCustomRulePosition, "before")
+  };
+}
+
+// 把 SteamCN / custom-rule 相关字段拍平成 resolveArgs 返回值，保持主返回对象扁平结构不变。
+function buildResolveArgRuleOrderResultPayload(ruleOrderState) {
+  const current = isObject(ruleOrderState) ? ruleOrderState : buildResolveArgRuleOrderState();
+  return {
+    steamCnRuleTarget: current.steamCnRuleTarget,
+    hasSteamCnRuleTarget: !!current.steamCnRuleTarget,
+    steamCnRuleAnchor: current.steamCnRuleAnchor,
+    hasSteamCnRuleAnchor: !!current.steamCnRuleAnchor,
+    steamCnRulePosition: current.steamCnRulePosition,
+    hasSteamCnRulePosition: current.rawSteamCnRulePosition !== undefined,
+    customRuleAnchor: current.customRuleAnchor,
+    hasCustomRuleAnchor: !!current.customRuleAnchor,
+    customRulePosition: current.customRulePosition,
+    hasCustomRulePosition: current.rawCustomRulePosition !== undefined
+  };
+}
+
+// resolveArgs 开头剩余的几个简单布尔开关统一拍平，避免和 runtimeCoreState 的结果对象混在一起。
+function buildResolveArgBasicTogglePayload(rawValues) {
+  const current = isObject(rawValues) ? rawValues : {};
+  return {
+    ipv6: parseBool(current.rawIpv6Enabled, true),
+    lb: parseBool(current.rawLoadBalance, false),
+    landing: parseBool(current.rawLanding, false),
+    hidden: parseBool(current.rawHiddenGroups, false),
+    full: parseBool(current.rawFullConfig, false),
+    profileCache: parseBool(current.rawProfileCache, false),
+    hasProfileCache: current.rawProfileCache !== undefined,
+    mergeGithubToDev: parseBool(current.rawMergeGithubToDev, false),
+    hasMergeGithubToDev: current.rawMergeGithubToDev !== undefined
+  };
+}
+
+// GitHub / Steam / Dev 三类独立组的原始参数结构相同，这里统一组装成状态数组，避免 resolveArgs 再维护三大段模板。
+function buildResolveArgServiceResolveStates(rawValues) {
+  const current = isObject(rawValues) ? rawValues : {};
+  return [
     buildResolveArgServiceState({
       key: "github",
       defaultMode: "select",
       defaultType: "select",
-      rawTestUrl: rawGithubTestUrl,
-      rawGroupInterval: rawGithubGroupInterval,
-      rawGroupTolerance: rawGithubGroupTolerance,
-      rawGroupTimeout: rawGithubGroupTimeout,
-      rawGroupLazy: rawGithubGroupLazy,
-      rawGroupMaxFailedTimes: rawGithubGroupMaxFailedTimes,
-      rawGroupExpectedStatus: rawGithubGroupExpectedStatus,
-      rawGroupStrategy: rawGithubGroupStrategy,
-      rawMode: rawGithubMode,
-      rawType: rawGithubType,
-      rawRuleTarget: rawGithubRuleTarget,
-      rawRuleAnchor: rawGithubRuleAnchor,
-      rawRulePosition: rawGithubRulePosition,
-      rawPreferCountries: rawGithubPreferCountries,
-      rawPreferGroups: rawGithubPreferGroups,
-      rawPreferNodes: rawGithubPreferNodes,
-      rawInterfaceName: rawGithubInterfaceName,
-      rawRoutingMark: rawGithubRoutingMark,
-      rawUseProviders: rawGithubUseProviders,
-      rawIncludeAll: rawGithubIncludeAll,
-      rawIncludeAllProviders: rawGithubIncludeAllProviders,
-      rawIncludeAllProxies: rawGithubIncludeAllProxies,
-      rawHidden: rawGithubHidden,
-      rawDisableUdp: rawGithubDisableUdp,
-      rawIcon: rawGithubIcon,
-      rawNodeFilter: rawGithubNodeFilter,
-      rawNodeExcludeFilter: rawGithubNodeExcludeFilter,
-      rawNodeExcludeType: rawGithubNodeExcludeType
+      rawTestUrl: current.rawGithubTestUrl,
+      rawGroupInterval: current.rawGithubGroupInterval,
+      rawGroupTolerance: current.rawGithubGroupTolerance,
+      rawGroupTimeout: current.rawGithubGroupTimeout,
+      rawGroupLazy: current.rawGithubGroupLazy,
+      rawGroupMaxFailedTimes: current.rawGithubGroupMaxFailedTimes,
+      rawGroupExpectedStatus: current.rawGithubGroupExpectedStatus,
+      rawGroupStrategy: current.rawGithubGroupStrategy,
+      rawMode: current.rawGithubMode,
+      rawType: current.rawGithubType,
+      rawRuleTarget: current.rawGithubRuleTarget,
+      rawRuleAnchor: current.rawGithubRuleAnchor,
+      rawRulePosition: current.rawGithubRulePosition,
+      rawPreferCountries: current.rawGithubPreferCountries,
+      rawPreferGroups: current.rawGithubPreferGroups,
+      rawPreferNodes: current.rawGithubPreferNodes,
+      rawInterfaceName: current.rawGithubInterfaceName,
+      rawRoutingMark: current.rawGithubRoutingMark,
+      rawUseProviders: current.rawGithubUseProviders,
+      rawIncludeAll: current.rawGithubIncludeAll,
+      rawIncludeAllProviders: current.rawGithubIncludeAllProviders,
+      rawIncludeAllProxies: current.rawGithubIncludeAllProxies,
+      rawHidden: current.rawGithubHidden,
+      rawDisableUdp: current.rawGithubDisableUdp,
+      rawIcon: current.rawGithubIcon,
+      rawNodeFilter: current.rawGithubNodeFilter,
+      rawNodeExcludeFilter: current.rawGithubNodeExcludeFilter,
+      rawNodeExcludeType: current.rawGithubNodeExcludeType
     }),
     buildResolveArgServiceState({
       key: "steam",
       defaultMode: "direct",
       defaultType: "select",
-      rawTestUrl: rawSteamTestUrl,
-      rawGroupInterval: rawSteamGroupInterval,
-      rawGroupTolerance: rawSteamGroupTolerance,
-      rawGroupTimeout: rawSteamGroupTimeout,
-      rawGroupLazy: rawSteamGroupLazy,
-      rawGroupMaxFailedTimes: rawSteamGroupMaxFailedTimes,
-      rawGroupExpectedStatus: rawSteamGroupExpectedStatus,
-      rawGroupStrategy: rawSteamGroupStrategy,
-      rawMode: rawSteamMode,
-      rawType: rawSteamType,
-      rawRuleTarget: rawSteamRuleTarget,
-      rawRuleAnchor: rawSteamRuleAnchor,
-      rawRulePosition: rawSteamRulePosition,
-      rawPreferCountries: rawSteamPreferCountries,
-      rawPreferGroups: rawSteamPreferGroups,
-      rawPreferNodes: rawSteamPreferNodes,
-      rawInterfaceName: rawSteamInterfaceName,
-      rawRoutingMark: rawSteamRoutingMark,
-      rawUseProviders: rawSteamUseProviders,
-      rawIncludeAll: rawSteamIncludeAll,
-      rawIncludeAllProviders: rawSteamIncludeAllProviders,
-      rawIncludeAllProxies: rawSteamIncludeAllProxies,
-      rawHidden: rawSteamHidden,
-      rawDisableUdp: rawSteamDisableUdp,
-      rawIcon: rawSteamIcon,
-      rawNodeFilter: rawSteamNodeFilter,
-      rawNodeExcludeFilter: rawSteamNodeExcludeFilter,
-      rawNodeExcludeType: rawSteamNodeExcludeType
+      rawTestUrl: current.rawSteamTestUrl,
+      rawGroupInterval: current.rawSteamGroupInterval,
+      rawGroupTolerance: current.rawSteamGroupTolerance,
+      rawGroupTimeout: current.rawSteamGroupTimeout,
+      rawGroupLazy: current.rawSteamGroupLazy,
+      rawGroupMaxFailedTimes: current.rawSteamGroupMaxFailedTimes,
+      rawGroupExpectedStatus: current.rawSteamGroupExpectedStatus,
+      rawGroupStrategy: current.rawSteamGroupStrategy,
+      rawMode: current.rawSteamMode,
+      rawType: current.rawSteamType,
+      rawRuleTarget: current.rawSteamRuleTarget,
+      rawRuleAnchor: current.rawSteamRuleAnchor,
+      rawRulePosition: current.rawSteamRulePosition,
+      rawPreferCountries: current.rawSteamPreferCountries,
+      rawPreferGroups: current.rawSteamPreferGroups,
+      rawPreferNodes: current.rawSteamPreferNodes,
+      rawInterfaceName: current.rawSteamInterfaceName,
+      rawRoutingMark: current.rawSteamRoutingMark,
+      rawUseProviders: current.rawSteamUseProviders,
+      rawIncludeAll: current.rawSteamIncludeAll,
+      rawIncludeAllProviders: current.rawSteamIncludeAllProviders,
+      rawIncludeAllProxies: current.rawSteamIncludeAllProxies,
+      rawHidden: current.rawSteamHidden,
+      rawDisableUdp: current.rawSteamDisableUdp,
+      rawIcon: current.rawSteamIcon,
+      rawNodeFilter: current.rawSteamNodeFilter,
+      rawNodeExcludeFilter: current.rawSteamNodeExcludeFilter,
+      rawNodeExcludeType: current.rawSteamNodeExcludeType
     }),
     buildResolveArgServiceState({
       key: "dev",
       defaultMode: "select",
       defaultType: "select",
-      rawTestUrl: rawDevTestUrl,
-      rawGroupInterval: rawDevGroupInterval,
-      rawGroupTolerance: rawDevGroupTolerance,
-      rawGroupTimeout: rawDevGroupTimeout,
-      rawGroupLazy: rawDevGroupLazy,
-      rawGroupMaxFailedTimes: rawDevGroupMaxFailedTimes,
-      rawGroupExpectedStatus: rawDevGroupExpectedStatus,
-      rawGroupStrategy: rawDevGroupStrategy,
-      rawMode: rawDevMode,
-      rawType: rawDevType,
-      rawRuleTarget: rawDevRuleTarget,
-      rawRuleAnchor: rawDevRuleAnchor,
-      rawRulePosition: rawDevRulePosition,
-      rawPreferCountries: rawDevPreferCountries,
-      rawPreferGroups: rawDevPreferGroups,
-      rawPreferNodes: rawDevPreferNodes,
-      rawInterfaceName: rawDevInterfaceName,
-      rawRoutingMark: rawDevRoutingMark,
-      rawUseProviders: rawDevUseProviders,
-      rawIncludeAll: rawDevIncludeAll,
-      rawIncludeAllProviders: rawDevIncludeAllProviders,
-      rawIncludeAllProxies: rawDevIncludeAllProxies,
-      rawHidden: rawDevHidden,
-      rawDisableUdp: rawDevDisableUdp,
-      rawIcon: rawDevIcon,
-      rawNodeFilter: rawDevNodeFilter,
-      rawNodeExcludeFilter: rawDevNodeExcludeFilter,
-      rawNodeExcludeType: rawDevNodeExcludeType
+      rawTestUrl: current.rawDevTestUrl,
+      rawGroupInterval: current.rawDevGroupInterval,
+      rawGroupTolerance: current.rawDevGroupTolerance,
+      rawGroupTimeout: current.rawDevGroupTimeout,
+      rawGroupLazy: current.rawDevGroupLazy,
+      rawGroupMaxFailedTimes: current.rawDevGroupMaxFailedTimes,
+      rawGroupExpectedStatus: current.rawDevGroupExpectedStatus,
+      rawGroupStrategy: current.rawDevGroupStrategy,
+      rawMode: current.rawDevMode,
+      rawType: current.rawDevType,
+      rawRuleTarget: current.rawDevRuleTarget,
+      rawRuleAnchor: current.rawDevRuleAnchor,
+      rawRulePosition: current.rawDevRulePosition,
+      rawPreferCountries: current.rawDevPreferCountries,
+      rawPreferGroups: current.rawDevPreferGroups,
+      rawPreferNodes: current.rawDevPreferNodes,
+      rawInterfaceName: current.rawDevInterfaceName,
+      rawRoutingMark: current.rawDevRoutingMark,
+      rawUseProviders: current.rawDevUseProviders,
+      rawIncludeAll: current.rawDevIncludeAll,
+      rawIncludeAllProviders: current.rawDevIncludeAllProviders,
+      rawIncludeAllProxies: current.rawDevIncludeAllProxies,
+      rawHidden: current.rawDevHidden,
+      rawDisableUdp: current.rawDevDisableUdp,
+      rawIcon: current.rawDevIcon,
+      rawNodeFilter: current.rawDevNodeFilter,
+      rawNodeExcludeFilter: current.rawDevNodeExcludeFilter,
+      rawNodeExcludeType: current.rawDevNodeExcludeType
     })
   ];
+}
+
+// 解析 Sub-Store 传入的运行参数，并做兼容与兜底。
+function resolveArgs(rawArgs) {
+  // 按 Sub-Store 官方 `$options` 说明统一规范参数，兼容对象、querystring 与 JSON 字符串。
+  const args = normalizeScriptArgs(rawArgs);
+  const rawValues = collectResolveArgRawValues(args);
+  // 尝试把 threshold 转成数字。
+  const parsedThreshold = parseNumber(rawValues.rawThreshold, 0);
+  // 再把 threshold 限制在允许范围内。
+  const threshold = clampNumber(parsedThreshold, 0, MAX_THRESHOLD);
+  const ruleSourceResolveState = buildResolveArgRuleSourceState({
+    rawDirectListUrl: rawValues.rawDirectListUrl,
+    rawCryptoListUrl: rawValues.rawCryptoListUrl,
+    rawChatGptListUrl: rawValues.rawChatGptListUrl,
+    rawAiExtraListUrl: rawValues.rawAiExtraListUrl,
+    rawDevListUrl: rawValues.rawDevListUrl,
+    rawRuleSourcePreset: rawValues.rawRuleSourcePreset,
+    rawSteamFix: rawValues.rawSteamFix,
+    rawSteamFixUrl: rawValues.rawSteamFixUrl
+  });
+  const groupResolveState = buildResolveArgGroupState({
+    rawTestUrl: rawValues.rawTestUrl,
+    rawGroupInterval: rawValues.rawGroupInterval,
+    rawGroupTolerance: rawValues.rawGroupTolerance,
+    rawGroupTimeout: rawValues.rawGroupTimeout,
+    rawGroupLazy: rawValues.rawGroupLazy,
+    rawGroupMaxFailedTimes: rawValues.rawGroupMaxFailedTimes,
+    rawGroupExpectedStatus: rawValues.rawGroupExpectedStatus,
+    rawGroupStrategy: rawValues.rawGroupStrategy,
+    rawInterfaceName: rawValues.rawGroupInterfaceName,
+    rawRoutingMark: rawValues.rawGroupRoutingMark
+  });
+  const ruleProviderResolveState = buildResolveArgRuleProviderState({
+    rawPathDir: rawValues.rawRuleProviderPathDir,
+    rawInterval: rawValues.rawRuleProviderInterval,
+    rawProxy: rawValues.rawRuleProviderProxy,
+    rawSizeLimit: rawValues.rawRuleProviderSizeLimit,
+    rawUserAgent: rawValues.rawRuleProviderUserAgent,
+    rawAuthorization: rawValues.rawRuleProviderAuthorization,
+    rawHeader: rawValues.rawRuleProviderHeader,
+    rawPayload: rawValues.rawRuleProviderPayload
+  });
+  const proxyProviderResolveState = buildResolveArgProxyProviderState({
+    rawInterval: rawValues.rawProxyProviderInterval,
+    rawProxy: rawValues.rawProxyProviderProxy,
+    rawSizeLimit: rawValues.rawProxyProviderSizeLimit,
+    rawUserAgent: rawValues.rawProxyProviderUserAgent,
+    rawAuthorization: rawValues.rawProxyProviderAuthorization,
+    rawHeader: rawValues.rawProxyProviderHeader,
+    rawPayload: rawValues.rawProxyProviderPayload,
+    rawPathDir: rawValues.rawProxyProviderPathDir,
+    rawFilter: rawValues.rawProxyProviderFilter,
+    rawExcludeFilter: rawValues.rawProxyProviderExcludeFilter,
+    rawExcludeType: rawValues.rawProxyProviderExcludeType,
+    rawOverrideAdditionalPrefix: rawValues.rawProxyProviderOverrideAdditionalPrefix,
+    rawOverrideAdditionalSuffix: rawValues.rawProxyProviderOverrideAdditionalSuffix,
+    rawOverrideUdp: rawValues.rawProxyProviderOverrideUdp,
+    rawOverrideUdpOverTcp: rawValues.rawProxyProviderOverrideUdpOverTcp,
+    rawOverrideDown: rawValues.rawProxyProviderOverrideDown,
+    rawOverrideUp: rawValues.rawProxyProviderOverrideUp,
+    rawOverrideTfo: rawValues.rawProxyProviderOverrideTfo,
+    rawOverrideMptcp: rawValues.rawProxyProviderOverrideMptcp,
+    rawOverrideSkipCertVerify: rawValues.rawProxyProviderOverrideSkipCertVerify,
+    rawOverrideDialerProxy: rawValues.rawProxyProviderOverrideDialerProxy,
+    rawOverrideInterfaceName: rawValues.rawProxyProviderOverrideInterfaceName,
+    rawOverrideRoutingMark: rawValues.rawProxyProviderOverrideRoutingMark,
+    rawOverrideIpVersion: rawValues.rawProxyProviderOverrideIpVersion,
+    rawOverrideProxyName: rawValues.rawProxyProviderOverrideProxyName,
+    rawHealthCheckEnable: rawValues.rawProxyProviderHealthCheckEnable,
+    rawHealthCheckUrl: rawValues.rawProxyProviderHealthCheckUrl,
+    rawHealthCheckInterval: rawValues.rawProxyProviderHealthCheckInterval,
+    rawHealthCheckTimeout: rawValues.rawProxyProviderHealthCheckTimeout,
+    rawHealthCheckLazy: rawValues.rawProxyProviderHealthCheckLazy,
+    rawHealthCheckExpectedStatus: rawValues.rawProxyProviderHealthCheckExpectedStatus
+  });
+  const aiPreferCountries = toStringList(rawValues.rawAiPreferCountries);
+  const cryptoPreferCountries = toStringList(rawValues.rawCryptoPreferCountries);
+  const extraDirectDomains = normalizeDirectDomainEntries(rawValues.rawExtraDirectDomains);
+  const countryAliasResolveState = buildResolveArgCountryAliasState({
+    rawCountryExtraAliases: rawValues.rawCountryExtraAliases
+  });
+  // 解析完成后立刻刷新运行态缓存，确保后续 parseCountries / preferred-country 等流程读取到的是本轮最新别名。
+  COUNTRY_EXTRA_ALIAS_RUNTIME_MAP = isObject(countryAliasResolveState.countryExtraAliasesMap) ? countryAliasResolveState.countryExtraAliasesMap : Object.create(null);
+  const ruleOrderResolveState = buildResolveArgRuleOrderState(rawValues);
+  const groupLayoutResolveState = buildResolveArgGroupLayoutState({
+    rawGroupOrderPreset: rawValues.rawGroupOrderPreset,
+    rawGroupOrder: rawValues.rawGroupOrder,
+    rawCountryGroupSort: rawValues.rawCountryGroupSort,
+    rawRegionGroupSort: rawValues.rawRegionGroupSort,
+    rawRegionGroups: rawValues.rawRegionGroups
+  });
+  const runtimeCoreResolveState = buildResolveArgRuntimeCoreState({
+    rawProfileSelected: rawValues.rawProfileSelected,
+    rawProfileFakeIp: rawValues.rawProfileFakeIp,
+    rawFakeIpEnabled: rawValues.rawFakeIpEnabled,
+    rawQuicEnabled: rawValues.rawQuicEnabled,
+    rawUnifiedDelay: rawValues.rawUnifiedDelay,
+    rawTcpConcurrent: rawValues.rawTcpConcurrent,
+    rawGeoAutoUpdate: rawValues.rawGeoAutoUpdate,
+    rawGeoUpdateInterval: rawValues.rawGeoUpdateInterval,
+    rawGlobalUa: rawValues.rawGlobalUa,
+    rawResponseHeaders: rawValues.rawResponseHeaders,
+    rawResponseHeaderPrefix: rawValues.rawResponseHeaderPrefix,
+    rawDnsPreferH3: rawValues.rawDnsPreferH3,
+    rawDnsRespectRules: rawValues.rawDnsRespectRules,
+    rawDnsCacheAlgorithm: rawValues.rawDnsCacheAlgorithm,
+    rawDnsUseSystemHosts: rawValues.rawDnsUseSystemHosts,
+    rawFakeIpFilterMode: rawValues.rawFakeIpFilterMode,
+    rawFakeIpTtl: rawValues.rawFakeIpTtl,
+    rawProcessMode: rawValues.rawProcessMode,
+    rawGeodataLoader: rawValues.rawGeodataLoader,
+    rawGeodataMode: rawValues.rawGeodataMode,
+    rawDnsListen: rawValues.rawDnsListen,
+    rawFakeIpRange: rawValues.rawFakeIpRange,
+    rawFakeIpRange6: rawValues.rawFakeIpRange6
+  });
+  const snifferResolveState = buildResolveArgSnifferState({
+    rawSnifferForceDnsMapping: rawValues.rawSnifferForceDnsMapping,
+    rawSnifferParsePureIp: rawValues.rawSnifferParsePureIp,
+    rawSnifferOverrideDestination: rawValues.rawSnifferOverrideDestination,
+    rawSnifferHttpOverrideDestination: rawValues.rawSnifferHttpOverrideDestination,
+    rawSnifferForceDomains: rawValues.rawSnifferForceDomains,
+    rawSnifferSkipDomains: rawValues.rawSnifferSkipDomains
+  });
+  // GitHub / Steam / Dev 三类独立组的大部分参数语义一致，这里统一收口成服务状态表，供告警与最终返回复用。
+  const serviceResolveStates = buildResolveArgServiceResolveStates(rawValues);
   // 全局测速组与布局字段也提前展开，避免 return 区继续维护成片平铺属性。
   const resolvedGroupArgPayload = buildResolveArgGroupResultPayload(groupResolveState);
   const resolvedGroupLayoutArgPayload = buildResolveArgGroupLayoutResultPayload(groupLayoutResolveState);
@@ -5469,13 +5430,18 @@ function resolveArgs(rawArgs) {
   const resolvedServiceArgPayload = buildResolveArgServiceResultPayload(serviceResolveStates);
   // provider 相关字段也提前展开，避免 return 区继续维护大段平铺属性。
   const resolvedProviderArgPayload = buildResolveArgProviderResultPayload(ruleProviderResolveState, proxyProviderResolveState);
+  const resolvedBasicTogglePayload = buildResolveArgBasicTogglePayload(rawValues);
+  const resolvedRuleOrderArgPayload = buildResolveArgRuleOrderResultPayload(ruleOrderResolveState);
+  const resolvedRuntimeCoreArgPayload = buildResolveArgRuntimeCoreResultPayload(runtimeCoreResolveState);
+  const resolvedRuntimeDnsAddressArgPayload = buildResolveArgRuntimeDnsAddressResultPayload(runtimeCoreResolveState);
+  const resolvedSnifferArgPayload = buildResolveArgSnifferResultPayload(snifferResolveState);
 
   // 如果用户传入值被修正了，就打印一条警告帮助定位问题。
   if (parsedThreshold !== threshold) {
     emitWarning(`⚠️ 警告: threshold 超出范围，已重置为 ${threshold}`);
   }
 
-  if (rawExtraDirectDomains !== undefined && hasUsableArgValue(rawExtraDirectDomains) && !extraDirectDomains.length) {
+  if (rawValues.rawExtraDirectDomains !== undefined && hasUsableArgValue(rawValues.rawExtraDirectDomains) && !extraDirectDomains.length) {
     emitWarning("⚠️ 警告: extra-direct-domains 未解析出任何有效域名，已忽略；请使用 example.com,+.example.org 这类写法");
   }
 
@@ -5494,9 +5460,7 @@ function resolveArgs(rawArgs) {
   warnResolveArgProxyProviderState(proxyProviderResolveState);
 
   // 如果 geo 更新间隔被修正，也打印提示。
-  if (rawGeoUpdateInterval !== undefined && parsedGeoUpdateInterval !== geoUpdateInterval) {
-    emitWarning(`⚠️ 警告: geo-update-interval 无效，已重置为 ${geoUpdateInterval}`);
-  }
+  warnResolveArgRuntimeCoreState(runtimeCoreResolveState);
 
   // 官方文档已将 interface-name 标记为 deprecated，这里主动提醒，避免长期依赖。
   if (groupResolveState.interfaceName || serviceResolveStates.some((serviceState) => !!serviceState.interfaceName)) {
@@ -5509,38 +5473,22 @@ function resolveArgs(rawArgs) {
   }
 
   // 如果 SteamCN 规则顺序位置非法，则回退默认值并提示。
-  if (rawSteamCnRulePosition !== undefined && normalizeStringArg(rawSteamCnRulePosition).toLowerCase() !== steamCnRulePosition) {
-    emitWarning(`⚠️ 警告: steam-cn-rule-position 无效，已重置为 ${steamCnRulePosition}`);
+  if (rawValues.rawSteamCnRulePosition !== undefined && normalizeStringArg(rawValues.rawSteamCnRulePosition).toLowerCase() !== ruleOrderResolveState.steamCnRulePosition) {
+    emitWarning(`⚠️ 警告: steam-cn-rule-position 无效，已重置为 ${ruleOrderResolveState.steamCnRulePosition}`);
   }
 
   // 如果 custom-rule-position 非法，则回退默认值并提示。
-  if (rawCustomRulePosition !== undefined && normalizeStringArg(rawCustomRulePosition).toLowerCase() !== customRulePosition) {
-    emitWarning(`⚠️ 警告: custom-rule-position 无效，已重置为 ${customRulePosition}`);
+  if (rawValues.rawCustomRulePosition !== undefined && normalizeStringArg(rawValues.rawCustomRulePosition).toLowerCase() !== ruleOrderResolveState.customRulePosition) {
+    emitWarning(`⚠️ 警告: custom-rule-position 无效，已重置为 ${ruleOrderResolveState.customRulePosition}`);
   }
 
   // 布局参数告警同样已收口到状态 helper，避免 resolveArgs 主体继续堆积模板。
   warnResolveArgGroupLayoutState(groupLayoutResolveState);
 
-  // 如果 fake-ip-ttl 被修正，也打印提示。
-  if (rawFakeIpTtl !== undefined && parsedFakeIpTtl !== fakeIpTtl) {
-    emitWarning(`⚠️ 警告: fake-ip-ttl 无效，已重置为 ${fakeIpTtl}`);
-  }
-
   // 返回最终规范化后的参数对象。
   return {
-    // ipv6 兼容 ipv6Enabled / ipv6。
-    ipv6: parseBool(pickArg(args, ["ipv6Enabled", "ipv6"]), true),
-    // load-balance 兼容多种大小写/命名风格。
-    lb: parseBool(pickArg(args, ["loadBalance", "loadbalance", "load-balance", "lb"]), false),
-    // landing 只控制是否隔离落地节点。
-    landing: parseBool(pickArg(args, ["landing"]), false),
-    // hidden 控制是否隐藏辅助策略组，兼容多种写法。
-    hidden: parseBool(pickArg(args, ["hiddenGroups", "hiddengroups", "hidden-groups", "hidden"]), false),
-    // full 控制是否输出更完整的日志。
-    full: parseBool(pickArg(args, ["fullConfig", "fullconfig", "full"]), false),
-    // 允许用参数显式控制是否注入 profile.store-selected / store-fake-ip。
-    profileCache: parseBool(rawProfileCache, false),
-    hasProfileCache: rawProfileCache !== undefined,
+    // 入口级简单布尔开关统一由 helper 展开，避免 return 区继续夹杂散点 pickArg。
+    ...resolvedBasicTogglePayload,
     // 规则源字段统一由规则源状态表展开，避免 return 区继续维护 URL/preset/steam-fix 多段平铺属性。
     ...resolvedRuleSourceArgPayload,
     // rule-provider / proxy-provider 字段统一由 provider 状态表展开，避免 return 区继续维护一长串重复属性。
@@ -5556,112 +5504,53 @@ function resolveArgs(rawArgs) {
     ...resolvedCountryAliasArgPayload,
     // 全局测速组与布局字段也统一由状态表展开，避免 return 区继续堆积重复属性。
     ...resolvedGroupArgPayload,
-    mergeGithubToDev: parseBool(rawMergeGithubToDev, false),
-    hasMergeGithubToDev: rawMergeGithubToDev !== undefined,
     ...resolvedGroupLayoutArgPayload,
     // GitHub / Steam / Dev 三类独立组的解析字段统一由状态表展开，避免 return 区继续维护三套重复键。
     ...resolvedServiceArgPayload,
-    steamCnRuleTarget,
-    hasSteamCnRuleTarget: !!steamCnRuleTarget,
-    steamCnRuleAnchor,
-    hasSteamCnRuleAnchor: !!steamCnRuleAnchor,
-    steamCnRulePosition,
-    hasSteamCnRulePosition: rawSteamCnRulePosition !== undefined,
-    customRuleAnchor,
-    hasCustomRuleAnchor: !!customRuleAnchor,
-    customRulePosition,
-    hasCustomRulePosition: rawCustomRulePosition !== undefined,
-    // 允许用参数分别控制 profile.store-selected / store-fake-ip。
-    profileSelected: parseBool(rawProfileSelected, true),
-    hasProfileSelected: rawProfileSelected !== undefined,
-    profileFakeIp: parseBool(rawProfileFakeIp, true),
-    hasProfileFakeIp: rawProfileFakeIp !== undefined,
-    // fake-ip 兼容多种写法。
-    fakeip: parseBool(pickArg(args, ["fakeIPEnabled", "fakeIpEnabled", "fakeip", "fake-ip"]), true),
-    // quic 兼容 quicEnabled / quic。
-    quic: parseBool(pickArg(args, ["quicEnabled", "quic"]), false),
-    // 允许用参数直接覆盖 unified-delay / tcp-concurrent。
-    unifiedDelay: parseBool(rawUnifiedDelay, true),
-    hasUnifiedDelay: rawUnifiedDelay !== undefined,
-    tcpConcurrent: parseBool(rawTcpConcurrent, true),
-    hasTcpConcurrent: rawTcpConcurrent !== undefined,
-    // 允许用参数显式控制 Geo 自动更新。
-    geoAutoUpdate: parseBool(rawGeoAutoUpdate, false),
-    hasGeoAutoUpdate: rawGeoAutoUpdate !== undefined,
-    // 允许用参数显式控制 Geo 更新间隔。
-    geoUpdateInterval,
-    hasGeoUpdateInterval: rawGeoUpdateInterval !== undefined,
-    // 允许用参数显式覆盖 global-ua。
-    globalUa: typeof rawGlobalUa === "string" ? rawGlobalUa.trim() : "",
-    hasGlobalUa: typeof rawGlobalUa === "string" && !!rawGlobalUa.trim(),
-    // 允许把运行时调试摘要写进下载响应头，方便直接在 HTTP 层排查。
-    responseHeaders: parseBool(rawResponseHeaders, false),
-    hasResponseHeaders: rawResponseHeaders !== undefined,
-    responseHeaderPrefix,
-    hasResponseHeaderPrefix: typeof rawResponseHeaderPrefix === "string" && !!rawResponseHeaderPrefix.trim(),
-    // 允许用参数显式覆盖 DNS 高级项。
-    dnsPreferH3: parseBool(rawDnsPreferH3, false),
-    hasDnsPreferH3: rawDnsPreferH3 !== undefined,
-    dnsRespectRules: parseBool(rawDnsRespectRules, false),
-    hasDnsRespectRules: rawDnsRespectRules !== undefined,
-    dnsCacheAlgorithm: typeof rawDnsCacheAlgorithm === "string" ? rawDnsCacheAlgorithm.trim().toLowerCase() : "",
-    hasDnsCacheAlgorithm: typeof rawDnsCacheAlgorithm === "string" && !!rawDnsCacheAlgorithm.trim(),
-    dnsUseSystemHosts: parseBool(rawDnsUseSystemHosts, true),
-    hasDnsUseSystemHosts: rawDnsUseSystemHosts !== undefined,
-    fakeIpFilterMode: typeof rawFakeIpFilterMode === "string" ? rawFakeIpFilterMode.trim().toLowerCase() : "",
-    hasFakeIpFilterMode: typeof rawFakeIpFilterMode === "string" && !!rawFakeIpFilterMode.trim(),
-    fakeIpTtl,
-    hasFakeIpTtl: rawFakeIpTtl !== undefined,
-    // 允许用参数显式覆盖 find-process-mode / geodata-loader / geodata-mode。
-    processMode: typeof rawProcessMode === "string" ? rawProcessMode.trim().toLowerCase() : "",
-    hasProcessMode: typeof rawProcessMode === "string" && !!rawProcessMode.trim(),
-    geodataLoader: typeof rawGeodataLoader === "string" ? rawGeodataLoader.trim().toLowerCase() : "",
-    hasGeodataLoader: typeof rawGeodataLoader === "string" && !!rawGeodataLoader.trim(),
-    geodataMode: parseBool(rawGeodataMode, true),
-    hasGeodataMode: rawGeodataMode !== undefined,
+    // SteamCN / custom-rule 这一类散点规则顺序参数统一由状态表展开。
+    ...resolvedRuleOrderArgPayload,
+    // Runtime / DNS / Kernel 主标量统一由 runtimeCoreState 展开，避免 return 区继续堆积配置项。
+    ...resolvedRuntimeCoreArgPayload,
     // 使用前面已校验过的 threshold。
     threshold,
-    // 允许用参数覆盖 DNS 监听地址与 Fake-IP 地址池。
-    dnsListen,
-    hasDnsListen: !!dnsListen,
-    fakeIpRange,
-    hasFakeIpRange: !!fakeIpRange,
-    fakeIpRange6,
-    hasFakeIpRange6: !!fakeIpRange6,
-    // 允许用参数覆盖 Sniffer 官方示例中的核心布尔项。
-    snifferForceDnsMapping: parseBool(rawSnifferForceDnsMapping, true),
-    hasSnifferForceDnsMapping: rawSnifferForceDnsMapping !== undefined,
-    snifferParsePureIp: parseBool(rawSnifferParsePureIp, true),
-    hasSnifferParsePureIp: rawSnifferParsePureIp !== undefined,
-    snifferOverrideDestination: parseBool(rawSnifferOverrideDestination, false),
-    hasSnifferOverrideDestination: rawSnifferOverrideDestination !== undefined,
-    snifferHttpOverrideDestination: parseBool(rawSnifferHttpOverrideDestination, true),
-    hasSnifferHttpOverrideDestination: rawSnifferHttpOverrideDestination !== undefined,
-    snifferForceDomains,
-    hasSnifferForceDomains: !!snifferForceDomains.length,
-    snifferSkipDomains,
-    hasSnifferSkipDomains: !!snifferSkipDomains.length
+    // DNS 监听地址与 Fake-IP 地址池单独展开，继续保持 threshold 后面的原返回顺序。
+    ...resolvedRuntimeDnsAddressArgPayload,
+    // Sniffer 顶层开关与域名名单统一由状态表展开。
+    ...resolvedSnifferArgPayload
   };
 }
 
 // 从 resolveArgs 源码里自动提取 pickArg 别名，避免后续每加一个参数都要手写维护白名单。
 function collectKnownScriptArgAliases() {
-  const source = typeof resolveArgs === "function" ? resolveArgs.toString() : "";
   const aliases = [];
-  const pickArgPattern = /pickArg\(args,\s*\[([\s\S]*?)\]\)/g;
-  let matched = pickArgPattern.exec(source);
+  const sourceFunctions = [
+    collectResolveArgCoreRawValues,
+    collectResolveArgProviderRawValues,
+    collectResolveArgPreferenceRawValues,
+    collectResolveArgGithubServiceRawValues,
+    collectResolveArgSteamServiceRawValues,
+    collectResolveArgDevServiceRawValues,
+    collectResolveArgServiceRuleRawValues,
+    collectResolveArgRuntimeRawValues,
+    collectResolveArgRawValues,
+    resolveArgs
+  ];
+  const pickArgPattern = /pickArg\((?:args|currentArgs),\s*\[([\s\S]*?)\]\)/g;
+  for (const sourceFunction of sourceFunctions) {
+    const source = typeof sourceFunction === "function" ? sourceFunction.toString() : "";
+    let matched = pickArgPattern.exec(source);
+    while (matched) {
+      const aliasSource = matched[1];
+      const aliasPattern = /["']([^"']+)["']/g;
+      let aliasMatched = aliasPattern.exec(aliasSource);
 
-  while (matched) {
-    const aliasSource = matched[1];
-    const aliasPattern = /["']([^"']+)["']/g;
-    let aliasMatched = aliasPattern.exec(aliasSource);
+      while (aliasMatched) {
+        aliases.push(aliasMatched[1]);
+        aliasMatched = aliasPattern.exec(aliasSource);
+      }
 
-    while (aliasMatched) {
-      aliases.push(aliasMatched[1]);
-      aliasMatched = aliasPattern.exec(aliasSource);
+      matched = pickArgPattern.exec(source);
     }
-
-    matched = pickArgPattern.exec(source);
   }
 
   return uniqueStrings(aliases);
@@ -7840,175 +7729,202 @@ const RULE_SET_DEFINITIONS = (() => {
   return definitions;
 })();
 
-// 业务链路专属摘要重点关注的规则入口。
-const SERVICE_ROUTING_PROFILE_DEFINITIONS = [
-  { provider: "GitHub", label: "GitHub", expectedTarget: GROUPS.GITHUB },
-  { provider: "DevList", label: "DevList", expectedTarget: GROUPS.DEV },
-  { provider: "GitLab", label: "GitLab", expectedTarget: GROUPS.DEV },
-  { provider: "Docker", label: "Docker", expectedTarget: GROUPS.DEV },
-  { provider: "Npmjs", label: "Npmjs", expectedTarget: GROUPS.DEV },
-  { provider: "Jetbrains", label: "JetBrains", expectedTarget: GROUPS.DEV },
-  { provider: "Vercel", label: "Vercel", expectedTarget: GROUPS.DEV },
-  { provider: "Python", label: "Python", expectedTarget: GROUPS.DEV },
-  { provider: "Jfrog", label: "Jfrog", expectedTarget: GROUPS.DEV },
-  { provider: "Heroku", label: "Heroku", expectedTarget: GROUPS.DEV },
-  { provider: "GitBook", label: "GitBook", expectedTarget: GROUPS.DEV },
-  { provider: "Apifox", label: "Apifox", expectedTarget: GROUPS.DEV },
-  { provider: "Bootcss", label: "Bootcss", expectedTarget: GROUPS.DEV },
-  { provider: "Electron", label: "Electron", expectedTarget: GROUPS.DEV },
-  { provider: "Ubuntu", label: "Ubuntu", expectedTarget: GROUPS.DEV },
-  { provider: "Stackexchange", label: "Stackexchange", expectedTarget: GROUPS.DEV },
-  { provider: "CSDN", label: "CSDN", expectedTarget: GROUPS.DEV },
-  { provider: "Gitee", label: "Gitee", expectedTarget: GROUPS.DEV },
-  { provider: "Contentful", label: "Contentful", expectedTarget: GROUPS.DEV },
-  { provider: "Wordpress", label: "Wordpress", expectedTarget: GROUPS.DEV },
-  { provider: "AppleDev", label: "AppleDev", expectedTarget: GROUPS.DEV },
-  { provider: "HashiCorp", label: "HashiCorp", expectedTarget: GROUPS.DEV },
-  { provider: "Unity", label: "Unity", expectedTarget: GROUPS.DEV },
-  { provider: "Collabora", label: "Collabora", expectedTarget: GROUPS.DEV },
-  { provider: "SourceForge", label: "SourceForge", expectedTarget: GROUPS.DEV },
-  { provider: "DigitalOcean", label: "DigitalOcean", expectedTarget: GROUPS.DEV },
-  { provider: "QingCloud", label: "QingCloud", expectedTarget: GROUPS.DEV },
-  { provider: "UCloud", label: "UCloud", expectedTarget: GROUPS.DEV },
-  { provider: "Anaconda", label: "Anaconda", expectedTarget: GROUPS.DEV },
-  { provider: "Atlassian", label: "Atlassian", expectedTarget: GROUPS.DEV },
-  { provider: "Notion", label: "Notion", expectedTarget: GROUPS.DEV },
-  { provider: "Figma", label: "Figma", expectedTarget: GROUPS.DEV },
-  { provider: "Slack", label: "Slack", expectedTarget: GROUPS.DEV },
-  { provider: "Dropbox", label: "Dropbox", expectedTarget: GROUPS.DEV },
-  { provider: "Telegram", label: "Telegram", expectedTarget: GROUPS.CHAT },
-  { provider: "Discord", label: "Discord", expectedTarget: GROUPS.CHAT },
-  { provider: "OneDrive", label: "OneDrive", expectedTarget: GROUPS.ONEDRIVE },
-  { provider: "LinkedIn", label: "LinkedIn", expectedTarget: GROUPS.MICROSOFT },
-  { provider: "Teams", label: "Teams", expectedTarget: GROUPS.MICROSOFT },
-  { provider: "MicrosoftEdge", label: "MicrosoftEdge", expectedTarget: GROUPS.MICROSOFT },
-  { provider: "WhatsApp", label: "WhatsApp", expectedTarget: GROUPS.CHAT },
-  { provider: "Line", label: "LINE", expectedTarget: GROUPS.CHAT },
-  { provider: "Twitter", label: "Twitter", expectedTarget: GROUPS.CHAT },
-  { provider: "Pinterest", label: "Pinterest", expectedTarget: GROUPS.CHAT },
-  { provider: "Pixiv", label: "Pixiv", expectedTarget: GROUPS.CHAT },
-  { provider: "Imgur", label: "Imgur", expectedTarget: GROUPS.CHAT },
-  { provider: "Tumblr", label: "Tumblr", expectedTarget: GROUPS.CHAT },
-  { provider: "Instagram", label: "Instagram", expectedTarget: GROUPS.CHAT },
-  { provider: "Threads", label: "Threads", expectedTarget: GROUPS.CHAT },
-  { provider: "Facebook", label: "Facebook", expectedTarget: GROUPS.CHAT },
-  { provider: "Reddit", label: "Reddit", expectedTarget: GROUPS.CHAT },
-  { provider: "AliPay", label: "AliPay", expectedTarget: GROUPS.DIRECT },
-  { provider: "UnionPay", label: "UnionPay", expectedTarget: GROUPS.DIRECT },
-  { provider: "ABC", label: "ABC Bank", expectedTarget: GROUPS.DIRECT },
-  { provider: "BOCOM", label: "BOCOM", expectedTarget: GROUPS.DIRECT },
-  { provider: "CCB", label: "CCB", expectedTarget: GROUPS.DIRECT },
-  { provider: "Afdian", label: "Afdian", expectedTarget: GROUPS.DIRECT },
-  { provider: "NetEaseMusic", label: "NetEaseMusic", expectedTarget: GROUPS.DIRECT },
-  { provider: "PayPal", label: "PayPal", expectedTarget: GROUPS.PAYPAL },
-  { provider: "Patreon", label: "Patreon", expectedTarget: GROUPS.PAYPAL },
-  { provider: "Stripe", label: "Stripe", expectedTarget: GROUPS.PAYPAL },
-  { provider: "Shopify", label: "Shopify", expectedTarget: GROUPS.PAYPAL },
-  { provider: "eBay", label: "eBay", expectedTarget: GROUPS.PAYPAL },
-  { provider: "Amazon", label: "Amazon", expectedTarget: GROUPS.PAYPAL },
-  { provider: "AmazonCN", label: "AmazonCN", expectedTarget: GROUPS.PAYPAL },
-  { provider: "AmazonTrust", label: "AmazonTrust", expectedTarget: GROUPS.PAYPAL },
-  { provider: "YouTube", label: "YouTube", expectedTarget: GROUPS.YOUTUBE },
-  { provider: "YouTubeMusic", label: "YouTubeMusic", expectedTarget: GROUPS.YOUTUBE },
-  { provider: "GoogleDrive", label: "GoogleDrive", expectedTarget: GROUPS.GOOGLE },
-  { provider: "AppStore", label: "AppStore", expectedTarget: GROUPS.APPLE },
-  { provider: "AppleID", label: "AppleID", expectedTarget: GROUPS.APPLE },
-  { provider: "iCloud", label: "iCloud", expectedTarget: GROUPS.APPLE },
-  { provider: "AppleNews", label: "AppleNews", expectedTarget: GROUPS.APPLE },
-  { provider: "AppleMusic", label: "AppleMusic", expectedTarget: GROUPS.APPLE },
-  { provider: "TestFlight", label: "TestFlight", expectedTarget: GROUPS.APPLE },
-  { provider: "SystemOTA", label: "SystemOTA", expectedTarget: GROUPS.APPLE },
-  { provider: "Netflix", label: "Netflix", expectedTarget: GROUPS.NETFLIX },
-  { provider: "Disney", label: "Disney", expectedTarget: GROUPS.DISNEY },
-  { provider: "Spotify", label: "Spotify", expectedTarget: GROUPS.SPOTIFY },
-  { provider: "TikTok", label: "TikTok", expectedTarget: GROUPS.TIKTOK },
-  { provider: "BiliBiliIntl", label: "BiliBiliIntl", expectedTarget: GROUPS.STREAMING },
-  { provider: "WeTV", label: "WeTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "iQIYIIntl", label: "iQIYIIntl", expectedTarget: GROUPS.STREAMING },
-  { provider: "All4", label: "All4", expectedTarget: GROUPS.STREAMING },
-  { provider: "ITV", label: "ITV", expectedTarget: GROUPS.STREAMING },
-  { provider: "CWSeed", label: "CWSeed", expectedTarget: GROUPS.STREAMING },
-  { provider: "PBS", label: "PBS", expectedTarget: GROUPS.STREAMING },
-  { provider: "Dailymotion", label: "Dailymotion", expectedTarget: GROUPS.STREAMING },
-  { provider: "Vimeo", label: "Vimeo", expectedTarget: GROUPS.STREAMING },
-  { provider: "Niconico", label: "Niconico", expectedTarget: GROUPS.STREAMING },
-  { provider: "Abema", label: "Abema", expectedTarget: GROUPS.STREAMING },
-  { provider: "PandoraTV", label: "PandoraTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "FOXPlus", label: "FOXPlus", expectedTarget: GROUPS.STREAMING },
-  { provider: "FuboTV", label: "FuboTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "NowE", label: "NowE", expectedTarget: GROUPS.STREAMING },
-  { provider: "myTVSUPER", label: "myTVSUPER", expectedTarget: GROUPS.STREAMING },
-  { provider: "KKTV", label: "KKTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "LiTV", label: "LiTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "VidolTV", label: "VidolTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "My5", label: "My5", expectedTarget: GROUPS.STREAMING },
-  { provider: "TVer", label: "TVer", expectedTarget: GROUPS.STREAMING },
-  { provider: "RTHK", label: "RTHK", expectedTarget: GROUPS.STREAMING },
-  { provider: "MeWatch", label: "MeWatch", expectedTarget: GROUPS.STREAMING },
-  { provider: "Bahamut", label: "Bahamut", expectedTarget: GROUPS.STREAMING },
-  { provider: "DAZN", label: "DAZN", expectedTarget: GROUPS.STREAMING },
-  { provider: "Viki", label: "Viki", expectedTarget: GROUPS.STREAMING },
-  { provider: "ViuTV", label: "ViuTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "friDay", label: "friDay", expectedTarget: GROUPS.STREAMING },
-  { provider: "HamiVideo", label: "HamiVideo", expectedTarget: GROUPS.STREAMING },
-  { provider: "ZeeTV", label: "ZeeTV", expectedTarget: GROUPS.STREAMING },
-  { provider: "Emby", label: "Emby", expectedTarget: GROUPS.STREAMING },
-  { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", expectedTarget: GROUPS.STREAMING },
-  { provider: "PrimeVideo", label: "PrimeVideo", expectedTarget: GROUPS.STREAMING },
-  { provider: "HBO", label: "HBO", expectedTarget: GROUPS.STREAMING },
-  { provider: "HBOAsia", label: "HBOAsia", expectedTarget: GROUPS.STREAMING },
-  { provider: "HBOHK", label: "HBOHK", expectedTarget: GROUPS.STREAMING },
-  { provider: "HBOUSA", label: "HBOUSA", expectedTarget: GROUPS.STREAMING },
-  { provider: "Hulu", label: "Hulu", expectedTarget: GROUPS.STREAMING },
-  { provider: "HuluJP", label: "HuluJP", expectedTarget: GROUPS.STREAMING },
-  { provider: "HuluUSA", label: "HuluUSA", expectedTarget: GROUPS.STREAMING },
-  { provider: "ParamountPlus", label: "ParamountPlus", expectedTarget: GROUPS.STREAMING },
-  { provider: "Peacock", label: "Peacock", expectedTarget: GROUPS.STREAMING },
-  { provider: "DiscoveryPlus", label: "DiscoveryPlus", expectedTarget: GROUPS.STREAMING },
-  { provider: "SoundCloud", label: "SoundCloud", expectedTarget: GROUPS.STREAMING },
-  { provider: "Deezer", label: "Deezer", expectedTarget: GROUPS.STREAMING },
-  { provider: "KKBOX", label: "KKBOX", expectedTarget: GROUPS.STREAMING },
-  { provider: "Pandora", label: "Pandora", expectedTarget: GROUPS.STREAMING },
-  { provider: "TIDAL", label: "TIDAL", expectedTarget: GROUPS.STREAMING },
-  { provider: "Qobuz", label: "Qobuz", expectedTarget: GROUPS.STREAMING },
-  { provider: "ProxyMedia", label: "ProxyMedia", expectedTarget: GROUPS.STREAMING },
-  { provider: "Steam", label: "Steam", expectedTarget: GROUPS.STEAM },
-  { provider: "SteamCN", label: "SteamCN", expectedTarget: GROUPS.STEAM },
-  { provider: "Riot", label: "Riot", expectedTarget: GROUPS.GAMES },
-  { provider: "Battle", label: "Battle", expectedTarget: GROUPS.GAMES },
-  { provider: "Blizzard", label: "Blizzard", expectedTarget: GROUPS.GAMES },
-  { provider: "EA", label: "EA", expectedTarget: GROUPS.GAMES },
-  { provider: "Nintendo", label: "Nintendo", expectedTarget: GROUPS.GAMES },
-  { provider: "PlayStation", label: "PlayStation", expectedTarget: GROUPS.GAMES },
-  { provider: "Xbox", label: "Xbox", expectedTarget: GROUPS.GAMES },
-  { provider: "Ubisoft", label: "Ubisoft", expectedTarget: GROUPS.GAMES },
-  { provider: "2KGames", label: "2KGames", expectedTarget: GROUPS.GAMES },
-  { provider: "Supercell", label: "Supercell", expectedTarget: GROUPS.GAMES },
-  { provider: "Rockstar", label: "Rockstar", expectedTarget: GROUPS.GAMES },
-  { provider: "HoYoverse", label: "HoYoverse", expectedTarget: GROUPS.GAMES },
-  { provider: "Gog", label: "GOG", expectedTarget: GROUPS.GAMES },
-  { provider: "Twitch", label: "Twitch", expectedTarget: GROUPS.GAMES },
-  { provider: "Epic", label: "Epic", expectedTarget: GROUPS.GAMES },
-  { provider: "AIExtra", label: "AIExtra", expectedTarget: GROUPS.AI },
-  { provider: "Claude", label: "Claude", expectedTarget: GROUPS.AI },
-  { provider: "Copilot", label: "Copilot", expectedTarget: GROUPS.AI },
-  { provider: "aiXcoder", label: "aiXcoder", expectedTarget: GROUPS.AI },
-  { provider: "Civitai", label: "Civitai", expectedTarget: GROUPS.AI },
-  { provider: "Grok", label: "Grok", expectedTarget: GROUPS.AI },
-  { provider: "AppleAI", label: "AppleAI", expectedTarget: GROUPS.AI },
-  { provider: "AI", label: "AI", expectedTarget: GROUPS.AI },
-  { provider: "Crypto", label: "Crypto", expectedTarget: GROUPS.CRYPTO },
-  { provider: "Binance", label: "Binance", expectedTarget: GROUPS.CRYPTO },
-  { provider: "OKX", label: "OKX", expectedTarget: GROUPS.CRYPTO }
-];
+// 规则目标派生表：让业务链路诊断直接跟随 RULE_SET_DEFINITIONS，避免 expectedTarget 在观测层再维护一份。
+const RULE_SET_TARGET_BY_PROVIDER = Object.freeze(
+  RULE_SET_DEFINITIONS.reduce((lookup, definition) => {
+    const current = definition && typeof definition === "object" ? definition : {};
+    const provider = normalizeStringArg(current.provider);
+    const target = normalizeStringArg(current.target);
 
-// 统一维护 AI / Crypto / GitHub / Steam / Dev 的国家优先链配置，避免主流程、日志和响应头各写一套。
-const SERVICE_PREFERRED_COUNTRY_DEFINITIONS = Object.freeze([
+    if (provider && target) {
+      lookup[provider] = target;
+    }
+
+    return lookup;
+  }, Object.create(null))
+);
+
+// 业务链路、关键窗口、规则窗口统一复用这一份 provider catalog，避免同一批服务在三张观测表里重复手写。
+const SERVICE_OBSERVATION_DEFINITIONS = Object.freeze([
+  { provider: "GitHub", label: "GitHub", trackInRoutingProfile: true, windowCategory: "dev", keyWindowKind: "business" },
+  { provider: "Bing", label: "Bing", trackInRoutingProfile: true, windowCategory: "search", keyWindowKind: "business" },
+  { provider: "OneDrive", label: "OneDrive", trackInRoutingProfile: true, windowCategory: "dev", keyWindowKind: "business" },
+  { provider: "DevList", label: "DevList", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "GitLab", label: "GitLab", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Docker", label: "Docker", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Npmjs", label: "Npmjs", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Jetbrains", label: "JetBrains", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Vercel", label: "Vercel", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Python", label: "Python", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Jfrog", label: "Jfrog", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Heroku", label: "Heroku", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "GitBook", label: "GitBook", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Apifox", label: "Apifox", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Bootcss", label: "Bootcss", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Electron", label: "Electron", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Ubuntu", label: "Ubuntu", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Stackexchange", label: "Stackexchange", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "CSDN", label: "CSDN", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Gitee", label: "Gitee", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Contentful", label: "Contentful", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Wordpress", label: "Wordpress", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "AppleDev", label: "AppleDev", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "HashiCorp", label: "HashiCorp", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Unity", label: "Unity", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Collabora", label: "Collabora", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "SourceForge", label: "SourceForge", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "DigitalOcean", label: "DigitalOcean", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "QingCloud", label: "QingCloud", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "UCloud", label: "UCloud", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Anaconda", label: "Anaconda", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Atlassian", label: "Atlassian", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Notion", label: "Notion", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Figma", label: "Figma", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Slack", label: "Slack", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Dropbox", label: "Dropbox", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Telegram", label: "Telegram", trackInRoutingProfile: true },
+  { provider: "Discord", label: "Discord", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "LinkedIn", label: "LinkedIn", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Teams", label: "Teams", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "MicrosoftEdge", label: "MicrosoftEdge", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "WhatsApp", label: "WhatsApp", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Line", label: "LINE", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Twitter", label: "Twitter", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Pinterest", label: "Pinterest", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Pixiv", label: "Pixiv", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Imgur", label: "Imgur", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Tumblr", label: "Tumblr", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Instagram", label: "Instagram", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Threads", label: "Threads", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Facebook", label: "Facebook", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Reddit", label: "Reddit", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "AliPay", label: "AliPay", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "UnionPay", label: "UnionPay", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "ABC", label: "ABC Bank", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "BOCOM", label: "BOCOM", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "CCB", label: "CCB", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "Afdian", label: "Afdian", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "NetEaseMusic", label: "NetEaseMusic", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "PayPal", label: "PayPal", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "Patreon", label: "Patreon", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "Stripe", label: "Stripe", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "Shopify", label: "Shopify", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "eBay", label: "eBay", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "Amazon", label: "Amazon", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "AmazonCN", label: "AmazonCN", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "AmazonTrust", label: "AmazonTrust", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "YouTube", label: "YouTube", trackInRoutingProfile: true, windowCategory: "media", keyWindowKind: "business" },
+  { provider: "YouTubeMusic", label: "YouTubeMusic", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "AmazonPrimeVideo", label: "AmazonPrimeVideo", trackInRoutingProfile: true, windowCategory: "media", keyWindowKind: "business" },
+  { provider: "PrimeVideo", label: "PrimeVideo", trackInRoutingProfile: true, windowCategory: "media", keyWindowKind: "business" },
+  { provider: "GoogleDrive", label: "GoogleDrive", trackInRoutingProfile: true },
+  { provider: "AppStore", label: "AppStore", trackInRoutingProfile: true },
+  { provider: "AppleID", label: "AppleID", trackInRoutingProfile: true },
+  { provider: "iCloud", label: "iCloud", trackInRoutingProfile: true },
+  { provider: "AppleNews", label: "AppleNews", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "AppleMusic", label: "AppleMusic", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "TestFlight", label: "TestFlight", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "SystemOTA", label: "SystemOTA", trackInRoutingProfile: true },
+  { provider: "Netflix", label: "Netflix", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Disney", label: "Disney", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Spotify", label: "Spotify", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "TikTok", label: "TikTok", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "BiliBiliIntl", label: "BiliBiliIntl", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "WeTV", label: "WeTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "iQIYIIntl", label: "iQIYIIntl", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "All4", label: "All4", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "ITV", label: "ITV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "CWSeed", label: "CWSeed", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "PBS", label: "PBS", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Dailymotion", label: "Dailymotion", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Vimeo", label: "Vimeo", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Niconico", label: "Niconico", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Abema", label: "Abema", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "PandoraTV", label: "PandoraTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "FOXPlus", label: "FOXPlus", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "FuboTV", label: "FuboTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "NowE", label: "NowE", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "myTVSUPER", label: "myTVSUPER", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "KKTV", label: "KKTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "LiTV", label: "LiTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "VidolTV", label: "VidolTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "My5", label: "My5", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "TVer", label: "TVer", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "RTHK", label: "RTHK", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "MeWatch", label: "MeWatch", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Bahamut", label: "Bahamut", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "DAZN", label: "DAZN", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Viki", label: "Viki", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "ViuTV", label: "ViuTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "friDay", label: "friDay", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HamiVideo", label: "HamiVideo", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "ZeeTV", label: "ZeeTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Emby", label: "Emby", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HBO", label: "HBO", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HBOAsia", label: "HBOAsia", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HBOHK", label: "HBOHK", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HBOUSA", label: "HBOUSA", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Hulu", label: "Hulu", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HuluJP", label: "HuluJP", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "HuluUSA", label: "HuluUSA", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "ParamountPlus", label: "ParamountPlus", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Peacock", label: "Peacock", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "DiscoveryPlus", label: "DiscoveryPlus", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "SoundCloud", label: "SoundCloud", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Deezer", label: "Deezer", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "KKBOX", label: "KKBOX", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Pandora", label: "Pandora", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "TIDAL", label: "TIDAL", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Qobuz", label: "Qobuz", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "ProxyMedia", label: "ProxyMedia", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Steam", label: "Steam", trackInRoutingProfile: true, windowCategory: "game", keyWindowKind: "business" },
+  { provider: "SteamCN", label: "SteamCN", trackInRoutingProfile: true, windowCategory: "game", keyWindowKind: "business" },
+  { provider: "Riot", label: "Riot", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Battle", label: "Battle", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Blizzard", label: "Blizzard", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "EA", label: "EA", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Nintendo", label: "Nintendo", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "PlayStation", label: "PlayStation", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Xbox", label: "Xbox", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Ubisoft", label: "Ubisoft", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "2KGames", label: "2KGames", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Supercell", label: "Supercell", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Rockstar", label: "Rockstar", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "HoYoverse", label: "HoYoverse", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Gog", label: "GOG", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Twitch", label: "Twitch", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Epic", label: "Epic", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "AIExtra", label: "AIExtra", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "Claude", label: "Claude", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "Copilot", label: "Copilot", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "aiXcoder", label: "aiXcoder", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "Civitai", label: "Civitai", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "Grok", label: "Grok", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "AppleAI", label: "AppleAI", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "AI", label: "AI", trackInRoutingProfile: true, windowCategory: "ai" },
+  { provider: "Crypto", label: "Crypto", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "Binance", label: "Binance", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "OKX", label: "OKX", trackInRoutingProfile: true, windowCategory: "trade" },
+  { provider: "ChatGPT", label: "ChatGPT", windowCategory: "ai" },
+  { provider: "OpenAI", label: "OpenAI", windowCategory: "ai" },
+  { provider: "Anthropic", label: "Anthropic", windowCategory: "ai" },
+  { provider: "Gemini", label: "Gemini", windowCategory: "ai" }
+]);
+
+// 业务链路专属摘要重点关注的规则入口；expectedTarget 直接从规则定义派生，减少多表漂移。
+const SERVICE_ROUTING_PROFILE_DEFINITIONS = Object.freeze(
+  SERVICE_OBSERVATION_DEFINITIONS
+    .filter((definition) => definition.trackInRoutingProfile)
+    .map((definition) => ({
+      provider: definition.provider,
+      label: definition.label,
+      expectedTarget: RULE_SET_TARGET_BY_PROVIDER[definition.provider] || ""
+    }))
+);
+// AI / Crypto 属于纯“国家优先链”业务；GitHub / Steam / Dev 则稍后直接从 SERVICE_DEFINITIONS 投影生成。
+const SERVICE_PREFERRED_COUNTRY_CORE_DEFINITIONS = Object.freeze([
   { key: "ai", label: "AI", argKey: "aiPreferCountries", defaultMarkers: DEFAULT_AI_PREFERRED_COUNTRY_MARKERS, defaultSourceKey: "ai-default" },
-  { key: "crypto", label: "Crypto", argKey: "cryptoPreferCountries", defaultMarkers: DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS, defaultSourceKey: "crypto-default" },
-  { key: "github", label: "GitHub", argKey: "githubPreferCountries", hasArgKey: "hasGithubPreferCountries", defaultMarkers: [], defaultSourceKey: "github-default" },
-  { key: "steam", label: "Steam", argKey: "steamPreferCountries", hasArgKey: "hasSteamPreferCountries", defaultMarkers: [], defaultSourceKey: "steam-default" },
-  { key: "dev", label: "Dev", argKey: "devPreferCountries", hasArgKey: "hasDevPreferCountries", defaultMarkers: [], defaultSourceKey: "dev-default" }
+  { key: "crypto", label: "Crypto", argKey: "cryptoPreferCountries", defaultMarkers: DEFAULT_CRYPTO_PREFERRED_COUNTRY_MARKERS, defaultSourceKey: "crypto-default" }
 ]);
 // 统一维护国家优先链的诊断字段后缀，避免 diagnostics / 响应头 / full 日志逐处手写。
 const SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS = Object.freeze([
@@ -8017,135 +7933,128 @@ const SERVICE_PREFERRED_COUNTRY_SUMMARY_FIELDS = Object.freeze([
   { key: "explainSummary", propertySuffix: "ExplainSummary", headerSuffix: "Explain" },
   { key: "unmatchedSummary", propertySuffix: "UnmatchedSummary", headerSuffix: "Unmatched" }
 ]);
-// 规则优先级风险采用数据表驱动，避免分析函数里重复堆一长串 addRisk 调用。
-const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze([
+function buildRulePriorityRiskEntries(definitions) {
+  const entries = [];
+
+  for (const definition of Array.isArray(definitions) ? definitions : []) {
+    const blockedDefinitions = Array.isArray(definition && definition.blockedDefinitions) ? definition.blockedDefinitions : [];
+
+    for (const blocked of blockedDefinitions) {
+      const blockedProvider = normalizeStringArg(blocked && blocked.provider);
+      const detail = normalizeStringArg(blocked && blocked.detail);
+      if (!blockedProvider || !detail) {
+        continue;
+      }
+
+      entries.push({
+        category: normalizeStringArg(definition && definition.category),
+        blockerProvider: normalizeStringArg(definition && definition.blockerProvider),
+        blockedProvider,
+        message: `${blockedProvider} 规则当前排在 ${definition.blockerProvider} 之后；${definition.blockerDescription}，${detail}`
+      });
+    }
+  }
+
+  return entries;
+}
+
+const RULE_PRIORITY_RISK_BLOCKER_DEFINITIONS = Object.freeze([
   {
     category: "platform",
     blockerProvider: "Google",
-    blockedProvider: "GoogleDrive",
-    message: "GoogleDrive 规则当前排在 Google 之后；Google 是更宽泛的 Google 生态规则，Drive / Docs / 文件分享流量可能会先命中 Google 组而不是更细的 GoogleDrive 入口"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Google",
-    blockedProvider: "YouTube",
-    message: "YouTube 规则当前排在 Google 之后；Google 是更宽泛的 Google 生态规则，YouTube 流量可能会先命中 Google 组而不是 YouTube 独立组"
+    blockerDescription: "Google 是更宽泛的 Google 生态规则",
+    blockedDefinitions: [
+      { provider: "GoogleDrive", detail: "Drive / Docs / 文件分享流量可能会先命中 Google 组而不是更细的 GoogleDrive 入口" },
+      { provider: "YouTube", detail: "YouTube 流量可能会先命中 Google 组而不是 YouTube 独立组" },
+      { provider: "YouTubeMusic", detail: "YouTube Music 流量可能会先命中 Google 组而不是 YouTube 入口" }
+    ]
   },
   {
     category: "platform",
     blockerProvider: "Anthropic",
-    blockedProvider: "Claude",
-    message: "Claude 规则当前排在 Anthropic 之后；Anthropic 是更宽泛的 AI 规则，Claude Web / App 流量可能会先命中 Anthropic 而不是更细的 Claude 入口"
+    blockerDescription: "Anthropic 是更宽泛的 AI 规则",
+    blockedDefinitions: [
+      { provider: "Claude", detail: "Claude Web / App 流量可能会先命中 Anthropic 而不是更细的 Claude 入口" }
+    ]
   },
   {
     category: "platform",
     blockerProvider: "Apple",
-    blockedProvider: "AppStore",
-    message: "AppStore 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，App Store 下载与商店访问流量可能会先命中 Apple 组而不是更细的 AppStore 入口"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Apple",
-    blockedProvider: "AppleID",
-    message: "AppleID 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，Apple ID 登录与鉴权流量可能会先命中 Apple 组而不是更细的 AppleID 入口"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Apple",
-    blockedProvider: "iCloud",
-    message: "iCloud 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，iCloud 云同步与照片流流量可能会先命中 Apple 组而不是更细的 iCloud 入口"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Apple",
-    blockedProvider: "AppleTV",
-    message: "AppleTV 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，Apple TV+ 流量可能会先命中 Apple 组而不是 AppleTV 专属入口"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Apple",
-    blockedProvider: "TestFlight",
-    message: "TestFlight 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，TestFlight / beta.apple.com 流量可能会先命中 Apple 组而不是 TestFlight 专属入口"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Apple",
-    blockedProvider: "SystemOTA",
-    message: "SystemOTA 规则当前排在 Apple 之后；Apple 是更宽泛的 Apple 生态规则，系统更新与 OTA 下载流量可能会先命中 Apple 组而不是更细的 SystemOTA 入口"
+    blockerDescription: "Apple 是更宽泛的 Apple 生态规则",
+    blockedDefinitions: [
+      { provider: "AppStore", detail: "App Store 下载与商店访问流量可能会先命中 Apple 组而不是更细的 AppStore 入口" },
+      { provider: "AppleID", detail: "Apple ID 登录与鉴权流量可能会先命中 Apple 组而不是更细的 AppleID 入口" },
+      { provider: "iCloud", detail: "iCloud 云同步与照片流流量可能会先命中 Apple 组而不是更细的 iCloud 入口" },
+      { provider: "AppleTV", detail: "Apple TV+ 流量可能会先命中 Apple 组而不是 AppleTV 专属入口" },
+      { provider: "TestFlight", detail: "TestFlight / beta.apple.com 流量可能会先命中 Apple 组而不是 TestFlight 专属入口" },
+      { provider: "SystemOTA", detail: "系统更新与 OTA 下载流量可能会先命中 Apple 组而不是更细的 SystemOTA 入口" }
+    ]
   },
   {
     category: "platform",
     blockerProvider: "Microsoft",
-    blockedProvider: "GitHub",
-    message: "GitHub 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，GitHub 流量可能会先命中微软服务组而不是 GitHub 独立组"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Microsoft",
-    blockedProvider: "OneDrive",
-    message: "OneDrive 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，OneDrive 流量可能会先命中微软服务组而不是 OneDrive 独立组"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Microsoft",
-    blockedProvider: "Bing",
-    message: "Bing 规则当前排在 Microsoft 之后；Microsoft 是更宽泛的微软生态规则，Bing 流量可能会先命中微软服务组而不是 Bing 独立组"
+    blockerDescription: "Microsoft 是更宽泛的微软生态规则",
+    blockedDefinitions: [
+      { provider: "GitHub", detail: "GitHub 流量可能会先命中微软服务组而不是 GitHub 独立组" },
+      { provider: "OneDrive", detail: "OneDrive 流量可能会先命中微软服务组而不是 OneDrive 独立组" },
+      { provider: "Bing", detail: "Bing 流量可能会先命中微软服务组而不是 Bing 独立组" }
+    ]
   },
   {
     category: "platform",
     blockerProvider: "Amazon",
-    blockedProvider: "AmazonPrimeVideo",
-    message: "AmazonPrimeVideo 规则当前排在 Amazon 之后；Amazon 是更宽泛的电商规则，Prime Video 流量可能会先命中 PayPal 组而不是流媒体组"
-  },
-  {
-    category: "platform",
-    blockerProvider: "Amazon",
-    blockedProvider: "PrimeVideo",
-    message: "PrimeVideo 规则当前排在 Amazon 之后；Amazon 是更宽泛的电商规则，Prime Video 流量可能会先命中 PayPal 组而不是流媒体组"
+    blockerDescription: "Amazon 是更宽泛的电商规则",
+    blockedDefinitions: [
+      { provider: "AmazonPrimeVideo", detail: "Prime Video 流量可能会先命中 PayPal 组而不是流媒体组" },
+      { provider: "PrimeVideo", detail: "Prime Video 流量可能会先命中 PayPal 组而不是流媒体组" }
+    ]
   },
   {
     category: "geo",
     blockerProvider: "Geo_Not_CN",
-    blockedProvider: "GitHub",
-    message: "GitHub 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，GitHub 流量可能会先命中节点选择而不是 GitHub 独立组"
-  },
-  {
-    category: "geo",
-    blockerProvider: "Geo_Not_CN",
-    blockedProvider: "Steam",
-    message: "Steam 规则当前排在 Geo_Not_CN 之后；Geo_Not_CN 是更宽泛的海外规则，Steam 全球流量可能会先命中节点选择而不是 Steam 独立组"
+    blockerDescription: "Geo_Not_CN 是更宽泛的海外规则",
+    blockedDefinitions: [
+      { provider: "GitHub", detail: "GitHub 流量可能会先命中节点选择而不是 GitHub 独立组" },
+      { provider: "Steam", detail: "Steam 全球流量可能会先命中节点选择而不是 Steam 独立组" },
+      { provider: "Bing", detail: "Bing 流量可能会先命中节点选择而不是 Bing 独立组" },
+      { provider: "OneDrive", detail: "OneDrive 流量可能会先命中节点选择而不是 OneDrive 独立组" },
+      { provider: "YouTube", detail: "YouTube 流量可能会先命中节点选择而不是 YouTube 独立组" }
+    ]
   },
   {
     category: "cn",
     blockerProvider: "CN",
-    blockedProvider: "SteamCN",
-    message: "SteamCN 规则当前排在 CN 之后；CN 是更宽泛的中国大陆规则，Steam 中国区流量可能会先命中全球直连而不是 Steam 独立组"
+    blockerDescription: "CN 是更宽泛的中国大陆规则",
+    blockedDefinitions: [
+      { provider: "SteamCN", detail: "Steam 中国区流量可能会先命中全球直连而不是 Steam 独立组" }
+    ]
   },
   {
     category: "cn",
     blockerProvider: "CN_IP",
-    blockedProvider: "SteamCN",
-    message: "SteamCN 规则当前排在 CN_IP 之后；CN_IP 是更宽泛的中国大陆 IP 规则，Steam 中国区 IP 流量可能会先命中全球直连而不是 Steam 独立组"
+    blockerDescription: "CN_IP 是更宽泛的中国大陆 IP 规则",
+    blockedDefinitions: [
+      { provider: "SteamCN", detail: "Steam 中国区 IP 流量可能会先命中全球直连而不是 Steam 独立组" }
+    ]
   },
   {
     category: "directlist",
     blockerProvider: "DirectList",
-    blockedProvider: "GitHub",
-    message: "GitHub 规则当前排在 DirectList 之后；如果自定义直连列表与 GitHub 规则有重叠，相关流量会先命中全球直连而不是 GitHub 独立组"
-  },
-  {
-    category: "directlist",
-    blockerProvider: "DirectList",
-    blockedProvider: "Steam",
-    message: "Steam 规则当前排在 DirectList 之后；如果自定义直连列表与 Steam 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
-  },
-  {
-    category: "directlist",
-    blockerProvider: "DirectList",
-    blockedProvider: "SteamCN",
-    message: "SteamCN 规则当前排在 DirectList 之后；如果自定义直连列表与 SteamCN 规则有重叠，相关流量会先命中全球直连而不是 Steam 独立组"
+    blockerDescription: "如果自定义直连列表与这些规则有重叠",
+    blockedDefinitions: [
+      { provider: "GitHub", detail: "相关流量会先命中全球直连而不是 GitHub 独立组" },
+      { provider: "Steam", detail: "相关流量会先命中全球直连而不是 Steam 独立组" },
+      { provider: "SteamCN", detail: "相关流量会先命中全球直连而不是 Steam 独立组" },
+      { provider: "Bing", detail: "相关流量会先命中全球直连而不是 Bing 独立组" },
+      { provider: "OneDrive", detail: "相关流量会先命中全球直连而不是 OneDrive 独立组" },
+      { provider: "YouTube", detail: "相关流量会先命中全球直连而不是 YouTube 独立组" }
+    ]
   }
 ]);
+// 规则优先级风险采用 blocker family 定义投影生成，减少同类 provider/message 模板反复手写。
+const RULE_PRIORITY_RISK_DEFINITIONS = Object.freeze(
+  buildRulePriorityRiskEntries(RULE_PRIORITY_RISK_BLOCKER_DEFINITIONS)
+);
 // 规则优先级风险里的分类计数统一走映射，避免 addRisk 内重复 category 分支模板。
 const RULE_PRIORITY_RISK_COUNT_FIELD_BY_CATEGORY = Object.freeze({
   platform: "platformOverrideCount",
@@ -8160,8 +8069,19 @@ const SERVICE_DEFINITIONS = Object.freeze([
     label: "GitHub",
     argToken: "Github",
     groupName: GROUPS.GITHUB,
+    includeInSharedServiceSummary: true,
+    supportsModeTypeTestUrlHeaders: false,
+    preferredCountryKey: "github",
+    preferredCountryArgKey: "githubPreferCountries",
+    preferredCountryHasArgKey: "hasGithubPreferCountries",
+    preferredCountryDefaultMarkers: [],
+    preferredCountryDefaultSourceKey: "github-default",
     preferredGroupsContextKey: "githubPreferredGroups",
     modeBaseProxiesContextKey: "githubModeBaseProxies",
+    ruleOrderSummaryKey: "github",
+    ruleOrderAnchorKey: "githubRuleAnchor",
+    ruleOrderPositionKey: "githubRulePosition",
+    ruleOrderSummaryOrder: 1,
     // GitHub 组的 mode 分支保持“直连优先/代理优先/主选择优先”这三条基础链。
     resolveModeBaseProxyBranches: (context) => ({
       direct: context.directFirstProxies,
@@ -8176,8 +8096,19 @@ const SERVICE_DEFINITIONS = Object.freeze([
     label: "Steam",
     argToken: "Steam",
     groupName: GROUPS.STEAM,
+    includeInSharedServiceSummary: true,
+    supportsModeTypeTestUrlHeaders: false,
+    preferredCountryKey: "steam",
+    preferredCountryArgKey: "steamPreferCountries",
+    preferredCountryHasArgKey: "hasSteamPreferCountries",
+    preferredCountryDefaultMarkers: [],
+    preferredCountryDefaultSourceKey: "steam-default",
     preferredGroupsContextKey: "steamPreferredGroups",
     modeBaseProxiesContextKey: "steamModeBaseProxies",
+    ruleOrderSummaryKey: "steam",
+    ruleOrderAnchorKey: "steamRuleAnchor",
+    ruleOrderPositionKey: "steamRulePosition",
+    ruleOrderSummaryOrder: 2,
     resolveModeBaseProxyBranches: (context) => ({
       direct: context.directFirstProxies,
       proxy: context.baseProxies,
@@ -8190,8 +8121,19 @@ const SERVICE_DEFINITIONS = Object.freeze([
     label: "Dev",
     argToken: "Dev",
     groupName: GROUPS.DEV,
+    includeInSharedServiceSummary: false,
+    supportsModeTypeTestUrlHeaders: true,
+    preferredCountryKey: "dev",
+    preferredCountryArgKey: "devPreferCountries",
+    preferredCountryHasArgKey: "hasDevPreferCountries",
+    preferredCountryDefaultMarkers: [],
+    preferredCountryDefaultSourceKey: "dev-default",
     preferredGroupsContextKey: "devPreferredGroups",
     modeBaseProxiesContextKey: "developerModeBaseProxies",
+    ruleOrderSummaryKey: "dev",
+    ruleOrderAnchorKey: "devRuleAnchor",
+    ruleOrderPositionKey: "devRulePosition",
+    ruleOrderSummaryOrder: 4,
     // 开发服务组天然依赖 GitHub 组，所以三种 mode 基链都把 GitHub 预先揉进去。
     resolveModeBaseProxyBranches: (context) => ({
       direct: prependPreferredNames([GROUPS.GITHUB], context.selectFirstProxies, true),
@@ -8201,19 +8143,37 @@ const SERVICE_DEFINITIONS = Object.freeze([
     resolveDirectPreferBaseProxies: (context) => uniqueStrings([GROUPS.GITHUB].concat(toStringArray(context.selectFirstProxies)))
   })
 ]);
+function projectServiceDefinitions(predicate) {
+  const definitions = Array.isArray(SERVICE_DEFINITIONS) ? SERVICE_DEFINITIONS : [];
+  return typeof predicate === "function"
+    ? definitions.filter((service, index) => predicate(service, index))
+    : definitions.slice();
+}
 // GitHub / Steam 会共用不少“仅面板独立组、不含 Dev”的摘要模板，这里预先缓存避免多处重复 filter。
 const NON_DEV_SERVICE_DEFINITIONS = Object.freeze(
-  SERVICE_DEFINITIONS.filter((service) => service.key !== "dev")
+  projectServiceDefinitions((service) => service.includeInSharedServiceSummary)
 );
-// 响应头/校验两个阶段都直接复用这份基础定义，避免 label/argToken/groupName 在多处手动保持一致。
-const SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS = SERVICE_DEFINITIONS;
-// 资源校验阶段复用同一批服务定义，确保“谁需要校验”与“谁需要响应头展示”保持一致。
-const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS;
+// 资源校验阶段直接复用 SERVICE_DEFINITIONS，同步保持“谁有服务定义、谁参与校验”的口径一致。
+const SERVICE_RESOURCE_VALIDATION_DEFINITIONS = SERVICE_DEFINITIONS;
+// GitHub / Steam / Dev 的国家优先链配置直接跟随 SERVICE_DEFINITIONS，避免 label/argKey/default-source 再维护一份。
+const SERVICE_PREFERRED_COUNTRY_DEFINITIONS = Object.freeze(
+  SERVICE_PREFERRED_COUNTRY_CORE_DEFINITIONS.concat(
+    projectServiceDefinitions((service) => service.preferredCountryKey && service.preferredCountryArgKey)
+      .map((service) => ({
+        key: service.preferredCountryKey,
+        label: service.label,
+        argKey: service.preferredCountryArgKey,
+        hasArgKey: service.preferredCountryHasArgKey,
+        defaultMarkers: service.preferredCountryDefaultMarkers || [],
+        defaultSourceKey: service.preferredCountryDefaultSourceKey
+      }))
+  )
+);
 // 独立组响应头字段定义：configured-only 表示只关心“是否配置”，value 表示输出实际生效值，custom 走自定义计算。
 const SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS = Object.freeze([
-  { headerSuffix: "Mode", argSuffix: "Mode", valueType: "value", services: ["dev"] },
-  { headerSuffix: "Type", argSuffix: "Type", valueType: "value", services: ["dev"] },
-  { headerSuffix: "Test-Url", argSuffix: "TestUrl", valueType: "value", services: ["dev"] },
+  { headerSuffix: "Mode", argSuffix: "Mode", valueType: "value", requiresCapability: "supportsModeTypeTestUrlHeaders" },
+  { headerSuffix: "Type", argSuffix: "Type", valueType: "value", requiresCapability: "supportsModeTypeTestUrlHeaders" },
+  { headerSuffix: "Test-Url", argSuffix: "TestUrl", valueType: "value", requiresCapability: "supportsModeTypeTestUrlHeaders" },
   { headerSuffix: "Group-Strategy", argSuffix: "GroupStrategy", valueType: "value" },
   { headerSuffix: "Hidden", argSuffix: "Hidden", valueType: "value" },
   { headerSuffix: "Disable-UDP", argSuffix: "DisableUdp", valueType: "value" },
@@ -8259,7 +8219,14 @@ function createServiceResponseHeaderDefinition(service, field) {
 
 // 独立组响应头字段有的只适用于部分服务（例如 Dev 独享 mode/type/test-url），这里统一做字段适用性判断。
 function isServiceResponseHeaderFieldApplicable(service, field) {
-  return !Array.isArray(field && field.services) || field.services.includes(service && service.key);
+  const currentService = isObject(service) ? service : {};
+  const currentField = isObject(field) ? field : {};
+
+  if (normalizeStringArg(currentField.requiresCapability) && !currentService[currentField.requiresCapability]) {
+    return false;
+  }
+
+  return !Array.isArray(currentField.services) || currentField.services.includes(currentService.key);
 }
 
 // 按“服务 × 字段”批量展开响应头 definitions，避免 definitions 区域再保留 reduce + filter 双层模板。
@@ -8282,7 +8249,7 @@ function buildServiceResponseHeaderDefinitions(services, fields) {
 // 所有独立组响应头 definitions 在这里一次性展开，后续 runtime response-header 直接消费成品。
 const SERVICE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
   buildServiceResponseHeaderDefinitions(
-    SERVICE_RESPONSE_HEADER_SERVICE_DEFINITIONS,
+    SERVICE_DEFINITIONS,
     SERVICE_RESPONSE_HEADER_FIELD_DEFINITIONS
   )
 );
@@ -8585,13 +8552,29 @@ function buildRuleOrderArgSummary(anchorKey, positionKey) {
   return buildRuleOrderSummary(ARGS[anchorKey], ARGS[positionKey]);
 }
 
-// full 日志中的“规则顺序编排”只是 key 不同、读取的 anchor/position 不同，这里集中维护键位映射。
-const BUILD_SUMMARY_RULE_ORDER_ENTRY_DEFINITIONS = Object.freeze([
-  { key: "github", anchorKey: "githubRuleAnchor", positionKey: "githubRulePosition" },
-  { key: "steam", anchorKey: "steamRuleAnchor", positionKey: "steamRulePosition" },
-  { key: "steam-cn", anchorKey: "steamCnRuleAnchor", positionKey: "steamCnRulePosition" },
-  { key: "dev", anchorKey: "devRuleAnchor", positionKey: "devRulePosition" }
+const EXTRA_RULE_ORDER_ENTRY_DEFINITIONS = Object.freeze([
+  { key: "steam-cn", anchorKey: "steamCnRuleAnchor", positionKey: "steamCnRulePosition", order: 3 }
 ]);
+// full 日志中的“规则顺序编排”由 SERVICE_DEFINITIONS 投影生成，SteamCN 再作为额外兼容项补进来。
+const BUILD_SUMMARY_RULE_ORDER_ENTRY_DEFINITIONS = Object.freeze(
+  projectServiceDefinitions((service) => service.ruleOrderAnchorKey && service.ruleOrderPositionKey)
+    .map((service) => ({
+      key: service.ruleOrderSummaryKey || service.key,
+      anchorKey: service.ruleOrderAnchorKey,
+      positionKey: service.ruleOrderPositionKey,
+      order: Number(service.ruleOrderSummaryOrder) || 0
+    }))
+    .concat(EXTRA_RULE_ORDER_ENTRY_DEFINITIONS)
+    .sort((left, right) => {
+      const diff = (Number(left.order) || 0) - (Number(right.order) || 0);
+      return diff !== 0 ? diff : String(left.key || "").localeCompare(String(right.key || ""));
+    })
+    .map((definition) => ({
+      key: definition.key,
+      anchorKey: definition.anchorKey,
+      positionKey: definition.positionKey
+    }))
+);
 
 // 把规则顺序定义列表拼成统一摘要，避免 full 日志里继续手写长串模板。
 function formatRuleOrderPresentationSummary(definitions) {
@@ -8601,179 +8584,32 @@ function formatRuleOrderPresentationSummary(definitions) {
     .join(", ");
 }
 
-// 关键规则窗口的基础观测项常量，避免每次分析都重新构造同一份定义数组。
-const KEY_RULE_WINDOW_BASE_DEFINITIONS = Object.freeze([
+// 关键规则窗口的固定 blocker / match 观测项常量，业务 provider 则从共享 catalog 投影生成。
+const KEY_RULE_WINDOW_STATIC_DEFINITIONS = Object.freeze([
   { key: "Geo_Not_CN", label: "Geo_Not_CN", kind: "blocker" },
   { key: "DirectList", label: "DirectList", kind: "blocker" },
   { key: "CN", label: "CN", kind: "blocker" },
   { key: "CN_IP", label: "CN_IP", kind: "blocker" },
-  { key: "GitHub", label: "GitHub", kind: "business" },
-  { key: "Steam", label: "Steam", kind: "business" },
-  { key: "SteamCN", label: "SteamCN", kind: "business" },
   { key: "MATCH", label: "MATCH", kind: "match" }
 ]);
-// 业务规则窗口的观测项常量，避免业务诊断里重复分配大数组。
-const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze([
-  { key: "ChatGPT", label: "ChatGPT", category: "ai" },
-  { key: "AIExtra", label: "AIExtra", category: "ai" },
-  { key: "Claude", label: "Claude", category: "ai" },
-  { key: "OpenAI", label: "OpenAI", category: "ai" },
-  { key: "Anthropic", label: "Anthropic", category: "ai" },
-  { key: "Gemini", label: "Gemini", category: "ai" },
-  { key: "Copilot", label: "Copilot", category: "ai" },
-  { key: "aiXcoder", label: "aiXcoder", category: "ai" },
-  { key: "Civitai", label: "Civitai", category: "ai" },
-  { key: "Grok", label: "Grok", category: "ai" },
-  { key: "AppleAI", label: "AppleAI", category: "ai" },
-  { key: "AI", label: "AI", category: "ai" },
-  { key: "Crypto", label: "Crypto", category: "trade" },
-  { key: "Binance", label: "Binance", category: "trade" },
-  { key: "OKX", label: "OKX", category: "trade" },
-  { key: "GitHub", label: "GitHub", category: "dev" },
-  { key: "DevList", label: "DevList", category: "dev" },
-  { key: "GitLab", label: "GitLab", category: "dev" },
-  { key: "Docker", label: "Docker", category: "dev" },
-  { key: "Npmjs", label: "Npmjs", category: "dev" },
-  { key: "Jetbrains", label: "JetBrains", category: "dev" },
-  { key: "Vercel", label: "Vercel", category: "dev" },
-  { key: "Python", label: "Python", category: "dev" },
-  { key: "Jfrog", label: "Jfrog", category: "dev" },
-  { key: "Heroku", label: "Heroku", category: "dev" },
-  { key: "GitBook", label: "GitBook", category: "dev" },
-  { key: "Apifox", label: "Apifox", category: "dev" },
-  { key: "Bootcss", label: "Bootcss", category: "dev" },
-  { key: "Electron", label: "Electron", category: "dev" },
-  { key: "Ubuntu", label: "Ubuntu", category: "dev" },
-  { key: "Stackexchange", label: "Stackexchange", category: "dev" },
-  { key: "CSDN", label: "CSDN", category: "dev" },
-  { key: "Gitee", label: "Gitee", category: "dev" },
-  { key: "Contentful", label: "Contentful", category: "dev" },
-  { key: "Wordpress", label: "Wordpress", category: "dev" },
-  { key: "AppleDev", label: "AppleDev", category: "dev" },
-  { key: "HashiCorp", label: "HashiCorp", category: "dev" },
-  { key: "Unity", label: "Unity", category: "dev" },
-  { key: "Collabora", label: "Collabora", category: "dev" },
-  { key: "SourceForge", label: "SourceForge", category: "dev" },
-  { key: "DigitalOcean", label: "DigitalOcean", category: "dev" },
-  { key: "QingCloud", label: "QingCloud", category: "dev" },
-  { key: "UCloud", label: "UCloud", category: "dev" },
-  { key: "Anaconda", label: "Anaconda", category: "dev" },
-  { key: "Atlassian", label: "Atlassian", category: "dev" },
-  { key: "Notion", label: "Notion", category: "dev" },
-  { key: "Figma", label: "Figma", category: "dev" },
-  { key: "Slack", label: "Slack", category: "dev" },
-  { key: "Dropbox", label: "Dropbox", category: "dev" },
-  { key: "LinkedIn", label: "LinkedIn", category: "dev" },
-  { key: "Teams", label: "Teams", category: "dev" },
-  { key: "MicrosoftEdge", label: "MicrosoftEdge", category: "dev" },
-  { key: "Discord", label: "Discord", category: "social" },
-  { key: "WhatsApp", label: "WhatsApp", category: "social" },
-  { key: "Line", label: "LINE", category: "social" },
-  { key: "Twitter", label: "Twitter", category: "social" },
-  { key: "Pinterest", label: "Pinterest", category: "social" },
-  { key: "Pixiv", label: "Pixiv", category: "social" },
-  { key: "Imgur", label: "Imgur", category: "social" },
-  { key: "Tumblr", label: "Tumblr", category: "social" },
-  { key: "Instagram", label: "Instagram", category: "social" },
-  { key: "Threads", label: "Threads", category: "social" },
-  { key: "Facebook", label: "Facebook", category: "social" },
-  { key: "Reddit", label: "Reddit", category: "social" },
-  { key: "AliPay", label: "AliPay", category: "trade" },
-  { key: "UnionPay", label: "UnionPay", category: "trade" },
-  { key: "ABC", label: "ABC Bank", category: "trade" },
-  { key: "BOCOM", label: "BOCOM", category: "trade" },
-  { key: "CCB", label: "CCB", category: "trade" },
-  { key: "Afdian", label: "Afdian", category: "trade" },
-  { key: "NetEaseMusic", label: "NetEaseMusic", category: "media" },
-  { key: "PayPal", label: "PayPal", category: "trade" },
-  { key: "Patreon", label: "Patreon", category: "trade" },
-  { key: "Stripe", label: "Stripe", category: "trade" },
-  { key: "Shopify", label: "Shopify", category: "trade" },
-  { key: "eBay", label: "eBay", category: "trade" },
-  { key: "Amazon", label: "Amazon", category: "trade" },
-  { key: "AmazonCN", label: "AmazonCN", category: "trade" },
-  { key: "AmazonTrust", label: "AmazonTrust", category: "trade" },
-  { key: "YouTube", label: "YouTube", category: "media" },
-  { key: "YouTubeMusic", label: "YouTubeMusic", category: "media" },
-  { key: "AppleNews", label: "AppleNews", category: "media" },
-  { key: "AppleMusic", label: "AppleMusic", category: "media" },
-  { key: "TestFlight", label: "TestFlight", category: "dev" },
-  { key: "Netflix", label: "Netflix", category: "media" },
-  { key: "Disney", label: "Disney", category: "media" },
-  { key: "Spotify", label: "Spotify", category: "media" },
-  { key: "TikTok", label: "TikTok", category: "media" },
-  { key: "BiliBiliIntl", label: "BiliBiliIntl", category: "media" },
-  { key: "WeTV", label: "WeTV", category: "media" },
-  { key: "iQIYIIntl", label: "iQIYIIntl", category: "media" },
-  { key: "All4", label: "All4", category: "media" },
-  { key: "ITV", label: "ITV", category: "media" },
-  { key: "CWSeed", label: "CWSeed", category: "media" },
-  { key: "PBS", label: "PBS", category: "media" },
-  { key: "Dailymotion", label: "Dailymotion", category: "media" },
-  { key: "Vimeo", label: "Vimeo", category: "media" },
-  { key: "Niconico", label: "Niconico", category: "media" },
-  { key: "Abema", label: "Abema", category: "media" },
-  { key: "PandoraTV", label: "PandoraTV", category: "media" },
-  { key: "FOXPlus", label: "FOXPlus", category: "media" },
-  { key: "FuboTV", label: "FuboTV", category: "media" },
-  { key: "NowE", label: "NowE", category: "media" },
-  { key: "myTVSUPER", label: "myTVSUPER", category: "media" },
-  { key: "KKTV", label: "KKTV", category: "media" },
-  { key: "LiTV", label: "LiTV", category: "media" },
-  { key: "VidolTV", label: "VidolTV", category: "media" },
-  { key: "My5", label: "My5", category: "media" },
-  { key: "TVer", label: "TVer", category: "media" },
-  { key: "RTHK", label: "RTHK", category: "media" },
-  { key: "MeWatch", label: "MeWatch", category: "media" },
-  { key: "Bahamut", label: "Bahamut", category: "media" },
-  { key: "DAZN", label: "DAZN", category: "media" },
-  { key: "Viki", label: "Viki", category: "media" },
-  { key: "ViuTV", label: "ViuTV", category: "media" },
-  { key: "friDay", label: "friDay", category: "media" },
-  { key: "HamiVideo", label: "HamiVideo", category: "media" },
-  { key: "ZeeTV", label: "ZeeTV", category: "media" },
-  { key: "Emby", label: "Emby", category: "media" },
-  { key: "AmazonPrimeVideo", label: "AmazonPrimeVideo", category: "media" },
-  { key: "PrimeVideo", label: "PrimeVideo", category: "media" },
-  { key: "HBO", label: "HBO", category: "media" },
-  { key: "HBOAsia", label: "HBOAsia", category: "media" },
-  { key: "HBOHK", label: "HBOHK", category: "media" },
-  { key: "HBOUSA", label: "HBOUSA", category: "media" },
-  { key: "Hulu", label: "Hulu", category: "media" },
-  { key: "HuluJP", label: "HuluJP", category: "media" },
-  { key: "HuluUSA", label: "HuluUSA", category: "media" },
-  { key: "ParamountPlus", label: "ParamountPlus", category: "media" },
-  { key: "Peacock", label: "Peacock", category: "media" },
-  { key: "DiscoveryPlus", label: "DiscoveryPlus", category: "media" },
-  { key: "SoundCloud", label: "SoundCloud", category: "media" },
-  { key: "Deezer", label: "Deezer", category: "media" },
-  { key: "KKBOX", label: "KKBOX", category: "media" },
-  { key: "Pandora", label: "Pandora", category: "media" },
-  { key: "TIDAL", label: "TIDAL", category: "media" },
-  { key: "Qobuz", label: "Qobuz", category: "media" },
-  { key: "ProxyMedia", label: "ProxyMedia", category: "media" },
-  { key: "Steam", label: "Steam", category: "game" },
-  { key: "SteamCN", label: "SteamCN", category: "game" },
-  { key: "Riot", label: "Riot", category: "game" },
-  { key: "Battle", label: "Battle", category: "game" },
-  { key: "Blizzard", label: "Blizzard", category: "game" },
-  { key: "EA", label: "EA", category: "game" },
-  { key: "Nintendo", label: "Nintendo", category: "game" },
-  { key: "PlayStation", label: "PlayStation", category: "game" },
-  { key: "Xbox", label: "Xbox", category: "game" },
-  { key: "Ubisoft", label: "Ubisoft", category: "game" },
-  { key: "2KGames", label: "2KGames", category: "game" },
-  { key: "Supercell", label: "Supercell", category: "game" },
-  { key: "Rockstar", label: "Rockstar", category: "game" },
-  { key: "HoYoverse", label: "HoYoverse", category: "game" },
-  { key: "Gog", label: "GOG", category: "game" },
-  { key: "Twitch", label: "Twitch", category: "game" },
-  { key: "Epic", label: "Epic", category: "game" }
-]);
+const KEY_RULE_WINDOW_BASE_DEFINITIONS = Object.freeze(
+  KEY_RULE_WINDOW_STATIC_DEFINITIONS.concat(
+    SERVICE_OBSERVATION_DEFINITIONS
+      .filter((definition) => definition.keyWindowKind === "business")
+      .map((definition) => ({ key: definition.provider, label: definition.label, kind: definition.keyWindowKind }))
+  )
+);
+// 业务规则窗口的观测项从共享 catalog 投影生成，避免 provider/label/category 再抄一遍。
+const SERVICE_RULE_WINDOW_DEFINITIONS = Object.freeze(
+  SERVICE_OBSERVATION_DEFINITIONS
+    .filter((definition) => definition.windowCategory)
+    .map((definition) => ({ key: definition.provider, label: definition.label, category: definition.windowCategory }))
+);
 // 业务规则窗口里的分类计数统一走映射，减少分析函数里重复 if-else 分支。
 const SERVICE_RULE_WINDOW_COUNT_FIELD_BY_CATEGORY = Object.freeze({
   ai: "aiCount",
   dev: "devCount",
+  search: "searchCount",
   social: "socialCount",
   media: "mediaCount",
   trade: "tradeCount",
@@ -9363,6 +9199,7 @@ function analyzeServiceRuleWindows(rules, ruleAnalysis) {
     foundCount: 0,
     aiCount: 0,
     devCount: 0,
+    searchCount: 0,
     socialCount: 0,
     mediaCount: 0,
     tradeCount: 0,
@@ -9409,7 +9246,7 @@ function formatServiceRuleWindowSummary(source) {
   const spanStart = Number(current.firstIndex);
   const spanEnd = Number(current.lastIndex);
   const span = spanStart >= 0 && spanEnd >= 0 ? `${spanStart + 1}-${spanEnd + 1}` : "0-0";
-  return `tracked=${Number(current.tracked) || 0},found=${Number(current.foundCount) || 0},ai=${Number(current.aiCount) || 0},dev=${Number(current.devCount) || 0},social=${Number(current.socialCount) || 0},media=${Number(current.mediaCount) || 0},trade=${Number(current.tradeCount) || 0},game=${Number(current.gameCount) || 0},missing=${Number(current.missingCount) || 0},span=${span},order=${formatProviderPreviewNames(current.orderEntries, 6, 14)}`;
+  return `tracked=${Number(current.tracked) || 0},found=${Number(current.foundCount) || 0},ai=${Number(current.aiCount) || 0},dev=${Number(current.devCount) || 0},search=${Number(current.searchCount) || 0},social=${Number(current.socialCount) || 0},media=${Number(current.mediaCount) || 0},trade=${Number(current.tradeCount) || 0},game=${Number(current.gameCount) || 0},missing=${Number(current.missingCount) || 0},span=${span},order=${formatProviderPreviewNames(current.orderEntries, 6, 14)}`;
 }
 
 // 把业务规则窗口样本压成预览字符串，便于直接看出这些业务规则的前后 2 跳邻居。
@@ -9648,11 +9485,39 @@ function buildProxyGroupOrderSummary(proxyGroups) {
   return `count=${names.length},order=${formatProviderPreviewNames(names, 10, 16)}`;
 }
 
+function normalizeProxyGroupProfileBuckets(definition) {
+  const current = isObject(definition) ? definition : {};
+  const buckets = Array.isArray(current.orderBuckets) ? current.orderBuckets : [current.orderBucket];
+  return buckets.filter(Boolean);
+}
+
+function projectProxyGroupProfileDefinitions(predicate) {
+  const definitions = Array.isArray(PROXY_GROUP_PROFILE_DEFINITIONS) ? PROXY_GROUP_PROFILE_DEFINITIONS : [];
+  return typeof predicate === "function"
+    ? definitions.filter((definition, index) => predicate(definition, index))
+    : definitions.slice();
+}
+
+function listProxyGroupProfileNamesByBucket(bucket) {
+  return projectProxyGroupProfileDefinitions((definition) => normalizeProxyGroupProfileBuckets(definition).includes(bucket))
+    .map((definition) => definition.name);
+}
+
+function listProxyGroupPriorityProfilesByPolicy(policy) {
+  return PROXY_GROUP_PRIORITY_PROFILE_DEFINITIONS.filter((definition) => definition.priorityRiskPolicy === policy);
+}
+
+const PROXY_GROUP_PRIORITY_PROFILE_DEFINITIONS = Object.freeze(
+  projectProxyGroupProfileDefinitions((definition) => definition.prioritySummary || definition.priorityRiskPolicy)
+);
+
 // 汇总几个最关键策略组的候选顺序，方便直接看出选择组/独立组/广告组内部谁排在前面。
 function buildProxyGroupPrioritySummary(proxyGroups) {
   const proxyGroupLookup = buildProxyGroupLookup(proxyGroups);
   // 只看最关键的几个组，避免把完整 proxy-groups 打进摘要导致过长。
-  const keyNames = [GROUPS.SELECT, GROUPS.FALLBACK, GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.STEAM, GROUPS.DIRECT, GROUPS.ADS];
+  const keyNames = PROXY_GROUP_PRIORITY_PROFILE_DEFINITIONS
+    .filter((definition) => definition.prioritySummary)
+    .map((definition) => definition.name);
   const entries = keyNames
     .map((name) => formatProxyGroupPriorityEntry(proxyGroupLookup[name] || null))
     .filter(Boolean);
@@ -9717,6 +9582,58 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
 
     if (selectIndex !== -1 && directIndex > selectIndex) {
       addRisk("service-chain", name, "SELECT-before-DIRECT", `${label} ${name} 当前候选链里 节点选择 排在 DIRECT 前面；这类服务原本设计为直连优先，相关流量可能更早走主选择而不是直连`);
+    }
+  }
+
+  function inspectFallbackFirstServiceGroup(name, label) {
+    const group = proxyGroupLookup[name] || null;
+    if (!group) {
+      return;
+    }
+
+    // 这类常规业务组默认应先走自动测速链，再回退到国家组/手动组/直连。
+    const fallbackIndex = findProxyGroupCandidateIndex(group, GROUPS.FALLBACK);
+    const manualIndex = findProxyGroupCandidateIndex(group, GROUPS.MANUAL);
+    const directIndex = findProxyGroupCandidateIndex(group, BUILTIN_DIRECT);
+
+    if (fallbackIndex === -1) {
+      addRisk("service-chain", name, "missing-FALLBACK", `${label} ${name} 当前候选链里缺少 ${GROUPS.FALLBACK}；这类服务原本设计为自动测速优先，缺少自动切换后会丢失默认优选链`);
+    } else if (fallbackIndex !== 0) {
+      addRisk("service-chain", name, "FALLBACK-not-first", `${label} ${name} 当前第一个候选不是 ${GROUPS.FALLBACK}；这类服务原本设计为自动测速优先，首位变化后会改变默认流量走向`);
+    }
+
+    if (manualIndex === -1) {
+      addRisk("service-chain", name, "missing-MANUAL", `${label} ${name} 当前候选链里缺少 ${GROUPS.MANUAL}；这类服务会失去手动切换全量节点的保底入口`);
+    }
+
+    if (directIndex === -1) {
+      addRisk("service-chain", name, "missing-DIRECT", `${label} ${name} 当前候选链里缺少 DIRECT；这类服务会失去直接回退到直连的保底出口`);
+    }
+  }
+
+  function inspectSelectFirstMediaGroup(name, label) {
+    const group = proxyGroupLookup[name] || null;
+    if (!group) {
+      return;
+    }
+
+    // 影音类组默认应先给主选择，再回退到区域/兜底/手动入口。
+    const selectIndex = findProxyGroupCandidateIndex(group, GROUPS.SELECT);
+    const otherIndex = findProxyGroupCandidateIndex(group, GROUPS.OTHER);
+    const manualIndex = findProxyGroupCandidateIndex(group, GROUPS.MANUAL);
+
+    if (selectIndex === -1) {
+      addRisk("service-chain", name, "missing-SELECT", `${label} ${name} 当前候选链里缺少 ${GROUPS.SELECT}；媒体类服务会失去主选择统一调度入口`);
+    } else if (selectIndex !== 0) {
+      addRisk("service-chain", name, "SELECT-not-first", `${label} ${name} 当前第一个候选不是 ${GROUPS.SELECT}；媒体类服务原本设计为主选择优先，首位变化后会改变默认出口`);
+    }
+
+    if (otherIndex === -1) {
+      addRisk("service-chain", name, "missing-OTHER", `${label} ${name} 当前候选链里缺少 ${GROUPS.OTHER}；媒体类服务会失去兜底节点集合入口`);
+    }
+
+    if (manualIndex === -1) {
+      addRisk("service-chain", name, "missing-MANUAL", `${label} ${name} 当前候选链里缺少 ${GROUPS.MANUAL}；媒体类服务会失去手动切换入口`);
     }
   }
 
@@ -9816,10 +9733,18 @@ function analyzeProxyGroupPriorityRisks(proxyGroups) {
     }
   }
 
-  inspectDirectFirstServiceGroup(GROUPS.BING, "Bing 组");
-  inspectDirectFirstServiceGroup(GROUPS.APPLE, "Apple 组");
-  inspectDirectFirstServiceGroup(GROUPS.PT, "PT 组");
-  inspectDirectFirstServiceGroup(GROUPS.SPEEDTEST, "Speedtest 组");
+  for (const definition of listProxyGroupPriorityProfilesByPolicy("direct-first")) {
+    inspectDirectFirstServiceGroup(definition.name, definition.label);
+  }
+
+  for (const definition of listProxyGroupPriorityProfilesByPolicy("fallback-first")) {
+    inspectFallbackFirstServiceGroup(definition.name, definition.label);
+  }
+
+  for (const definition of listProxyGroupPriorityProfilesByPolicy("select-first")) {
+    inspectSelectFirstMediaGroup(definition.name, definition.label);
+  }
+
   inspectDeveloperGroup(GROUPS.DEV, "开发服务组");
   inspectModeSensitiveGroup(GROUPS.DEV, "开发服务组", ARGS.devMode);
   inspectModeSensitiveGroup(GROUPS.GITHUB, "GitHub 组", ARGS.githubMode);
@@ -10633,7 +10558,9 @@ function analyzeRoutingChain(runtimeContext, queryArgs, rules, ruleDefinitions, 
   // 这里只挑一批最关键的 provider 观察其规则落点，避免预览过长。
   const keyProviders = ["ADBlock"]
     .concat(ARGS.steamFix ? ["SteamFix"] : [])
-    .concat(["Claude", "GitHub", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "GoogleDrive", "OneDrive", "AppStore", "AppleID", "iCloud", "SystemOTA", "Steam", "SteamCN", "Abema", "Bahamut", "DAZN", "ITV", "PBS", "Viki", "ViuTV", "friDay", "HamiVideo", "myTVSUPER", "ZeeTV", "Emby", "Geo_Not_CN", "CN", "DirectList"]);
+    .concat(["Claude", "GitHub"])
+    .concat(DEV_RULE_PROVIDERS)
+    .concat(["GoogleDrive", "OneDrive", "AppStore", "AppleID", "iCloud", "SystemOTA", "Steam", "SteamCN", "Abema", "Bahamut", "DAZN", "ITV", "PBS", "Viki", "ViuTV", "friDay", "HamiVideo", "myTVSUPER", "ZeeTV", "Emby", "Geo_Not_CN", "CN", "DirectList"]);
   const ruleEntries = keyProviders
     // 每个 provider 压成 provider->target[:NR] 样本，便于连同策略组候选链一起观察。
     .map((provider) => {
@@ -11128,16 +11055,16 @@ function buildProxyGroupOrderBuckets(groupNames, countryGroupNames, regionGroupN
 
   return {
     // core 是面板最顶层的主控组。
-    core: pickAvailable([GROUPS.SELECT, GROUPS.MANUAL, GROUPS.FALLBACK, GROUPS.DIRECT]),
+    core: pickAvailable(listProxyGroupProfileNamesByBucket("core")),
     // services 把高频业务组打包成一桶，方便 preset 用一个 token 拉整段。
-    services: pickAvailable([GROUPS.AI, GROUPS.GITHUB, GROUPS.DEV, GROUPS.MICROSOFT, GROUPS.ONEDRIVE, GROUPS.GOOGLE, GROUPS.CHAT, GROUPS.STEAM, GROUPS.BING, GROUPS.APPLE, GROUPS.GAMES, GROUPS.PAYPAL, GROUPS.CRYPTO, GROUPS.PT, GROUPS.SPEEDTEST]),
+    services: pickAvailable(listProxyGroupProfileNamesByBucket("services")),
     // media 单独收流媒体服务，避免和普通业务组混在一起。
-    media: pickAvailable([GROUPS.YOUTUBE, GROUPS.NETFLIX, GROUPS.DISNEY, GROUPS.SPOTIFY, GROUPS.TIKTOK, GROUPS.STREAMING]),
+    media: pickAvailable(listProxyGroupProfileNamesByBucket("media")),
     // regions / countries 则分别对应地理聚合组和国家组。
     regions: pickAvailable(regionGroupNames),
     countries: pickAvailable(countryGroupNames),
     // helpers 放直连、广告、低倍率、兜底这类辅助组。
-    helpers: pickAvailable([GROUPS.ADS, GROUPS.DIRECT, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.INFO, GROUPS.OTHER]),
+    helpers: pickAvailable(listProxyGroupProfileNamesByBucket("helpers")),
     // extras 最后兜住用户原配置里保留下来的自定义组。
     extras: pickAvailable(extraGroupNames)
   };
@@ -14159,22 +14086,62 @@ const BUILD_SUMMARY_METRIC_SECTION_DEFINITIONS = Object.freeze([
   { definitions: BUILD_SUMMARY_PRIMARY_METRIC_DEFINITIONS, defaultUnit: "" },
   { definitions: BUILD_SUMMARY_WARNING_METRIC_DEFINITIONS, defaultUnit: "条" }
 ]);
-// 这批规则/链路摘要会同时写进 full 日志和响应头，统一定义可避免两边字段逐步漂移。
-const BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS = Object.freeze([
-  { label: "策略组顺序", summaryKey: "proxyGroupOrderSummary", headerSuffix: "Proxy-Group-Order" },
-  { label: "策略组优先级", summaryKey: "proxyGroupPrioritySummary", headerSuffix: "Proxy-Group-Priority" },
-  { label: "流量优先级", summaryKey: "trafficPrioritySummary", headerSuffix: "Traffic-Priority-Summary" },
-  { label: "规则层级总览", summaryKey: "ruleLayerSummary", previewKey: "ruleLayerPreview", headerSuffix: "Rule-Layer-Summary", previewHeaderSuffix: "Rule-Layer-Preview" },
-  { label: "自定义规则区间", summaryKey: "customRuleSummary", previewKey: "customRulePreview", headerSuffix: "Custom-Rule-Summary", previewHeaderSuffix: "Custom-Rule-Preview" },
-  { label: "关键命中窗口", summaryKey: "keyRuleWindowSummary", previewKey: "keyRuleWindowPreview", headerSuffix: "Key-Rule-Window-Summary", previewHeaderSuffix: "Key-Rule-Window-Preview" },
-  { label: "规则层级目标映射", summaryKey: "ruleLayerTargetSummary", previewKey: "ruleLayerTargetPreview", headerSuffix: "Rule-Layer-Target-Summary", previewHeaderSuffix: "Rule-Layer-Target-Preview" },
-  { label: "业务规则窗口", summaryKey: "serviceRuleWindowSummary", previewKey: "serviceRuleWindowPreview", headerSuffix: "Service-Rule-Window-Summary", previewHeaderSuffix: "Service-Rule-Window-Preview" },
-  { label: "规则入口映射", summaryKey: "ruleTargetMappingSummary", previewKey: "ruleTargetMappingPreview", headerSuffix: "Rule-Target-Summary", previewHeaderSuffix: "Rule-Target-Preview" },
-  { label: "规则优先级风险", summaryKey: "rulePriorityRiskSummary", previewKey: "rulePriorityRiskPreview", headerSuffix: "Rule-Priority-Risk-Summary", previewHeaderSuffix: "Rule-Priority-Risk-Preview" },
-  { label: "策略组候选链风险", summaryKey: "proxyGroupPriorityRiskSummary", previewKey: "proxyGroupPriorityRiskPreview", headerSuffix: "Proxy-Group-Priority-Risk-Summary", previewHeaderSuffix: "Proxy-Group-Priority-Risk-Preview" },
-  { label: "业务链路总览", summaryKey: "serviceRoutingSummary", previewKey: "serviceRoutingPreview", headerSuffix: "Service-Routing-Summary", previewHeaderSuffix: "Service-Routing-Preview" },
-  { label: "分流链路总览", summaryKey: "routingChainSummary", previewKey: "routingChainPreview", headerSuffix: "Routing-Chain-Summary", previewHeaderSuffix: "Routing-Chain-Preview" }
+const MAIN_ANALYSIS_SINGLE_VALUE_DIAGNOSTIC_DEFINITIONS = Object.freeze([
+  { label: "策略组顺序", key: "proxyGroupOrderSummary", headerSuffix: "Proxy-Group-Order", value: (context) => buildProxyGroupOrderSummary(context.proxyGroups) },
+  { label: "策略组优先级", key: "proxyGroupPrioritySummary", headerSuffix: "Proxy-Group-Priority", value: (context) => buildProxyGroupPrioritySummary(context.proxyGroups) },
+  { label: "流量优先级", key: "trafficPrioritySummary", headerSuffix: "Traffic-Priority-Summary", value: (context) => buildTrafficPrioritySummary(context.rules, context.generatedRules, context.configuredRules, context.ruleAnalysis) }
 ]);
+// 这批只产出单个 summary 的静态诊断项，同时会进入 analysis 派生摘要与响应头/日志定义，统一 registry 后减少多处重复列举。
+const BUILD_SUMMARY_STATIC_DIAGNOSTIC_LINE_DEFINITIONS = Object.freeze(
+  MAIN_ANALYSIS_SINGLE_VALUE_DIAGNOSTIC_DEFINITIONS.map((definition) => ({
+    label: definition.label,
+    summaryKey: definition.key,
+    headerSuffix: definition.headerSuffix
+  }))
+);
+// 主要 analysis 观测项统一挂在一份 registry 上：既描述 analyzeX 主产物，也描述其 summary/preview 投影，避免两张表靠 sourceKey 人工同步。
+const MAIN_ANALYSIS_OBSERVATION_DEFINITIONS = Object.freeze([
+  { key: "routingChain", analyze: (context) => analyzeRoutingChain(RUNTIME_CONTEXT, RUNTIME_QUERY_ARGS, context.rules, context.finalRuleDefinitions, context.proxyGroups), label: "分流链路总览", summaryOrder: 10, summaryKey: "routingChainSummary", previewKey: "routingChainPreview", headerSuffix: "Routing-Chain-Summary", previewHeaderSuffix: "Routing-Chain-Preview", summaryFormatter: formatRoutingChainSummary, previewFormatter: formatRoutingChainPreview },
+  { key: "serviceRoutingProfiles", analyze: (context) => analyzeServiceRoutingProfiles(context.finalRuleDefinitions, context.proxyGroups, context.countryConfigs, context.preferredCountryStates), label: "业务链路总览", summaryOrder: 9, summaryKey: "serviceRoutingSummary", previewKey: "serviceRoutingPreview", headerSuffix: "Service-Routing-Summary", previewHeaderSuffix: "Service-Routing-Preview", summaryFormatter: formatServiceRoutingProfilesSummary, previewFormatter: formatServiceRoutingProfilesPreview },
+  // regionVisibility 目前只参与 diagnostics 校验与额外摘要，不走 summary/preview 响应头链路，先继续共用同一 registry 但不投影到摘要定义。
+  { key: "regionVisibility", analyze: (context) => analyzeRegionGroupVisibility(context.proxyGroups, context.countryConfigs) },
+  { key: "proxyGroupPriorityRisks", analyze: (context) => analyzeProxyGroupPriorityRisks(context.proxyGroups), label: "策略组候选链风险", summaryOrder: 8, summaryKey: "proxyGroupPriorityRiskSummary", previewKey: "proxyGroupPriorityRiskPreview", headerSuffix: "Proxy-Group-Priority-Risk-Summary", previewHeaderSuffix: "Proxy-Group-Priority-Risk-Preview", summaryFormatter: formatProxyGroupPriorityRiskSummary, previewFormatter: formatProxyGroupPriorityRiskPreview },
+  { key: "rulePriorityRisks", analyze: (context) => analyzeRulePriorityRisks(context.finalRuleDefinitions), label: "规则优先级风险", summaryOrder: 7, summaryKey: "rulePriorityRiskSummary", previewKey: "rulePriorityRiskPreview", headerSuffix: "Rule-Priority-Risk-Summary", previewHeaderSuffix: "Rule-Priority-Risk-Preview", summaryFormatter: formatRulePriorityRiskSummary, previewFormatter: formatRulePriorityRiskPreview },
+  { key: "ruleTargetMapping", analyze: (context) => analyzeRuleTargetMapping(context.finalRuleDefinitions, context.rules, context.ruleAnalysis), label: "规则入口映射", summaryOrder: 6, summaryKey: "ruleTargetMappingSummary", previewKey: "ruleTargetMappingPreview", headerSuffix: "Rule-Target-Summary", previewHeaderSuffix: "Rule-Target-Preview", summaryFormatter: formatRuleTargetMappingSummary, previewFormatter: formatRuleTargetMappingPreview },
+  { key: "ruleLayering", analyze: (context) => analyzeRuleLayering(context.rules, context.ruleAnalysis), label: "规则层级总览", summaryOrder: 1, summaryKey: "ruleLayerSummary", previewKey: "ruleLayerPreview", headerSuffix: "Rule-Layer-Summary", previewHeaderSuffix: "Rule-Layer-Preview", summaryFormatter: formatRuleLayeringSummary, previewFormatter: formatRuleLayeringPreview },
+  { key: "customRuleWindow", analyze: (context) => analyzeCustomRuleWindow(context.generatedRules, context.configuredRules, context.rules, context.ruleAnalysis), label: "自定义规则区间", summaryOrder: 2, summaryKey: "customRuleSummary", previewKey: "customRulePreview", headerSuffix: "Custom-Rule-Summary", previewHeaderSuffix: "Custom-Rule-Preview", summaryFormatter: formatCustomRuleWindowSummary, previewFormatter: formatCustomRuleWindowPreview },
+  { key: "keyRuleWindows", analyze: (context) => analyzeKeyRuleWindows(context.rules, context.ruleAnalysis), label: "关键命中窗口", summaryOrder: 3, summaryKey: "keyRuleWindowSummary", previewKey: "keyRuleWindowPreview", headerSuffix: "Key-Rule-Window-Summary", previewHeaderSuffix: "Key-Rule-Window-Preview", summaryFormatter: formatKeyRuleWindowSummary, previewFormatter: formatKeyRuleWindowPreview },
+  { key: "ruleLayerTargetMapping", analyze: (context) => analyzeRuleLayerTargetMapping(context.rules, context.ruleAnalysis), label: "规则层级目标映射", summaryOrder: 4, summaryKey: "ruleLayerTargetSummary", previewKey: "ruleLayerTargetPreview", headerSuffix: "Rule-Layer-Target-Summary", previewHeaderSuffix: "Rule-Layer-Target-Preview", summaryFormatter: formatRuleLayerTargetMappingSummary, previewFormatter: formatRuleLayerTargetMappingPreview },
+  { key: "serviceRuleWindows", analyze: (context) => analyzeServiceRuleWindows(context.rules, context.ruleAnalysis), label: "业务规则窗口", summaryOrder: 5, summaryKey: "serviceRuleWindowSummary", previewKey: "serviceRuleWindowPreview", headerSuffix: "Service-Rule-Window-Summary", previewHeaderSuffix: "Service-Rule-Window-Preview", summaryFormatter: formatServiceRuleWindowSummary, previewFormatter: formatServiceRuleWindowPreview }
+]);
+// 从统一 observation registry 投影出 summary/preview 元定义，继续复用现有 diagnostics/header/full-summary 消费协议。
+const ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS = Object.freeze(
+  MAIN_ANALYSIS_OBSERVATION_DEFINITIONS
+    .filter((definition) => normalizeStringArg(definition.summaryKey) || normalizeStringArg(definition.previewKey))
+    .sort((left, right) => (Number(left.summaryOrder) || 0) - (Number(right.summaryOrder) || 0))
+    .map((definition) => ({
+      sourceKey: definition.key,
+      label: definition.label,
+      summaryKey: definition.summaryKey,
+      previewKey: definition.previewKey,
+      headerSuffix: definition.headerSuffix,
+      previewHeaderSuffix: definition.previewHeaderSuffix,
+      summaryFormatter: definition.summaryFormatter,
+      previewFormatter: definition.previewFormatter
+    }))
+);
+// 这批规则/链路摘要会同时写进 full 日志和响应头，统一定义可避免两边字段逐步漂移。
+const BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS = Object.freeze(
+  BUILD_SUMMARY_STATIC_DIAGNOSTIC_LINE_DEFINITIONS.concat(
+    ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS.map((definition) => ({
+      label: definition.label,
+      summaryKey: definition.summaryKey,
+      previewKey: definition.previewKey,
+      headerSuffix: definition.headerSuffix,
+      previewHeaderSuffix: definition.previewHeaderSuffix
+    }))
+  )
+);
 // full 日志里很多参数行只是 label 不同、entries 结构完全一致，这里统一成构造 helper，便于继续扩展更多参数摘要。
 function createBuildSummaryArgLineDefinition(label, entries) {
   return { label, entries };
@@ -14251,162 +14218,203 @@ const BUILD_SUMMARY_SERVICE_ARG_LINE_DEFINITIONS = Object.freeze([
     )
   ])
 ]);
+// provider 参数 catalog 同时服务 response-header 与 build-summary；通过 responseOrder/summaryOrder 投影，避免两边各维护一份同源字段。
+function createProviderFieldCatalogDefinition(options) {
+  const currentOptions = isObject(options) ? options : {};
+  const key = normalizeStringArg(currentOptions.key);
+  const headerSuffix = normalizeStringArg(currentOptions.headerSuffix);
+  const summaryKey = hasOwn(currentOptions, "summaryKey")
+    ? normalizeStringArg(currentOptions.summaryKey)
+    : key;
+  const headerValue = typeof currentOptions.headerValue === "function"
+    ? currentOptions.headerValue
+    : (typeof currentOptions.value === "function" ? currentOptions.value : undefined);
+  const summaryValue = typeof currentOptions.summaryValue === "function"
+    ? currentOptions.summaryValue
+    : headerValue;
+
+  return Object.freeze({
+    key,
+    headerSuffix,
+    summaryKey,
+    headerValue,
+    summaryValue,
+    responseOrder: Number(currentOptions.responseOrder) || 0,
+    summaryOrder: Number(currentOptions.summaryOrder) || 0
+  });
+}
+
+// provider catalog 在不同输出面上的顺序不完全相同，这里统一做稳定排序，避免 response-header / full-summary 再各自手写顺序。
+function sortProviderFieldCatalogDefinitions(definitions, orderKey) {
+  const source = Array.isArray(definitions) ? definitions : [];
+  const currentOrderKey = normalizeStringArg(orderKey);
+
+  return source
+    .map((definition, index) => ({ definition, index }))
+    .sort((left, right) => {
+      const leftOrder = Number(left.definition && left.definition[currentOrderKey]) || 0;
+      const rightOrder = Number(right.definition && right.definition[currentOrderKey]) || 0;
+      return leftOrder === rightOrder ? left.index - right.index : leftOrder - rightOrder;
+    })
+    .map((entry) => entry.definition);
+}
+
+// 从 provider catalog 投影 runtime response-header definitions，统一前缀拼接和无效字段过滤。
+function createProviderResponseHeaderDefinitions(prefix, definitions) {
+  const currentPrefix = normalizeStringArg(prefix);
+  return sortProviderFieldCatalogDefinitions(definitions, "responseOrder")
+    .filter((definition) => normalizeStringArg(definition && definition.headerSuffix) && typeof (definition && definition.headerValue) === "function")
+    .map((definition) => ({
+      headerSuffix: currentPrefix ? `${currentPrefix}-${definition.headerSuffix}` : definition.headerSuffix,
+      value: definition.headerValue
+    }));
+}
+
+// 从 provider catalog 投影 build-summary arg entries，统一 `key=value` 输出侧的字段名与顺序。
+function createBuildSummaryProviderArgEntries(definitions) {
+  return sortProviderFieldCatalogDefinitions(definitions, "summaryOrder")
+    .filter((definition) => normalizeStringArg(definition && definition.summaryKey) && typeof (definition && definition.summaryValue) === "function")
+    .map((definition) => ({
+      key: definition.summaryKey,
+      value: definition.summaryValue
+    }));
+}
+
+const RULE_SOURCE_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "preset", headerSuffix: "Preset", responseOrder: 1, summaryOrder: 1, value: () => ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET }),
+  createProviderFieldCatalogDefinition({ key: "steam-fix", headerSuffix: "Steam-Fix", responseOrder: 2, summaryOrder: 2, value: () => ARGS.hasSteamFix ? ARGS.steamFix : false }),
+  createProviderFieldCatalogDefinition({ key: "steam-fix-url", headerSuffix: "Steam-Fix-Url", responseOrder: 3, summaryOrder: 3, value: () => ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled" }),
+  createProviderFieldCatalogDefinition({ key: "direct-list-url", headerSuffix: "Direct-List-Url", responseOrder: 4, summaryOrder: 4, value: () => ARGS.hasDirectListUrl ? ARGS.directListUrl : "default" }),
+  createProviderFieldCatalogDefinition({ key: "extra-direct-domains", headerSuffix: "Extra-Direct-Domains", responseOrder: 5, summaryOrder: 5, headerValue: () => ARGS.hasExtraDirectDomains ? formatProviderPreviewNames(ARGS.extraDirectDomains, 4, 20) : "default", summaryValue: () => ARGS.hasExtraDirectDomains ? ARGS.extraDirectDomains.join(" | ") : "default" }),
+  createProviderFieldCatalogDefinition({ key: "crypto-list-url", headerSuffix: "Crypto-List-Url", responseOrder: 6, summaryOrder: 6, value: () => ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default" }),
+  createProviderFieldCatalogDefinition({ key: "chatgpt-list-url", headerSuffix: "ChatGPT-List-Url", responseOrder: 7, summaryOrder: 7, value: () => ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default" }),
+  createProviderFieldCatalogDefinition({ key: "ai-extra-list-url", headerSuffix: "AI-Extra-List-Url", responseOrder: 8, summaryOrder: 8, value: () => ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default" }),
+  createProviderFieldCatalogDefinition({ key: "dev-list-url", headerSuffix: "Dev-List-Url", responseOrder: 9, summaryOrder: 9, value: () => ARGS.hasDevListUrl ? ARGS.devListUrl : "default" }),
+  createProviderFieldCatalogDefinition({ key: "grok-rule-url", headerSuffix: "Grok-Rule-Url", responseOrder: 10, summaryOrder: 10, value: () => accademiaAdditionalRule("Grok") }),
+  createProviderFieldCatalogDefinition({ key: "apple-ai-rule-url", headerSuffix: "Apple-AI-Rule-Url", responseOrder: 11, summaryOrder: 11, value: () => accademiaAdditionalRule("AppleAI") })
+]);
+
+const RULE_PROVIDER_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "provider-path-dir", headerSuffix: "Path-Dir", responseOrder: 1, summaryOrder: 1, value: () => ARGS.ruleProviderPathDir }),
+  createProviderFieldCatalogDefinition({ key: "provider-interval", headerSuffix: "Interval", responseOrder: 2, summaryOrder: 2, value: () => ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL }),
+  createProviderFieldCatalogDefinition({ key: "provider-proxy", headerSuffix: "Proxy", responseOrder: 3, summaryOrder: 3, value: () => ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default" }),
+  createProviderFieldCatalogDefinition({ key: "provider-size-limit", headerSuffix: "Size-Limit", responseOrder: 4, summaryOrder: 4, value: () => ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default" }),
+  createProviderFieldCatalogDefinition({ key: "provider-ua", headerSuffix: "UA", responseOrder: 5, summaryOrder: 5, value: () => ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default" }),
+  createProviderFieldCatalogDefinition({ key: "provider-auth", headerSuffix: "Authorization", responseOrder: 6, summaryOrder: 6, value: () => ARGS.hasRuleProviderAuthorization ? "configured" : "default" }),
+  createProviderFieldCatalogDefinition({ key: "provider-headers", headerSuffix: "Header", responseOrder: 7, summaryOrder: 7, headerValue: () => ARGS.hasRuleProviderHeader ? `configured:${ARGS.ruleProviderHeaderEntryCount}` : "default", summaryValue: () => ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default" }),
+  createProviderFieldCatalogDefinition({ key: "provider-payload", headerSuffix: "Payload", responseOrder: 8, summaryOrder: 8, headerValue: () => ARGS.hasRuleProviderPayload ? `configured:${ARGS.ruleProviderPayloadCount}` : "default", summaryValue: () => ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default" }),
+  createProviderFieldCatalogDefinition({ key: "scope", headerSuffix: "Apply-Scope", responseOrder: 9, summaryOrder: 9, headerValue: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "default", summaryValue: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default" }),
+  createProviderFieldCatalogDefinition({ key: "apply-scope", headerSuffix: "Apply-Scope-Detail", responseOrder: 10, summaryOrder: 11, value: () => buildRuleProviderApplyScopeSummary() }),
+  createProviderFieldCatalogDefinition({ key: "apply-stats", headerSuffix: "Apply-Stats", responseOrder: 11, summaryOrder: 12, headerValue: (diagnostics) => formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats), summaryValue: (stats) => stats.ruleProviderApplyStatsSummary }),
+  createProviderFieldCatalogDefinition({ key: "apply-preview", headerSuffix: "Apply-Preview", responseOrder: 12, summaryOrder: 13, headerValue: (diagnostics) => formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview), summaryValue: (stats) => stats.ruleProviderApplyPreviewSummary }),
+  createProviderFieldCatalogDefinition({ key: "mutation-stats", headerSuffix: "Mutation-Stats", responseOrder: 13, summaryOrder: 14, headerValue: (diagnostics) => formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats), summaryValue: (stats) => stats.ruleProviderMutationStatsSummary }),
+  createProviderFieldCatalogDefinition({ key: "mutation-preview", headerSuffix: "Mutation-Preview", responseOrder: 14, summaryOrder: 15, headerValue: (diagnostics) => formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview), summaryValue: (stats) => stats.ruleProviderMutationPreviewSummary }),
+  createProviderFieldCatalogDefinition({ key: "payload-scope", headerSuffix: "Payload-Apply-Scope", responseOrder: 15, summaryOrder: 10, value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" })
+]);
+
+const PROXY_PROVIDER_BASE_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "interval", headerSuffix: "Interval", responseOrder: 1, summaryOrder: 1, value: () => ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default" }),
+  createProviderFieldCatalogDefinition({ key: "proxy", headerSuffix: "Proxy", responseOrder: 2, summaryOrder: 2, value: () => ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default" }),
+  createProviderFieldCatalogDefinition({ key: "size-limit", headerSuffix: "Size-Limit", responseOrder: 3, summaryOrder: 3, value: () => ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default" }),
+  createProviderFieldCatalogDefinition({ key: "ua", headerSuffix: "UA", responseOrder: 4, summaryOrder: 4, value: () => ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default" }),
+  createProviderFieldCatalogDefinition({ key: "auth", headerSuffix: "Authorization", responseOrder: 5, summaryOrder: 5, value: () => ARGS.hasProxyProviderAuthorization ? "configured" : "default" }),
+  createProviderFieldCatalogDefinition({ key: "headers", headerSuffix: "Header", responseOrder: 6, summaryOrder: 6, headerValue: () => ARGS.hasProxyProviderHeader ? `configured:${ARGS.proxyProviderHeaderEntryCount}` : "default", summaryValue: () => ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeaderEntryCount : "default" }),
+  createProviderFieldCatalogDefinition({ key: "payload", headerSuffix: "Payload", responseOrder: 7, summaryOrder: 7, headerValue: () => ARGS.hasProxyProviderPayload ? `configured:${ARGS.proxyProviderPayloadCount}` : "default", summaryValue: () => ARGS.hasProxyProviderPayload ? ARGS.proxyProviderPayloadCount : "default" }),
+  createProviderFieldCatalogDefinition({ key: "path-dir", headerSuffix: "Path-Dir", responseOrder: 8, summaryOrder: 8, value: () => ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged" }),
+  createProviderFieldCatalogDefinition({ key: "apply-scope", headerSuffix: "Apply-Scope", responseOrder: 9, summaryOrder: 18, value: () => buildProxyProviderApplyScopeSummary() }),
+  createProviderFieldCatalogDefinition({ key: "apply-stats", headerSuffix: "Apply-Stats", responseOrder: 10, summaryOrder: 19, headerValue: (diagnostics) => formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats), summaryValue: (stats) => stats.proxyProviderApplyStatsSummary }),
+  createProviderFieldCatalogDefinition({ key: "apply-preview", headerSuffix: "Apply-Preview", responseOrder: 11, summaryOrder: 20, headerValue: (diagnostics) => formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview), summaryValue: (stats) => stats.proxyProviderApplyPreviewSummary }),
+  createProviderFieldCatalogDefinition({ key: "mutation-stats", headerSuffix: "Mutation-Stats", responseOrder: 12, summaryOrder: 21, headerValue: (diagnostics) => formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats), summaryValue: (stats) => stats.proxyProviderMutationStatsSummary }),
+  createProviderFieldCatalogDefinition({ key: "mutation-preview", headerSuffix: "Mutation-Preview", responseOrder: 13, summaryOrder: 22, headerValue: (diagnostics) => formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview), summaryValue: (stats) => stats.proxyProviderMutationPreviewSummary })
+]);
+
+const PROXY_PROVIDER_FILTER_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "filter", headerSuffix: "Filter", responseOrder: 14, summaryOrder: 9, value: () => ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default" }),
+  createProviderFieldCatalogDefinition({ key: "exclude-filter", headerSuffix: "Exclude-Filter", responseOrder: 15, summaryOrder: 10, value: () => ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default" }),
+  createProviderFieldCatalogDefinition({ key: "exclude-type", headerSuffix: "Exclude-Type", responseOrder: 16, summaryOrder: 11, value: () => ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default" })
+]);
+
+const PROXY_PROVIDER_HEALTH_CHECK_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "hc-enable", headerSuffix: "HC-Enable", responseOrder: 31, summaryOrder: 12, value: () => ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default" }),
+  createProviderFieldCatalogDefinition({ key: "hc-url", headerSuffix: "HC-Url", responseOrder: 32, summaryOrder: 13, value: () => ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default" }),
+  createProviderFieldCatalogDefinition({ key: "hc-interval", headerSuffix: "HC-Interval", responseOrder: 33, summaryOrder: 14, value: () => ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default" }),
+  createProviderFieldCatalogDefinition({ key: "hc-timeout", headerSuffix: "HC-Timeout", responseOrder: 34, summaryOrder: 15, value: () => ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default" }),
+  createProviderFieldCatalogDefinition({ key: "hc-lazy", headerSuffix: "HC-Lazy", responseOrder: 35, summaryOrder: 16, value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" }),
+  createProviderFieldCatalogDefinition({ key: "hc-expected-status", headerSuffix: "HC-Expected-Status", responseOrder: 36, summaryOrder: 17, value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" })
+]);
+
+const PROXY_PROVIDER_GENERAL_FIELD_CATALOG = Object.freeze([]
+  .concat(PROXY_PROVIDER_BASE_FIELD_CATALOG)
+  .concat(PROXY_PROVIDER_FILTER_FIELD_CATALOG)
+  .concat(PROXY_PROVIDER_HEALTH_CHECK_FIELD_CATALOG)
+);
+
+const PROXY_PROVIDER_OVERRIDE_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "prefix", headerSuffix: "Prefix", responseOrder: 1, summaryOrder: 1, value: () => ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default" }),
+  createProviderFieldCatalogDefinition({ key: "suffix", headerSuffix: "Suffix", responseOrder: 2, summaryOrder: 2, value: () => ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default" }),
+  createProviderFieldCatalogDefinition({ key: "udp", headerSuffix: "UDP", responseOrder: 3, summaryOrder: 3, value: () => ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default" }),
+  createProviderFieldCatalogDefinition({ key: "udp-over-tcp", headerSuffix: "UDP-Over-TCP", responseOrder: 4, summaryOrder: 4, value: () => ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default" }),
+  createProviderFieldCatalogDefinition({ key: "down", headerSuffix: "Down", responseOrder: 5, summaryOrder: 5, value: () => ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default" }),
+  createProviderFieldCatalogDefinition({ key: "up", headerSuffix: "Up", responseOrder: 6, summaryOrder: 6, value: () => ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default" }),
+  createProviderFieldCatalogDefinition({ key: "tfo", headerSuffix: "TFO", responseOrder: 7, summaryOrder: 7, value: () => ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default" }),
+  createProviderFieldCatalogDefinition({ key: "mptcp", headerSuffix: "MPTCP", responseOrder: 8, summaryOrder: 8, value: () => ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default" }),
+  createProviderFieldCatalogDefinition({ key: "skip-cert-verify", headerSuffix: "Skip-Cert-Verify", responseOrder: 9, summaryOrder: 9, value: () => ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default" }),
+  createProviderFieldCatalogDefinition({ key: "dialer-proxy", headerSuffix: "Dialer-Proxy", responseOrder: 10, summaryOrder: 10, value: () => ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default" }),
+  createProviderFieldCatalogDefinition({ key: "interface-name", headerSuffix: "Interface-Name", responseOrder: 11, summaryOrder: 11, value: () => ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default" }),
+  createProviderFieldCatalogDefinition({ key: "routing-mark", headerSuffix: "Routing-Mark", responseOrder: 12, summaryOrder: 12, value: () => ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default" }),
+  createProviderFieldCatalogDefinition({ key: "ip-version", headerSuffix: "IP-Version", responseOrder: 13, summaryOrder: 13, value: () => ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default" }),
+  createProviderFieldCatalogDefinition({ key: "proxy-name-rules", headerSuffix: "Proxy-Name", responseOrder: 14, summaryOrder: 14, headerValue: () => ARGS.hasProxyProviderOverrideProxyNameRules ? `configured:${ARGS.proxyProviderOverrideProxyNameRules.length}` : "default", summaryValue: () => ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default" })
+]);
+
+const RUNTIME_LINK_FIELD_CATALOG = Object.freeze([
+  createProviderFieldCatalogDefinition({ key: "route-kind", summaryKey: "route-kind", summaryOrder: 1, summaryValue: () => RUNTIME_CONTEXT.routeKind || "unknown" }),
+  createProviderFieldCatalogDefinition({ key: "route-name", summaryKey: "route-name", summaryOrder: 2, summaryValue: () => RUNTIME_CONTEXT.routeName || "unknown" }),
+  createProviderFieldCatalogDefinition({ key: "no-cache", headerSuffix: "No-Cache", responseOrder: 1, summaryOrder: 3, value: () => RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default" }),
+  createProviderFieldCatalogDefinition({ key: "include-unsupported", headerSuffix: "Include-Unsupported", responseOrder: 2, summaryOrder: 4, value: () => RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default" }),
+  createProviderFieldCatalogDefinition({ key: "ignore-failed", summaryKey: "ignore-failed", summaryOrder: 5, summaryValue: () => RUNTIME_LINK_OPTIONS.hasIgnoreFailedRemoteSub ? RUNTIME_LINK_OPTIONS.ignoreFailedRemoteSub : "default" }),
+  createProviderFieldCatalogDefinition({ key: "merge-sources", headerSuffix: "Merge-Sources", responseOrder: 3, summaryOrder: 6, value: () => RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default" }),
+  createProviderFieldCatalogDefinition({ key: "produce-type", summaryKey: "produce-type", summaryOrder: 7, summaryValue: () => RUNTIME_LINK_OPTIONS.hasProduceType ? RUNTIME_LINK_OPTIONS.produceType : "default" }),
+  createProviderFieldCatalogDefinition({ key: "url", summaryKey: "url", summaryOrder: 8, summaryValue: () => RUNTIME_LINK_OPTIONS.hasUrl ? "yes" : "no" }),
+  createProviderFieldCatalogDefinition({ key: "url-kind", headerSuffix: "Link-Url-Kind", responseOrder: 4, summaryOrder: 9, summaryKey: "url-kind", value: () => RUNTIME_LINK_OPTIONS.urlKind || "none" }),
+  createProviderFieldCatalogDefinition({ key: "content", summaryKey: "content", summaryOrder: 10, summaryValue: () => RUNTIME_LINK_OPTIONS.hasContent ? "yes" : "no" }),
+  createProviderFieldCatalogDefinition({ key: "ua", summaryKey: "ua", summaryOrder: 11, summaryValue: () => RUNTIME_LINK_OPTIONS.hasUa ? "yes" : "no" }),
+  createProviderFieldCatalogDefinition({ key: "proxy", summaryKey: "proxy", summaryOrder: 12, summaryValue: () => RUNTIME_LINK_OPTIONS.hasProxy ? "yes" : "no" }),
+  createProviderFieldCatalogDefinition({ key: "link-semantic-summary", headerSuffix: "Link-Semantic-Summary", summaryKey: "", responseOrder: 5, headerValue: () => buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS) }),
+  createProviderFieldCatalogDefinition({ key: "link-semantic-check", headerSuffix: "Link-Semantic-Check", summaryKey: "", responseOrder: 6, headerValue: () => "enabled" })
+]);
+
 // rule-provider 响应头字段定义；统一收敛后，响应头与日志里引用的统计摘要更容易保持一致。
-const RULE_PROVIDER_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
-  { headerSuffix: "Rule-Provider-Path-Dir", value: () => ARGS.ruleProviderPathDir },
-  { headerSuffix: "Rule-Provider-Interval", value: () => ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL },
-  { headerSuffix: "Rule-Provider-Proxy", value: () => ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default" },
-  { headerSuffix: "Rule-Provider-Size-Limit", value: () => ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default" },
-  { headerSuffix: "Rule-Provider-UA", value: () => ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default" },
-  { headerSuffix: "Rule-Provider-Authorization", value: () => ARGS.hasRuleProviderAuthorization ? "configured" : "default" },
-  { headerSuffix: "Rule-Provider-Header", value: () => ARGS.hasRuleProviderHeader ? `configured:${ARGS.ruleProviderHeaderEntryCount}` : "default" },
-  { headerSuffix: "Rule-Provider-Payload", value: () => ARGS.hasRuleProviderPayload ? `configured:${ARGS.ruleProviderPayloadCount}` : "default" },
-  { headerSuffix: "Rule-Provider-Apply-Scope", value: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "default" },
-  { headerSuffix: "Rule-Provider-Apply-Scope-Detail", value: () => buildRuleProviderApplyScopeSummary() },
-  { headerSuffix: "Rule-Provider-Apply-Stats", value: (diagnostics) => formatRuleProviderApplyStats(diagnostics.ruleProviderApplyStats) },
-  { headerSuffix: "Rule-Provider-Apply-Preview", value: (diagnostics) => formatRuleProviderApplyPreview(diagnostics.ruleProviderApplyPreview) },
-  { headerSuffix: "Rule-Provider-Mutation-Stats", value: (diagnostics) => formatRuleProviderMutationStats(diagnostics.ruleProviderMutationStats) },
-  { headerSuffix: "Rule-Provider-Mutation-Preview", value: (diagnostics) => formatRuleProviderMutationPreview(diagnostics.ruleProviderMutationPreview) },
-  { headerSuffix: "Rule-Provider-Payload-Apply-Scope", value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" },
-  { headerSuffix: "Rule-Provider-Semantic-Check", value: () => "enabled" }
-]);
+const RULE_PROVIDER_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
+  createProviderResponseHeaderDefinitions("Rule-Provider", RULE_PROVIDER_FIELD_CATALOG).concat([
+    { headerSuffix: "Rule-Provider-Semantic-Check", value: () => "enabled" }
+  ])
+);
 // proxy-provider 响应头字段定义；过滤、Override、health-check 也统一归档，避免 buildRuntimeResponseHeaders 继续拉长。
-const PROXY_PROVIDER_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
-  { headerSuffix: "Proxy-Provider-Interval", value: () => ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default" },
-  { headerSuffix: "Proxy-Provider-Proxy", value: () => ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default" },
-  { headerSuffix: "Proxy-Provider-Size-Limit", value: () => ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default" },
-  { headerSuffix: "Proxy-Provider-UA", value: () => ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default" },
-  { headerSuffix: "Proxy-Provider-Authorization", value: () => ARGS.hasProxyProviderAuthorization ? "configured" : "default" },
-  { headerSuffix: "Proxy-Provider-Header", value: () => ARGS.hasProxyProviderHeader ? `configured:${ARGS.proxyProviderHeaderEntryCount}` : "default" },
-  { headerSuffix: "Proxy-Provider-Payload", value: () => ARGS.hasProxyProviderPayload ? `configured:${ARGS.proxyProviderPayloadCount}` : "default" },
-  { headerSuffix: "Proxy-Provider-Path-Dir", value: () => ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged" },
-  { headerSuffix: "Proxy-Provider-Apply-Scope", value: () => buildProxyProviderApplyScopeSummary() },
-  { headerSuffix: "Proxy-Provider-Apply-Stats", value: (diagnostics) => formatProxyProviderApplyStats(diagnostics.proxyProviderApplyStats) },
-  { headerSuffix: "Proxy-Provider-Apply-Preview", value: (diagnostics) => formatProxyProviderApplyPreview(diagnostics.proxyProviderApplyPreview) },
-  { headerSuffix: "Proxy-Provider-Mutation-Stats", value: (diagnostics) => formatProxyProviderMutationStats(diagnostics.proxyProviderMutationStats) },
-  { headerSuffix: "Proxy-Provider-Mutation-Preview", value: (diagnostics) => formatProxyProviderMutationPreview(diagnostics.proxyProviderMutationPreview) },
-  { headerSuffix: "Proxy-Provider-Semantic-Check", value: () => "enabled" },
-  { headerSuffix: "Proxy-Provider-Filter", value: () => ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default" },
-  { headerSuffix: "Proxy-Provider-Exclude-Filter", value: () => ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default" },
-  { headerSuffix: "Proxy-Provider-Exclude-Type", value: () => ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Prefix", value: () => ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Suffix", value: () => ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default" },
-  { headerSuffix: "Proxy-Provider-Override-UDP", value: () => ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default" },
-  { headerSuffix: "Proxy-Provider-Override-UDP-Over-TCP", value: () => ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Down", value: () => ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Up", value: () => ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default" },
-  { headerSuffix: "Proxy-Provider-Override-TFO", value: () => ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default" },
-  { headerSuffix: "Proxy-Provider-Override-MPTCP", value: () => ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Skip-Cert-Verify", value: () => ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Dialer-Proxy", value: () => ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Interface-Name", value: () => ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Routing-Mark", value: () => ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default" },
-  { headerSuffix: "Proxy-Provider-Override-IP-Version", value: () => ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default" },
-  { headerSuffix: "Proxy-Provider-Override-Proxy-Name", value: () => ARGS.hasProxyProviderOverrideProxyNameRules ? `configured:${ARGS.proxyProviderOverrideProxyNameRules.length}` : "default" },
-  { headerSuffix: "Proxy-Provider-HC-Enable", value: () => ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default" },
-  { headerSuffix: "Proxy-Provider-HC-Url", value: () => ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default" },
-  { headerSuffix: "Proxy-Provider-HC-Interval", value: () => ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default" },
-  { headerSuffix: "Proxy-Provider-HC-Timeout", value: () => ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default" },
-  { headerSuffix: "Proxy-Provider-HC-Lazy", value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" },
-  { headerSuffix: "Proxy-Provider-HC-Expected-Status", value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" }
-]);
+const PROXY_PROVIDER_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
+  createProviderResponseHeaderDefinitions("Proxy-Provider", PROXY_PROVIDER_BASE_FIELD_CATALOG)
+    .concat([{ headerSuffix: "Proxy-Provider-Semantic-Check", value: () => "enabled" }])
+    .concat(createProviderResponseHeaderDefinitions("Proxy-Provider", PROXY_PROVIDER_FILTER_FIELD_CATALOG))
+    .concat(createProviderResponseHeaderDefinitions("Proxy-Provider-Override", PROXY_PROVIDER_OVERRIDE_FIELD_CATALOG))
+    .concat(createProviderResponseHeaderDefinitions("Proxy-Provider", PROXY_PROVIDER_HEALTH_CHECK_FIELD_CATALOG))
+);
 // full 日志里 provider 与下载链路参数的模板同样很长，继续用定义表压缩，减少后续新增参数时的重复修改点。
 const BUILD_SUMMARY_PROVIDER_ARG_LINE_DEFINITIONS = Object.freeze([
   {
     label: "规则源参数",
-    entries: [
-      { key: "preset", value: () => ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET },
-      { key: "steam-fix", value: () => ARGS.hasSteamFix ? ARGS.steamFix : false },
-      { key: "steam-fix-url", value: () => ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled" },
-      { key: "direct-list-url", value: () => ARGS.hasDirectListUrl ? ARGS.directListUrl : "default" },
-      { key: "extra-direct-domains", value: () => ARGS.hasExtraDirectDomains ? ARGS.extraDirectDomains.join(" | ") : "default" },
-      { key: "crypto-list-url", value: () => ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default" },
-      { key: "chatgpt-list-url", value: () => ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default" },
-      { key: "ai-extra-list-url", value: () => ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default" },
-      { key: "dev-list-url", value: () => ARGS.hasDevListUrl ? ARGS.devListUrl : "default" },
-      { key: "grok-rule-url", value: () => accademiaAdditionalRule("Grok") },
-      { key: "apple-ai-rule-url", value: () => accademiaAdditionalRule("AppleAI") },
-      { key: "provider-path-dir", value: () => ARGS.ruleProviderPathDir },
-      { key: "provider-interval", value: () => ARGS.hasRuleProviderInterval ? ARGS.ruleProviderInterval : RULE_INTERVAL },
-      { key: "provider-proxy", value: () => ARGS.hasRuleProviderProxy ? ARGS.ruleProviderProxy : "default" },
-      { key: "provider-size-limit", value: () => ARGS.hasRuleProviderSizeLimit ? ARGS.ruleProviderSizeLimit : "default" },
-      { key: "provider-ua", value: () => ARGS.hasRuleProviderUserAgent ? ARGS.ruleProviderUserAgent : "default" },
-      { key: "provider-auth", value: () => ARGS.hasRuleProviderAuthorization ? "configured" : "default" },
-      { key: "provider-headers", value: () => ARGS.hasRuleProviderHeader ? ARGS.ruleProviderHeaderEntryCount : "default" },
-      { key: "provider-payload", value: () => ARGS.hasRuleProviderPayload ? ARGS.ruleProviderPayloadCount : "default" },
-      { key: "scope", value: () => (ARGS.hasRuleProviderPathDir || hasRuleProviderDownloadConfiguredOptions()) ? "all-http" : "generated/default" },
-      { key: "payload-scope", value: () => ARGS.hasRuleProviderPayload ? "inline-only" : "default" },
-      { key: "apply-scope", value: () => buildRuleProviderApplyScopeSummary() },
-      // value 回调会由 getBuildSummaryArgEntryValue(stats) 注入 stats；这里必须显式接参，不能闭包引用不存在的局部变量。
-      { key: "apply-stats", value: (stats) => stats.ruleProviderApplyStatsSummary },
-      { key: "apply-preview", value: (stats) => stats.ruleProviderApplyPreviewSummary },
-      { key: "mutation-stats", value: (stats) => stats.ruleProviderMutationStatsSummary },
-      { key: "mutation-preview", value: (stats) => stats.ruleProviderMutationPreviewSummary }
-    ]
+    entries: createBuildSummaryProviderArgEntries(RULE_SOURCE_FIELD_CATALOG)
+      .concat(createBuildSummaryProviderArgEntries(RULE_PROVIDER_FIELD_CATALOG))
   },
   {
     label: "代理集合参数",
-    entries: [
-      { key: "interval", value: () => ARGS.hasProxyProviderInterval ? ARGS.proxyProviderInterval : "default" },
-      { key: "proxy", value: () => ARGS.hasProxyProviderProxy ? ARGS.proxyProviderProxy : "default" },
-      { key: "size-limit", value: () => ARGS.hasProxyProviderSizeLimit ? ARGS.proxyProviderSizeLimit : "default" },
-      { key: "ua", value: () => ARGS.hasProxyProviderUserAgent ? ARGS.proxyProviderUserAgent : "default" },
-      { key: "auth", value: () => ARGS.hasProxyProviderAuthorization ? "configured" : "default" },
-      { key: "headers", value: () => ARGS.hasProxyProviderHeader ? ARGS.proxyProviderHeaderEntryCount : "default" },
-      { key: "payload", value: () => ARGS.hasProxyProviderPayload ? ARGS.proxyProviderPayloadCount : "default" },
-      { key: "path-dir", value: () => ARGS.hasProxyProviderPathDir ? ARGS.proxyProviderPathDir : "unchanged" },
-      { key: "filter", value: () => ARGS.hasProxyProviderFilter ? ARGS.proxyProviderFilter : "default" },
-      { key: "exclude-filter", value: () => ARGS.hasProxyProviderExcludeFilter ? ARGS.proxyProviderExcludeFilter : "default" },
-      { key: "exclude-type", value: () => ARGS.hasProxyProviderExcludeType ? ARGS.proxyProviderExcludeType : "default" },
-      { key: "hc-enable", value: () => ARGS.hasProxyProviderHealthCheckEnable ? ARGS.proxyProviderHealthCheckEnable : "default" },
-      { key: "hc-url", value: () => ARGS.hasProxyProviderHealthCheckUrl ? ARGS.proxyProviderHealthCheckUrl : "default" },
-      { key: "hc-interval", value: () => ARGS.hasProxyProviderHealthCheckInterval ? ARGS.proxyProviderHealthCheckInterval : "default" },
-      { key: "hc-timeout", value: () => ARGS.hasProxyProviderHealthCheckTimeout ? ARGS.proxyProviderHealthCheckTimeout : "default" },
-      { key: "hc-lazy", value: () => ARGS.hasProxyProviderHealthCheckLazy ? ARGS.proxyProviderHealthCheckLazy : "default" },
-      { key: "hc-expected-status", value: () => ARGS.hasProxyProviderHealthCheckExpectedStatus ? ARGS.proxyProviderHealthCheckExpectedStatus : "default" },
-      { key: "apply-scope", value: () => buildProxyProviderApplyScopeSummary() },
-      // 这里同样直接消费 full-summary 统计对象，避免 full 模式下引用未定义的 stats 局部变量。
-      { key: "apply-stats", value: (stats) => stats.proxyProviderApplyStatsSummary },
-      { key: "apply-preview", value: (stats) => stats.proxyProviderApplyPreviewSummary },
-      { key: "mutation-stats", value: (stats) => stats.proxyProviderMutationStatsSummary },
-      { key: "mutation-preview", value: (stats) => stats.proxyProviderMutationPreviewSummary }
-    ]
+    entries: createBuildSummaryProviderArgEntries(PROXY_PROVIDER_GENERAL_FIELD_CATALOG)
   },
   {
     label: "代理集合Override",
-    entries: [
-      { key: "prefix", value: () => ARGS.hasProxyProviderOverrideAdditionalPrefix ? ARGS.proxyProviderOverrideAdditionalPrefix : "default" },
-      { key: "suffix", value: () => ARGS.hasProxyProviderOverrideAdditionalSuffix ? ARGS.proxyProviderOverrideAdditionalSuffix : "default" },
-      { key: "udp", value: () => ARGS.hasProxyProviderOverrideUdp ? ARGS.proxyProviderOverrideUdp : "default" },
-      { key: "udp-over-tcp", value: () => ARGS.hasProxyProviderOverrideUdpOverTcp ? ARGS.proxyProviderOverrideUdpOverTcp : "default" },
-      { key: "down", value: () => ARGS.hasProxyProviderOverrideDown ? ARGS.proxyProviderOverrideDown : "default" },
-      { key: "up", value: () => ARGS.hasProxyProviderOverrideUp ? ARGS.proxyProviderOverrideUp : "default" },
-      { key: "tfo", value: () => ARGS.hasProxyProviderOverrideTfo ? ARGS.proxyProviderOverrideTfo : "default" },
-      { key: "mptcp", value: () => ARGS.hasProxyProviderOverrideMptcp ? ARGS.proxyProviderOverrideMptcp : "default" },
-      { key: "skip-cert-verify", value: () => ARGS.hasProxyProviderOverrideSkipCertVerify ? ARGS.proxyProviderOverrideSkipCertVerify : "default" },
-      { key: "dialer-proxy", value: () => ARGS.hasProxyProviderOverrideDialerProxy ? ARGS.proxyProviderOverrideDialerProxy : "default" },
-      { key: "interface-name", value: () => ARGS.hasProxyProviderOverrideInterfaceName ? ARGS.proxyProviderOverrideInterfaceName : "default" },
-      { key: "routing-mark", value: () => ARGS.hasProxyProviderOverrideRoutingMark ? ARGS.proxyProviderOverrideRoutingMark : "default" },
-      { key: "ip-version", value: () => ARGS.hasProxyProviderOverrideIpVersion ? ARGS.proxyProviderOverrideIpVersion : "default" },
-      { key: "proxy-name-rules", value: () => ARGS.hasProxyProviderOverrideProxyNameRules ? ARGS.proxyProviderOverrideProxyNameRules.length : "default" }
-    ]
+    entries: createBuildSummaryProviderArgEntries(PROXY_PROVIDER_OVERRIDE_FIELD_CATALOG)
   },
   {
     label: "下载链路",
-    entries: [
-      { key: "route-kind", value: () => RUNTIME_CONTEXT.routeKind || "unknown" },
-      { key: "route-name", value: () => RUNTIME_CONTEXT.routeName || "unknown" },
-      { key: "no-cache", value: () => RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default" },
-      { key: "include-unsupported", value: () => RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default" },
-      { key: "ignore-failed", value: () => RUNTIME_LINK_OPTIONS.hasIgnoreFailedRemoteSub ? RUNTIME_LINK_OPTIONS.ignoreFailedRemoteSub : "default" },
-      { key: "merge-sources", value: () => RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default" },
-      { key: "produce-type", value: () => RUNTIME_LINK_OPTIONS.hasProduceType ? RUNTIME_LINK_OPTIONS.produceType : "default" },
-      { key: "url", value: () => RUNTIME_LINK_OPTIONS.hasUrl ? "yes" : "no" },
-      { key: "url-kind", value: () => RUNTIME_LINK_OPTIONS.urlKind || "none" },
-      { key: "content", value: () => RUNTIME_LINK_OPTIONS.hasContent ? "yes" : "no" },
-      { key: "ua", value: () => RUNTIME_LINK_OPTIONS.hasUa ? "yes" : "no" },
-      { key: "proxy", value: () => RUNTIME_LINK_OPTIONS.hasProxy ? "yes" : "no" }
-    ]
+    entries: createBuildSummaryProviderArgEntries(RUNTIME_LINK_FIELD_CATALOG)
   }
 ]);
 // full 日志里的全局参数/测速/Sniffer/DNS 池这几类都属于 `key=value` 串，统一定义后新增参数时更集中。
@@ -14559,39 +14567,22 @@ const BUILD_DIAGNOSTICS_SUPPLEMENT_PAYLOAD_DEFINITIONS = Object.freeze([
   BUILD_SUMMARY_DIAGNOSTIC_LINE_DEFINITIONS,
   (key) => [{ key, value: (context) => context[key] }]
 )));
-// main 里很多分析结果都会再派生出 summary/preview，统一定义后可避免平行的 format 调用散落一大片。
-const MAIN_ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS = Object.freeze([
-  { sourceKey: "routingChain", summaryKey: "routingChainSummary", previewKey: "routingChainPreview", summaryFormatter: formatRoutingChainSummary, previewFormatter: formatRoutingChainPreview },
-  { sourceKey: "serviceRoutingProfiles", summaryKey: "serviceRoutingSummary", previewKey: "serviceRoutingPreview", summaryFormatter: formatServiceRoutingProfilesSummary, previewFormatter: formatServiceRoutingProfilesPreview },
-  { sourceKey: "proxyGroupPriorityRisks", summaryKey: "proxyGroupPriorityRiskSummary", previewKey: "proxyGroupPriorityRiskPreview", summaryFormatter: formatProxyGroupPriorityRiskSummary, previewFormatter: formatProxyGroupPriorityRiskPreview },
-  { sourceKey: "rulePriorityRisks", summaryKey: "rulePriorityRiskSummary", previewKey: "rulePriorityRiskPreview", summaryFormatter: formatRulePriorityRiskSummary, previewFormatter: formatRulePriorityRiskPreview },
-  { sourceKey: "ruleTargetMapping", summaryKey: "ruleTargetMappingSummary", previewKey: "ruleTargetMappingPreview", summaryFormatter: formatRuleTargetMappingSummary, previewFormatter: formatRuleTargetMappingPreview },
-  { sourceKey: "ruleLayering", summaryKey: "ruleLayerSummary", previewKey: "ruleLayerPreview", summaryFormatter: formatRuleLayeringSummary, previewFormatter: formatRuleLayeringPreview },
-  { sourceKey: "customRuleWindow", summaryKey: "customRuleSummary", previewKey: "customRulePreview", summaryFormatter: formatCustomRuleWindowSummary, previewFormatter: formatCustomRuleWindowPreview },
-  { sourceKey: "keyRuleWindows", summaryKey: "keyRuleWindowSummary", previewKey: "keyRuleWindowPreview", summaryFormatter: formatKeyRuleWindowSummary, previewFormatter: formatKeyRuleWindowPreview },
-  { sourceKey: "ruleLayerTargetMapping", summaryKey: "ruleLayerTargetSummary", previewKey: "ruleLayerTargetPreview", summaryFormatter: formatRuleLayerTargetMappingSummary, previewFormatter: formatRuleLayerTargetMappingPreview },
-  { sourceKey: "serviceRuleWindows", summaryKey: "serviceRuleWindowSummary", previewKey: "serviceRuleWindowPreview", summaryFormatter: formatServiceRuleWindowSummary, previewFormatter: formatServiceRuleWindowPreview }
-]);
+// main 里很多分析结果都会再派生出 summary/preview，直接复用统一元定义即可。
+const MAIN_ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS = ANALYSIS_SUMMARY_PREVIEW_DEFINITIONS;
 // 还有几项只产出单个 summary 值，也放进同一套装配体系，便于 diagnostics/full-summary 共用。
-const MAIN_ANALYSIS_SINGLE_VALUE_DEFINITIONS = Object.freeze([
-  { key: "proxyGroupOrderSummary", value: (context) => buildProxyGroupOrderSummary(context.proxyGroups) },
-  { key: "proxyGroupPrioritySummary", value: (context) => buildProxyGroupPrioritySummary(context.proxyGroups) },
-  { key: "trafficPrioritySummary", value: (context) => buildTrafficPrioritySummary(context.rules, context.generatedRules, context.configuredRules, context.ruleAnalysis) }
-]);
-// 分析阶段主产物本身也统一定义，避免 buildMainAnalysisArtifacts 再平铺十来段 analyzeX 调用。
-const MAIN_ANALYSIS_ARTIFACT_DEFINITIONS = Object.freeze([
-  { key: "routingChain", value: (context) => analyzeRoutingChain(RUNTIME_CONTEXT, RUNTIME_QUERY_ARGS, context.rules, context.finalRuleDefinitions, context.proxyGroups) },
-  { key: "serviceRoutingProfiles", value: (context) => analyzeServiceRoutingProfiles(context.finalRuleDefinitions, context.proxyGroups, context.countryConfigs, context.preferredCountryStates) },
-  { key: "regionVisibility", value: (context) => analyzeRegionGroupVisibility(context.proxyGroups, context.countryConfigs) },
-  { key: "proxyGroupPriorityRisks", value: (context) => analyzeProxyGroupPriorityRisks(context.proxyGroups) },
-  { key: "rulePriorityRisks", value: (context) => analyzeRulePriorityRisks(context.finalRuleDefinitions) },
-  { key: "ruleTargetMapping", value: (context) => analyzeRuleTargetMapping(context.finalRuleDefinitions, context.rules, context.ruleAnalysis) },
-  { key: "ruleLayering", value: (context) => analyzeRuleLayering(context.rules, context.ruleAnalysis) },
-  { key: "customRuleWindow", value: (context) => analyzeCustomRuleWindow(context.generatedRules, context.configuredRules, context.rules, context.ruleAnalysis) },
-  { key: "keyRuleWindows", value: (context) => analyzeKeyRuleWindows(context.rules, context.ruleAnalysis) },
-  { key: "ruleLayerTargetMapping", value: (context) => analyzeRuleLayerTargetMapping(context.rules, context.ruleAnalysis) },
-  { key: "serviceRuleWindows", value: (context) => analyzeServiceRuleWindows(context.rules, context.ruleAnalysis) }
-]);
+const MAIN_ANALYSIS_SINGLE_VALUE_DEFINITIONS = Object.freeze(
+  MAIN_ANALYSIS_SINGLE_VALUE_DIAGNOSTIC_DEFINITIONS.map((definition) => ({
+    key: definition.key,
+    value: definition.value
+  }))
+);
+// 分析阶段主产物也直接从 observation registry 投影，后续新增/删除观测项时不必同步维护 analyze 表与 summary/preview 表。
+const MAIN_ANALYSIS_ARTIFACT_DEFINITIONS = Object.freeze(
+  MAIN_ANALYSIS_OBSERVATION_DEFINITIONS.map((definition) => ({
+    key: definition.key,
+    value: definition.analyze
+  }))
+);
 // full 日志统计对象里这批基础字段来自主流程上下文，统一定义后可避免 main 中重复手写长对象。
 const BUILD_FULL_SUMMARY_PAYLOAD_DEFINITIONS = Object.freeze([
   { key: "totalProxies", value: (context) => context.proxyStats.total },
@@ -14661,28 +14652,12 @@ const RUNTIME_CONTEXT_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
   { headerSuffix: "Unused-Arg-Summary", value: () => formatUnusedScriptArgsSummary(RUNTIME_UNUSED_ARGS) },
   { headerSuffix: "Unused-Arg-Preview", value: () => formatUnusedScriptArgsPreview(RUNTIME_UNUSED_ARGS) },
   { headerSuffix: "Route-Target-Source", value: () => RUNTIME_ARG_SOURCES.routeTargetSource || "none" },
-  { headerSuffix: "Route-Info-Source", value: () => RUNTIME_ARG_SOURCES.routeInfoSource || "none" },
-  { headerSuffix: "Merge-Sources", value: () => RUNTIME_LINK_OPTIONS.hasMergeSources ? RUNTIME_LINK_OPTIONS.mergeSources : "default" },
-  { headerSuffix: "No-Cache", value: () => RUNTIME_LINK_OPTIONS.hasNoCache ? RUNTIME_LINK_OPTIONS.noCache : "default" },
-  { headerSuffix: "Include-Unsupported", value: () => RUNTIME_LINK_OPTIONS.hasIncludeUnsupportedProxy ? RUNTIME_LINK_OPTIONS.includeUnsupportedProxy : "default" },
-  { headerSuffix: "Link-Url-Kind", value: () => RUNTIME_LINK_OPTIONS.urlKind || "none" },
-  { headerSuffix: "Link-Semantic-Summary", value: () => buildRuntimeLinkSemanticSummary(RUNTIME_LINK_OPTIONS) },
-  { headerSuffix: "Link-Semantic-Check", value: () => "enabled" }
-]);
+  { headerSuffix: "Route-Info-Source", value: () => RUNTIME_ARG_SOURCES.routeInfoSource || "none" }
+].concat(createProviderResponseHeaderDefinitions("", RUNTIME_LINK_FIELD_CATALOG)));
 // 规则源 URL/预设相关响应头也统一定义，避免 buildRuntimeResponseHeaders 再平铺十几行近似三元表达式。
-const RULE_SOURCE_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
-  { headerSuffix: "Rule-Source-Preset", value: () => ARGS.hasRuleSourcePreset ? ARGS.ruleSourcePreset : DEFAULT_RULE_SOURCE_PRESET },
-  { headerSuffix: "Steam-Fix", value: () => ARGS.hasSteamFix ? ARGS.steamFix : false },
-  { headerSuffix: "Steam-Fix-Url", value: () => ARGS.steamFix ? (ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL) : "disabled" },
-  { headerSuffix: "Direct-List-Url", value: () => ARGS.hasDirectListUrl ? ARGS.directListUrl : "default" },
-  { headerSuffix: "Extra-Direct-Domains", value: () => ARGS.hasExtraDirectDomains ? formatProviderPreviewNames(ARGS.extraDirectDomains, 4, 20) : "default" },
-  { headerSuffix: "Crypto-List-Url", value: () => ARGS.hasCryptoListUrl ? ARGS.cryptoListUrl : "default" },
-  { headerSuffix: "ChatGPT-List-Url", value: () => ARGS.hasChatGptListUrl ? ARGS.chatGptListUrl : "default" },
-  { headerSuffix: "AI-Extra-List-Url", value: () => ARGS.hasAiExtraListUrl ? ARGS.aiExtraListUrl : "default" },
-  { headerSuffix: "Dev-List-Url", value: () => ARGS.hasDevListUrl ? ARGS.devListUrl : "default" },
-  { headerSuffix: "Grok-Rule-Url", value: () => accademiaAdditionalRule("Grok") },
-  { headerSuffix: "Apple-AI-Rule-Url", value: () => accademiaAdditionalRule("AppleAI") }
-]);
+const RULE_SOURCE_RESPONSE_HEADER_DEFINITIONS = Object.freeze(
+  createProviderResponseHeaderDefinitions("Rule-Source", RULE_SOURCE_FIELD_CATALOG)
+);
 // group/region 相关响应头集中定义，方便后续继续扩展面板布局/区域显示调试项。
 const GEO_RUNTIME_RESPONSE_HEADER_DEFINITIONS = Object.freeze([
   createArgConfiguredResponseHeaderDefinition("Group-Strategy", "hasGroupStrategy", "groupStrategy", "default"),
@@ -16405,15 +16380,27 @@ const MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS = Object.freeze([
   createMainSummaryPayloadContextDefinition("analysisSingleValuePayload", "analysisPayloadArtifacts", { valueType: "object" })
 ]);
 
+// analysis 阶段内部已经把派生摘要收进两个嵌套 payload；这里在 summary 边界统一展开，兼容 diagnostics/header/full-summary 仍按顶层字段读取的消费者。
+function buildFlattenedAnalysisSummaryPayload(payload) {
+  const current = isObject(payload) ? payload : {};
+  return Object.assign(
+    {},
+    isObject(current.analysisSummaryPayload) ? current.analysisSummaryPayload : {},
+    isObject(current.analysisSingleValuePayload) ? current.analysisSingleValuePayload : {}
+  );
+}
+
 // 收尾阶段与 full 日志都会复用同一批 geo/rule/analysis 摘要字段，这里统一裁剪，减少重复装配。
 function buildMainSummaryPayloadContext(payload) {
   const context = isObject(payload) ? payload : {};
   // 允许调用方直接在 context 上覆盖某些摘要字段；definitions 会优先取显式传入值，再回落 summary sourceArtifacts。
-  return buildDefinitionDrivenPayload(
+  const summaryPayloadContext = buildDefinitionDrivenPayload(
     MAIN_SUMMARY_PAYLOAD_CONTEXT_DEFINITIONS,
     context,
     buildMainSummarySourceArtifacts(context)
   );
+
+  return Object.assign({}, summaryPayloadContext, buildFlattenedAnalysisSummaryPayload(summaryPayloadContext));
 }
 
 // finalize 阶段除 summaryPayloadContext 外只额外依赖这三项字段，统一成 definitions 后更便于复用。
@@ -16803,6 +16790,7 @@ const PROXY_GROUP_FIXED_GROUP_DEFINITION_SECTIONS = Object.freeze([
     createContextSelectGroupBuildDefinition(GROUPS.ONEDRIVE, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.GAMES, "baseProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.PAYPAL, "baseProxies"),
+    // Bing 在国内常见场景下更适合直连优先；默认先给 DIRECT，再回退到主选择/自动链，避免首次生成时就被代理链接管。
     createContextSelectGroupBuildDefinition(GROUPS.BING, "directFirstProxies"),
     createContextSelectGroupBuildDefinition(GROUPS.APPLE, "directFirstProxies"),
     createServiceArtifactGroupBuildDefinition("steam"),
@@ -18017,3 +18005,4 @@ function main(config) {
     return inputState.value;
   }
 }
+
