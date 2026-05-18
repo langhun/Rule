@@ -1,6 +1,6 @@
 ﻿/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.61
+ * Sub-Store 终极策略增强脚本 V9.14.63
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -380,11 +380,17 @@
  * 375. 云平台规则继续审计：参考 blackmatrix7 当前目录，把 UCloud 并入开发服务组，补上 ucloud.com.cn / ucloudapi.com / ucloudufile.com / u-cdn.com 等云平台、对象存储与 CDN 管理域名；Cloudflare / TeamViewer 仍暂不纳入，避免把更宽的共享 CDN / 远程控制链路继续硬塞进现有开发分组。
  * 376. 顶部历史审计结论补记：继续参考 blackmatrix7 当前目录，把 Claude / GoogleDrive / Bahamut / DAZN / Viki / ViuTV / friDay / HamiVideo / Emby / AppStore / AppleID / iCloud / SystemOTA / Abema / ITV / PBS / myTVSUPER / ZeeTV 补进现有 AI / Google / Apple / 流媒体组；BritboxUK / TVB / EncoreTVB / JOOX / MOOV / FOXNOW / Zee / TencentVideo / RemoteDesktop 等仍暂不纳入，继续避免把过宽、重复或低收益规则硬塞进现有面板。
  * 377. 聊天社交分组收口：把 Telegram / Discord / WhatsApp / LINE / Twitter / Instagram / Facebook / Reddit 及 Pinterest / Pixiv / Imgur / Tumblr / Threads 等衍生社区统一并入单一“聊天社交”组；旧组名常量与 group-order / prefer-groups 别名继续保留兼容，避免历史参数直接失效。
+ * 378. 订阅信息过滤补强：补充 TG 频道 / 套餐 / 余量 / 公告 / 通知 / 重置 / t.me 等常见机场说明关键词，避免这类提示节点混入国家组与自动测速组。
+ * 379. 订阅信息改为直接过滤：说明/公告类节点在规范化阶段直接丢弃，不再生成单独的“订阅信息”策略组，只保留过滤数量统计用于 full 日志观测。
+ * 380. 垃圾信息关键词继续补强：新增 备用网址 / 更新地址 / 工单群 等常见机场面板文案，减少漏网的说明型节点。
+ * 381. 垃圾信息关键词继续扩容：补充 客服群 / 防失联 / 最新域名 / 地址发布页 等机场通知文案，进一步降低说明型节点漏判。
+ * 382. 垃圾信息词表整编：把机场说明节点常见的地址发布、社群通知、客服引导、订阅说明、流量到期、失联补救等文案统一收敛到更完整的过滤词表，减少后续再零散补词。
+ * 383. 垃圾信息词表结构化：把长正则改成“关键词数组 + 自动拼装正则”的写法，后续增删过滤词只需要维护词表本身，不必再手改整段正则源码。
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.61";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.61。
+const SCRIPT_VERSION = "9.14.67";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.67。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -488,8 +494,29 @@ const GEOX_URLS = {
 const REGEX_LOW_COST = /0\.[0-5]|低倍率|省流|大流量|实验性|公益/i;
 // 用于识别“落地 / 中转 / Relay”等需要单独隔离的节点。
 const REGEX_LANDING_ISOLATE = /落地|Relay|To-user|中转/i;
-// 这类节点通常只是订阅信息/公告，不适合混入自动测速与国家分组。
-const REGEX_INFO_NODE = /群|邀请|返利|官网|官方|网址|订阅|购买|续费|剩余|到期|过期|流量|备用|邮箱|客服|联系|工单|倒卖|防止|梯子|telegram|电报|\btg\b/i;
+// 这类节点通常只是订阅信息/公告/机场文案，不适合混入自动测速与国家分组。
+// 这里故意把“地址发布、社群通知、客服引导、订阅说明、流量到期、失联补救”几类高频机场垃圾词统一收敛成一套完整词表，避免后续继续零散补洞。
+const INFO_NODE_KEYWORDS = Object.freeze([
+  "群组", "官方群", "官方群组", "官方群聊", "群聊", "群",
+  "工单群", "客服群", "售后群", "通知群",
+  "频道", "频道号", "频道群", "电报群", "飞机群", "社群", "社区",
+  "邀请", "邀请码", "返利", "返佣", "推广",
+  "公告", "通知", "通告", "提醒", "说明", "须知",
+  "官网", "官方网站", "官方地址", "官网地址", "网址", "域名",
+  "最新域名", "最新地址", "访问地址", "更新地址", "永久地址", "回家地址",
+  "地址发布页", "发布页", "导航页",
+  "备用", "备用地址", "备用网址",
+  "订阅", "订阅地址", "订阅链接",
+  "购买", "续费", "套餐",
+  "余量", "剩余", "流量", "到期", "过期", "失效", "重置", "清零", "结算",
+  "邮箱", "邮件",
+  "客服", "售后", "联系", "工单", "反馈",
+  "防失联", "失联", "防止失联",
+  "倒卖", "梯子", "机场",
+  "节点过期", "流量重置", "套餐到期", "官网公告",
+  "t\\.me", "telegram", "电报", "\\btg\\b"
+]);
+const REGEX_INFO_NODE = new RegExp(INFO_NODE_KEYWORDS.join("|"), "i");
 // 这些名称属于策略引擎内置保留策略，不需要在 proxy-groups 中额外定义。
 const BUILTIN_POLICY_NAMES = ["DIRECT", "REJECT", "REJECT-DROP", "PASS", "GLOBAL", "COMPATIBLE"];
 // 规则顺序编排时，用这两个哨兵值表示“移到最前 / 移到最后（MATCH 之前）”。
@@ -583,8 +610,6 @@ const GROUPS = {
   LOW_COST: "🐢 低倍率",
   // 真正的兜底分组，接住没有被国家分组吸收的剩余节点。
   OTHER: "🐯 兜底节点",
-  // 订阅说明 / 公告类节点单独收口，避免误混入测速与国家分组。
-  INFO: "ℹ️ 订阅信息",
 
   // AI 服务专用策略组。
   AI: "🤖 AI服务",
@@ -652,7 +677,6 @@ const PROXY_GROUP_PROFILE_DEFINITIONS = Object.freeze([
   { name: GROUPS.LANDING, label: "落地节点组", orderBucket: "helpers" },
   { name: GROUPS.LOW_COST, label: "低倍率组", orderBucket: "helpers" },
   { name: GROUPS.OTHER, label: "兜底节点组", alwaysGenerated: true, orderBucket: "helpers" },
-  { name: GROUPS.INFO, label: "信息组", orderBucket: "helpers" },
   { name: GROUPS.AI, label: "AI 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true },
   { name: GROUPS.CRYPTO, label: "Crypto 组", alwaysGenerated: true, orderBucket: "services" },
   { name: GROUPS.PAYPAL, label: "PayPal 组", alwaysGenerated: true, orderBucket: "services", prioritySummary: true, priorityRiskPolicy: "fallback-first" },
@@ -715,7 +739,7 @@ const LEGACY_COMPACT_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fa
 // 某些自动分组天然允许为空，不必为此输出告警。
 const ALLOW_EMPTY_AUTO_GROUPS = [GROUPS.OTHER, GROUPS.LANDING];
 // 允许通过参数隐藏的辅助策略组。
-const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST, GROUPS.INFO];
+const HIDEABLE_GROUPS = [GROUPS.DIRECT, GROUPS.ADS, GROUPS.LANDING, GROUPS.LOW_COST];
 // AI 默认优先国家链：新加坡 -> 日本 -> 美国。
 // 这里的每一项都是“可匹配 marker 列表”，后面会依次尝试命中国家名、旗帜、别名或区域 token。
 const DEFAULT_AI_PREFERRED_COUNTRY_MARKERS = [["🇸🇬", "狮城", "新加坡"], ["🇯🇵", "日本"], ["🇺🇸", "美国"]];
@@ -10927,7 +10951,6 @@ const PROXY_GROUP_ORDER_ALIAS_MAP = Object.freeze(Object.assign({
   ads: GROUPS.ADS,
   ad: GROUPS.ADS,
   other: GROUPS.OTHER,
-  info: GROUPS.INFO,
   lowcost: GROUPS.LOW_COST,
   landing: GROUPS.LANDING
 }, REGION_GROUP_ALIAS_MAP));
@@ -12394,7 +12417,7 @@ function isInfoProxyName(name) {
   return typeof name === "string" && !!name.trim() && REGEX_INFO_NODE.test(name.trim());
 }
 
-// 收集被识别为信息节点的名称列表，给单独的 Info 组复用。
+// 收集被识别为信息节点的名称列表，给统计与过滤链路复用。
 function collectInfoProxyNames(proxies) {
   return collectNamedEntries(proxies).filter((name) => isInfoProxyName(name));
 }
@@ -12591,6 +12614,8 @@ function normalizeProxies(proxies) {
   const normalizedProxies = [];
   // 记录本轮被自动改名的节点，便于日志输出。
   const renamed = [];
+  // 记录被过滤掉的订阅说明/公告类节点，给 full 摘要复用。
+  const filteredInfo = [];
 
   // 遍历原始节点数组。
   for (const proxy of Array.isArray(proxies) ? proxies : []) {
@@ -12603,6 +12628,12 @@ function normalizeProxies(proxies) {
     const normalizedName = normalizeProxyName(proxy.name);
     // 规范化后为空的节点直接丢弃。
     if (!normalizedName) {
+      continue;
+    }
+
+    // 订阅说明类节点直接过滤掉，不再进入任何策略组与后续主链路。
+    if (isInfoProxyName(normalizedName)) {
+      filteredInfo.push(normalizedName);
       continue;
     }
 
@@ -12629,7 +12660,8 @@ function normalizeProxies(proxies) {
   // 返回清洗后的节点和改名信息。
   return {
     proxies: normalizedProxies,
-    renamed
+    renamed,
+    filteredInfo
   };
 }
 
@@ -14035,7 +14067,7 @@ const BUILD_SUMMARY_PRIMARY_METRIC_DEFINITIONS = Object.freeze([
   { key: "validProxies", label: "有效节点", unit: "个" },
   { key: "lowCostProxies", label: "低倍率节点", unit: "个" },
   { key: "landingProxies", label: "落地节点", unit: "个" },
-  { key: "infoProxies", label: "信息节点", unit: "个" },
+  { key: "infoProxies", label: "已过滤信息节点", unit: "个" },
   { key: "countryGroups", label: "国家分组", unit: "个" },
   { key: "regionGroups", label: "区域分组", unit: "个" },
   { key: "proxyGroups", label: "策略组", unit: "个" },
@@ -14589,7 +14621,7 @@ const BUILD_FULL_SUMMARY_PAYLOAD_DEFINITIONS = Object.freeze([
   { key: "validProxies", value: (context) => context.proxyStats.valid },
   { key: "lowCostProxies", value: (context) => context.proxyStats.lowCost },
   { key: "landingProxies", value: (context) => context.proxyStats.landing },
-  { key: "infoProxies", value: (context) => context.proxyStats.info },
+  { key: "infoProxies", value: (context) => Array.isArray(context.normalizedProxyState && context.normalizedProxyState.filteredInfo) ? context.normalizedProxyState.filteredInfo.length : 0 },
   { key: "countryGroups", value: (context) => context.countryConfigs.length },
   { key: "countrySummary", value: (context) => context.countrySummary },
   { key: "regionGroups", value: (context) => context.regionConfigs.length },
@@ -16829,10 +16861,6 @@ const PROXY_GROUP_EXTRA_GROUP_DEFINITION_SECTIONS = Object.freeze([
         context.infoExcludeFilter,
         "url-test"
       )
-    ),
-    createConditionalProxyGroupBuildDefinition(
-      (context) => Array.isArray(context.infoProxyNames) && context.infoProxyNames.length > 0,
-      (context) => createSelectGroup(GROUPS.INFO, context.infoProxyNames)
     )
   ]),
   Object.freeze([
