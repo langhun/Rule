@@ -21,7 +21,7 @@ const FILE_MODE_SOURCE = Object.freeze({
   type: "collection",
   name: "zz",
   internalPlatform: "JSON",
-  outputPlatform: "V2Ray"
+  outputPlatform: "ClashMeta"
 });
 
 const OFFICIAL_SUPPORTED_REGIONS = Object.freeze([
@@ -1121,7 +1121,10 @@ async function rewriteFileModeContent(input, targetPlatform) {
   const output = Object.assign({}, input);
   const loaded = await loadFileModeProxies(input);
   const filtered = filterSupportedProxies(loaded.proxies, `文件对象模式(${loaded.source})`);
-  const outputPlatform = targetPlatform || FILE_MODE_SOURCE.outputPlatform || FILE_MODE_SOURCE.internalPlatform;
+  const queryTarget = input && input.$options && input.$options._req && input.$options._req.query
+    ? input.$options._req.query.target || input.$options._req.query.platform
+    : undefined;
+  const outputPlatform = targetPlatform || queryTarget || FILE_MODE_SOURCE.outputPlatform || FILE_MODE_SOURCE.internalPlatform;
   output.$content = ProxyUtils.produce(filtered.proxies, outputPlatform);
   output.$files = [output.$content];
   return output;
