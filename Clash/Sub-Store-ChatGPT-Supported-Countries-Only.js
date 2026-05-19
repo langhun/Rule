@@ -20,7 +20,7 @@
 const FILE_MODE_SOURCE = Object.freeze({
   type: "collection",
   name: "zz",
-  internalPlatform: "ClashMeta",
+  internalPlatform: "JSON",
   outputPlatform: "V2Ray"
 });
 
