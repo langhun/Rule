@@ -686,6 +686,8 @@ const SUBSCRIPTION_SPECIFIC_HINTS = Object.freeze([
   }
 ]);
 
+const EXPLICITLY_BLOCKED_REGION_NAME_PATTERN = /香港|hong[\s._-]*kong|hongkong|廣港|广港|澳门|澳門|macao|macau|🇭🇰|🇲🇴|(^|[^a-z0-9])hkg([^a-z0-9]|$)|(^|[^a-z0-9])hk([^a-z0-9]|$)|(^|[^a-z0-9])mac([^a-z0-9]|$)|(^|[^a-z0-9])mo([^a-z0-9]|$)/i;
+
 const RISKY_TWO_LETTER_CODES = new Set([
   "AE",
   "AL",
@@ -940,6 +942,14 @@ function shouldIgnoreProxy(proxy) {
   return texts.some((text) => INFO_PROXY_PATTERN.test(String(text || "")));
 }
 
+function isExplicitlyBlockedByName(proxy) {
+  const name = proxy && typeof proxy === "object" ? String(proxy.name || "").trim() : "";
+  if (!name) {
+    return false;
+  }
+  return EXPLICITLY_BLOCKED_REGION_NAME_PATTERN.test(name);
+}
+
 function normalizeISO(iso) {
   const normalized = String(iso || "").trim().toUpperCase();
   if (!normalized) {
@@ -988,6 +998,10 @@ function findSubscriptionSpecificHint(text) {
 
 function detectSupportedRegion(proxy) {
   if (shouldIgnoreProxy(proxy)) {
+    return null;
+  }
+
+  if (isExplicitlyBlockedByName(proxy)) {
     return null;
   }
 
