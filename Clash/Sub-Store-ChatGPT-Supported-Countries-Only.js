@@ -12,9 +12,16 @@
  * 4. 若整批节点 0 命中，为避免误杀导致订阅清空，会自动回退原始节点数组。
  *
  * 用法：
- * 直接作为 Sub-Store Script Operator 使用即可。
+ * 1. 可直接作为 Sub-Store Script Operator 使用。
+ * 2. 也可作为 Sub-Store File 脚本使用；File 模式下会自动拉取下方配置的 collection。
  * 函数签名兼容常见的 function operator(proxies) 形式。
  */
+
+const FILE_MODE_SOURCE = Object.freeze({
+  type: "collection",
+  name: "zz",
+  internalPlatform: "ClashMeta"
+});
 
 const OFFICIAL_SUPPORTED_REGIONS = Object.freeze([
   "Albania",
@@ -935,10 +942,13 @@ function formatProxyLabel(proxy) {
   return String(proxy.name || proxy.server || proxy.type || "Unnamed").trim() || "Unnamed";
 }
 
-function operator(proxies = []) {
+function filterSupportedProxies(proxies, modeLabel) {
   if (!Array.isArray(proxies)) {
     console.log("[ChatGPT Supported Countries Only] 输入不是数组，已原样返回。");
-    return proxies;
+    return {
+      proxies,
+      fellBackToOriginal: true
+    };
   }
 
   const kept = [];
@@ -964,21 +974,72 @@ function operator(proxies = []) {
     .join(", ");
 
   if (kept.length === 0 && proxies.length > 0) {
-    console.log(`[ChatGPT Supported Countries Only] 0/${proxies.length} 个节点命中支持地区，已自动回退原始节点，避免整份订阅被清空。`);
-    console.log(`[ChatGPT Supported Countries Only] 未命中样本：${removed.slice(0, 12).map(formatProxyLabel).join(" | ")}`);
-    return proxies;
+    console.log(`[ChatGPT Supported Countries Only] ${modeLabel} 0/${proxies.length} 个节点命中支持地区，已自动回退原始节点，避免整份订阅被清空。`);
+    console.log(`[ChatGPT Supported Countries Only] ${modeLabel} 未命中样本：${removed.slice(0, 12).map(formatProxyLabel).join(" | ")}`);
+    return {
+      proxies,
+      fellBackToOriginal: true
+    };
   }
 
-  console.log(`[ChatGPT Supported Countries Only] 保留 ${kept.length}/${proxies.length} 个节点，移除 ${removed.length} 个节点。`);
+  console.log(`[ChatGPT Supported Countries Only] ${modeLabel} 保留 ${kept.length}/${proxies.length} 个节点，移除 ${removed.length} 个节点。`);
   if (keptSummary) {
-    console.log(`[ChatGPT Supported Countries Only] 命中地区：${keptSummary}`);
+    console.log(`[ChatGPT Supported Countries Only] ${modeLabel} 命中地区：${keptSummary}`);
   }
   if (Object.keys(sourceStats).length) {
-    console.log(`[ChatGPT Supported Countries Only] 识别来源：${Object.entries(sourceStats).map(([name, count]) => `${name}x${count}`).join(", ")}`);
+    console.log(`[ChatGPT Supported Countries Only] ${modeLabel} 识别来源：${Object.entries(sourceStats).map(([name, count]) => `${name}x${count}`).join(", ")}`);
   }
   if (removed.length) {
-    console.log(`[ChatGPT Supported Countries Only] 被移除样本：${removed.slice(0, 8).map(formatProxyLabel).join(" | ")}`);
+    console.log(`[ChatGPT Supported Countries Only] ${modeLabel} 被移除样本：${removed.slice(0, 8).map(formatProxyLabel).join(" | ")}`);
   }
 
-  return kept;
+  return {
+    proxies: kept,
+    fellBackToOriginal: false
+  };
+}
+
+async function tryRunFileMode(targetPlatform) {
+  if (typeof produceArtifact !== "function" || typeof ProxyUtils === "undefined" || !ProxyUtils || typeof ProxyUtils.produce !== "function") {
+    return null;
+  }
+
+  const sourcePlatform = targetPlatform || FILE_MODE_SOURCE.internalPlatform;
+  const produced = await produceArtifact({
+    type: FILE_MODE_SOURCE.type,
+    name: FILE_MODE_SOURCE.name,
+    platform: sourcePlatform,
+    produceType: "internal"
+  });
+
+  if (!Array.isArray(produced)) {
+    console.log("[ChatGPT Supported Countries Only] 文件模式未拿到节点数组，已输出空内容。");
+    globalThis.$content = "";
+    return {
+      proxies: [],
+      fellBackToOriginal: true
+    };
+  }
+
+  const filtered = filterSupportedProxies(produced, "文件模式");
+  const outputPlatform = targetPlatform || sourcePlatform;
+  globalThis.$content = ProxyUtils.produce(filtered.proxies, outputPlatform);
+  return filtered;
+}
+
+async function operator(proxies = [], targetPlatform) {
+  if (Array.isArray(proxies) && proxies.length > 0) {
+    return filterSupportedProxies(proxies, "订阅模式").proxies;
+  }
+
+  const fileModeResult = await tryRunFileMode(targetPlatform);
+  if (fileModeResult) {
+    return fileModeResult.proxies;
+  }
+
+  if (Array.isArray(proxies)) {
+    return proxies;
+  }
+  console.log("[ChatGPT Supported Countries Only] 输入不是数组，且文件模式不可用，已原样返回。");
+  return proxies;
 }
