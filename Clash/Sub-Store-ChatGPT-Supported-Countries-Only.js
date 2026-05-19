@@ -481,7 +481,7 @@ const EXTRA_ALIASES = Object.freeze({
   "Comoros": ["科摩罗", "COM"],
   "Congo (Brazzaville)": ["刚果(布)", "刚果布", "Congo Brazzaville", "COG", "Brazzaville"],
   "Congo (DRC)": ["刚果(金)", "刚果金", "DRC", "COD", "Congo DRC", "Kinshasa", "金沙萨"],
-  "Costa Rica": ["哥斯达黎加", "CRI", "San Jose", "San José", "圣何塞"],
+  "Costa Rica": ["哥斯达黎加", "CRI"],
   "Cote d'Ivoire": ["Côte d'Ivoire", "Ivory Coast", "科特迪瓦", "CIV", "Abidjan", "阿比让"],
   "Croatia": ["克罗地亚", "HR", "HRV", "Zagreb", "萨格勒布"],
   "Cyprus": ["塞浦路斯", "CY", "CYP", "Nicosia", "尼科西亚"],
@@ -626,7 +626,7 @@ const EXTRA_ALIASES = Object.freeze({
   "Tajikistan": ["塔吉克斯坦", "TJ", "TJK"],
   "Tanzania": ["坦桑尼亚", "TZA"],
   "Thailand": ["泰国", "TH", "THA", "Bangkok", "曼谷", "🇹🇭"],
-  "Timor-Leste (East Timor)": ["Timor-Leste", "East Timor", "东帝汶", "TLS"],
+  "Timor-Leste (East Timor)": ["Timor-Leste", "East Timor", "东帝汶"],
   "Togo": ["多哥", "TGO"],
   "Tonga": ["汤加", "TON"],
   "Trinidad and Tobago": ["特立尼达和多巴哥", "TTO"],
@@ -648,6 +648,35 @@ const EXTRA_ALIASES = Object.freeze({
   "Zambia": ["赞比亚", "ZMB"],
   "Zimbabwe": ["津巴布韦", "ZWE"]
 });
+
+const INFO_PROXY_PATTERN = /剩余流量|套餐到期|到期时间|流量重置|官网|官方网址|最新域名|备用网址|回家地址|地址发布页|订阅说明|使用说明|工单群|客服群|售后群|防失联|频道|公告|联系|到期|流量/i;
+
+const SUBSCRIPTION_SPECIFIC_HINTS = Object.freeze([
+  {
+    regionName: "Japan",
+    patterns: [
+      /dmitjp/i,
+      /dmit[\s._-]*jp/i
+    ]
+  },
+  {
+    regionName: "United States of America",
+    patterns: [
+      /dmitlac/i,
+      /dmit[\s._-]*lac/i,
+      /dmit.*lax/i,
+      /dmit.*sjc/i,
+      /dmit.*san[\s._-]*jose/i,
+      /dmit.*圣何塞/i,
+      /堪萨斯/i,
+      /\bkansas\b/i,
+      /圣何塞/i,
+      /san[\s._-]*jose/i,
+      /(^|[^a-z0-9])sjc([^a-z0-9]|$)/i,
+      /(^|[^a-z0-9])lax([^a-z0-9]|$)/i
+    ]
+  }
+]);
 
 function uniqueStrings(items) {
   return Array.from(new Set((items || []).filter(Boolean).map((item) => String(item).trim()).filter(Boolean)));
@@ -704,6 +733,10 @@ const SUPPORTED_DEFINITION_BY_ISO = SUPPORTED_DEFINITIONS.reduce((accumulator, d
   if (definition.iso) {
     accumulator[definition.iso] = definition;
   }
+  return accumulator;
+}, Object.create(null));
+const SUPPORTED_DEFINITION_BY_NAME = SUPPORTED_DEFINITIONS.reduce((accumulator, definition) => {
+  accumulator[definition.name] = definition;
   return accumulator;
 }, Object.create(null));
 
@@ -794,6 +827,11 @@ function buildCandidateTexts(proxy) {
   return primaryUnique.concat(secondaryUnique);
 }
 
+function shouldIgnoreProxy(proxy) {
+  const texts = buildCandidateTexts(proxy);
+  return texts.some((text) => INFO_PROXY_PATTERN.test(String(text || "")));
+}
+
 function normalizeISO(iso) {
   const normalized = String(iso || "").trim().toUpperCase();
   if (!normalized) {
@@ -824,7 +862,27 @@ function findSupportedDefinitionByISO(iso) {
   return SUPPORTED_DEFINITION_BY_ISO[normalized] || null;
 }
 
+function findSubscriptionSpecificHint(text) {
+  const rawText = String(text || "");
+  if (!rawText) {
+    return null;
+  }
+  for (const hint of SUBSCRIPTION_SPECIFIC_HINTS) {
+    if (!hint || !hint.regionName || !Array.isArray(hint.patterns)) {
+      continue;
+    }
+    if (hint.patterns.some((pattern) => pattern && pattern.test(rawText))) {
+      return SUPPORTED_DEFINITION_BY_NAME[hint.regionName] || null;
+    }
+  }
+  return null;
+}
+
 function detectSupportedRegion(proxy) {
+  if (shouldIgnoreProxy(proxy)) {
+    return null;
+  }
+
   const texts = buildCandidateTexts(proxy);
 
   for (const text of texts) {
@@ -834,6 +892,17 @@ function detectSupportedRegion(proxy) {
         name: matchedDefinition.name,
         iso: matchedDefinition.iso,
         source: "ProxyUtils"
+      };
+    }
+  }
+
+  for (const text of texts) {
+    const matchedDefinition = findSubscriptionSpecificHint(text);
+    if (matchedDefinition) {
+      return {
+        name: matchedDefinition.name,
+        iso: matchedDefinition.iso,
+        source: "subscription-hint"
       };
     }
   }
