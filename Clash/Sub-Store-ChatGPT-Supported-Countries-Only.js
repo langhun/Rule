@@ -686,6 +686,98 @@ const SUBSCRIPTION_SPECIFIC_HINTS = Object.freeze([
   }
 ]);
 
+const RISKY_TWO_LETTER_CODES = new Set([
+  "AE",
+  "AL",
+  "AM",
+  "AT",
+  "AU",
+  "AZ",
+  "BD",
+  "BE",
+  "BG",
+  "BH",
+  "BO",
+  "BR",
+  "BY",
+  "CA",
+  "CH",
+  "CL",
+  "CO",
+  "CR",
+  "CY",
+  "CZ",
+  "DE",
+  "DK",
+  "EC",
+  "EE",
+  "EG",
+  "ES",
+  "FI",
+  "FR",
+  "GE",
+  "GR",
+  "HK",
+  "HU",
+  "ID",
+  "IE",
+  "IL",
+  "IN",
+  "IT",
+  "JO",
+  "JP",
+  "KE",
+  "KG",
+  "KR",
+  "KW",
+  "KZ",
+  "LA",
+  "LB",
+  "LT",
+  "LU",
+  "LV",
+  "MA",
+  "MD",
+  "ME",
+  "MK",
+  "MN",
+  "MT",
+  "MX",
+  "MY",
+  "NG",
+  "NL",
+  "NO",
+  "NP",
+  "NZ",
+  "OM",
+  "PA",
+  "PE",
+  "PH",
+  "PK",
+  "PL",
+  "PT",
+  "QA",
+  "RO",
+  "RS",
+  "SA",
+  "SE",
+  "SG",
+  "SI",
+  "SK",
+  "TH",
+  "TJ",
+  "TN",
+  "TR",
+  "TW",
+  "UA",
+  "UG",
+  "US",
+  "UY",
+  "UZ",
+  "VN",
+  "ZA"
+]);
+
 function uniqueStrings(items) {
   return Array.from(new Set((items || []).filter(Boolean).map((item) => String(item).trim()).filter(Boolean)));
 }
@@ -756,6 +848,11 @@ function isShortAsciiCode(alias) {
   return /^[A-Z0-9]{2,4}$/.test(alias);
 }
 
+function shouldSkipShortAlias(alias) {
+  const normalized = String(alias || "").trim().toUpperCase();
+  return normalized.length === 2 && RISKY_TWO_LETTER_CODES.has(normalized);
+}
+
 function matchAlias(rawText, normalizedText, alias) {
   const rawAlias = String(alias || "").trim();
   if (!rawAlias) {
@@ -772,6 +869,9 @@ function matchAlias(rawText, normalizedText, alias) {
   }
 
   if (isShortAsciiCode(rawAlias)) {
+    if (shouldSkipShortAlias(rawAlias)) {
+      return false;
+    }
     const codePattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(normalizedAlias)}($|[^a-z0-9])`, "i");
     return codePattern.test(normalizedText);
   }
