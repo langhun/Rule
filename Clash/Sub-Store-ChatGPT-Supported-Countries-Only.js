@@ -942,6 +942,46 @@ function formatProxyLabel(proxy) {
   return String(proxy.name || proxy.server || proxy.type || "Unnamed").trim() || "Unnamed";
 }
 
+function isFileModeInput(input) {
+  return !!(input && typeof input === "object" && (Object.prototype.hasOwnProperty.call(input, "$content") || Object.prototype.hasOwnProperty.call(input, "$files")));
+}
+
+function normalizeFileModeRawInput(input) {
+  if (!input || typeof input !== "object") {
+    return "";
+  }
+  if (Array.isArray(input.$files) && input.$files.length > 0) {
+    return input.$files.filter((item) => item != null && item !== "").join("\n");
+  }
+  return String(input.$content || "");
+}
+
+function parseProxiesFromRawContent(rawContent) {
+  const raw = String(rawContent || "").trim();
+  if (!raw) {
+    return [];
+  }
+  if (typeof ProxyUtils === "undefined" || !ProxyUtils || typeof ProxyUtils.parse !== "function") {
+    throw new Error("ProxyUtils.parse 不可用，无法解析文件内容");
+  }
+  return ProxyUtils.parse(raw);
+}
+
+function rewriteFileModeContent(input, targetPlatform) {
+  if (!isFileModeInput(input)) {
+    return input;
+  }
+
+  const output = Object.assign({}, input);
+  const rawContent = normalizeFileModeRawInput(input);
+  const proxies = parseProxiesFromRawContent(rawContent);
+  const filtered = filterSupportedProxies(proxies, "文件对象模式");
+  const outputPlatform = targetPlatform || FILE_MODE_SOURCE.internalPlatform;
+  output.$content = ProxyUtils.produce(filtered.proxies, outputPlatform);
+  output.$files = [output.$content];
+  return output;
+}
+
 function filterSupportedProxies(proxies, modeLabel) {
   if (!Array.isArray(proxies)) {
     console.log("[ChatGPT Supported Countries Only] 输入不是数组，已原样返回。");
@@ -1028,6 +1068,10 @@ async function tryRunFileMode(targetPlatform) {
 }
 
 async function operator(proxies = [], targetPlatform) {
+  if (isFileModeInput(proxies)) {
+    return rewriteFileModeContent(proxies, targetPlatform);
+  }
+
   if (Array.isArray(proxies) && proxies.length > 0) {
     return filterSupportedProxies(proxies, "订阅模式").proxies;
   }
@@ -1043,37 +1087,3 @@ async function operator(proxies = [], targetPlatform) {
   console.log("[ChatGPT Supported Countries Only] 输入不是数组，且文件模式不可用，已原样返回。");
   return proxies;
 }
-
-(async () => {
-  try {
-    if (typeof $file === "undefined" || !$file) {
-      return;
-    }
-    if (typeof $content === "undefined" || typeof ProxyUtils === "undefined" || !ProxyUtils || typeof ProxyUtils.produce !== "function") {
-      return;
-    }
-    if (typeof produceArtifact !== "function") {
-      return;
-    }
-
-    // api/file 脚本模式下，Sub-Store 不会自动调用上面的 operator()；
-    // 这里显式执行一次，把过滤后的订阅内容写回 $content。
-    const sourcePlatform = FILE_MODE_SOURCE.internalPlatform;
-    const produced = await produceArtifact({
-      type: FILE_MODE_SOURCE.type,
-      name: FILE_MODE_SOURCE.name,
-      platform: sourcePlatform,
-      produceType: "internal"
-    });
-
-    if (!Array.isArray(produced)) {
-      console.log("[ChatGPT Supported Countries Only] 顶层文件模式未拿到节点数组，已保持原内容。");
-      return;
-    }
-
-    const filtered = filterSupportedProxies(produced, "文件脚本模式");
-    $content = ProxyUtils.produce(filtered.proxies, sourcePlatform);
-  } catch (error) {
-    console.log(`[ChatGPT Supported Countries Only] 文件脚本模式执行失败: ${error && error.message ? error.message : error}`);
-  }
-})();
