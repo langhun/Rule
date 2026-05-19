@@ -686,6 +686,20 @@ const SUBSCRIPTION_SPECIFIC_HINTS = Object.freeze([
   }
 ]);
 
+const FINAL_ALLOWED_REGION_NAMES = new Set([
+  "United States of America",
+  "Japan",
+  "Singapore",
+  "Taiwan",
+  "South Korea",
+  "United Kingdom",
+  "Germany",
+  "France",
+  "Netherlands",
+  "Canada",
+  "Australia"
+]);
+
 const EXPLICITLY_BLOCKED_REGION_NAME_PATTERN = /香港|hong[\s._-]*kong|hongkong|廣港|广港|澳门|澳門|macao|macau|🇭🇰|🇲🇴|(^|[^a-z0-9])hkg([^a-z0-9]|$)|(^|[^a-z0-9])hk([^a-z0-9]|$)|(^|[^a-z0-9])mac([^a-z0-9]|$)|(^|[^a-z0-9])mo([^a-z0-9]|$)/i;
 
 const RISKY_TWO_LETTER_CODES = new Set([
@@ -1057,6 +1071,10 @@ function formatProxyLabel(proxy) {
   return String(proxy.name || proxy.server || proxy.type || "Unnamed").trim() || "Unnamed";
 }
 
+function isFinallyAllowedRegion(region) {
+  return !!(region && region.name && FINAL_ALLOWED_REGION_NAMES.has(region.name));
+}
+
 function isFileModeInput(input) {
   return !!(input && typeof input === "object" && (Object.prototype.hasOwnProperty.call(input, "$content") || Object.prototype.hasOwnProperty.call(input, "$files")));
 }
@@ -1146,7 +1164,7 @@ function filterSupportedProxies(proxies, modeLabel) {
 
   for (const proxy of proxies) {
     const region = detectSupportedRegion(proxy);
-    if (region) {
+    if (isFinallyAllowedRegion(region)) {
       kept.push(proxy);
       stats[region.name] = (stats[region.name] || 0) + 1;
       sourceStats[region.source] = (sourceStats[region.source] || 0) + 1;
