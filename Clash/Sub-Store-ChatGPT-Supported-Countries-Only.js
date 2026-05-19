@@ -6,9 +6,10 @@
  * https://help.openai.com/en/articles/7947663-chatgpt-supported-countries
  *
  * 规则：
- * 1. 先按节点 name 识别国家/地区。
- * 2. name 没命中时，再回退到 server / sni / host 等字段识别。
+ * 1. 优先使用 Sub-Store 内置 `ProxyUtils.getISO()` 做国家识别。
+ * 2. 内置识别失败时，再按 name / server / sni / host 等字段做别名兜底。
  * 3. 仍无法识别的节点，默认丢弃。
+ * 4. 若整批节点 0 命中，为避免误杀导致订阅清空，会自动回退原始节点数组。
  *
  * 用法：
  * 直接作为 Sub-Store Script Operator 使用即可。
@@ -225,6 +226,217 @@ const OFFICIAL_SUPPORTED_REGIONS = Object.freeze([
   "Zambia",
   "Zimbabwe"
 ]);
+
+const SUPPORTED_REGION_TO_ISO = Object.freeze({
+  "Albania": "AL",
+  "Algeria": "DZ",
+  "Afghanistan": "AF",
+  "Aland Islands": "AX",
+  "Andorra": "AD",
+  "Angola": "AO",
+  "Antigua and Barbuda": "AG",
+  "Argentina": "AR",
+  "Armenia": "AM",
+  "Aruba": "AW",
+  "Australia": "AU",
+  "Austria": "AT",
+  "Azerbaijan": "AZ",
+  "Bahamas": "BS",
+  "Bahrain": "BH",
+  "Bangladesh": "BD",
+  "Barbados": "BB",
+  "Belgium": "BE",
+  "Belize": "BZ",
+  "Bermuda": "BM",
+  "Benin": "BJ",
+  "Bhutan": "BT",
+  "Bolivia": "BO",
+  "Bosnia and Herzegovina": "BA",
+  "Botswana": "BW",
+  "Brazil": "BR",
+  "Brunei": "BN",
+  "Bulgaria": "BG",
+  "Burkina Faso": "BF",
+  "Burundi": "BI",
+  "Cabo Verde": "CV",
+  "Cambodia": "KH",
+  "Cameroon": "CM",
+  "Canada": "CA",
+  "Cayman Islands": "KY",
+  "Central African Republic": "CF",
+  "Chad": "TD",
+  "Chile": "CL",
+  "Colombia": "CO",
+  "Comoros": "KM",
+  "Congo (Brazzaville)": "CG",
+  "Congo (DRC)": "CD",
+  "Costa Rica": "CR",
+  "Cote d'Ivoire": "CI",
+  "Croatia": "HR",
+  "Cyprus": "CY",
+  "Czechia (Czech Republic)": "CZ",
+  "Denmark": "DK",
+  "Djibouti": "DJ",
+  "Dominica": "DM",
+  "Dominican Republic": "DO",
+  "Ecuador": "EC",
+  "Egypt": "EG",
+  "El Salvador": "SV",
+  "Equatorial Guinea": "GQ",
+  "Eritrea": "ER",
+  "Estonia": "EE",
+  "Eswatini (Swaziland)": "SZ",
+  "Ethiopia": "ET",
+  "Faroe Islands": "FO",
+  "Fiji": "FJ",
+  "Finland": "FI",
+  "France": "FR",
+  "French Guiana": "GF",
+  "French Polynesia": "PF",
+  "French Southern Territories": "TF",
+  "Gabon": "GA",
+  "Gambia": "GM",
+  "Georgia": "GE",
+  "Germany": "DE",
+  "Ghana": "GH",
+  "Greece": "GR",
+  "Grenada": "GD",
+  "Greenland": "GL",
+  "Guatemala": "GT",
+  "Guadeloupe": "GP",
+  "Guinea": "GN",
+  "Guinea-Bissau": "GW",
+  "Guyana": "GY",
+  "Haiti": "HT",
+  "Holy See (Vatican City)": "VA",
+  "Honduras": "HN",
+  "Hungary": "HU",
+  "Iceland": "IS",
+  "India": "IN",
+  "Indonesia": "ID",
+  "Iraq": "IQ",
+  "Ireland": "IE",
+  "Israel": "IL",
+  "Italy": "IT",
+  "Jamaica": "JM",
+  "Japan": "JP",
+  "Jordan": "JO",
+  "Kazakhstan": "KZ",
+  "Kenya": "KE",
+  "Kiribati": "KI",
+  "Kuwait": "KW",
+  "Kyrgyzstan": "KG",
+  "Laos": "LA",
+  "Latvia": "LV",
+  "Lebanon": "LB",
+  "Lesotho": "LS",
+  "Liberia": "LR",
+  "Libya": "LY",
+  "Liechtenstein": "LI",
+  "Lithuania": "LT",
+  "Luxembourg": "LU",
+  "Madagascar": "MG",
+  "Malawi": "MW",
+  "Malaysia": "MY",
+  "Maldives": "MV",
+  "Mali": "ML",
+  "Malta": "MT",
+  "Marshall Islands": "MH",
+  "Martinique": "MQ",
+  "Mauritania": "MR",
+  "Mauritius": "MU",
+  "Mayotte": "YT",
+  "Mexico": "MX",
+  "Micronesia": "FM",
+  "Moldova": "MD",
+  "Monaco": "MC",
+  "Mongolia": "MN",
+  "Montenegro": "ME",
+  "Morocco": "MA",
+  "Mozambique": "MZ",
+  "Myanmar": "MM",
+  "Namibia": "NA",
+  "Nauru": "NR",
+  "Nepal": "NP",
+  "Netherlands": "NL",
+  "New Caledonia": "NC",
+  "New Zealand": "NZ",
+  "Nicaragua": "NI",
+  "Niger": "NE",
+  "Nigeria": "NG",
+  "North Macedonia": "MK",
+  "Norway": "NO",
+  "Oman": "OM",
+  "Pakistan": "PK",
+  "Palau": "PW",
+  "Palestine": "PS",
+  "Panama": "PA",
+  "Papua New Guinea": "PG",
+  "Paraguay": "PY",
+  "Peru": "PE",
+  "Philippines": "PH",
+  "Poland": "PL",
+  "Portugal": "PT",
+  "Qatar": "QA",
+  "Reunion": "RE",
+  "Romania": "RO",
+  "Rwanda": "RW",
+  "Saint Barthelemy": "BL",
+  "Saint Helena": "SH",
+  "Saint Kitts and Nevis": "KN",
+  "Saint Lucia": "LC",
+  "Saint Martin (French part)": "MF",
+  "Saint Pierre and Miquelon": "PM",
+  "Saint Vincent and the Grenadines": "VC",
+  "Samoa": "WS",
+  "San Marino": "SM",
+  "Sao Tome and Principe": "ST",
+  "Saudi Arabia": "SA",
+  "Senegal": "SN",
+  "Serbia": "RS",
+  "Seychelles": "SC",
+  "Sierra Leone": "SL",
+  "Singapore": "SG",
+  "Slovakia": "SK",
+  "Slovenia": "SI",
+  "Solomon Islands": "SB",
+  "Somalia": "SO",
+  "South Africa": "ZA",
+  "South Korea": "KR",
+  "South Sudan": "SS",
+  "Spain": "ES",
+  "Sri Lanka": "LK",
+  "Suriname": "SR",
+  "Sweden": "SE",
+  "Switzerland": "CH",
+  "Sudan": "SD",
+  "Svalbard and Jan Mayen": "SJ",
+  "Taiwan": "TW",
+  "Tajikistan": "TJ",
+  "Tanzania": "TZ",
+  "Thailand": "TH",
+  "Timor-Leste (East Timor)": "TL",
+  "Togo": "TG",
+  "Tonga": "TO",
+  "Trinidad and Tobago": "TT",
+  "Tunisia": "TN",
+  "Turkey": "TR",
+  "Turkmenistan": "TM",
+  "Tuvalu": "TV",
+  "Uganda": "UG",
+  "Ukraine": "UA",
+  "United Arab Emirates": "AE",
+  "United Kingdom": "GB",
+  "United States of America": "US",
+  "Uruguay": "UY",
+  "Uzbekistan": "UZ",
+  "Vanuatu": "VU",
+  "Vietnam": "VN",
+  "Wallis and Futuna": "WF",
+  "Yemen": "YE",
+  "Zambia": "ZM",
+  "Zimbabwe": "ZW"
+});
 
 const EXTRA_ALIASES = Object.freeze({
   "Albania": ["阿尔巴尼亚", "ALB", "Tirana", "地拉那"],
@@ -479,11 +691,21 @@ function buildNameVariants(name) {
 function buildSupportedDefinitions() {
   return OFFICIAL_SUPPORTED_REGIONS.map((name) => ({
     name,
+    iso: SUPPORTED_REGION_TO_ISO[name],
     aliases: uniqueStrings(buildNameVariants(name).concat(EXTRA_ALIASES[name] || []))
   }));
 }
 
 const SUPPORTED_DEFINITIONS = buildSupportedDefinitions();
+const SUPPORTED_ISO_SET = new Set(
+  SUPPORTED_DEFINITIONS.map((definition) => String(definition.iso || "").trim().toUpperCase()).filter(Boolean)
+);
+const SUPPORTED_DEFINITION_BY_ISO = SUPPORTED_DEFINITIONS.reduce((accumulator, definition) => {
+  if (definition.iso) {
+    accumulator[definition.iso] = definition;
+  }
+  return accumulator;
+}, Object.create(null));
 
 function isFlagAlias(alias) {
   return /[\u{1F1E6}-\u{1F1FF}]{2}/u.test(alias);
@@ -546,11 +768,18 @@ function buildCandidateTexts(proxy) {
       proxy.servername,
       proxy.serverName,
       proxy.host,
+      proxy._host,
+      proxy._domain,
+      proxy._ip,
       proxy["obfs-host"],
       proxy["ws-opts"] && proxy["ws-opts"].path,
       proxy["ws-opts"] && proxy["ws-opts"].headers && proxy["ws-opts"].headers.Host,
       proxy.grpcOpts && proxy.grpcOpts.serviceName,
-      proxy.h2Opts && proxy.h2Opts.host
+      proxy.h2Opts && proxy.h2Opts.host,
+      proxy._subName,
+      proxy._subDisplayName,
+      proxy._collectionName,
+      proxy._collectionDisplayName
     ].forEach((item) => {
       if (item !== undefined && item !== null && String(item).trim()) {
         primary.push(String(item).trim());
@@ -565,8 +794,50 @@ function buildCandidateTexts(proxy) {
   return primaryUnique.concat(secondaryUnique);
 }
 
+function normalizeISO(iso) {
+  const normalized = String(iso || "").trim().toUpperCase();
+  if (!normalized) {
+    return "";
+  }
+  if (normalized === "UK") {
+    return "GB";
+  }
+  return normalized;
+}
+
+function getIsoByProxyUtils(text) {
+  try {
+    if (typeof ProxyUtils === "undefined" || !ProxyUtils || typeof ProxyUtils.getISO !== "function") {
+      return "";
+    }
+    return normalizeISO(ProxyUtils.getISO(String(text || "")));
+  } catch (error) {
+    return "";
+  }
+}
+
+function findSupportedDefinitionByISO(iso) {
+  const normalized = normalizeISO(iso);
+  if (!normalized) {
+    return null;
+  }
+  return SUPPORTED_DEFINITION_BY_ISO[normalized] || null;
+}
+
 function detectSupportedRegion(proxy) {
   const texts = buildCandidateTexts(proxy);
+
+  for (const text of texts) {
+    const matchedDefinition = findSupportedDefinitionByISO(getIsoByProxyUtils(text));
+    if (matchedDefinition) {
+      return {
+        name: matchedDefinition.name,
+        iso: matchedDefinition.iso,
+        source: "ProxyUtils"
+      };
+    }
+  }
+
   for (const text of texts) {
     const rawText = String(text || "");
     const normalizedText = normalizeText(rawText);
@@ -576,7 +847,11 @@ function detectSupportedRegion(proxy) {
     for (const definition of SUPPORTED_DEFINITIONS) {
       for (const alias of definition.aliases) {
         if (matchAlias(rawText, normalizedText, alias)) {
-          return definition.name;
+          return {
+            name: definition.name,
+            iso: definition.iso,
+            source: "fallback"
+          };
         }
       }
     }
@@ -600,12 +875,14 @@ function operator(proxies = []) {
   const kept = [];
   const removed = [];
   const stats = Object.create(null);
+  const sourceStats = Object.create(null);
 
   for (const proxy of proxies) {
     const region = detectSupportedRegion(proxy);
     if (region) {
       kept.push(proxy);
-      stats[region] = (stats[region] || 0) + 1;
+      stats[region.name] = (stats[region.name] || 0) + 1;
+      sourceStats[region.source] = (sourceStats[region.source] || 0) + 1;
     } else {
       removed.push(proxy);
     }
@@ -617,9 +894,18 @@ function operator(proxies = []) {
     .map(([name, count]) => `${name}x${count}`)
     .join(", ");
 
+  if (kept.length === 0 && proxies.length > 0) {
+    console.log(`[ChatGPT Supported Countries Only] 0/${proxies.length} 个节点命中支持地区，已自动回退原始节点，避免整份订阅被清空。`);
+    console.log(`[ChatGPT Supported Countries Only] 未命中样本：${removed.slice(0, 12).map(formatProxyLabel).join(" | ")}`);
+    return proxies;
+  }
+
   console.log(`[ChatGPT Supported Countries Only] 保留 ${kept.length}/${proxies.length} 个节点，移除 ${removed.length} 个节点。`);
   if (keptSummary) {
     console.log(`[ChatGPT Supported Countries Only] 命中地区：${keptSummary}`);
+  }
+  if (Object.keys(sourceStats).length) {
+    console.log(`[ChatGPT Supported Countries Only] 识别来源：${Object.entries(sourceStats).map(([name, count]) => `${name}x${count}`).join(", ")}`);
   }
   if (removed.length) {
     console.log(`[ChatGPT Supported Countries Only] 被移除样本：${removed.slice(0, 8).map(formatProxyLabel).join(" | ")}`);
@@ -627,4 +913,3 @@ function operator(proxies = []) {
 
   return kept;
 }
-
