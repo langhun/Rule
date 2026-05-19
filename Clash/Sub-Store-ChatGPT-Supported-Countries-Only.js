@@ -20,7 +20,8 @@
 const FILE_MODE_SOURCE = Object.freeze({
   type: "collection",
   name: "zz",
-  internalPlatform: "ClashMeta"
+  internalPlatform: "ClashMeta",
+  outputPlatform: "V2Ray"
 });
 
 const OFFICIAL_SUPPORTED_REGIONS = Object.freeze([
@@ -967,16 +968,46 @@ function parseProxiesFromRawContent(rawContent) {
   return ProxyUtils.parse(raw);
 }
 
-function rewriteFileModeContent(input, targetPlatform) {
+async function loadFileModeProxies(input) {
+  const rawContent = normalizeFileModeRawInput(input);
+  const parsedFromContent = parseProxiesFromRawContent(rawContent);
+  if (parsedFromContent.length > 0) {
+    return {
+      proxies: parsedFromContent,
+      source: "file-content"
+    };
+  }
+
+  if (typeof produceArtifact === "function") {
+    const produced = await produceArtifact({
+      type: FILE_MODE_SOURCE.type,
+      name: FILE_MODE_SOURCE.name,
+      platform: FILE_MODE_SOURCE.internalPlatform,
+      produceType: "internal"
+    });
+    if (Array.isArray(produced) && produced.length > 0) {
+      return {
+        proxies: produced,
+        source: "configured-source"
+      };
+    }
+  }
+
+  return {
+    proxies: [],
+    source: "empty"
+  };
+}
+
+async function rewriteFileModeContent(input, targetPlatform) {
   if (!isFileModeInput(input)) {
     return input;
   }
 
   const output = Object.assign({}, input);
-  const rawContent = normalizeFileModeRawInput(input);
-  const proxies = parseProxiesFromRawContent(rawContent);
-  const filtered = filterSupportedProxies(proxies, "文件对象模式");
-  const outputPlatform = targetPlatform || FILE_MODE_SOURCE.internalPlatform;
+  const loaded = await loadFileModeProxies(input);
+  const filtered = filterSupportedProxies(loaded.proxies, `文件对象模式(${loaded.source})`);
+  const outputPlatform = targetPlatform || FILE_MODE_SOURCE.outputPlatform || FILE_MODE_SOURCE.internalPlatform;
   output.$content = ProxyUtils.produce(filtered.proxies, outputPlatform);
   output.$files = [output.$content];
   return output;
@@ -1069,7 +1100,7 @@ async function tryRunFileMode(targetPlatform) {
 
 async function operator(proxies = [], targetPlatform) {
   if (isFileModeInput(proxies)) {
-    return rewriteFileModeContent(proxies, targetPlatform);
+    return await rewriteFileModeContent(proxies, targetPlatform);
   }
 
   if (Array.isArray(proxies) && proxies.length > 0) {
