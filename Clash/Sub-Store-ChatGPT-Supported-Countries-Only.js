@@ -1043,3 +1043,37 @@ async function operator(proxies = [], targetPlatform) {
   console.log("[ChatGPT Supported Countries Only] 输入不是数组，且文件模式不可用，已原样返回。");
   return proxies;
 }
+
+(async () => {
+  try {
+    if (typeof $file === "undefined" || !$file) {
+      return;
+    }
+    if (typeof $content === "undefined" || typeof ProxyUtils === "undefined" || !ProxyUtils || typeof ProxyUtils.produce !== "function") {
+      return;
+    }
+    if (typeof produceArtifact !== "function") {
+      return;
+    }
+
+    // api/file 脚本模式下，Sub-Store 不会自动调用上面的 operator()；
+    // 这里显式执行一次，把过滤后的订阅内容写回 $content。
+    const sourcePlatform = FILE_MODE_SOURCE.internalPlatform;
+    const produced = await produceArtifact({
+      type: FILE_MODE_SOURCE.type,
+      name: FILE_MODE_SOURCE.name,
+      platform: sourcePlatform,
+      produceType: "internal"
+    });
+
+    if (!Array.isArray(produced)) {
+      console.log("[ChatGPT Supported Countries Only] 顶层文件模式未拿到节点数组，已保持原内容。");
+      return;
+    }
+
+    const filtered = filterSupportedProxies(produced, "文件脚本模式");
+    $content = ProxyUtils.produce(filtered.proxies, sourcePlatform);
+  } catch (error) {
+    console.log(`[ChatGPT Supported Countries Only] 文件脚本模式执行失败: ${error && error.message ? error.message : error}`);
+  }
+})();
