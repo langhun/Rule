@@ -2,7 +2,7 @@
 
 > 当前主脚本：`Clash/Sub-Store.js`
 > 
-> 当前版本：`V9.14.67`
+> 当前版本：`V9.14.68`
 > 
 > 适用内核：`Mihomo / Clash.Meta / OpenClash`
 
@@ -216,6 +216,17 @@
 4. 功能新增尽量和现有 diagnostics / response headers 保持同步
 
 ## 近期版本说明
+
+### V9.14.68
+
+这一版做了一轮在线规则源和分组完整性检查：
+
+- 修正 MetaCubeX 当前有效的 `apple-music.mrs` 与 `category-media.mrs` 地址，避免 Apple Music / 通用流媒体规则静默 404
+- 开发服务组补入 Cloudflare、Oracle、FreeCodeCamp、W3Schools、Udacity、Sublime Text、Salesforce、Intercom、Zendesk、Zoho
+- 聊天社交组补入 KakaoTalk、Zalo、VK；流媒体组补入 Naver TV、ESPN、Sling
+- `Rule.ini` 同步补齐聊天社交、Spotify、TikTok、Steam、Garena、Wild Rift 规则与对应分组
+- 复核固定模板的规则先后关系：广告规则优先于自定义直连列表，SteamCN 进入 Steam 组而不是绕过分组直连；fallback YAML 补上已声明但未引用的通用 AI provider
+- 版本号与脚本头部统一到 `9.14.68`
 
 ### V9.14.67
 
