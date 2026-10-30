@@ -174,12 +174,13 @@ rules:
   - RULE-SET,private_ip,🎯 全球直连,no-resolve           # 局域网 IP 直连 (不解析 DNS，防止死循环)
   - RULE-SET,private_domain,🎯 全球直连                  # 本地私有域名直连 (如 .local)
   - RULE-SET,adblock_domain,🛑 广告拦截                  # 命中第三方去广告规则库的流量，直接拦截
-  - RULE-SET,direct_list,🎯 全球直连                     # 用户自定义的直连白名单
+  - RULE-SET,direct_list,🎯 全球直连                     # 用户自定义的直连白名单（排在广告规则之后）
 
   # ---------------- AI 与 高优先级业务 ----------------
   - RULE-SET,openai_domain,🤖 AI服务                     # ChatGPT 系列走专属新/日节点
   - RULE-SET,anthropic_domain,🤖 AI服务                  # Claude 走专属日/新节点
   - RULE-SET,google_ai,🤖 AI服务                         # Gemini 走美国节点
+  - RULE-SET,ai,🤖 AI服务                                # 其它非中国 AI 服务由通用 AI 集合兜底
   - RULE-SET,crypto_domain,💰 加密货币                   # 虚拟币交易所等涉及资金安全，单独路由
 
   # ---------------- 流媒体及特定大厂 (YouTube 已提权) ----------------
@@ -194,7 +195,7 @@ rules:
   - RULE-SET,netflix_ip,🎥 Netflix,no-resolve            # 奈飞真实视频缓冲 IP 池
   - RULE-SET,disney_domain,🏰 Disney+                    # 迪士尼流媒体
   - RULE-SET,spotify_domain,🎧 Spotify                   # 音乐流媒体平台
-  - RULE-SET,steam_cn_domain,🎯 全球直连                 # Steam 国内商店直连（不影响下载速度）
+  - RULE-SET,steam_cn_domain,🚂 Steam                   # Steam 国内商店进入 Steam 组，由组内 DIRECT 优先
   - RULE-SET,epic_domain,🎮 游戏加速                     # Epic 游戏商店
   - RULE-SET,pt_domain,📦 PT下载                         # 命中 PT 种子站规则，强制走直连（保护机场不被封）
   - RULE-SET,speedtest_domain,📈 网络测速                # 测速服务引流
