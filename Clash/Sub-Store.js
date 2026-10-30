@@ -1,6 +1,6 @@
-﻿/**
+/**
  * ==================================================================================
- * Sub-Store 终极策略增强脚本 V9.14.63
+ * Sub-Store 终极策略增强脚本 V9.14.68
  * ==================================================================================
  * 这版重构重点：
  * 1. 参数兼容：同时支持 Sub-Store 常见驼峰 / 小写参数写法。
@@ -389,8 +389,8 @@
  */
 
 // 记录当前脚本版本，便于在日志中确认用户正在运行哪一版脚本。
-const SCRIPT_VERSION = "9.14.67";
-// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.67。
+const SCRIPT_VERSION = "9.14.68";
+// 对外 README / 变更说明使用带 V 前缀的版本标签：V9.14.68。
 // 统一保存 Clash/Mihomo 内置的直连策略名称，避免魔法字符串散落全文件。
 const BUILTIN_DIRECT = "DIRECT";
 // 给国家分组拼接统一后缀，最终会生成诸如“🇯🇵 日本节点”的组名。
@@ -709,7 +709,7 @@ const PROXY_GROUP_ALWAYS_GENERATED_NAMES = Object.freeze(
 
 // 开发生态规则入口集合：用于统一改写 DevList / GitLab / Docker / Npmjs / JetBrains / Vercel / Python / Jfrog / Heroku / GitBook / Apifox / Bootcss / Electron / Ubuntu / Stackexchange / CSDN / Gitee / Contentful / Wordpress / AppleDev / HashiCorp / Unity / Collabora / SourceForge / DigitalOcean / QingCloud / UCloud / Anaconda / Atlassian / Notion / Figma / Slack / Dropbox 这类开发服务规则。
 // 这里刻意把“本地补丁层 DevList”放在最前面，方便后续继续往 Bun / NuGet / Composer / Flutter 这类零散生态上补域名，而不用每次都新增一整套独立规则提供器。
-const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox"]);
+const DEV_RULE_PROVIDERS = Object.freeze(["DevList", "GitLab", "Docker", "Npmjs", "Jetbrains", "Vercel", "Python", "Jfrog", "Heroku", "GitBook", "Apifox", "Bootcss", "Electron", "Ubuntu", "Stackexchange", "CSDN", "Gitee", "Contentful", "Wordpress", "AppleDev", "HashiCorp", "Unity", "Collabora", "SourceForge", "DigitalOcean", "QingCloud", "UCloud", "Anaconda", "Atlassian", "Notion", "Figma", "Slack", "Dropbox", "Cloudflare", "Oracle", "FreeCodeCamp", "W3schools", "Udacity", "SublimeText", "Salesforce", "Intercom", "Zendesk", "Zoho"]);
 
 // 策略组布局预设：用于整体重排面板里 proxy-groups 的展示顺序。
 const BALANCED_GROUP_ORDER_TOKENS = Object.freeze(["select", "manual", "fallback", "ai", "github", "dev", "microsoft", "onedrive", "google", "chat", "steam", "bing", "apple", "games", "paypal", "crypto", "pt", "speedtest", "media", "ads", "direct", "landing", "lowcost", "regions", "countries", "other", "extras"]);
@@ -7158,6 +7158,26 @@ const ruleProviders = finalizeRuleProviders({
   Slack: createDeveloperRuleProvider("Slack"),
   // Dropbox 文件同步/协作规则。
   Dropbox: createDeveloperRuleProvider("Dropbox"),
+  // Cloudflare CDN / Workers / Pages / Zero Trust 开发生态规则。
+  Cloudflare: createDeveloperRuleProvider("Cloudflare"),
+  // Oracle Cloud / OCI 开发生态规则。
+  Oracle: createDeveloperRuleProvider("Oracle"),
+  // FreeCodeCamp 开发学习社区规则。
+  FreeCodeCamp: createDeveloperRuleProvider("FreeCodeCamp"),
+  // W3Schools 开发文档规则。
+  W3schools: createDeveloperRuleProvider("W3schools"),
+  // Udacity 开发学习平台规则。
+  Udacity: createDeveloperRuleProvider("Udacity"),
+  // Sublime Text 开发工具规则。
+  SublimeText: createDeveloperRuleProvider("SublimeText"),
+  // Salesforce / CRM 开发平台规则。
+  Salesforce: createDeveloperRuleProvider("Salesforce"),
+  // Intercom 开发者与客户支持平台规则。
+  Intercom: createDeveloperRuleProvider("Intercom"),
+  // Zendesk 客服与开发平台规则。
+  Zendesk: createDeveloperRuleProvider("Zendesk"),
+  // Zoho 云办公与开发平台规则。
+  Zoho: createDeveloperRuleProvider("Zoho"),
   // Discord 社区/语音协作规则。
   Discord: createCommunityClashRuleProvider("Discord"),
   // Telegram 规则。
@@ -7184,6 +7204,10 @@ const ruleProviders = finalizeRuleProviders({
   Imgur: createCommunityClashRuleProvider("Imgur"),
   // Tumblr 博客/创作社区也并入聊天社交组，继续统一图片与内容创作平台入口。
   Tumblr: createCommunityClashRuleProvider("Tumblr"),
+  // KakaoTalk / Zalo / VK 通讯社交规则统一并入聊天社交组。
+  KakaoTalk: createCommunityClashRuleProvider("KakaoTalk"),
+  Zalo: createCommunityClashRuleProvider("Zalo"),
+  VK: createCommunityClashRuleProvider("VK"),
   // YouTube Music 归并进 YouTube 组，保持影音平台的面板数量稳定。
   YouTubeMusic: createCommunityClashRuleProvider("YouTubeMusic"),
   // Netflix 规则。
@@ -7214,6 +7238,10 @@ const ruleProviders = finalizeRuleProviders({
   Vimeo: createCommunityClashRuleProvider("Vimeo"),
   // Niconico / NicoVideo / NicoSeiga 统一并入流媒体组，补充日系视频社区。
   Niconico: createCommunityClashRuleProvider("Niconico"),
+  // Naver TV / ESPN / Sling 统一并入流媒体组，补充韩区视频、体育与美区电视平台。
+  NaverTV: createCommunityClashRuleProvider("NaverTV"),
+  Espn: createCommunityClashRuleProvider("Espn"),
+  Sling: createCommunityClashRuleProvider("Sling"),
   // Abema / AbemaTV 归并到流媒体组，补充日本地区视频与直播平台。
   Abema: createCommunityClashRuleProvider("Abema"),
   // PandoraTV 归并到流媒体组，补充韩区视频平台。
@@ -7277,8 +7305,8 @@ const ruleProviders = finalizeRuleProviders({
   TIDAL: createCommunityClashRuleProvider("TIDAL"),
   // Qobuz 归并到流媒体组，补充无损音乐平台。
   Qobuz: createCommunityClashRuleProvider("Qobuz"),
-  // MetaCubeX 的 ProxyMedia geosite 用来补齐尚未单独列出的海外媒体站点。
-  ProxyMedia: createRuleProvider("domain", metaGeoSite("proxymedia")),
+  // MetaCubeX 的 category-media geosite 用来补齐尚未单独列出的海外媒体站点。
+  ProxyMedia: createRuleProvider("domain", metaGeoSite("category-media")),
   // AliPay / 支付宝及其跨境收银域名统一直连，避免国内支付链路误走代理。
   AliPay: createCommunityClashRuleProvider("AliPay"),
   // UnionPay / ChinaPay / 银联链路也统一直连，避免国内支付链路误走代理。
@@ -7326,7 +7354,7 @@ const ruleProviders = finalizeRuleProviders({
   // Apple 规则。
   Apple: createRuleProvider("domain", metaGeoSite("apple")),
   // Apple Music 规则继续并入 Apple 组，不额外拆音乐面板。
-  AppleMusic: createRuleProvider("domain", metaGeoSite("applemusic")),
+  AppleMusic: createRuleProvider("domain", metaGeoSite("apple-music")),
   // TestFlight / beta 分发规则继续并入 Apple 组，不额外拆开发测试面板。
   TestFlight: createCommunityClashRuleProvider("TestFlight"),
   // Apple TV+ 规则。
@@ -7351,6 +7379,9 @@ const ruleProviders = finalizeRuleProviders({
   Gog: createCommunityClashRuleProvider("Gog"),
   // Twitch 归并到游戏加速组，不再额外拆一个“直播平台”独立面板。
   Twitch: createCommunityClashRuleProvider("Twitch"),
+  // Garena / League of Legends: Wild Rift 游戏规则并入游戏加速组。
+  Garena: createCommunityClashRuleProvider("Garena"),
+  WildRift: createCommunityClashRuleProvider("WildRift"),
   // SteamFix 直连补丁规则，仅在显式开启时接入。
   ...(ARGS.steamFix
     ? { SteamFix: createRuleProvider("classical", ARGS.hasSteamFixUrl ? ARGS.steamFixUrl : STEAM_FIX_LIST_URL, "text") }
@@ -7504,6 +7535,20 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Slack", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Dropbox 文件同步/协作流量交给开发服务组。
   { provider: "Dropbox", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Cloudflare CDN / Workers / Pages / Zero Trust 开发生态流量交给开发服务组。
+  { provider: "Cloudflare", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Oracle Cloud / OCI 开发生态流量交给开发服务组。
+  { provider: "Oracle", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // FreeCodeCamp / W3Schools / Udacity 学习与文档流量交给开发服务组。
+  { provider: "FreeCodeCamp", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  { provider: "W3schools", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  { provider: "Udacity", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  // Sublime Text / Salesforce / Intercom / Zendesk / Zoho 开发平台流量交给开发服务组。
+  { provider: "SublimeText", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  { provider: "Salesforce", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  { provider: "Intercom", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  { provider: "Zendesk", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
+  { provider: "Zoho", target: GROUPS.DEV, overrideKey: "devRuleTarget", overrideFlagKey: "hasDevRuleTarget", overrideLabel: "Dev" },
   // Google IP 段交给 Google 组，并关闭解析。
   { provider: "Google_IP", target: GROUPS.GOOGLE, noResolve: true },
 
@@ -7565,6 +7610,9 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Pixiv", target: GROUPS.CHAT },
   { provider: "Imgur", target: GROUPS.CHAT },
   { provider: "Tumblr", target: GROUPS.CHAT },
+  { provider: "KakaoTalk", target: GROUPS.CHAT },
+  { provider: "Zalo", target: GROUPS.CHAT },
+  { provider: "VK", target: GROUPS.CHAT },
   { provider: "Instagram", target: GROUPS.CHAT },
   { provider: "Threads", target: GROUPS.CHAT },
   { provider: "Facebook", target: GROUPS.CHAT },
@@ -7610,6 +7658,9 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Vimeo", target: GROUPS.STREAMING },
   // Niconico / NicoVideo / NicoSeiga 也归并到流媒体组，不再额外拆日系视频面板。
   { provider: "Niconico", target: GROUPS.STREAMING },
+  { provider: "NaverTV", target: GROUPS.STREAMING },
+  { provider: "Espn", target: GROUPS.STREAMING },
+  { provider: "Sling", target: GROUPS.STREAMING },
   // Abema / AbemaTV 也归并到流媒体组，不额外拆日本视频平台面板。
   { provider: "Abema", target: GROUPS.STREAMING },
   // PandoraTV 也归并到流媒体组，不额外拆韩区视频面板。
@@ -7722,6 +7773,8 @@ const RULE_SET_DEFINITIONS = (() => {
   { provider: "Gog", target: GROUPS.GAMES },
   // Twitch 归并到游戏加速组，避免另外新增直播独立组。
   { provider: "Twitch", target: GROUPS.GAMES },
+  { provider: "Garena", target: GROUPS.GAMES },
+  { provider: "WildRift", target: GROUPS.GAMES },
   // Epic Games 流量交给游戏组。
   { provider: "Epic", target: GROUPS.GAMES },
   // PikPak 下载/离线取回流量也交给 PT 组，补足通用 PT geosite 之外的下载链路。
@@ -7806,6 +7859,16 @@ const SERVICE_OBSERVATION_DEFINITIONS = Object.freeze([
   { provider: "Figma", label: "Figma", trackInRoutingProfile: true, windowCategory: "dev" },
   { provider: "Slack", label: "Slack", trackInRoutingProfile: true, windowCategory: "dev" },
   { provider: "Dropbox", label: "Dropbox", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Cloudflare", label: "Cloudflare", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Oracle", label: "Oracle", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "FreeCodeCamp", label: "FreeCodeCamp", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "W3schools", label: "W3Schools", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Udacity", label: "Udacity", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "SublimeText", label: "SublimeText", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Salesforce", label: "Salesforce", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Intercom", label: "Intercom", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Zendesk", label: "Zendesk", trackInRoutingProfile: true, windowCategory: "dev" },
+  { provider: "Zoho", label: "Zoho", trackInRoutingProfile: true, windowCategory: "dev" },
   { provider: "Telegram", label: "Telegram", trackInRoutingProfile: true },
   { provider: "Discord", label: "Discord", trackInRoutingProfile: true, windowCategory: "social" },
   { provider: "LinkedIn", label: "LinkedIn", trackInRoutingProfile: true, windowCategory: "dev" },
@@ -7818,6 +7881,9 @@ const SERVICE_OBSERVATION_DEFINITIONS = Object.freeze([
   { provider: "Pixiv", label: "Pixiv", trackInRoutingProfile: true, windowCategory: "social" },
   { provider: "Imgur", label: "Imgur", trackInRoutingProfile: true, windowCategory: "social" },
   { provider: "Tumblr", label: "Tumblr", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "KakaoTalk", label: "KakaoTalk", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "Zalo", label: "Zalo", trackInRoutingProfile: true, windowCategory: "social" },
+  { provider: "VK", label: "VK", trackInRoutingProfile: true, windowCategory: "social" },
   { provider: "Instagram", label: "Instagram", trackInRoutingProfile: true, windowCategory: "social" },
   { provider: "Threads", label: "Threads", trackInRoutingProfile: true, windowCategory: "social" },
   { provider: "Facebook", label: "Facebook", trackInRoutingProfile: true, windowCategory: "social" },
@@ -7863,6 +7929,9 @@ const SERVICE_OBSERVATION_DEFINITIONS = Object.freeze([
   { provider: "Dailymotion", label: "Dailymotion", trackInRoutingProfile: true, windowCategory: "media" },
   { provider: "Vimeo", label: "Vimeo", trackInRoutingProfile: true, windowCategory: "media" },
   { provider: "Niconico", label: "Niconico", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "NaverTV", label: "NaverTV", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Espn", label: "ESPN", trackInRoutingProfile: true, windowCategory: "media" },
+  { provider: "Sling", label: "Sling", trackInRoutingProfile: true, windowCategory: "media" },
   { provider: "Abema", label: "Abema", trackInRoutingProfile: true, windowCategory: "media" },
   { provider: "PandoraTV", label: "PandoraTV", trackInRoutingProfile: true, windowCategory: "media" },
   { provider: "FOXPlus", label: "FOXPlus", trackInRoutingProfile: true, windowCategory: "media" },
@@ -7918,6 +7987,8 @@ const SERVICE_OBSERVATION_DEFINITIONS = Object.freeze([
   { provider: "Gog", label: "GOG", trackInRoutingProfile: true, windowCategory: "game" },
   { provider: "Twitch", label: "Twitch", trackInRoutingProfile: true, windowCategory: "game" },
   { provider: "Epic", label: "Epic", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "Garena", label: "Garena", trackInRoutingProfile: true, windowCategory: "game" },
+  { provider: "WildRift", label: "WildRift", trackInRoutingProfile: true, windowCategory: "game" },
   { provider: "AIExtra", label: "AIExtra", trackInRoutingProfile: true, windowCategory: "ai" },
   { provider: "Claude", label: "Claude", trackInRoutingProfile: true, windowCategory: "ai" },
   { provider: "Copilot", label: "Copilot", trackInRoutingProfile: true, windowCategory: "ai" },
